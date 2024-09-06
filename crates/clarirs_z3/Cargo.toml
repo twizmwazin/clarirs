@@ -1,0 +1,8 @@
+[package]
+name = "clarirs_z3"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clarirs_core = { path = "../clarirs_core" }
+z3 = { version = "0.12.1", features = ["num"] }
