@@ -32,5 +32,12 @@ pub(crate) fn import<'py>(py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> 
     import_submodule(py, m, "claripy.ast", "bv", bv::import)?;
     import_submodule(py, m, "claripy.ast", "fp", fp::import)?;
     import_submodule(py, m, "claripy.ast", "strings", string::import)?;
+
+    m.add_class::<base::Base>()?;
+    m.add_class::<bits::Bits>()?;
+    m.add_class::<bool::Bool>()?;
+    m.add_class::<bv::BV>()?;
+    m.add_class::<fp::FP>()?;
+    m.add_class::<string::String>()?;
     Ok(())
 }

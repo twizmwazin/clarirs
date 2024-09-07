@@ -1,6 +1,7 @@
 #[macro_use]
 mod macros;
 
+pub mod annotation;
 pub mod ast;
 pub mod error;
 pub mod prelude;
@@ -54,6 +55,16 @@ pub fn claripy(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
         ast::fp::FPS,
         ast::fp::FPV,
     );
+
+    m.add_class::<ast::base::Base>()?;
+    m.add_class::<ast::bits::Bits>()?;
+    m.add_class::<ast::bool::Bool>()?;
+    m.add_class::<ast::bv::BV>()?;
+    m.add_class::<ast::fp::FP>()?;
+    m.add_class::<ast::string::String>()?;
+
+    m.add_class::<annotation::PyAnnotation>()?;
+    m.add_class::<annotation::SimplificationAvoidanceAnnotation>()?;
 
     m.add("FSORT_FLOAT", ast::fp::fsort_float())?;
     m.add("FSORT_DOUBLE", ast::fp::fsort_double())?;
