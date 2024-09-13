@@ -83,15 +83,15 @@ pub enum AstOp<'c> {
     FpIsInf(AstRef<'c>),
 
     // String ops
-    StrLen(AstRef<'c>),
-    StrConcat(AstRef<'c>, AstRef<'c>),
+    StrLen(AstRef<'c>, AstRef<'c>),    // or StrLen(AstRef<'c>, u32),
+    StrConcat(AstRef<'c>, AstRef<'c>), // StrConcat(Vec<AstRef<'c>>) To allow for any number of args,
     StrSubstr(AstRef<'c>, AstRef<'c>, AstRef<'c>),
     StrContains(AstRef<'c>, AstRef<'c>),
     StrIndexOf(AstRef<'c>, AstRef<'c>),
     StrReplace(AstRef<'c>, AstRef<'c>, AstRef<'c>),
     StrPrefixOf(AstRef<'c>, AstRef<'c>),
     StrSuffixOf(AstRef<'c>, AstRef<'c>),
-    StrToBV(AstRef<'c>, u32),
+    StrToBV(AstRef<'c>, AstRef<'c>), // StrToBV(AstRef<'c>, u32)
     BVToStr(AstRef<'c>),
     StrIsDigit(AstRef<'c>),
 
@@ -167,19 +167,45 @@ impl<'c> AstOp<'c> {
             AstOp::FpGeq(_, _) => todo!(),
             AstOp::FpIsNan(_) => todo!(),
             AstOp::FpIsInf(_) => todo!(),
-            AstOp::StrLen(_) => todo!(),
-            AstOp::StrConcat(_, _) => todo!(),
-            AstOp::StrSubstr(_, _, _) => todo!(),
-            AstOp::StrContains(_, _) => todo!(),
-            AstOp::StrIndexOf(_, _) => todo!(),
-            AstOp::StrReplace(_, _, _) => todo!(),
-            AstOp::StrPrefixOf(_, _) => todo!(),
-            AstOp::StrSuffixOf(_, _) => todo!(),
-            AstOp::StrToBV(_, _) => todo!(),
-            AstOp::BVToStr(_) => todo!(),
-            AstOp::StrIsDigit(_) => todo!(),
-            AstOp::StrEq(_, _) => todo!(),
-            AstOp::StrNeq(_, _) => todo!(),
+            AstOp::StrLen(input_string, bitlength) => {
+                input_string.kind().is_string() && bitlength.kind().is_bitvec()
+            }
+            AstOp::StrConcat(first_string, second_string) => {
+                first_string.kind().is_string() && second_string.kind().is_string()
+            }
+            AstOp::StrSubstr(start_idx, count, initial_string) => {
+                start_idx.kind().is_bitvec()
+                    && count.kind().is_bitvec()
+                    && initial_string.kind().is_string()
+            }
+            AstOp::StrContains(input_string, substring) => {
+                input_string.kind().is_string() && substring.kind().is_string()
+            }
+            AstOp::StrIndexOf(input_string, substring) => {
+                input_string.kind().is_string() && substring.kind().is_string()
+            }
+            AstOp::StrReplace(initial_string, pattern_to_be_replaced, replacement_pattern) => {
+                initial_string.kind().is_string()
+                    && pattern_to_be_replaced.kind().is_string()
+                    && replacement_pattern.kind().is_string()
+            }
+            AstOp::StrPrefixOf(prefix, input_string) => {
+                prefix.kind().is_string() && input_string.kind().is_string()
+            }
+            AstOp::StrSuffixOf(suffix, input_string) => {
+                suffix.kind().is_string() && input_string.kind().is_string()
+            }
+            AstOp::StrToBV(input_string, bitlength) => {
+                input_string.kind().is_string() && bitlength.kind().is_bitvec()
+            }
+            AstOp::BVToStr(input_bitvector) => input_bitvector.kind().is_bitvec(),
+            AstOp::StrIsDigit(input_string) => input_string.kind().is_string(),
+            AstOp::StrEq(first_string, second_string) => {
+                first_string.kind().is_string() && second_string.kind().is_string()
+            }
+            AstOp::StrNeq(first_string, second_string) => {
+                first_string.kind().is_string() && second_string.kind().is_string()
+            }
             AstOp::If(_, _, _) => todo!(),
             AstOp::Annotated(_, _) => todo!(),
         }
@@ -281,7 +307,7 @@ impl<'c> AstOp<'c> {
             | AstOp::FpSqrt(a, ..)
             | AstOp::FpIsNan(a)
             | AstOp::FpIsInf(a)
-            | AstOp::StrLen(a)
+            | AstOp::StrLen(a, ..)
             | AstOp::StrToBV(a, ..)
             | AstOp::BVToStr(a)
             | AstOp::StrIsDigit(a)

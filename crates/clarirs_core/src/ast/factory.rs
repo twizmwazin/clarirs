@@ -341,8 +341,12 @@ where {
         self.make_ast(AstOp::FpIsInf(lhs.clone()))
     }
 
-    fn strlen(&'c self, lhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::StrLen(lhs.clone()))
+    fn strlen(
+        &'c self,
+        lhs: &AstRef<'c>,
+        bitlength: &AstRef<'c>,
+    ) -> Result<AstRef<'c>, ClarirsError> {
+        self.make_ast(AstOp::StrLen(lhs.clone(), bitlength.clone()))
     }
 
     fn strconcat(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
@@ -399,8 +403,8 @@ where {
         self.make_ast(AstOp::StrSuffixOf(lhs.clone(), rhs.clone()))
     }
 
-    fn strtobv(&'c self, lhs: &AstRef<'c>, width: u32) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::StrToBV(lhs.clone(), width))
+    fn strtobv(&'c self, lhs: &AstRef<'c>, width: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
+        self.make_ast(AstOp::StrToBV(lhs.clone(), width.clone()))
     }
 
     fn bvtostr(&'c self, lhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
