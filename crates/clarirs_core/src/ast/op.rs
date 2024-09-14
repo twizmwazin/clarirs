@@ -144,29 +144,72 @@ impl<'c> AstOp<'c> {
             | AstOp::SLE(lhs, rhs)
             | AstOp::SGT(lhs, rhs)
             | AstOp::SGE(lhs, rhs) => lhs.kind().is_bitvec() && rhs.kind().is_bitvec(),
-            AstOp::ZeroExt(_, _) => todo!(),
-            AstOp::SignExt(_, _) => todo!(),
-            AstOp::Extract(_, _, _) => todo!(),
-            AstOp::Reverse(_) => todo!(),
-            AstOp::FpToFp(_, _) => todo!(),
-            AstOp::BvToFpUnsigned(_, _, _) => todo!(),
-            AstOp::FpToIEEEBV(_) => todo!(),
-            AstOp::FpToUBV(_, _, _) => todo!(),
-            AstOp::FpToSBV(_, _, _) => todo!(),
+            AstOp::ZeroExt(input_bitvec, _num_of_zeroes) => input_bitvec.kind().is_bitvec(),
+            AstOp::SignExt(input_bitvec, _num_of_zeroes) => input_bitvec.kind().is_bitvec(),
+            AstOp::Extract(input_bitvec, _from, _to) => input_bitvec.kind().is_bitvec(),
+            AstOp::Reverse(input_bitvec) => input_bitvec.kind().is_bitvec(),
+            AstOp::FpToFp(floating_point, sort) => {
+                floating_point.kind().is_float() && matches!(sort, FSort { .. })
+            }
+            AstOp::BvToFpUnsigned(floating_point, sort, rounding_mode) => {
+                floating_point.kind().is_float()
+                    && matches!(sort, FSort { .. })
+                    && matches!(
+                        rounding_mode,
+                        FPRM::NearestTiesToEven
+                            | FPRM::TowardPositive
+                            | FPRM::TowardNegative
+                            | FPRM::TowardZero
+                            | FPRM::NearestTiesToAway
+                    )
+            }
+            AstOp::FpToIEEEBV(floating_point) => floating_point.kind().is_float(),
+            AstOp::FpToUBV(floating_point, _size, rounding_mode) => {
+                floating_point.kind().is_float()
+                    && matches!(
+                        rounding_mode,
+                        FPRM::NearestTiesToEven
+                            | FPRM::TowardPositive
+                            | FPRM::TowardNegative
+                            | FPRM::TowardZero
+                            | FPRM::NearestTiesToAway
+                    )
+            }
+            AstOp::FpToSBV(floating_point, _size, rounding_mode) => {
+                floating_point.kind().is_float()
+                    && matches!(
+                        rounding_mode,
+                        FPRM::NearestTiesToEven
+                            | FPRM::TowardPositive
+                            | FPRM::TowardNegative
+                            | FPRM::TowardZero
+                            | FPRM::NearestTiesToAway
+                    )
+            }
             AstOp::FpNeg(ast, _) | AstOp::FpAbs(ast, _) => ast.kind().is_float(),
             AstOp::FpAdd(lhs, rhs, _)
             | AstOp::FpSub(lhs, rhs, _)
             | AstOp::FpMul(lhs, rhs, _)
             | AstOp::FpDiv(lhs, rhs, _) => lhs.kind().is_float() && rhs.kind().is_float(),
-            AstOp::FpSqrt(_, _) => todo!(),
-            AstOp::FpEq(_, _) => todo!(),
-            AstOp::FpNeq(_, _) => todo!(),
-            AstOp::FpLt(_, _) => todo!(),
-            AstOp::FpLeq(_, _) => todo!(),
-            AstOp::FpGt(_, _) => todo!(),
-            AstOp::FpGeq(_, _) => todo!(),
-            AstOp::FpIsNan(_) => todo!(),
-            AstOp::FpIsInf(_) => todo!(),
+            AstOp::FpSqrt(a, arg_1) => {
+                a.kind().is_float()
+                    && matches!(
+                        arg_1,
+                        FPRM::NearestTiesToEven
+                            | FPRM::TowardPositive
+                            | FPRM::TowardNegative
+                            | FPRM::TowardZero
+                            | FPRM::NearestTiesToAway
+                    )
+            }
+            AstOp::FpEq(a, b) => a.kind().is_float() && b.kind().is_float(),
+            AstOp::FpNeq(a, b) => a.kind().is_float() && b.kind().is_float(),
+            AstOp::FpLt(a, b) => a.kind().is_float() && b.kind().is_float(),
+            AstOp::FpLeq(a, b) => a.kind().is_float() && b.kind().is_float(),
+            AstOp::FpGt(a, b) => a.kind().is_float() && b.kind().is_float(),
+            AstOp::FpGeq(a, b) => a.kind().is_float() && b.kind().is_float(),
+            AstOp::FpIsNan(a) => a.kind().is_float(),
+            AstOp::FpIsInf(a) => a.kind().is_float(),
             AstOp::StrLen(input_string, bitlength) => {
                 input_string.kind().is_string() && bitlength.kind().is_bitvec()
             }
