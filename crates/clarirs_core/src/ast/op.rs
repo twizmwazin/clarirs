@@ -155,8 +155,8 @@ impl<'c> AstOp<'c> {
             AstOp::FpToFp(ast, _)
             | AstOp::BvToFpUnsigned(ast, _, _)
             | AstOp::FpToIEEEBV(ast)
-            | AstOp::FpToUBV(ast, _, _)
             | AstOp::FpToSBV(ast, _, _) => ast.kind().is_float(),
+            AstOp::FpToUBV(ast, size, _) => ast.kind().is_float() && *size > 0,
 
             // Floating point arithmetic ops
             AstOp::FpNeg(ast, _) | AstOp::FpAbs(ast, _) | AstOp::FpSqrt(ast, _) => {
