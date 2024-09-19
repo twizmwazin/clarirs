@@ -86,6 +86,7 @@ name = "claripy"
 version = "0.1.0"
 dependencies = [
  "clarirs_core",
+ "log",
  "num-bigint",
  "pyo3",
  "thiserror",

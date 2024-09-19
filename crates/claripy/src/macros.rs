@@ -10,7 +10,7 @@ macro_rules! add_pyfunctions {
 #[macro_export]
 macro_rules! pyop {
     // Match one argument
-    ($m:ident, $fn_name:ident, $context_method:ident, $return_type:ty, $at:tt) => {
+    ($fn_name:ident, $context_method:ident, $return_type:ty, $at:tt) => {
         #[allow(non_snake_case)]
         #[pyfunction]
         pub fn $fn_name(py: Python, ast: pyop!(@py? $at)) -> Result<Py<$return_type>, ClaripyError> {
@@ -19,7 +19,7 @@ macro_rules! pyop {
     };
 
     // Match two arguments
-    ($m:ident, $fn_name:ident, $context_method:ident, $return_type:ty, $at1:tt, $at2:tt) => {
+    ($fn_name:ident, $context_method:ident, $return_type:ty, $at1:tt, $at2:tt) => {
         #[allow(non_snake_case)]
         #[pyfunction]
         pub fn $fn_name(py: Python, lhs: pyop!(@py? $at1), rhs: pyop!(@py? $at2)) -> Result<Py<$return_type>, ClaripyError> {
@@ -29,7 +29,7 @@ macro_rules! pyop {
 
     // Extract-shaped
     // TODO: Why can't the named arguments pattern cover this?
-    ($m:ident, $fn_name:ident, $context_method:ident, $return_type:ty, $at:ty, $a1:ident: $a1_t:tt, $a2:ident: $a2_t:tt) => {
+    ($fn_name:ident, $context_method:ident, $return_type:ty, $at:ty, $a1:ident: $a1_t:tt, $a2:ident: $a2_t:tt) => {
         #[allow(non_snake_case)]
         #[pyfunction]
         pub fn $fn_name(py: Python, ast: PyRef<$at>, $a1: $a1_t, $a2: $a2_t) -> Result<Py<$return_type>, ClaripyError> {
@@ -39,7 +39,7 @@ macro_rules! pyop {
 
     // If-shaped
     // TODO: Why can't the named arguments pattern cover this?
-    ($m:ident, $fn_name:ident, $context_method:ident, $return_type:ty, $a1:ident: $a1_t:tt, $a2:ident: $a2_t:tt, $a3:ident, $a3_t:tt) => {
+    ($fn_name:ident, $context_method:ident, $return_type:ty, $a1:ident: $a1_t:tt, $a2:ident: $a2_t:tt, $a3:ident, $a3_t:tt) => {
         #[allow(non_snake_case)]
         #[pyfunction]
         pub fn $fn_name(py: Python, ast: PyRef<$at>, $a1: pyop!(@py? $a1_t), $a2: pyop!(@py? $a2_t), $a3: pyop!(@py? $a3_t)) -> Result<Py<$return_type>, ClaripyError> {
@@ -48,7 +48,7 @@ macro_rules! pyop {
     };
 
     // Named arguments
-    ($m:ident, $fn_name:ident, $context_method:ident, $return_type:ty, $($arg_name:ident: $arg_type:tt),*) => {
+    ($fn_name:ident, $context_method:ident, $return_type:ty, $($arg_name:ident: $arg_type:tt),*) => {
         #[pyfunction]
         #[allow(non_snake_case)]
         pub fn $fn_name(py: Python, $($arg_name: pyop!(@py? $arg_type)),*) -> Result<Py<$return_type>, ClaripyError> {
@@ -84,6 +84,18 @@ macro_rules! pyop {
 
     (@py? BV) => {
         PyRef<BV>
+    };
+
+    (@py? FP) => {
+        PyRef<FP>
+    };
+
+    (@py? AstString) => {
+        PyRef<AstString>
+    };
+
+    (@py? FSort) => {
+        PyRef<FSort>
     };
 
     (@py? PyRef<$arg_type:tt>) => {

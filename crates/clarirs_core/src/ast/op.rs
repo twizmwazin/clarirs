@@ -57,7 +57,7 @@ pub enum AstOp<'c> {
     SGE(AstRef<'c>, AstRef<'c>),
 
     // Floating point ops
-    FpToFp(AstRef<'c>, FSort),
+    FpToFp(AstRef<'c>, FSort, FPRM),
     BvToFpUnsigned(AstRef<'c>, FSort, FPRM),
     FpToIEEEBV(AstRef<'c>),
     FpToUBV(AstRef<'c>, u32, FPRM),
@@ -148,7 +148,7 @@ impl<'c> AstOp<'c> {
             AstOp::SignExt(_, _) => todo!(),
             AstOp::Extract(_, _, _) => todo!(),
             AstOp::Reverse(_) => todo!(),
-            AstOp::FpToFp(_, _) => todo!(),
+            AstOp::FpToFp(_, _, _) => todo!(),
             AstOp::BvToFpUnsigned(_, _, _) => todo!(),
             AstOp::FpToIEEEBV(_) => todo!(),
             AstOp::FpToUBV(_, _, _) => todo!(),
