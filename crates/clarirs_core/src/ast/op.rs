@@ -167,7 +167,7 @@ impl<'c> AstOp<'c> {
             | AstOp::FpSub(lhs, rhs, _)
             | AstOp::FpMul(lhs, rhs, _)
             | AstOp::FpDiv(lhs, rhs, _) => lhs.kind().is_float() && rhs.kind().is_float(),
-
+          
             // Floating point comparison ops
             AstOp::FpEq(lhs, rhs)
             | AstOp::FpNeq(lhs, rhs)
