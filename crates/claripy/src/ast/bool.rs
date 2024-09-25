@@ -9,7 +9,7 @@ use super::shared_ops;
 use super::{base::Base, py_factory::py_ast_from_astref, PyAst};
 
 #[pyclass(extends=Base, subclass, frozen, weakref, module="claripy.ast.bool")]
-pub struct Bool {}
+pub struct Bool;
 
 #[pymethods]
 impl Bool {
@@ -32,15 +32,15 @@ impl PyAst for Bool {
     }
 }
 
-pyop!(m, BoolS, bools, Bool, name: String);
-pyop!(m, BoolV, boolv, Bool, value: bool);
+pyop!(BoolS, bools, Bool, name: String);
+pyop!(BoolV, boolv, Bool, value: bool);
 
 #[pyfunction(name = "true")]
-fn true_op(py: Python) -> Result<Py<Bool>, ClaripyError> {
+pub fn true_op(py: Python) -> Result<Py<Bool>, ClaripyError> {
     py_ast_from_astref(py, GLOBAL_CONTEXT.true_()?)
 }
 #[pyfunction(name = "false")]
-fn false_op(py: Python) -> Result<Py<Bool>, ClaripyError> {
+pub fn false_op(py: Python) -> Result<Py<Bool>, ClaripyError> {
     py_ast_from_astref(py, GLOBAL_CONTEXT.false_()?)
 }
 

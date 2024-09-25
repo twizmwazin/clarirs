@@ -57,9 +57,10 @@ pub enum AstOp<'c> {
     SGE(AstRef<'c>, AstRef<'c>),
 
     // Floating point ops
-    FpToFp(AstRef<'c>, FSort),
-    BvToFpUnsigned(AstRef<'c>, FSort, FPRM),
-    FpToIEEEBV(AstRef<'c>),
+    FpToFp(AstRef<'c>, FSort), // FpToFp(AstRef<'c>, FSort, FPRM is optional)
+    BvToFpUnsigned(AstRef<'c>, FSort, FPRM), //Check is this is correct
+    FpToIEEEBV(AstRef<'c>),    //Check is this is correct
+
     FpToUBV(AstRef<'c>, u32, FPRM),
     FpToSBV(AstRef<'c>, u32, FPRM),
 
@@ -119,6 +120,8 @@ impl<'c> AstOp<'c> {
             AstOp::And(lhs, rhs) | AstOp::Or(lhs, rhs) | AstOp::Xor(lhs, rhs) => {
                 (lhs.kind().is_bool() || lhs.kind().is_bitvec()) && lhs.kind() == rhs.kind()
             }
+
+            // Bitvector ops and Bitvector comparison ops
             AstOp::Add(lhs, rhs)
             | AstOp::Sub(lhs, rhs)
             | AstOp::Mul(lhs, rhs)
@@ -144,111 +147,58 @@ impl<'c> AstOp<'c> {
             | AstOp::SLE(lhs, rhs)
             | AstOp::SGT(lhs, rhs)
             | AstOp::SGE(lhs, rhs) => lhs.kind().is_bitvec() && rhs.kind().is_bitvec(),
-            AstOp::ZeroExt(input_bitvec, _num_of_zeroes) => input_bitvec.kind().is_bitvec(),
-            AstOp::SignExt(input_bitvec, _num_of_zeroes) => input_bitvec.kind().is_bitvec(),
-            AstOp::Extract(input_bitvec, _from, _to) => input_bitvec.kind().is_bitvec(),
-            AstOp::Reverse(input_bitvec) => input_bitvec.kind().is_bitvec(),
-            AstOp::FpToFp(floating_point, sort) => {
-                floating_point.kind().is_float() && matches!(sort, FSort { .. })
+            AstOp::ZeroExt(ast, _)
+            | AstOp::SignExt(ast, _)
+            | AstOp::Extract(ast, _, _)
+            | AstOp::Reverse(ast) => ast.kind().is_bitvec(),
+
+            // Floating point ops
+            AstOp::FpToFp(ast, _)
+            | AstOp::BvToFpUnsigned(ast, _, _)
+            | AstOp::FpToIEEEBV(ast)
+            | AstOp::FpToSBV(ast, _, _) => ast.kind().is_float(),
+            AstOp::FpToUBV(ast, size, _) => ast.kind().is_float() && *size > 0,
+
+            // Floating point arithmetic ops
+            AstOp::FpNeg(ast, _) | AstOp::FpAbs(ast, _) | AstOp::FpSqrt(ast, _) => {
+                ast.kind().is_float()
             }
-            AstOp::BvToFpUnsigned(floating_point, sort, rounding_mode) => {
-                floating_point.kind().is_float()
-                    && matches!(sort, FSort { .. })
-                    && matches!(
-                        rounding_mode,
-                        FPRM::NearestTiesToEven
-                            | FPRM::TowardPositive
-                            | FPRM::TowardNegative
-                            | FPRM::TowardZero
-                            | FPRM::NearestTiesToAway
-                    )
-            }
-            AstOp::FpToIEEEBV(floating_point) => floating_point.kind().is_float(),
-            AstOp::FpToUBV(floating_point, _size, rounding_mode) => {
-                floating_point.kind().is_float()
-                    && matches!(
-                        rounding_mode,
-                        FPRM::NearestTiesToEven
-                            | FPRM::TowardPositive
-                            | FPRM::TowardNegative
-                            | FPRM::TowardZero
-                            | FPRM::NearestTiesToAway
-                    )
-            }
-            AstOp::FpToSBV(floating_point, _size, rounding_mode) => {
-                floating_point.kind().is_float()
-                    && matches!(
-                        rounding_mode,
-                        FPRM::NearestTiesToEven
-                            | FPRM::TowardPositive
-                            | FPRM::TowardNegative
-                            | FPRM::TowardZero
-                            | FPRM::NearestTiesToAway
-                    )
-            }
-            AstOp::FpNeg(ast, _) | AstOp::FpAbs(ast, _) => ast.kind().is_float(),
             AstOp::FpAdd(lhs, rhs, _)
             | AstOp::FpSub(lhs, rhs, _)
             | AstOp::FpMul(lhs, rhs, _)
             | AstOp::FpDiv(lhs, rhs, _) => lhs.kind().is_float() && rhs.kind().is_float(),
-            AstOp::FpSqrt(a, arg_1) => {
-                a.kind().is_float()
-                    && matches!(
-                        arg_1,
-                        FPRM::NearestTiesToEven
-                            | FPRM::TowardPositive
-                            | FPRM::TowardNegative
-                            | FPRM::TowardZero
-                            | FPRM::NearestTiesToAway
-                    )
+          
+            // Floating point comparison ops
+            AstOp::FpEq(lhs, rhs)
+            | AstOp::FpNeq(lhs, rhs)
+            | AstOp::FpLt(lhs, rhs)
+            | AstOp::FpLeq(lhs, rhs)
+            | AstOp::FpGt(lhs, rhs)
+            | AstOp::FpGeq(lhs, rhs) => lhs.kind().is_float() && rhs.kind().is_float(),
+            AstOp::FpIsNan(ast) | AstOp::FpIsInf(ast) => ast.kind().is_float(),
+
+            // String ops
+            AstOp::StrLen(lhs, rhs) => lhs.kind().is_string() && rhs.kind().is_bitvec(),
+            AstOp::StrConcat(lhs, rhs) => lhs.kind().is_string() && rhs.kind().is_string(),
+            AstOp::StrSubstr(lhs, rhs, str) => {
+                lhs.kind().is_bitvec() && rhs.kind().is_bitvec() && str.kind().is_string()
             }
-            AstOp::FpEq(a, b) => a.kind().is_float() && b.kind().is_float(),
-            AstOp::FpNeq(a, b) => a.kind().is_float() && b.kind().is_float(),
-            AstOp::FpLt(a, b) => a.kind().is_float() && b.kind().is_float(),
-            AstOp::FpLeq(a, b) => a.kind().is_float() && b.kind().is_float(),
-            AstOp::FpGt(a, b) => a.kind().is_float() && b.kind().is_float(),
-            AstOp::FpGeq(a, b) => a.kind().is_float() && b.kind().is_float(),
-            AstOp::FpIsNan(a) => a.kind().is_float(),
-            AstOp::FpIsInf(a) => a.kind().is_float(),
-            AstOp::StrLen(input_string, bitlength) => {
-                input_string.kind().is_string() && bitlength.kind().is_bitvec()
+            AstOp::StrReplace(lhs, rhs, str) => {
+                lhs.kind().is_string() && rhs.kind().is_string() && str.kind().is_string()
             }
-            AstOp::StrConcat(first_string, second_string) => {
-                first_string.kind().is_string() && second_string.kind().is_string()
+            AstOp::StrContains(lhs, rhs)
+            | AstOp::StrIndexOf(lhs, rhs)
+            | AstOp::StrPrefixOf(lhs, rhs)
+            | AstOp::StrSuffixOf(lhs, rhs) => lhs.kind().is_string() && rhs.kind().is_string(),
+            AstOp::StrToBV(lhs, rhs) => lhs.kind().is_string() && rhs.kind().is_bitvec(),
+            AstOp::BVToStr(ast) => ast.kind().is_bitvec(),
+            AstOp::StrIsDigit(ast) => ast.kind().is_string(),
+
+            // String comparison ops
+            AstOp::StrEq(lhs, rhs) | AstOp::StrNeq(lhs, rhs) => {
+                lhs.kind().is_string() && rhs.kind().is_string()
             }
-            AstOp::StrSubstr(start_idx, count, initial_string) => {
-                start_idx.kind().is_bitvec()
-                    && count.kind().is_bitvec()
-                    && initial_string.kind().is_string()
-            }
-            AstOp::StrContains(input_string, substring) => {
-                input_string.kind().is_string() && substring.kind().is_string()
-            }
-            AstOp::StrIndexOf(input_string, substring) => {
-                input_string.kind().is_string() && substring.kind().is_string()
-            }
-            AstOp::StrReplace(initial_string, pattern_to_be_replaced, replacement_pattern) => {
-                initial_string.kind().is_string()
-                    && pattern_to_be_replaced.kind().is_string()
-                    && replacement_pattern.kind().is_string()
-            }
-            AstOp::StrPrefixOf(prefix, input_string) => {
-                prefix.kind().is_string() && input_string.kind().is_string()
-            }
-            AstOp::StrSuffixOf(suffix, input_string) => {
-                suffix.kind().is_string() && input_string.kind().is_string()
-            }
-            AstOp::StrToBV(input_string, bitlength) => {
-                input_string.kind().is_string() && bitlength.kind().is_bitvec()
-            }
-            AstOp::BVToStr(input_bitvector) => input_bitvector.kind().is_bitvec(),
-            AstOp::StrIsDigit(input_string) => input_string.kind().is_string(),
-            AstOp::StrEq(first_string, second_string) => {
-                first_string.kind().is_string() && second_string.kind().is_string()
-            }
-            AstOp::StrNeq(first_string, second_string) => {
-                first_string.kind().is_string() && second_string.kind().is_string()
-            }
+
             AstOp::If(_, _, _) => todo!(),
             AstOp::Annotated(_, _) => todo!(),
         }
