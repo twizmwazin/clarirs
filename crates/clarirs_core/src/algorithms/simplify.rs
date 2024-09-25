@@ -238,7 +238,7 @@ pub fn simplify<'c>(ast: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         AstOp::FpGeq(_, _) => todo!(),
         AstOp::FpIsNan(_) => todo!(),
         AstOp::FpIsInf(_) => todo!(),
-        AstOp::StrLen(_) => todo!(),
+        AstOp::StrLen(_, _) => todo!(),
         AstOp::StrConcat(_, _) => todo!(),
         AstOp::StrSubstr(_, _, _) => todo!(),
         AstOp::StrContains(_, _) => todo!(),

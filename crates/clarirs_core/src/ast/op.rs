@@ -57,9 +57,10 @@ pub enum AstOp<'c> {
     SGE(AstRef<'c>, AstRef<'c>),
 
     // Floating point ops
-    FpToFp(AstRef<'c>, FSort, FPRM),
-    BvToFpUnsigned(AstRef<'c>, FSort, FPRM),
-    FpToIEEEBV(AstRef<'c>),
+    FpToFp(AstRef<'c>, FSort), // FpToFp(AstRef<'c>, FSort, FPRM is optional)
+    BvToFpUnsigned(AstRef<'c>, FSort, FPRM), //Check is this is correct
+    FpToIEEEBV(AstRef<'c>),    //Check is this is correct
+
     FpToUBV(AstRef<'c>, u32, FPRM),
     FpToSBV(AstRef<'c>, u32, FPRM),
 
@@ -83,15 +84,15 @@ pub enum AstOp<'c> {
     FpIsInf(AstRef<'c>),
 
     // String ops
-    StrLen(AstRef<'c>),
-    StrConcat(AstRef<'c>, AstRef<'c>),
+    StrLen(AstRef<'c>, AstRef<'c>),    // or StrLen(AstRef<'c>, u32),
+    StrConcat(AstRef<'c>, AstRef<'c>), // StrConcat(Vec<AstRef<'c>>) To allow for any number of args,
     StrSubstr(AstRef<'c>, AstRef<'c>, AstRef<'c>),
     StrContains(AstRef<'c>, AstRef<'c>),
     StrIndexOf(AstRef<'c>, AstRef<'c>),
     StrReplace(AstRef<'c>, AstRef<'c>, AstRef<'c>),
     StrPrefixOf(AstRef<'c>, AstRef<'c>),
     StrSuffixOf(AstRef<'c>, AstRef<'c>),
-    StrToBV(AstRef<'c>, u32),
+    StrToBV(AstRef<'c>, AstRef<'c>), // StrToBV(AstRef<'c>, u32)
     BVToStr(AstRef<'c>),
     StrIsDigit(AstRef<'c>),
 
@@ -119,6 +120,8 @@ impl<'c> AstOp<'c> {
             AstOp::And(lhs, rhs) | AstOp::Or(lhs, rhs) | AstOp::Xor(lhs, rhs) => {
                 (lhs.kind().is_bool() || lhs.kind().is_bitvec()) && lhs.kind() == rhs.kind()
             }
+
+            // Bitvector ops and Bitvector comparison ops
             AstOp::Add(lhs, rhs)
             | AstOp::Sub(lhs, rhs)
             | AstOp::Mul(lhs, rhs)
@@ -144,42 +147,58 @@ impl<'c> AstOp<'c> {
             | AstOp::SLE(lhs, rhs)
             | AstOp::SGT(lhs, rhs)
             | AstOp::SGE(lhs, rhs) => lhs.kind().is_bitvec() && rhs.kind().is_bitvec(),
-            AstOp::ZeroExt(_, _) => todo!(),
-            AstOp::SignExt(_, _) => todo!(),
-            AstOp::Extract(_, _, _) => todo!(),
-            AstOp::Reverse(_) => todo!(),
-            AstOp::FpToFp(_, _, _) => todo!(),
-            AstOp::BvToFpUnsigned(_, _, _) => todo!(),
-            AstOp::FpToIEEEBV(_) => todo!(),
-            AstOp::FpToUBV(_, _, _) => todo!(),
-            AstOp::FpToSBV(_, _, _) => todo!(),
-            AstOp::FpNeg(ast, _) | AstOp::FpAbs(ast, _) => ast.kind().is_float(),
+            AstOp::ZeroExt(ast, _)
+            | AstOp::SignExt(ast, _)
+            | AstOp::Extract(ast, _, _)
+            | AstOp::Reverse(ast) => ast.kind().is_bitvec(),
+
+            // Floating point ops
+            AstOp::FpToFp(ast, _)
+            | AstOp::BvToFpUnsigned(ast, _, _)
+            | AstOp::FpToIEEEBV(ast)
+            | AstOp::FpToSBV(ast, _, _) => ast.kind().is_float(),
+            AstOp::FpToUBV(ast, size, _) => ast.kind().is_float() && *size > 0,
+
+            // Floating point arithmetic ops
+            AstOp::FpNeg(ast, _) | AstOp::FpAbs(ast, _) | AstOp::FpSqrt(ast, _) => {
+                ast.kind().is_float()
+            }
             AstOp::FpAdd(lhs, rhs, _)
             | AstOp::FpSub(lhs, rhs, _)
             | AstOp::FpMul(lhs, rhs, _)
             | AstOp::FpDiv(lhs, rhs, _) => lhs.kind().is_float() && rhs.kind().is_float(),
-            AstOp::FpSqrt(_, _) => todo!(),
-            AstOp::FpEq(_, _) => todo!(),
-            AstOp::FpNeq(_, _) => todo!(),
-            AstOp::FpLt(_, _) => todo!(),
-            AstOp::FpLeq(_, _) => todo!(),
-            AstOp::FpGt(_, _) => todo!(),
-            AstOp::FpGeq(_, _) => todo!(),
-            AstOp::FpIsNan(_) => todo!(),
-            AstOp::FpIsInf(_) => todo!(),
-            AstOp::StrLen(_) => todo!(),
-            AstOp::StrConcat(_, _) => todo!(),
-            AstOp::StrSubstr(_, _, _) => todo!(),
-            AstOp::StrContains(_, _) => todo!(),
-            AstOp::StrIndexOf(_, _) => todo!(),
-            AstOp::StrReplace(_, _, _) => todo!(),
-            AstOp::StrPrefixOf(_, _) => todo!(),
-            AstOp::StrSuffixOf(_, _) => todo!(),
-            AstOp::StrToBV(_, _) => todo!(),
-            AstOp::BVToStr(_) => todo!(),
-            AstOp::StrIsDigit(_) => todo!(),
-            AstOp::StrEq(_, _) => todo!(),
-            AstOp::StrNeq(_, _) => todo!(),
+
+            // Floating point comparison ops
+            AstOp::FpEq(lhs, rhs)
+            | AstOp::FpNeq(lhs, rhs)
+            | AstOp::FpLt(lhs, rhs)
+            | AstOp::FpLeq(lhs, rhs)
+            | AstOp::FpGt(lhs, rhs)
+            | AstOp::FpGeq(lhs, rhs) => lhs.kind().is_float() && rhs.kind().is_float(),
+            AstOp::FpIsNan(ast) | AstOp::FpIsInf(ast) => ast.kind().is_float(),
+
+            // String ops
+            AstOp::StrLen(lhs, rhs) => lhs.kind().is_string() && rhs.kind().is_bitvec(),
+            AstOp::StrConcat(lhs, rhs) => lhs.kind().is_string() && rhs.kind().is_string(),
+            AstOp::StrSubstr(lhs, rhs, str) => {
+                lhs.kind().is_bitvec() && rhs.kind().is_bitvec() && str.kind().is_string()
+            }
+            AstOp::StrReplace(lhs, rhs, str) => {
+                lhs.kind().is_string() && rhs.kind().is_string() && str.kind().is_string()
+            }
+            AstOp::StrContains(lhs, rhs)
+            | AstOp::StrIndexOf(lhs, rhs)
+            | AstOp::StrPrefixOf(lhs, rhs)
+            | AstOp::StrSuffixOf(lhs, rhs) => lhs.kind().is_string() && rhs.kind().is_string(),
+            AstOp::StrToBV(lhs, rhs) => lhs.kind().is_string() && rhs.kind().is_bitvec(),
+            AstOp::BVToStr(ast) => ast.kind().is_bitvec(),
+            AstOp::StrIsDigit(ast) => ast.kind().is_string(),
+
+            // String comparison ops
+            AstOp::StrEq(lhs, rhs) | AstOp::StrNeq(lhs, rhs) => {
+                lhs.kind().is_string() && rhs.kind().is_string()
+            }
+
             AstOp::If(_, _, _) => todo!(),
             AstOp::Annotated(_, _) => todo!(),
         }
@@ -281,7 +300,7 @@ impl<'c> AstOp<'c> {
             | AstOp::FpSqrt(a, ..)
             | AstOp::FpIsNan(a)
             | AstOp::FpIsInf(a)
-            | AstOp::StrLen(a)
+            | AstOp::StrLen(a, ..)
             | AstOp::StrToBV(a, ..)
             | AstOp::BVToStr(a)
             | AstOp::StrIsDigit(a)
