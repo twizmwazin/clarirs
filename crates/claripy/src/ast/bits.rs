@@ -1,7 +1,7 @@
 use crate::prelude::*;
 
 #[pyclass(extends=Base, subclass, frozen, weakref, module="claripy.ast.bits")]
-pub struct Bits {}
+pub struct Bits;
 
 impl Bits {
     pub fn new() -> Self {

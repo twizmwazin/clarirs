@@ -60,6 +60,7 @@ pub enum AstOp<'c> {
     FpToFp(AstRef<'c>, FSort), // FpToFp(AstRef<'c>, FSort, FPRM is optional)
     BvToFpUnsigned(AstRef<'c>, FSort, FPRM), //Check is this is correct
     FpToIEEEBV(AstRef<'c>),    //Check is this is correct
+
     FpToUBV(AstRef<'c>, u32, FPRM),
     FpToSBV(AstRef<'c>, u32, FPRM),
 

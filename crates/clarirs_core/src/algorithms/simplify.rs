@@ -206,7 +206,7 @@ pub fn simplify<'c>(ast: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
                 _ => ctx.sge(&lhs, &rhs)?,
             }
         }
-        AstOp::FpToFp(_, _) => todo!(),
+        AstOp::FpToFp(_, _, _) => todo!(),
         AstOp::BvToFpUnsigned(_, _, _) => todo!(),
         AstOp::FpToIEEEBV(_) => todo!(),
         AstOp::FpToUBV(_, _, _) => todo!(),
