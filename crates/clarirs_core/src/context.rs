@@ -1,5 +1,5 @@
+use ahash::AHasher;
 use anyhow::Result;
-use gxhash::GxHasher;
 use std::{
     collections::HashMap,
     fmt::Debug,
@@ -47,7 +47,7 @@ impl<'c> AstFactory<'c> for Context<'c> {
             return Err(ClarirsError::InvalidArguments);
         }
 
-        let mut hasher = GxHasher::default();
+        let mut hasher = AHasher::default();
         op.hash(&mut hasher);
         let hash = hasher.finish();
 
