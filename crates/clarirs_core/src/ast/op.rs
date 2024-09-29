@@ -58,7 +58,7 @@ pub enum AstOp<'c> {
     // Floating point ops
     FpToFp(AstRef<'c>, FSort, FPRM), // FpToFp(AstRef<'c>, FSort, FPRM)
     BvToFpUnsigned(AstRef<'c>, FSort, FPRM), // Check is this is correct
-    FpToIEEEBV(AstRef<'c>),    // Check is this is correct
+    FpToIEEEBV(AstRef<'c>),          // Check is this is correct
 
     FpToUBV(AstRef<'c>, u32, FPRM),
     FpToSBV(AstRef<'c>, u32, FPRM),
@@ -87,7 +87,7 @@ pub enum AstOp<'c> {
     StrConcat(AstRef<'c>, AstRef<'c>), // StrConcat(Vec<AstRef<'c>>) To allow for any number of args,
     StrSubstr(AstRef<'c>, AstRef<'c>, AstRef<'c>),
     StrContains(AstRef<'c>, AstRef<'c>),
-    StrIndexOf(AstRef<'c>, AstRef<'c>, AstRef<'c>),  // String, String, BV (offset)
+    StrIndexOf(AstRef<'c>, AstRef<'c>, AstRef<'c>), // String, String, BV (offset)
     StrReplace(AstRef<'c>, AstRef<'c>, AstRef<'c>),
     StrPrefixOf(AstRef<'c>, AstRef<'c>),
     StrSuffixOf(AstRef<'c>, AstRef<'c>),
@@ -187,7 +187,9 @@ impl<'c> AstOp<'c> {
             AstOp::StrContains(lhs, rhs)
             | AstOp::StrPrefixOf(lhs, rhs)
             | AstOp::StrSuffixOf(lhs, rhs) => lhs.kind().is_string() && rhs.kind().is_string(),
-            | AstOp::StrIndexOf(base, substr, offset) => base.kind().is_string() && substr.kind().is_string() && offset.kind().is_bitvec(),
+            AstOp::StrIndexOf(base, substr, offset) => {
+                base.kind().is_string() && substr.kind().is_string() && offset.kind().is_bitvec()
+            }
             AstOp::StrToBV(ast) => ast.kind().is_string(),
             AstOp::BVToStr(ast) => ast.kind().is_bitvec(),
             AstOp::StrIsDigit(ast) => ast.kind().is_string(),

@@ -337,10 +337,7 @@ where {
         self.make_ast(AstOp::FpIsInf(lhs.clone()))
     }
 
-    fn strlen(
-        &'c self,
-        lhs: &AstRef<'c>,
-    ) -> Result<AstRef<'c>, ClarirsError> {
+    fn strlen(&'c self, lhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         self.make_ast(AstOp::StrLen(lhs.clone()))
     }
 
@@ -371,7 +368,11 @@ where {
         substr: &AstRef<'c>,
         offset: &AstRef<'c>,
     ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::StrIndexOf(base.clone(), substr.clone(), offset.clone()))
+        self.make_ast(AstOp::StrIndexOf(
+            base.clone(),
+            substr.clone(),
+            offset.clone(),
+        ))
     }
 
     fn strreplace(
