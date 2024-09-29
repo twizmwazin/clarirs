@@ -22,7 +22,7 @@ pyop!(StrLen, strlen, AstString, AstString);
 pyop!(StrConcat, strconcat, AstString, AstString, AstString);
 // pyop!(StrSubstr, strsubstr, AstString, AstString, BV, BV);
 pyop!(StrContains, strcontains, AstString, AstString, AstString);
-pyop!(StrIndexOf, strindexof, AstString, AstString, AstString);
+// pyop!(StrIndexOf, strindexof, AstString, AstString, BV);
 // pyop!(StrReplace, strreplace, AstString, AstString, AstString, AstString);
 pyop!(StrPrefixOf, strprefixof, AstString, AstString, AstString);
 pyop!(StrSuffixOf, strsuffixof, AstString, AstString, AstString);
@@ -43,7 +43,7 @@ pub(crate) fn import<'py>(_: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
         StrConcat,
         // StrSubstr,
         StrContains,
-        StrIndexOf,
+        // StrIndexOf,
         // StrReplace,
         StrPrefixOf,
         StrSuffixOf,

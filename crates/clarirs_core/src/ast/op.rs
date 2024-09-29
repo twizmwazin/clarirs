@@ -9,7 +9,6 @@ pub enum AstOp<'c> {
     BoolV(bool),
     BVS(String, u32),
     BVV(BitVec),
-    SI(String, BitVec, BitVec, BitVec, u32),
     FPS(String, FSort),
     FPV(Float),
     StringS(String, u32),
@@ -57,9 +56,9 @@ pub enum AstOp<'c> {
     SGE(AstRef<'c>, AstRef<'c>),
 
     // Floating point ops
-    FpToFp(AstRef<'c>, FSort), // FpToFp(AstRef<'c>, FSort, FPRM is optional)
-    BvToFpUnsigned(AstRef<'c>, FSort, FPRM), //Check is this is correct
-    FpToIEEEBV(AstRef<'c>),    //Check is this is correct
+    FpToFp(AstRef<'c>, FSort, FPRM), // FpToFp(AstRef<'c>, FSort, FPRM)
+    BvToFpUnsigned(AstRef<'c>, FSort, FPRM), // Check is this is correct
+    FpToIEEEBV(AstRef<'c>),    // Check is this is correct
 
     FpToUBV(AstRef<'c>, u32, FPRM),
     FpToSBV(AstRef<'c>, u32, FPRM),
@@ -84,15 +83,15 @@ pub enum AstOp<'c> {
     FpIsInf(AstRef<'c>),
 
     // String ops
-    StrLen(AstRef<'c>, AstRef<'c>),    // or StrLen(AstRef<'c>, u32),
+    StrLen(AstRef<'c>),
     StrConcat(AstRef<'c>, AstRef<'c>), // StrConcat(Vec<AstRef<'c>>) To allow for any number of args,
     StrSubstr(AstRef<'c>, AstRef<'c>, AstRef<'c>),
     StrContains(AstRef<'c>, AstRef<'c>),
-    StrIndexOf(AstRef<'c>, AstRef<'c>),
+    StrIndexOf(AstRef<'c>, AstRef<'c>, AstRef<'c>),  // String, String, BV (offset)
     StrReplace(AstRef<'c>, AstRef<'c>, AstRef<'c>),
     StrPrefixOf(AstRef<'c>, AstRef<'c>),
     StrSuffixOf(AstRef<'c>, AstRef<'c>),
-    StrToBV(AstRef<'c>, AstRef<'c>), // StrToBV(AstRef<'c>, u32)
+    StrToBV(AstRef<'c>),
     BVToStr(AstRef<'c>),
     StrIsDigit(AstRef<'c>),
 
@@ -112,7 +111,6 @@ impl<'c> AstOp<'c> {
         match self {
             AstOp::BoolS(name)
             | AstOp::BVS(name, ..)
-            | AstOp::SI(name, ..)
             | AstOp::FPS(name, ..)
             | AstOp::StringS(name, ..) => !name.is_empty(),
             AstOp::BoolV(..) | AstOp::BVV(..) | AstOp::FPV(..) | AstOp::StringV(..) => true,
@@ -153,7 +151,7 @@ impl<'c> AstOp<'c> {
             | AstOp::Reverse(ast) => ast.kind().is_bitvec(),
 
             // Floating point ops
-            AstOp::FpToFp(ast, _)
+            AstOp::FpToFp(ast, _, _)
             | AstOp::BvToFpUnsigned(ast, _, _)
             | AstOp::FpToIEEEBV(ast)
             | AstOp::FpToSBV(ast, _, _) => ast.kind().is_float(),
@@ -178,7 +176,7 @@ impl<'c> AstOp<'c> {
             AstOp::FpIsNan(ast) | AstOp::FpIsInf(ast) => ast.kind().is_float(),
 
             // String ops
-            AstOp::StrLen(lhs, rhs) => lhs.kind().is_string() && rhs.kind().is_bitvec(),
+            AstOp::StrLen(ast) => ast.kind().is_string(),
             AstOp::StrConcat(lhs, rhs) => lhs.kind().is_string() && rhs.kind().is_string(),
             AstOp::StrSubstr(lhs, rhs, str) => {
                 lhs.kind().is_bitvec() && rhs.kind().is_bitvec() && str.kind().is_string()
@@ -187,10 +185,10 @@ impl<'c> AstOp<'c> {
                 lhs.kind().is_string() && rhs.kind().is_string() && str.kind().is_string()
             }
             AstOp::StrContains(lhs, rhs)
-            | AstOp::StrIndexOf(lhs, rhs)
             | AstOp::StrPrefixOf(lhs, rhs)
             | AstOp::StrSuffixOf(lhs, rhs) => lhs.kind().is_string() && rhs.kind().is_string(),
-            AstOp::StrToBV(lhs, rhs) => lhs.kind().is_string() && rhs.kind().is_bitvec(),
+            | AstOp::StrIndexOf(base, substr, offset) => base.kind().is_string() && substr.kind().is_string() && offset.kind().is_bitvec(),
+            AstOp::StrToBV(ast) => ast.kind().is_string(),
             AstOp::BVToStr(ast) => ast.kind().is_bitvec(),
             AstOp::StrIsDigit(ast) => ast.kind().is_string(),
 
@@ -207,7 +205,7 @@ impl<'c> AstOp<'c> {
     pub fn kind(&self) -> AstKind {
         match self {
             AstOp::BoolS(..) | AstOp::BoolV(..) => AstKind::Bool,
-            AstOp::BVS(..) | AstOp::BVV(..) | AstOp::SI(..) => AstKind::BitVec,
+            AstOp::BVS(..) | AstOp::BVV(..) => AstKind::BitVec,
             AstOp::FPS(..) | AstOp::FPV(..) => AstKind::Float,
             AstOp::StringS(..) | AstOp::StringV(..) => AstKind::String,
             AstOp::Not(ast)
@@ -280,7 +278,6 @@ impl<'c> AstOp<'c> {
             | AstOp::BoolV(..)
             | AstOp::BVS(..)
             | AstOp::BVV(..)
-            | AstOp::SI(..)
             | AstOp::FPS(..)
             | AstOp::FPV(..)
             | AstOp::StringS(..)
@@ -345,7 +342,7 @@ impl<'c> AstOp<'c> {
             | AstOp::FpGeq(a, b)
             | AstOp::StrConcat(a, b)
             | AstOp::StrContains(a, b)
-            | AstOp::StrIndexOf(a, b)
+            | AstOp::StrIndexOf(a, b, _)
             | AstOp::StrPrefixOf(a, b)
             | AstOp::StrSuffixOf(a, b)
             | AstOp::StrEq(a, b)

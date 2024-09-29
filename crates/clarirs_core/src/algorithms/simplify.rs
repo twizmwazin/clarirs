@@ -32,7 +32,6 @@ pub fn simplify<'c>(ast: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         | AstOp::BoolV(..)
         | AstOp::BVS(..)
         | AstOp::BVV(..)
-        | AstOp::SI(..)
         | AstOp::FPS(..)
         | AstOp::FPV(..)
         | AstOp::StringS(..)
@@ -238,15 +237,15 @@ pub fn simplify<'c>(ast: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         AstOp::FpGeq(_, _) => todo!(),
         AstOp::FpIsNan(_) => todo!(),
         AstOp::FpIsInf(_) => todo!(),
-        AstOp::StrLen(_, _) => todo!(),
+        AstOp::StrLen(_) => todo!(),
         AstOp::StrConcat(_, _) => todo!(),
         AstOp::StrSubstr(_, _, _) => todo!(),
         AstOp::StrContains(_, _) => todo!(),
-        AstOp::StrIndexOf(_, _) => todo!(),
+        AstOp::StrIndexOf(_, _, _) => todo!(),
         AstOp::StrReplace(_, _, _) => todo!(),
         AstOp::StrPrefixOf(_, _) => todo!(),
         AstOp::StrSuffixOf(_, _) => todo!(),
-        AstOp::StrToBV(_, _) => todo!(),
+        AstOp::StrToBV(_) => todo!(),
         AstOp::BVToStr(_) => todo!(),
         AstOp::StrIsDigit(_) => todo!(),
         AstOp::StrEq(lhs, rhs) => {

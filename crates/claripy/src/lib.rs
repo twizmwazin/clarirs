@@ -87,7 +87,7 @@ pub fn claripy(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
         ast::string::StrConcat,
         // ast::string::StrSubstr,
         ast::string::StrContains,
-        ast::string::StrIndexOf,
+        // ast::string::StrIndexOf,
         // ast::string::StrReplace,
         ast::string::StrPrefixOf,
         ast::string::StrSuffixOf,

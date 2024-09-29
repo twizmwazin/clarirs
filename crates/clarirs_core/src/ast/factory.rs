@@ -32,27 +32,6 @@ where {
         self.make_ast(AstOp::BVV(value))
     }
 
-    fn si<S, I>(
-        &'c self,
-        name: S,
-        lower_bound: I,
-        upper_bound: I,
-        stride: I,
-        width: u32,
-    ) -> Result<AstRef<'c>, ClarirsError>
-    where
-        S: Into<String>,
-        I: Into<BitVec>,
-    {
-        self.make_ast(AstOp::SI(
-            name.into(),
-            lower_bound.into(),
-            upper_bound.into(),
-            stride.into(),
-            width,
-        ))
-    }
-
     fn fps<S, FS: Into<FSort>>(&'c self, name: S, sort: FS) -> Result<AstRef<'c>, ClarirsError>
     where
         S: Into<String>,
@@ -361,9 +340,8 @@ where {
     fn strlen(
         &'c self,
         lhs: &AstRef<'c>,
-        bitlength: &AstRef<'c>,
     ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::StrLen(lhs.clone(), bitlength.clone()))
+        self.make_ast(AstOp::StrLen(lhs.clone()))
     }
 
     fn strconcat(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
@@ -389,10 +367,11 @@ where {
 
     fn strindexof(
         &'c self,
-        lhs: &AstRef<'c>,
-        start: &AstRef<'c>,
+        base: &AstRef<'c>,
+        substr: &AstRef<'c>,
+        offset: &AstRef<'c>,
     ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::StrIndexOf(lhs.clone(), start.clone()))
+        self.make_ast(AstOp::StrIndexOf(base.clone(), substr.clone(), offset.clone()))
     }
 
     fn strreplace(
@@ -420,8 +399,8 @@ where {
         self.make_ast(AstOp::StrSuffixOf(lhs.clone(), rhs.clone()))
     }
 
-    fn strtobv(&'c self, lhs: &AstRef<'c>, width: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::StrToBV(lhs.clone(), width.clone()))
+    fn strtobv(&'c self, lhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
+        self.make_ast(AstOp::StrToBV(lhs.clone()))
     }
 
     fn bvtostr(&'c self, lhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
