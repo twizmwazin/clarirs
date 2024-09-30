@@ -2,6 +2,13 @@
 members = ["crates/*"]
 resolver = "2"
 
+[workspace.package]
+license = "BSD-2-Clause"
+readme = "README.md"
+keywords = ["clarirs", "smt", "z3", "solver"]
+categories = ["science", "math", "security"]
+repository = "https://github.com/twizmwazin/clarirs.git"
+
 [workspace.lints.clippy]
 all = "warn"
-cargo = "warn"
+cargo = "deny"

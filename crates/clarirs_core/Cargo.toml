@@ -2,6 +2,12 @@
 name = "clarirs_core"
 version = "0.1.0"
 edition = "2021"
+description = "The core of clarirs"
+license = { workspace = true }
+readme = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
+repository = { workspace = true }
 
 [dependencies]
 ahash = "0.8.11"

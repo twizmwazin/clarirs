@@ -2,6 +2,12 @@
 name = "claripy"
 version = "0.1.0"
 edition = "2021"
+description = "Python bindings for clarirs"
+license = { workspace = true }
+readme = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
+repository = { workspace = true }
 
 [dependencies]
 # pyo3 0.22.2 has an issue with raising exceptions on Python 3.12, so we use the
