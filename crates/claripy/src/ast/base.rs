@@ -31,7 +31,7 @@ impl PyAst for Base {
     }
 }
 
-pub(crate) fn import<'py>(_: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
+pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<Base>()?;
     Ok(())
 }

@@ -57,7 +57,7 @@ pub fn BVV(py: Python, value: Bound<PyAny>, size: Option<u32>) -> Result<Py<BV>,
     if let Ok(str_val) = value.extract::<String>() {
         log::warn!("string value passed to BVV, assuming utf-8");
         let bytes_val = str_val.as_bytes();
-        let int_val = BigUint::from_bytes_le(&bytes_val);
+        let int_val = BigUint::from_bytes_le(bytes_val);
         log::warn!("bytes value passed to BVV, assuming little-endian");
         if size.is_some() {
             log::warn!("BVV size specified with bytes, value will be ignored");
@@ -98,7 +98,7 @@ pyop!(SLE, sle, Bool, BV, BV);
 pyop!(SGT, sgt, Bool, BV, BV);
 pyop!(SGE, sge, Bool, BV, BV);
 
-pub(crate) fn import<'py>(_: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
+pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<BV>()?;
 
     add_pyfunctions!(

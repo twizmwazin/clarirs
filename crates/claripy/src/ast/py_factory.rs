@@ -13,7 +13,7 @@ pub static PY_OBJECT_CACHE: LazyLock<RwLock<HashMap<u64, WeakRef>>> =
 
 pub fn extract_arg<'py, T>(
     py: Python<'py>,
-    args: &Vec<PyObject>,
+    args: &[PyObject],
     index: usize,
 ) -> Result<T, ClaripyError>
 where

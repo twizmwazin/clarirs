@@ -34,19 +34,14 @@ impl FSort {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum FPRM {
+    #[default]
     NearestTiesToEven,
     TowardPositive,
     TowardNegative,
     TowardZero,
     NearestTiesToAway,
-}
-
-impl Default for FPRM {
-    fn default() -> Self {
-        FPRM::NearestTiesToEven
-    }
 }
 
 /// A dynamic floating-point number representation. We follow the IEEE 754

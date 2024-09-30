@@ -78,7 +78,7 @@ pyop!(StrIsDigit, strisdigit, AstString, AstString);
 pyop!(StrEq, streq, AstString, AstString, AstString);
 pyop!(StrNeq, strneq, AstString, AstString, AstString);
 
-pub(crate) fn import<'py>(_: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
+pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<AstString>()?;
 
     add_pyfunctions!(

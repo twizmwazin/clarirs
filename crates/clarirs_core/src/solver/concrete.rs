@@ -9,7 +9,7 @@ impl<'c> Model<'c> for ConcreteModel {
     where
         I: IntoIterator<Item = AstRef<'c>>,
     {
-        Ok(exprs
+        exprs
             .into_iter()
             .map(|e| {
                 if e.symbolic() {
@@ -18,7 +18,7 @@ impl<'c> Model<'c> for ConcreteModel {
                     Ok(e.simplify()?)
                 }
             })
-            .collect::<Result<Vec<AstRef<'c>>, ClarirsError>>()?)
+            .collect::<Result<Vec<AstRef<'c>>, ClarirsError>>()
     }
 }
 

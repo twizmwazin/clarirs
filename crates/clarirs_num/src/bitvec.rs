@@ -25,7 +25,7 @@ pub struct BitVec {
 impl BitVec {
     pub fn new(words: SmallVec<[u64; 1]>, length: usize) -> Self {
         Self {
-            words: SmallVec::from_iter(words.iter().map(|w| *w)),
+            words: SmallVec::from_iter(words.iter().copied()),
             length,
             final_word_mask: !(1 << (length % 64)) - 1,
         }
@@ -47,6 +47,7 @@ impl BitVec {
         Self::new(words, length)
     }
 
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         self.length
     }
@@ -108,8 +109,7 @@ impl From<&BitVec> for BigUint {
         BigUint::from_bytes_be(
             bv.words
                 .iter()
-                .map(|w| w.to_be_bytes())
-                .flatten()
+                .flat_map(|w| w.to_be_bytes())
                 .collect::<Vec<u8>>()
                 .as_slice(),
         )
@@ -153,9 +153,9 @@ impl Add for BitVec {
                 },
             )
             .0;
-        new_bv
-            .get_mut(self.len() - 1)
-            .map(|w| *w &= self.final_word_mask);
+        if let Some(w) = new_bv.get_mut(self.len() - 1) {
+            *w &= self.final_word_mask;
+        }
         BitVec::new(new_bv, self.length)
     }
 }
@@ -232,7 +232,9 @@ impl Not for BitVec {
     fn not(self) -> Self::Output {
         let mut new_bv: SmallVec<[u64; 1]> = self.words.iter().map(|w| !w).collect();
         if self.length % 64 != 0 {
-            new_bv.last_mut().map(|w| *w &= self.final_word_mask);
+            if let Some(w) = new_bv.last_mut() {
+                *w &= self.final_word_mask;
+            }
         }
         BitVec::new(new_bv, self.length)
     }

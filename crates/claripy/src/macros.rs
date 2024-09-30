@@ -14,7 +14,7 @@ macro_rules! pyop {
         #[allow(non_snake_case)]
         #[pyfunction]
         pub fn $fn_name(py: Python, ast: pyop!(@py? $at)) -> Result<Py<$return_type>, ClaripyError> {
-            py_ast_from_astref(py, crate::ast::py_factory::GLOBAL_CONTEXT.$context_method(&crate::ast::get_astref(ast))?)
+            py_ast_from_astref(py, $crate::ast::py_factory::GLOBAL_CONTEXT.$context_method(&$crate::ast::get_astref(ast))?)
         }
     };
 
@@ -23,7 +23,7 @@ macro_rules! pyop {
         #[allow(non_snake_case)]
         #[pyfunction]
         pub fn $fn_name(py: Python, lhs: pyop!(@py? $at1), rhs: pyop!(@py? $at2)) -> Result<Py<$return_type>, ClaripyError> {
-            py_ast_from_astref(py, crate::ast::py_factory::GLOBAL_CONTEXT.$context_method(&crate::ast::get_astref(lhs), &crate::ast::get_astref(rhs))?)
+            py_ast_from_astref(py, $crate::ast::py_factory::GLOBAL_CONTEXT.$context_method(&$crate::ast::get_astref(lhs), &$crate::ast::get_astref(rhs))?)
         }
     };
 
@@ -53,13 +53,13 @@ macro_rules! pyop {
         #[allow(non_snake_case)]
         pub fn $fn_name(py: Python, $($arg_name: pyop!(@py? $arg_type)),*) -> Result<Py<$return_type>, ClaripyError> {
             // $(let $arg_name = define_pyop!(@convert_arg $arg_name, $arg_type);)*
-            py_ast_from_astref(py, crate::ast::py_factory::GLOBAL_CONTEXT.$context_method($(pyop!(@astref? $arg_name, $arg_type)),*)?)
+            py_ast_from_astref(py, $crate::ast::py_factory::GLOBAL_CONTEXT.$context_method($(pyop!(@astref? $arg_name, $arg_type)),*)?)
         }
     };
 
     // Helper to convert PyRef arguments to AstRef using get_astref
     (@astref? $arg_name:ident, PyRef<$inner_type:tt>) => {
-        &crate::ast::py_factory::get_astref($arg_name),
+        &$crate::ast::py_factory::get_astref($arg_name),
     };
 
     (@astref? $arg_name:ident, String) => {

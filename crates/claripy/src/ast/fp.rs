@@ -6,20 +6,15 @@ use crate::ast::bits::Bits;
 use crate::prelude::*;
 
 #[pyclass(name = "RM", module = "claripy.ast.fp", eq)]
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Default)]
 #[allow(non_camel_case_types)]
 pub enum PyRM {
+    #[default]
     RM_NearestTiesEven,
     RM_NearestTiesAwayFromZero,
     RM_TowardsZero,
     RM_TowardsPositiveInf,
     RM_TowardsNegativeInf,
-}
-
-impl Default for PyRM {
-    fn default() -> Self {
-        PyRM::RM_NearestTiesEven
-    }
 }
 
 impl From<PyRM> for FPRM {
@@ -44,9 +39,9 @@ impl PyFSort {
     }
 }
 
-impl Into<FSort> for PyFSort {
-    fn into(self) -> FSort {
-        self.0
+impl From<PyFSort> for FSort {
+    fn from(val: PyFSort) -> Self {
+        val.0
     }
 }
 
@@ -59,6 +54,7 @@ pub fn fsort_double() -> PyFSort {
 }
 
 #[pyclass(extends=Bits, subclass, frozen, weakref, module="claripy.ast.bits")]
+#[derive(Default)]
 pub struct FP;
 
 impl FP {
@@ -261,7 +257,7 @@ pub fn FpGt(py: Python, lhs: PyRef<FP>, rhs: PyRef<FP>) -> Result<Py<FP>, Clarip
 pyop!(fpIsNan, fp_is_nan, FP, FP);
 pyop!(fpIsInf, fp_is_inf, FP, FP);
 
-pub(crate) fn import<'py>(_: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
+pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<PyFSort>()?;
     m.add_class::<FP>()?;
 

@@ -44,7 +44,7 @@ pub fn false_op(py: Python) -> Result<Py<Bool>, ClaripyError> {
     py_ast_from_astref(py, GLOBAL_CONTEXT.false_()?)
 }
 
-pub(crate) fn import<'py>(_: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
+pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<Bool>()?;
 
     add_pyfunctions!(
