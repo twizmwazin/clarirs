@@ -22,7 +22,7 @@ where
     let mut result = ctx.true_()?;
     for ast in asts.into_iter() {
         if ast.is_false() {
-            return Ok(ctx.false_()?);
+            return ctx.false_();
         }
         result = ctx.and(&result, &ast)?;
     }
@@ -36,7 +36,7 @@ where
     let mut result = ctx.false_()?;
     for ast in asts.into_iter() {
         if ast.is_true() {
-            return Ok(ctx.true_()?);
+            return ctx.true_();
         }
         result = ctx.or(&result, &ast)?;
     }

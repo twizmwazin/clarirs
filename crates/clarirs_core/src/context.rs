@@ -9,7 +9,7 @@ use std::{
 
 use crate::prelude::*;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Context<'c> {
     pub(crate) ast_cache: Arc<RwLock<HashMap<u64, Weak<AstNode<'c>>>>>,
     pub(crate) simplification_cache: Arc<RwLock<HashMap<u64, Weak<AstNode<'c>>>>>,
@@ -51,15 +51,15 @@ impl<'c> AstFactory<'c> for Context<'c> {
         op.hash(&mut hasher);
         let hash = hasher.finish();
 
-        Ok(self.ast_cache.write().and_then(|mut ast_cache| {
-            Ok(ast_cache
+        Ok(self.ast_cache.write().map(|mut ast_cache| {
+            ast_cache
                 .get(&hash)
                 .and_then(|ast| ast.upgrade())
                 .unwrap_or_else(|| {
                     let ast = Arc::new(AstNode::new(self, op, hash));
                     ast_cache.insert(hash, Arc::downgrade(&ast));
                     ast
-                }))
+                })
         })?)
     }
 }

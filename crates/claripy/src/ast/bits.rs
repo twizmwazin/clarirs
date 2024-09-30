@@ -1,6 +1,7 @@
 use crate::prelude::*;
 
 #[pyclass(extends=Base, subclass, frozen, weakref, module="claripy.ast.bits")]
+#[derive(Default)]
 pub struct Bits;
 
 impl Bits {
@@ -19,7 +20,7 @@ impl PyAst for Bits {
     }
 }
 
-pub(crate) fn import<'py>(_: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
+pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<Bits>()?;
     Ok(())
 }

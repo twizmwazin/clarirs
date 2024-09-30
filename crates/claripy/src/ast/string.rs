@@ -30,7 +30,10 @@ pub fn StrSubstr(
     start: PyRef<BV>,
     end: PyRef<BV>,
 ) -> Result<Py<AstString>, ClaripyError> {
-    py_ast_from_astref(py, GLOBAL_CONTEXT.strsubstr(&get_astref(base), &get_astref(start), &get_astref(end))?)
+    py_ast_from_astref(
+        py,
+        GLOBAL_CONTEXT.strsubstr(&get_astref(base), &get_astref(start), &get_astref(end))?,
+    )
 }
 
 pyop!(StrContains, strcontains, AstString, AstString, AstString);
@@ -42,7 +45,14 @@ pub fn StrIndexOf(
     needle: PyRef<AstString>,
     start: PyRef<BV>,
 ) -> Result<Py<BV>, ClaripyError> {
-    py_ast_from_astref(py, GLOBAL_CONTEXT.strindexof(&get_astref(haystack), &get_astref(needle), &get_astref(start))?)
+    py_ast_from_astref(
+        py,
+        GLOBAL_CONTEXT.strindexof(
+            &get_astref(haystack),
+            &get_astref(needle),
+            &get_astref(start),
+        )?,
+    )
 }
 
 #[pyfunction]
@@ -52,25 +62,26 @@ pub fn StrReplace(
     needle: PyRef<AstString>,
     replacement: PyRef<AstString>,
 ) -> Result<Py<AstString>, ClaripyError> {
-    py_ast_from_astref(py, GLOBAL_CONTEXT.strreplace(&get_astref(haystack), &get_astref(needle), &get_astref(replacement))?)
+    py_ast_from_astref(
+        py,
+        GLOBAL_CONTEXT.strreplace(
+            &get_astref(haystack),
+            &get_astref(needle),
+            &get_astref(replacement),
+        )?,
+    )
 }
 
 pyop!(StrPrefixOf, strprefixof, AstString, AstString, AstString);
 pyop!(StrSuffixOf, strsuffixof, AstString, AstString, AstString);
 
 #[pyfunction]
-pub fn StrToBV(
-    py: Python,
-    s: PyRef<AstString>,
-) -> Result<Py<BV>, ClaripyError> {
+pub fn StrToBV(py: Python, s: PyRef<AstString>) -> Result<Py<BV>, ClaripyError> {
     py_ast_from_astref(py, GLOBAL_CONTEXT.strtobv(&get_astref(s))?)
 }
 
 #[pyfunction]
-pub fn BVToStr(
-    py: Python,
-    bv: PyRef<BV>,
-) -> Result<Py<AstString>, ClaripyError> {
+pub fn BVToStr(py: Python, bv: PyRef<BV>) -> Result<Py<AstString>, ClaripyError> {
     py_ast_from_astref(py, GLOBAL_CONTEXT.bvtostr(&get_astref(bv))?)
 }
 
@@ -78,7 +89,7 @@ pyop!(StrIsDigit, strisdigit, AstString, AstString);
 pyop!(StrEq, streq, AstString, AstString, AstString);
 pyop!(StrNeq, strneq, AstString, AstString, AstString);
 
-pub(crate) fn import<'py>(_: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
+pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<AstString>()?;
 
     add_pyfunctions!(

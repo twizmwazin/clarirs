@@ -25,7 +25,7 @@ where
     T::as_base(self_).ast.clone()
 }
 
-pub(crate) fn import<'py>(py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
+pub(crate) fn import(py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     import_submodule(py, m, "claripy.ast", "base", base::import)?;
     import_submodule(py, m, "claripy.ast", "bits", bits::import)?;
     import_submodule(py, m, "claripy.ast", "bool", bool::import)?;

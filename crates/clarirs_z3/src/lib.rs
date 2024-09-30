@@ -79,15 +79,15 @@ where
     }
 }
 
-fn convert_astref_to_z3<'c, 'z>(
-    ast: &AstRef<'c>,
+fn convert_astref_to_z3<'z>(
+    ast: &AstRef,
     ctx: &'z z3::Context,
 ) -> Result<z3::ast::Dynamic<'z>, ClarirsError> {
     todo!()
 }
 
-fn convert_z3_to_astref<'c, 'z>(
-    ast: z3::ast::Dynamic<'z>,
+fn convert_z3_to_astref<'c>(
+    ast: z3::ast::Dynamic,
     ctx: &'c Context<'c>,
 ) -> Result<AstRef<'c>, ClarirsError> {
     match ast.sort_kind() {
