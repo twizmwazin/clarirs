@@ -24,7 +24,6 @@ pub enum PrimitiveOp {
     BoolV(bool),
     BVS(String, u32),
     BVV(BitVec),
-    SI(String, BitVec, BitVec, BitVec, u32),
     FPS(String, FSort),
     FPV(Float),
     StringS(String, u32),
@@ -81,9 +80,10 @@ pub enum BitVectorOp<'c> {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 pub enum FloatingPointOp<'c> {
     // Floating point ops
-    FpToFp(AstRef<'c>, FSort),
-    BvToFpUnsigned(AstRef<'c>, FSort, FPRM),
-    FpToIEEEBV(AstRef<'c>),
+    FpToFp(AstRef<'c>, FSort, FPRM), // FpToFp(AstRef<'c>, FSort, FPRM)
+    BvToFpUnsigned(AstRef<'c>, FSort, FPRM), // Check is this is correct
+    FpToIEEEBV(AstRef<'c>),          // Check is this is correct
+
     FpToUBV(AstRef<'c>, u32, FPRM),
     FpToSBV(AstRef<'c>, u32, FPRM),
 
@@ -107,13 +107,14 @@ pub enum FloatingPointOp<'c> {
     FpIsInf(AstRef<'c>),
 }
 
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 pub enum StringOp<'c> {
     StrLen(AstRef<'c>, AstRef<'c>),    // or StrLen(AstRef<'c>, u32),
     StrConcat(AstRef<'c>, AstRef<'c>), // StrConcat(Vec<AstRef<'c>>) To allow for any number of args,
     StrSubstr(AstRef<'c>, AstRef<'c>, AstRef<'c>),
     StrContains(AstRef<'c>, AstRef<'c>),
-    StrIndexOf(AstRef<'c>, AstRef<'c>),
+    StrIndexOf(AstRef<'c>, AstRef<'c>, AstRef<'c>), // String, String, BV (offset)
     StrReplace(AstRef<'c>, AstRef<'c>, AstRef<'c>),
     StrPrefixOf(AstRef<'c>, AstRef<'c>),
     StrSuffixOf(AstRef<'c>, AstRef<'c>),
@@ -129,6 +130,7 @@ pub enum StringOp<'c> {
 impl<'c> AstOp<'c> {
     pub fn valid_args(&self) -> bool {
         match self {
+          
             AstOp::PrimitiveOp(op) => match op {
                 PrimitiveOp::BoolS(name)
                 | PrimitiveOp::BVS(name, ..)
@@ -243,6 +245,7 @@ impl<'c> AstOp<'c> {
 
     pub fn kind(&self) -> AstKind {
         match self {
+
             AstOp::PrimitiveOp(op) => match op {
                 PrimitiveOp::BoolS(..) | PrimitiveOp::BoolV(..) => AstKind::Bool,
                 PrimitiveOp::BVS(..) | PrimitiveOp::BVV(..) | PrimitiveOp::SI(..) => {
@@ -330,13 +333,14 @@ impl<'c> AstOp<'c> {
                 }
             },
 
-            AstOp::If(.., ast) => ast.kind(),
+            AstOp::If(.., ast) => ast.kind(),    
             AstOp::Annotated(ast, ..) => ast.kind(),
         }
     }
 
     pub fn child_iter(&self) -> impl Iterator<Item = &AstRef<'c>> {
         match self {
+          
             // Cases with no children
             AstOp::PrimitiveOp(PrimitiveOp::BoolS(..))
             | AstOp::PrimitiveOp(PrimitiveOp::BoolV(..))

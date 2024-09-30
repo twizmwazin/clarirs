@@ -32,32 +32,11 @@ where {
         self.make_ast(AstOp::BVV(value))
     }
 
-    fn si<S, I>(
-        &'c self,
-        name: S,
-        lower_bound: I,
-        upper_bound: I,
-        stride: I,
-        width: u32,
-    ) -> Result<AstRef<'c>, ClarirsError>
-    where
-        S: Into<String>,
-        I: Into<BitVec>,
-    {
-        self.make_ast(AstOp::SI(
-            name.into(),
-            lower_bound.into(),
-            upper_bound.into(),
-            stride.into(),
-            width,
-        ))
-    }
-
-    fn fps<S>(&'c self, name: S, sort: FSort) -> Result<AstRef<'c>, ClarirsError>
+    fn fps<S, FS: Into<FSort>>(&'c self, name: S, sort: FS) -> Result<AstRef<'c>, ClarirsError>
     where
         S: Into<String>,
     {
-        self.make_ast(AstOp::FPS(name.into(), sort))
+        self.make_ast(AstOp::FPS(name.into(), sort.into()))
     }
 
     fn fpv<F>(&'c self, value: F) -> Result<AstRef<'c>, ClarirsError>
@@ -226,87 +205,104 @@ where {
         self.make_ast(AstOp::SGE(lhs.clone(), rhs.clone()))
     }
 
-    fn fp_to_fp(&'c self, lhs: &AstRef<'c>, sort: FSort) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpToFp(lhs.clone(), sort))
-    }
-
-    fn bv_to_fp_unsigned(
+    fn fp_to_fp<RM: Into<FPRM>, FS: Into<FSort>>(
         &'c self,
         lhs: &AstRef<'c>,
-        sort: FSort,
-        rm: FPRM,
+        sort: FS,
+        rm: RM,
     ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::BvToFpUnsigned(lhs.clone(), sort, rm))
+        self.make_ast(AstOp::FpToFp(lhs.clone(), sort.into(), rm.into()))
+    }
+
+    fn bv_to_fp_unsigned<RM: Into<FPRM>, FS: Into<FSort>>(
+        &'c self,
+        lhs: &AstRef<'c>,
+        sort: FS,
+        rm: RM,
+    ) -> Result<AstRef<'c>, ClarirsError> {
+        self.make_ast(AstOp::BvToFpUnsigned(lhs.clone(), sort.into(), rm.into()))
     }
 
     fn fp_to_ieeebv(&'c self, lhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         self.make_ast(AstOp::FpToIEEEBV(lhs.clone()))
     }
 
-    fn fp_to_ubv(
+    fn fp_to_ubv<RM: Into<FPRM>>(
         &'c self,
         lhs: &AstRef<'c>,
         width: u32,
-        rm: FPRM,
+        rm: RM,
     ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpToUBV(lhs.clone(), width, rm))
+        self.make_ast(AstOp::FpToUBV(lhs.clone(), width, rm.into()))
     }
 
-    fn fp_to_sbv(
+    fn fp_to_sbv<RM: Into<FPRM>>(
         &'c self,
         lhs: &AstRef<'c>,
         width: u32,
-        rm: FPRM,
+        rm: RM,
     ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpToSBV(lhs.clone(), width, rm))
+        self.make_ast(AstOp::FpToSBV(lhs.clone(), width, rm.into()))
     }
 
-    fn fp_neg(&'c self, lhs: &AstRef<'c>, rm: FPRM) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpNeg(lhs.clone(), rm))
+    fn fp_neg<RM: Into<FPRM>>(
+        &'c self,
+        lhs: &AstRef<'c>,
+        rm: RM,
+    ) -> Result<AstRef<'c>, ClarirsError> {
+        self.make_ast(AstOp::FpNeg(lhs.clone(), rm.into()))
     }
 
-    fn fp_abs(&'c self, lhs: &AstRef<'c>, rm: FPRM) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpAbs(lhs.clone(), rm))
+    fn fp_abs<RM: Into<FPRM>>(
+        &'c self,
+        lhs: &AstRef<'c>,
+        rm: RM,
+    ) -> Result<AstRef<'c>, ClarirsError> {
+        self.make_ast(AstOp::FpAbs(lhs.clone(), rm.into()))
     }
 
-    fn fp_add(
+    fn fp_add<RM: Into<FPRM>>(
         &'c self,
         lhs: &AstRef<'c>,
         rhs: &AstRef<'c>,
-        rm: FPRM,
+        rm: RM,
     ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpAdd(lhs.clone(), rhs.clone(), rm))
+        self.make_ast(AstOp::FpAdd(lhs.clone(), rhs.clone(), rm.into()))
     }
 
-    fn fp_sub(
+    fn fp_sub<RM: Into<FPRM>>(
         &'c self,
         lhs: &AstRef<'c>,
         rhs: &AstRef<'c>,
-        rm: FPRM,
+        rm: RM,
     ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpSub(lhs.clone(), rhs.clone(), rm))
+        self.make_ast(AstOp::FpSub(lhs.clone(), rhs.clone(), rm.into()))
     }
 
-    fn fp_mul(
+    fn fp_mul<RM: Into<FPRM>>(
         &'c self,
         lhs: &AstRef<'c>,
         rhs: &AstRef<'c>,
-        rm: FPRM,
+        rm: RM,
     ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpMul(lhs.clone(), rhs.clone(), rm))
+        self.make_ast(AstOp::FpMul(lhs.clone(), rhs.clone(), rm.into()))
     }
 
-    fn fp_div(
+    fn fp_div<RM: Into<FPRM>>(
         &'c self,
         lhs: &AstRef<'c>,
         rhs: &AstRef<'c>,
-        rm: FPRM,
+        rm: RM,
     ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpDiv(lhs.clone(), rhs.clone(), rm))
+        self.make_ast(AstOp::FpDiv(lhs.clone(), rhs.clone(), rm.into()))
     }
 
-    fn fp_sqrt(&'c self, lhs: &AstRef<'c>, rm: FPRM) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpSqrt(lhs.clone(), rm))
+    fn fp_sqrt<RM: Into<FPRM>>(
+        &'c self,
+        lhs: &AstRef<'c>,
+        rm: RM,
+    ) -> Result<AstRef<'c>, ClarirsError> {
+        self.make_ast(AstOp::FpSqrt(lhs.clone(), rm.into()))
     }
 
     fn fp_eq(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
@@ -372,10 +368,15 @@ where {
 
     fn strindexof(
         &'c self,
-        lhs: &AstRef<'c>,
-        start: &AstRef<'c>,
+        base: &AstRef<'c>,
+        substr: &AstRef<'c>,
+        offset: &AstRef<'c>,
     ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::StrIndexOf(lhs.clone(), start.clone()))
+        self.make_ast(AstOp::StrIndexOf(
+            base.clone(),
+            substr.clone(),
+            offset.clone(),
+        ))
     }
 
     fn strreplace(
@@ -405,6 +406,7 @@ where {
 
     fn strtobv(&'c self, lhs: &AstRef<'c>, width: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         self.make_ast(AstOp::StrToBV(lhs.clone(), width.clone()))
+
     }
 
     fn bvtostr(&'c self, lhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {

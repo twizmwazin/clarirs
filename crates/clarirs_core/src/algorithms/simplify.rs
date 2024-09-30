@@ -32,7 +32,6 @@ pub fn simplify<'c>(ast: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         | AstOp::BoolV(..)
         | AstOp::BVS(..)
         | AstOp::BVV(..)
-        | AstOp::SI(..)
         | AstOp::FPS(..)
         | AstOp::FPV(..)
         | AstOp::StringS(..)
@@ -304,101 +303,19 @@ pub fn simplify<'c>(ast: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
                 _ => ctx.sge(&lhs, &rhs)?,
             }
         }
-        AstOp::FpToFp(lhs, sort) => {
-            simplify!(lhs);
-            match lhs.op() {
-                AstOp::FPV(v) => ctx.fp_to_fp(&ctx.fpv(v.clone())?, sort.clone())?,
-                _ => ctx.fp_to_fp(&lhs, sort.clone())?,
-            }
-        }
-
-        AstOp::BvToFpUnsigned(lhs, sort, rm) => {
-            simplify!(lhs);
-            match lhs.op() {
-                AstOp::BVV(v) => {
-                    ctx.bv_to_fp_unsigned(&ctx.bvv(v.clone())?, sort.clone(), rm.clone())?
-                }
-                _ => ctx.bv_to_fp_unsigned(&lhs, sort.clone(), rm.clone())?,
-            }
-        }
-        AstOp::FpToIEEEBV(lhs) => {
-            simplify!(lhs);
-            match lhs.op() {
-                AstOp::FPV(v) => ctx.fp_to_ieeebv(&ctx.fpv(v.clone())?)?,
-                _ => ctx.fp_to_ieeebv(&lhs)?,
-            }
-        }
-        AstOp::FpToUBV(lhs, width, rm) => {
-            simplify!(lhs);
-            match lhs.op() {
-                AstOp::FPV(v) => ctx.fp_to_ubv(&ctx.fpv(v.clone())?, width.clone(), rm.clone())?,
-                _ => ctx.fp_to_ubv(&lhs, width.clone(), rm.clone())?,
-            }
-        }
-        AstOp::FpToSBV(lhs, width, rm) => {
-            simplify!(lhs);
-            match lhs.op() {
-                AstOp::FPV(v) => ctx.fp_to_ubv(&ctx.fpv(v.clone())?, width.clone(), rm.clone())?,
-                _ => ctx.fp_to_ubv(&lhs, width.clone(), rm.clone())?,
-            }
-        }
-        AstOp::FpNeg(lhs, rm) => {
-            simplify!(lhs);
-            match lhs.op() {
-                AstOp::FPV(v) => ctx.fp_neg(&ctx.fpv(v.clone())?, rm.clone())?,
-                _ => ctx.fp_neg(&lhs, rm.clone())?,
-            }
-        }
-        AstOp::FpAbs(lhs, rm) => {
-            simplify!(lhs);
-            match lhs.op() {
-                AstOp::FPV(v) => ctx.fp_abs(&ctx.fpv(v.clone())?, rm.clone())?,
-                _ => ctx.fp_abs(&lhs, rm.clone())?,
-            }
-        }
-        AstOp::FpAdd(lhs, rhs, rm) => {
-            simplify!(lhs, rhs);
-            match (lhs.op(), rhs.op()) {
-                (AstOp::FPV(lhs), AstOp::FPV(rhs)) => {
-                    ctx.fp_add(&ctx.fpv(lhs.clone())?, &ctx.fpv(rhs.clone())?, rm.clone())?
-                }
-                _ => ctx.fp_add(&lhs, &rhs, rm.clone())?,
-            }
-        }
-        AstOp::FpSub(lhs, rhs, rm) => {
-            simplify!(lhs, rhs);
-            match (lhs.op(), rhs.op()) {
-                (AstOp::FPV(lhs), AstOp::FPV(rhs)) => {
-                    ctx.fp_sub(&ctx.fpv(lhs.clone())?, &ctx.fpv(rhs.clone())?, rm.clone())?
-                }
-                _ => ctx.fp_sub(&lhs, &rhs, rm.clone())?,
-            }
-        }
-        AstOp::FpMul(lhs, rhs, rm) => {
-            simplify!(lhs, rhs);
-            match (lhs.op(), rhs.op()) {
-                (AstOp::FPV(lhs), AstOp::FPV(rhs)) => {
-                    ctx.fp_mul(&ctx.fpv(lhs.clone())?, &ctx.fpv(rhs.clone())?, rm.clone())?
-                }
-                _ => ctx.fp_mul(&lhs, &rhs, rm.clone())?,
-            }
-        }
-        AstOp::FpDiv(lhs, rhs, rm) => {
-            simplify!(lhs, rhs);
-            match (lhs.op(), rhs.op()) {
-                (AstOp::FPV(lhs), AstOp::FPV(rhs)) => {
-                    ctx.fp_div(&ctx.fpv(lhs.clone())?, &ctx.fpv(rhs.clone())?, rm.clone())?
-                }
-                _ => ctx.fp_div(&lhs, &rhs, rm.clone())?,
-            }
-        }
-        AstOp::FpSqrt(lhs, rm) => {
-            simplify!(lhs);
-            match lhs.op() {
-                AstOp::FPV(v) => ctx.fp_sqrt(&ctx.fpv(v.clone())?, rm.clone())?,
-                _ => ctx.fp_sqrt(&lhs, rm.clone())?,
-            }
-        }
+      
+        AstOp::FpToFp(_, _, _) => todo!(),
+        AstOp::BvToFpUnsigned(_, _, _) => todo!(),
+        AstOp::FpToIEEEBV(_) => todo!(),
+        AstOp::FpToUBV(_, _, _) => todo!(),
+        AstOp::FpToSBV(_, _, _) => todo!(),
+        AstOp::FpNeg(_, _) => todo!(),
+        AstOp::FpAbs(_, _) => todo!(),
+        AstOp::FpAdd(_, _, _) => todo!(),
+        AstOp::FpSub(_, _, _) => todo!(),
+        AstOp::FpMul(_, _, _) => todo!(),
+        AstOp::FpDiv(_, _, _) => todo!(),
+        AstOp::FpSqrt(_, _) => todo!(),
         AstOp::FpEq(lhs, rhs) => {
             simplify!(lhs, rhs);
             match (lhs.op(), rhs.op()) {
@@ -413,153 +330,24 @@ pub fn simplify<'c>(ast: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
                 _ => ctx.fp_neq(&lhs, &rhs)?,
             }
         }
-        AstOp::FpLt(lhs, rhs) => {
-            simplify!(lhs, rhs);
-            match (lhs.op(), rhs.op()) {
-                (AstOp::FPV(lhs), AstOp::FPV(rhs)) => {
-                    ctx.fp_lt(&ctx.fpv(lhs.clone())?, &ctx.fpv(rhs.clone())?)?
-                }
-                _ => ctx.fp_lt(&lhs, &rhs)?,
-            }
-        }
-        AstOp::FpLeq(lhs, rhs) => {
-            simplify!(lhs, rhs);
-            match (lhs.op(), rhs.op()) {
-                (AstOp::FPV(lhs), AstOp::FPV(rhs)) => {
-                    ctx.fp_leq(&ctx.fpv(lhs.clone())?, &ctx.fpv(rhs.clone())?)?
-                }
-                _ => ctx.fp_leq(&lhs, &rhs)?,
-            }
-        }
-        AstOp::FpGt(lhs, rhs) => {
-            simplify!(lhs, rhs);
-            match (lhs.op(), rhs.op()) {
-                (AstOp::FPV(lhs), AstOp::FPV(rhs)) => {
-                    ctx.fp_gt(&ctx.fpv(lhs.clone())?, &ctx.fpv(rhs.clone())?)?
-                }
-                _ => ctx.fp_gt(&lhs, &rhs)?,
-            }
-        }
-        AstOp::FpGeq(lhs, rhs) => {
-            simplify!(lhs, rhs);
-            match (lhs.op(), rhs.op()) {
-                (AstOp::FPV(lhs), AstOp::FPV(rhs)) => {
-                    ctx.fp_geq(&ctx.fpv(lhs.clone())?, &ctx.fpv(rhs.clone())?)?
-                }
-                _ => ctx.fp_geq(&lhs, &rhs)?,
-            }
-        }
-        AstOp::FpIsNan(ast) => {
-            simplify!(ast);
-            match ast.op() {
-                AstOp::FPV(v) => ctx.fp_is_nan(&ctx.fpv(v.clone())?)?,
-                _ => ctx.fp_is_nan(&ast)?,
-            }
-        }
-        AstOp::FpIsInf(ast) => {
-            simplify!(ast);
-            match ast.op() {
-                AstOp::FPV(v) => ctx.fp_is_inf(&ctx.fpv(v.clone())?)?,
-                _ => ctx.fp_is_nan(&ast)?,
-            }
-        }
-        AstOp::StrLen(lhs, bitlength) => {
-            simplify!(lhs);
-            match (lhs.op(), bitlength.op()) {
-                (AstOp::StringV(v), AstOp::BVV(bitlength)) => {
-                    ctx.strlen(&ctx.stringv(v.clone())?, &ctx.bvv(bitlength.clone())?)?
-                }
-                _ => ctx.strlen(&lhs, &bitlength)?,
-            }
-        }
-        AstOp::StrConcat(lhs, rhs) => {
-            simplify!(lhs, rhs);
-            match (lhs.op(), rhs.op()) {
-                (AstOp::StringV(lhs), AstOp::StringV(rhs)) => {
-                    ctx.strconcat(&ctx.stringv(lhs.clone())?, &ctx.stringv(rhs.clone())?)?
-                }
-                _ => ctx.strconcat(&lhs, &rhs)?,
-            }
-        }
-        AstOp::StrSubstr(start, end, lhs) => {
-            simplify!(start, end, lhs);
-            match (start.op(), end.op(), lhs.op()) {
-                (AstOp::BVV(start), AstOp::BVV(end), AstOp::StringV(lhs)) => ctx.strsubstr(
-                    &ctx.bvv(start.clone())?,
-                    &ctx.bvv(end.clone())?,
-                    &ctx.stringv(lhs.clone())?,
-                )?,
-                _ => ctx.strsubstr(&start, &end, &lhs)?,
-            }
-        }
-        AstOp::StrContains(lhs, rhs) => {
-            simplify!(lhs, rhs);
-            match (lhs.op(), rhs.op()) {
-                (AstOp::StringV(lhs), AstOp::StringV(rhs)) => {
-                    ctx.strcontains(&ctx.stringv(lhs.clone())?, &ctx.stringv(rhs.clone())?)?
-                }
-                _ => ctx.strcontains(&lhs, &rhs)?,
-            }
-        }
-        AstOp::StrIndexOf(lhs, start) => {
-            simplify!(lhs, start);
-            match (lhs.op(), start.op()) {
-                (AstOp::StringV(lhs), AstOp::StringV(start)) => {
-                    ctx.strindexof(&ctx.stringv(lhs.clone())?, &ctx.stringv(start.clone())?)?
-                }
-                _ => ctx.strindexof(&lhs, &start)?,
-            }
-        }
-        AstOp::StrReplace(lhs, rhs, start) => {
-            simplify!(lhs, rhs, start);
-            match (lhs.op(), rhs.op(), start.op()) {
-                (AstOp::StringV(lhs), AstOp::StringV(rhs), AstOp::BVV(start)) => ctx.strreplace(
-                    &ctx.stringv(lhs.clone())?,
-                    &ctx.stringv(rhs.clone())?,
-                    &ctx.bvv(start.clone())?,
-                )?,
-                _ => ctx.strreplace(&lhs, &rhs, &start)?,
-            }
-        }
-        AstOp::StrPrefixOf(lhs, rhs) => {
-            simplify!(lhs, rhs);
-            match (lhs.op(), rhs.op()) {
-                (AstOp::StringV(lhs), AstOp::StringV(rhs)) => {
-                    ctx.strprefixof(&ctx.stringv(lhs.clone())?, &ctx.stringv(rhs.clone())?)?
-                }
-                _ => ctx.strprefixof(&lhs, &rhs)?,
-            }
-        }
-        AstOp::StrSuffixOf(lhs, rhs) => {
-            simplify!(lhs, rhs);
-            match (lhs.op(), rhs.op()) {
-                (AstOp::StringV(lhs), AstOp::StringV(rhs)) => {
-                    ctx.strsuffixof(&ctx.stringv(lhs.clone())?, &ctx.stringv(rhs.clone())?)?
-                }
-                _ => ctx.strsuffixof(&lhs, &rhs)?,
-            }
-        }
-        AstOp::StrToBV(lhs, width) => {
-            simplify!(lhs);
-            match lhs.op() {
-                AstOp::StringV(v) => ctx.strtobv(&ctx.stringv(v.clone())?, &width)?,
-                _ => ctx.strtobv(&lhs, &width)?,
-            }
-        }
-        AstOp::BVToStr(lhs) => {
-            simplify!(lhs);
-            match lhs.op() {
-                AstOp::BVV(v) => ctx.bvtostr(&ctx.bvv(v.clone())?)?,
-                _ => ctx.bvtostr(&lhs)?,
-            }
-        }
-        AstOp::StrIsDigit(lhs) => {
-            simplify!(lhs);
-            match lhs.op() {
-                AstOp::StringV(v) => ctx.strisdigit(&ctx.stringv(v.clone())?)?,
-                _ => ctx.strisdigit(&lhs)?,
-            }
-        }
+        AstOp::FpLt(_, _) => todo!(),
+        AstOp::FpLeq(_, _) => todo!(),
+        AstOp::FpGt(_, _) => todo!(),
+        AstOp::FpGeq(_, _) => todo!(),
+        AstOp::FpIsNan(_) => todo!(),
+        AstOp::FpIsInf(_) => todo!(),
+        AstOp::StrLen(_) => todo!(),
+        AstOp::StrConcat(_, _) => todo!(),
+        AstOp::StrSubstr(_, _, _) => todo!(),
+        AstOp::StrContains(_, _) => todo!(),
+        AstOp::StrIndexOf(_, _, _) => todo!(),
+        AstOp::StrReplace(_, _, _) => todo!(),
+        AstOp::StrPrefixOf(_, _) => todo!(),
+        AstOp::StrSuffixOf(_, _) => todo!(),
+        AstOp::StrToBV(_) => todo!(),
+        AstOp::BVToStr(_) => todo!(),
+        AstOp::StrIsDigit(_) => todo!(),
+
         AstOp::StrEq(lhs, rhs) => {
             simplify!(lhs, rhs);
             match (lhs.op(), rhs.op()) {

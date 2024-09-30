@@ -38,6 +38,6 @@ pub(crate) fn import<'py>(py: Python, m: &Bound<'py, PyModule>) -> PyResult<()> 
     m.add_class::<bool::Bool>()?;
     m.add_class::<bv::BV>()?;
     m.add_class::<fp::FP>()?;
-    m.add_class::<string::String>()?;
+    m.add_class::<string::AstString>()?;
     Ok(())
 }
