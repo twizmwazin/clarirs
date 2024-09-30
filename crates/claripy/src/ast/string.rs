@@ -1,5 +1,7 @@
 #![allow(non_snake_case)]
 
+use ast::bv::BV;
+
 use crate::ast::bits::Bits;
 use crate::prelude::*;
 
@@ -20,14 +22,58 @@ pyop!(StringS, strings, AstString, name: String, size: u32);
 pyop!(StringV, stringv, AstString, value: String);
 pyop!(StrLen, strlen, AstString, AstString);
 pyop!(StrConcat, strconcat, AstString, AstString, AstString);
-// pyop!(StrSubstr, strsubstr, AstString, AstString, BV, BV);
+
+#[pyfunction]
+pub fn StrSubstr(
+    py: Python,
+    base: PyRef<AstString>,
+    start: PyRef<BV>,
+    end: PyRef<BV>,
+) -> Result<Py<AstString>, ClaripyError> {
+    py_ast_from_astref(py, GLOBAL_CONTEXT.strsubstr(&get_astref(base), &get_astref(start), &get_astref(end))?)
+}
+
 pyop!(StrContains, strcontains, AstString, AstString, AstString);
-// pyop!(StrIndexOf, strindexof, AstString, AstString, BV);
-// pyop!(StrReplace, strreplace, AstString, AstString, AstString, AstString);
+
+#[pyfunction]
+pub fn StrIndexOf(
+    py: Python,
+    haystack: PyRef<AstString>,
+    needle: PyRef<AstString>,
+    start: PyRef<BV>,
+) -> Result<Py<BV>, ClaripyError> {
+    py_ast_from_astref(py, GLOBAL_CONTEXT.strindexof(&get_astref(haystack), &get_astref(needle), &get_astref(start))?)
+}
+
+#[pyfunction]
+pub fn StrReplace(
+    py: Python,
+    haystack: PyRef<AstString>,
+    needle: PyRef<AstString>,
+    replacement: PyRef<AstString>,
+) -> Result<Py<AstString>, ClaripyError> {
+    py_ast_from_astref(py, GLOBAL_CONTEXT.strreplace(&get_astref(haystack), &get_astref(needle), &get_astref(replacement))?)
+}
+
 pyop!(StrPrefixOf, strprefixof, AstString, AstString, AstString);
 pyop!(StrSuffixOf, strsuffixof, AstString, AstString, AstString);
-// pyop!(StrToBV, strtobv, BV, AstString, u32);
-// pyop!(BVToStr, bvtostr, AstString, BV);
+
+#[pyfunction]
+pub fn StrToBV(
+    py: Python,
+    s: PyRef<AstString>,
+) -> Result<Py<BV>, ClaripyError> {
+    py_ast_from_astref(py, GLOBAL_CONTEXT.strtobv(&get_astref(s))?)
+}
+
+#[pyfunction]
+pub fn BVToStr(
+    py: Python,
+    bv: PyRef<BV>,
+) -> Result<Py<AstString>, ClaripyError> {
+    py_ast_from_astref(py, GLOBAL_CONTEXT.bvtostr(&get_astref(bv))?)
+}
+
 pyop!(StrIsDigit, strisdigit, AstString, AstString);
 pyop!(StrEq, streq, AstString, AstString, AstString);
 pyop!(StrNeq, strneq, AstString, AstString, AstString);
@@ -41,14 +87,14 @@ pub(crate) fn import<'py>(_: Python, m: &Bound<'py, PyModule>) -> PyResult<()> {
         StringV,
         StrLen,
         StrConcat,
-        // StrSubstr,
+        StrSubstr,
         StrContains,
-        // StrIndexOf,
-        // StrReplace,
+        StrIndexOf,
+        StrReplace,
         StrPrefixOf,
         StrSuffixOf,
-        // StrToBV,
-        // BVToStr,
+        StrToBV,
+        BVToStr,
         StrIsDigit,
         StrEq,
         StrNeq,
