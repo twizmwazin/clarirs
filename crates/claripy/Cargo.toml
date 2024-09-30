@@ -12,3 +12,6 @@ clarirs_core = { path = "../clarirs_core", features = ["runtime-checks"] }
 thiserror = "1.0.63"
 num-bigint = "0.4.6"
 log = "0.4.22"
+
+[lints]
+workspace = true

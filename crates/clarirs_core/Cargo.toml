@@ -17,3 +17,6 @@ thiserror = "1.0.63"
 [features]
 default = ["runtime-checks"]
 runtime-checks = []
+
+[lints]
+workspace = true
