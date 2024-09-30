@@ -30,8 +30,7 @@ macro_rules! pysolver {
                 exprs: Vec<Bound<Base>>,
                 max_solutions: u32,
             ) -> Result<Vec<Py<Base>>, ClaripyError> {
-                self
-                    .solver
+                self.solver
                     .batch_eval(exprs.iter().map(|e| e.get().ast.clone()), max_solutions)?
                     .into_iter()
                     .map(|ast| py_ast_from_astref::<Base>(py, ast))
@@ -55,17 +54,11 @@ macro_rules! pysolver {
             }
 
             fn min(&mut self, py: Python, expr: Bound<Base>) -> Result<Py<Base>, ClaripyError> {
-                py_ast_from_astref(
-                    py,
-                    self.solver.min(expr.get().ast.clone()).unwrap(),
-                )
+                py_ast_from_astref(py, self.solver.min(expr.get().ast.clone()).unwrap())
             }
 
             fn max(&mut self, py: Python, expr: Bound<Base>) -> Result<Py<Base>, ClaripyError> {
-                py_ast_from_astref(
-                    py,
-                    self.solver.max(expr.get().ast.clone()).unwrap(),
-                )
+                py_ast_from_astref(py, self.solver.max(expr.get().ast.clone()).unwrap())
             }
         }
         $m.add_class::<PyConcreteSolver>()?;
