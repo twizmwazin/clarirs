@@ -19,6 +19,20 @@ jobs:
       - name: Rustfmt Check
         uses: actions-rust-lang/rustfmt@v1
 
+  clippy:
+    name: cargo clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain with clippy
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: clippy
+
+      - name: Clippy Check
+        run: cargo clippy --all-features
+
   test:
     name: Test on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
