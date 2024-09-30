@@ -2,6 +2,12 @@
 name = "clarirs_z3"
 version = "0.1.0"
 edition = "2021"
+description = "Z3 solver for clarirs"
+license = { workspace = true }
+readme = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
+repository = { workspace = true }
 
 [dependencies]
 clarirs_core = { path = "../clarirs_core" }
