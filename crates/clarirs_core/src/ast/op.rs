@@ -1,26 +1,80 @@
-use serde::Serialize;
+use serde::{de, Serialize};
 
 use crate::prelude::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 pub enum AstOp<'c> {
-    // Primitive ops
-    BoolS(String),
-    BoolV(bool),
-    BVS(String, u32),
-    BVV(BitVec),
-    FPS(String, FSort),
-    FPV(Float),
-    StringS(String, u32),
-    StringV(String),
+    LogicalOp(LogicalOp<'c>),
+    FloatOp(FloatOp<'c>),
+    BooleanOp(BooleanOp<'c>),
+    BitVecOp(BitVecOp<'c>),
+    StringOp(StringOp<'c>),
 
-    // Bit ops
+    // Function ops
+    If(AstRef<'c>, AstRef<'c>, AstRef<'c>),
+
+    // Annotation ops
+    Annotated(AstRef<'c>, Annotation<'c>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+pub enum LogicalOp<'c> {
     Not(AstRef<'c>),
     And(AstRef<'c>, AstRef<'c>),
     Or(AstRef<'c>, AstRef<'c>),
     Xor(AstRef<'c>, AstRef<'c>),
+}
 
-    // Arithmetic ops
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+pub enum FloatOp<'c> {
+    FPS(String, FSort),
+    FPV(Float),
+    FpNeg(AstRef<'c>, FPRM),
+    FpAbs(AstRef<'c>, FPRM),
+    FpAdd(AstRef<'c>, AstRef<'c>, FPRM),
+    FpSub(AstRef<'c>, AstRef<'c>, FPRM),
+    FpMul(AstRef<'c>, AstRef<'c>, FPRM),
+    FpDiv(AstRef<'c>, AstRef<'c>, FPRM),
+    FpSqrt(AstRef<'c>, FPRM),
+    FpToFp(AstRef<'c>, FSort),
+    BvToFpUnsigned(AstRef<'c>, FSort, FPRM),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+pub enum BooleanOp<'c> {
+    BoolS(String),
+    BoolV(bool),
+    Eq(AstRef<'c>, AstRef<'c>),
+    Neq(AstRef<'c>, AstRef<'c>),
+    ULT(AstRef<'c>, AstRef<'c>),
+    ULE(AstRef<'c>, AstRef<'c>),
+    UGT(AstRef<'c>, AstRef<'c>),
+    UGE(AstRef<'c>, AstRef<'c>),
+    SLT(AstRef<'c>, AstRef<'c>),
+    SLE(AstRef<'c>, AstRef<'c>),
+    SGT(AstRef<'c>, AstRef<'c>),
+    SGE(AstRef<'c>, AstRef<'c>),
+    FpEq(AstRef<'c>, AstRef<'c>),
+    FpNeq(AstRef<'c>, AstRef<'c>),
+    FpLt(AstRef<'c>, AstRef<'c>),
+    FpLeq(AstRef<'c>, AstRef<'c>),
+    FpGt(AstRef<'c>, AstRef<'c>),
+    FpGeq(AstRef<'c>, AstRef<'c>),
+    FpIsNan(AstRef<'c>),
+    FpIsInf(AstRef<'c>),
+    StrContains(AstRef<'c>, AstRef<'c>),
+    StrPrefixOf(AstRef<'c>, AstRef<'c>),
+    StrSuffixOf(AstRef<'c>, AstRef<'c>),
+    StrIsDigit(AstRef<'c>),
+    StrEq(AstRef<'c>, AstRef<'c>),
+    StrNeq(AstRef<'c>, AstRef<'c>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+pub enum BitVecOp<'c> {
+    BVS(String, u32),
+    BVV(BitVec),
+    SI(String, BitVec, BitVec, BitVec, u32),
     Add(AstRef<'c>, AstRef<'c>),
     Sub(AstRef<'c>, AstRef<'c>),
     Mul(AstRef<'c>, AstRef<'c>),
@@ -29,8 +83,6 @@ pub enum AstOp<'c> {
     URem(AstRef<'c>, AstRef<'c>),
     SRem(AstRef<'c>, AstRef<'c>),
     Pow(AstRef<'c>, AstRef<'c>),
-
-    // Bitvector ops
     LShL(AstRef<'c>, AstRef<'c>),
     LShR(AstRef<'c>, AstRef<'c>),
     AShL(AstRef<'c>, AstRef<'c>),
@@ -42,316 +94,285 @@ pub enum AstOp<'c> {
     Extract(AstRef<'c>, u32, u32),
     Concat(AstRef<'c>, AstRef<'c>),
     Reverse(AstRef<'c>),
-
-    // Bitvector comparison ops
-    Eq(AstRef<'c>, AstRef<'c>),
-    Neq(AstRef<'c>, AstRef<'c>),
-    ULT(AstRef<'c>, AstRef<'c>),
-    ULE(AstRef<'c>, AstRef<'c>),
-    UGT(AstRef<'c>, AstRef<'c>),
-    UGE(AstRef<'c>, AstRef<'c>),
-    SLT(AstRef<'c>, AstRef<'c>),
-    SLE(AstRef<'c>, AstRef<'c>),
-    SGT(AstRef<'c>, AstRef<'c>),
-    SGE(AstRef<'c>, AstRef<'c>),
-
-    // Floating point ops
-    FpToFp(AstRef<'c>, FSort, FPRM), // FpToFp(AstRef<'c>, FSort, FPRM)
-    BvToFpUnsigned(AstRef<'c>, FSort, FPRM), // Check is this is correct
-    FpToIEEEBV(AstRef<'c>),          // Check is this is correct
-
+    FpToIEEEBV(AstRef<'c>),
     FpToUBV(AstRef<'c>, u32, FPRM),
     FpToSBV(AstRef<'c>, u32, FPRM),
+    StrLen(AstRef<'c>, AstRef<'c>), // or StrLen(AstRef<'c>, u32),
+    StrIndexOf(AstRef<'c>, AstRef<'c>),
+    StrToBV(AstRef<'c>, AstRef<'c>), // StrToBV
+}
 
-    // Floating point arithmetic ops
-    FpNeg(AstRef<'c>, FPRM),
-    FpAbs(AstRef<'c>, FPRM),
-    FpAdd(AstRef<'c>, AstRef<'c>, FPRM),
-    FpSub(AstRef<'c>, AstRef<'c>, FPRM),
-    FpMul(AstRef<'c>, AstRef<'c>, FPRM),
-    FpDiv(AstRef<'c>, AstRef<'c>, FPRM),
-    FpSqrt(AstRef<'c>, FPRM),
-
-    // Floating point comparison ops
-    FpEq(AstRef<'c>, AstRef<'c>),
-    FpNeq(AstRef<'c>, AstRef<'c>),
-    FpLt(AstRef<'c>, AstRef<'c>),
-    FpLeq(AstRef<'c>, AstRef<'c>),
-    FpGt(AstRef<'c>, AstRef<'c>),
-    FpGeq(AstRef<'c>, AstRef<'c>),
-    FpIsNan(AstRef<'c>),
-    FpIsInf(AstRef<'c>),
-
-    // String ops
-    StrLen(AstRef<'c>),
-    StrConcat(AstRef<'c>, AstRef<'c>), // StrConcat(Vec<AstRef<'c>>) To allow for any number of args,
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+pub enum StringOp<'c> {
+    StringS(String, u32),
+    StringV(String),
+    StrConcat(AstRef<'c>, AstRef<'c>), // StrConcat (Vec<AstRef<'c>>) To allow for any number of args,
     StrSubstr(AstRef<'c>, AstRef<'c>, AstRef<'c>),
-    StrContains(AstRef<'c>, AstRef<'c>),
-    StrIndexOf(AstRef<'c>, AstRef<'c>, AstRef<'c>), // String, String, BV (offset)
     StrReplace(AstRef<'c>, AstRef<'c>, AstRef<'c>),
-    StrPrefixOf(AstRef<'c>, AstRef<'c>),
-    StrSuffixOf(AstRef<'c>, AstRef<'c>),
-    StrToBV(AstRef<'c>),
     BVToStr(AstRef<'c>),
-    StrIsDigit(AstRef<'c>),
-
-    // String comparison ops
-    StrEq(AstRef<'c>, AstRef<'c>),
-    StrNeq(AstRef<'c>, AstRef<'c>),
-
-    // Function ops
-    If(AstRef<'c>, AstRef<'c>, AstRef<'c>),
-
-    // Annotation ops
-    Annotated(AstRef<'c>, Annotation<'c>),
 }
 
 impl<'c> AstOp<'c> {
-    pub fn valid_args(&self) -> bool {
-        match self {
-            AstOp::BoolS(name)
-            | AstOp::BVS(name, ..)
-            | AstOp::FPS(name, ..)
-            | AstOp::StringS(name, ..) => !name.is_empty(),
-            AstOp::BoolV(..) | AstOp::BVV(..) | AstOp::FPV(..) | AstOp::StringV(..) => true,
-            AstOp::Not(ast) => ast.kind().is_bool() || ast.kind().is_bitvec(),
-            AstOp::And(lhs, rhs) | AstOp::Or(lhs, rhs) | AstOp::Xor(lhs, rhs) => {
-                (lhs.kind().is_bool() || lhs.kind().is_bitvec()) && lhs.kind() == rhs.kind()
-            }
-
-            // Bitvector ops and Bitvector comparison ops
-            AstOp::Add(lhs, rhs)
-            | AstOp::Sub(lhs, rhs)
-            | AstOp::Mul(lhs, rhs)
-            | AstOp::UDiv(lhs, rhs)
-            | AstOp::SDiv(lhs, rhs)
-            | AstOp::URem(lhs, rhs)
-            | AstOp::SRem(lhs, rhs)
-            | AstOp::Pow(lhs, rhs)
-            | AstOp::LShL(lhs, rhs)
-            | AstOp::LShR(lhs, rhs)
-            | AstOp::AShL(lhs, rhs)
-            | AstOp::AShR(lhs, rhs)
-            | AstOp::RotateLeft(lhs, rhs)
-            | AstOp::RotateRight(lhs, rhs)
-            | AstOp::Concat(lhs, rhs)
-            | AstOp::Eq(lhs, rhs)
-            | AstOp::Neq(lhs, rhs)
-            | AstOp::ULT(lhs, rhs)
-            | AstOp::ULE(lhs, rhs)
-            | AstOp::UGT(lhs, rhs)
-            | AstOp::UGE(lhs, rhs)
-            | AstOp::SLT(lhs, rhs)
-            | AstOp::SLE(lhs, rhs)
-            | AstOp::SGT(lhs, rhs)
-            | AstOp::SGE(lhs, rhs) => lhs.kind().is_bitvec() && rhs.kind().is_bitvec(),
-            AstOp::ZeroExt(ast, _)
-            | AstOp::SignExt(ast, _)
-            | AstOp::Extract(ast, _, _)
-            | AstOp::Reverse(ast) => ast.kind().is_bitvec(),
-
-            // Floating point ops
-            AstOp::FpToFp(ast, _, _)
-            | AstOp::BvToFpUnsigned(ast, _, _)
-            | AstOp::FpToIEEEBV(ast)
-            | AstOp::FpToSBV(ast, _, _) => ast.kind().is_float(),
-            AstOp::FpToUBV(ast, size, _) => ast.kind().is_float() && *size > 0,
-
-            // Floating point arithmetic ops
-            AstOp::FpNeg(ast, _) | AstOp::FpAbs(ast, _) | AstOp::FpSqrt(ast, _) => {
-                ast.kind().is_float()
-            }
-            AstOp::FpAdd(lhs, rhs, _)
-            | AstOp::FpSub(lhs, rhs, _)
-            | AstOp::FpMul(lhs, rhs, _)
-            | AstOp::FpDiv(lhs, rhs, _) => lhs.kind().is_float() && rhs.kind().is_float(),
-
-            // Floating point comparison ops
-            AstOp::FpEq(lhs, rhs)
-            | AstOp::FpNeq(lhs, rhs)
-            | AstOp::FpLt(lhs, rhs)
-            | AstOp::FpLeq(lhs, rhs)
-            | AstOp::FpGt(lhs, rhs)
-            | AstOp::FpGeq(lhs, rhs) => lhs.kind().is_float() && rhs.kind().is_float(),
-            AstOp::FpIsNan(ast) | AstOp::FpIsInf(ast) => ast.kind().is_float(),
-
-            // String ops
-            AstOp::StrLen(ast) => ast.kind().is_string(),
-            AstOp::StrConcat(lhs, rhs) => lhs.kind().is_string() && rhs.kind().is_string(),
-            AstOp::StrSubstr(lhs, rhs, str) => {
-                lhs.kind().is_bitvec() && rhs.kind().is_bitvec() && str.kind().is_string()
-            }
-            AstOp::StrReplace(lhs, rhs, str) => {
-                lhs.kind().is_string() && rhs.kind().is_string() && str.kind().is_string()
-            }
-            AstOp::StrContains(lhs, rhs)
-            | AstOp::StrPrefixOf(lhs, rhs)
-            | AstOp::StrSuffixOf(lhs, rhs) => lhs.kind().is_string() && rhs.kind().is_string(),
-            AstOp::StrIndexOf(base, substr, offset) => {
-                base.kind().is_string() && substr.kind().is_string() && offset.kind().is_bitvec()
-            }
-            AstOp::StrToBV(ast) => ast.kind().is_string(),
-            AstOp::BVToStr(ast) => ast.kind().is_bitvec(),
-            AstOp::StrIsDigit(ast) => ast.kind().is_string(),
-
-            // String comparison ops
-            AstOp::StrEq(lhs, rhs) | AstOp::StrNeq(lhs, rhs) => {
-                lhs.kind().is_string() && rhs.kind().is_string()
-            }
-
-            AstOp::If(_, _, _) => todo!(),
-            AstOp::Annotated(_, _) => todo!(),
-        }
-    }
+    // pub fn valid_args(&self) -> bool {
+    //     match self {
+    //         AstOp::BoolS(name)
+    //         | AstOp::BVS(name, ..)
+    //         | AstOp::SI(name, ..)
+    //         | AstOp::FPS(name, ..)
+    //         | AstOp::StringS(name, ..) => !name.is_empty(),
+    //         AstOp::BoolV(..) | AstOp::BVV(..) | AstOp::FPV(..) | AstOp::StringV(..) => true,
+    //         AstOp::Not(ast) => ast.kind().is_bool() || ast.kind().is_bitvec(),
+    //         AstOp::And(lhs, rhs) | AstOp::Or(lhs, rhs) | AstOp::Xor(lhs, rhs) => {
+    //             (lhs.kind().is_bool() || lhs.kind().is_bitvec()) && lhs.kind() == rhs.kind()
+    //         }
+    //         AstOp::Add(lhs, rhs)
+    //         | AstOp::Sub(lhs, rhs)
+    //         | AstOp::Mul(lhs, rhs)
+    //         | AstOp::UDiv(lhs, rhs)
+    //         | AstOp::SDiv(lhs, rhs)
+    //         | AstOp::URem(lhs, rhs)
+    //         | AstOp::SRem(lhs, rhs)
+    //         | AstOp::Pow(lhs, rhs)
+    //         | AstOp::LShL(lhs, rhs)
+    //         | AstOp::LShR(lhs, rhs)
+    //         | AstOp::AShL(lhs, rhs)
+    //         | AstOp::AShR(lhs, rhs)
+    //         | AstOp::RotateLeft(lhs, rhs)
+    //         | AstOp::RotateRight(lhs, rhs)
+    //         | AstOp::Concat(lhs, rhs)
+    //         | AstOp::Eq(lhs, rhs)
+    //         | AstOp::Neq(lhs, rhs)
+    //         | AstOp::ULT(lhs, rhs)
+    //         | AstOp::ULE(lhs, rhs)
+    //         | AstOp::UGT(lhs, rhs)
+    //         | AstOp::UGE(lhs, rhs)
+    //         | AstOp::SLT(lhs, rhs)
+    //         | AstOp::SLE(lhs, rhs)
+    //         | AstOp::SGT(lhs, rhs)
+    //         | AstOp::SGE(lhs, rhs) => lhs.kind().is_bitvec() && rhs.kind().is_bitvec(),
+    //         AstOp::ZeroExt(_, _) => todo!(),
+    //         AstOp::SignExt(_, _) => todo!(),
+    //         AstOp::Extract(_, _, _) => todo!(),
+    //         AstOp::Reverse(_) => todo!(),
+    //         AstOp::FpToFp(_, _) => todo!(),
+    //         AstOp::BvToFpUnsigned(_, _, _) => todo!(),
+    //         AstOp::FpToIEEEBV(_) => todo!(),
+    //         AstOp::FpToUBV(_, _, _) => todo!(),
+    //         AstOp::FpToSBV(_, _, _) => todo!(),
+    //         AstOp::FpNeg(ast, _) | AstOp::FpAbs(ast, _) => ast.kind().is_float(),
+    //         AstOp::FpAdd(lhs, rhs, _)
+    //         | AstOp::FpSub(lhs, rhs, _)
+    //         | AstOp::FpMul(lhs, rhs, _)
+    //         | AstOp::FpDiv(lhs, rhs, _) => lhs.kind().is_float() && rhs.kind().is_float(),
+    //         AstOp::FpSqrt(_, _) => todo!(),
+    //         AstOp::FpEq(_, _) => todo!(),
+    //         AstOp::FpNeq(_, _) => todo!(),
+    //         AstOp::FpLt(_, _) => todo!(),
+    //         AstOp::FpLeq(_, _) => todo!(),
+    //         AstOp::FpGt(_, _) => todo!(),
+    //         AstOp::FpGeq(_, _) => todo!(),
+    //         AstOp::FpIsNan(_) => todo!(),
+    //         AstOp::FpIsInf(_) => todo!(),
+    //         AstOp::StrLen(_) => todo!(),
+    //         AstOp::StrConcat(_, _) => todo!(),
+    //         AstOp::StrSubstr(_, _, _) => todo!(),
+    //         AstOp::StrContains(_, _) => todo!(),
+    //         AstOp::StrIndexOf(_, _) => todo!(),
+    //         AstOp::StrReplace(_, _, _) => todo!(),
+    //         AstOp::StrPrefixOf(_, _) => todo!(),
+    //         AstOp::StrSuffixOf(_, _) => todo!(),
+    //         AstOp::StrToBV(_, _) => todo!(),
+    //         AstOp::BVToStr(_) => todo!(),
+    //         AstOp::StrIsDigit(_) => todo!(),
+    //         AstOp::StrEq(_, _) => todo!(),
+    //         AstOp::StrNeq(_, _) => todo!(),
+    //         AstOp::If(_, _, _) => todo!(),
+    //         AstOp::Annotated(_, _) => todo!(),
+    //     }
+    // }
 
     pub fn kind(&self) -> AstKind {
         match self {
-            AstOp::BoolS(..) | AstOp::BoolV(..) => AstKind::Bool,
-            AstOp::BVS(..) | AstOp::BVV(..) => AstKind::BitVec,
-            AstOp::FPS(..) | AstOp::FPV(..) => AstKind::Float,
-            AstOp::StringS(..) | AstOp::StringV(..) => AstKind::String,
-            AstOp::Not(ast)
-            | AstOp::And(ast, ..)
-            | AstOp::Or(ast, ..)
-            | AstOp::Xor(ast, ..)
-            | AstOp::If(.., ast) => ast.kind(),
-            AstOp::Add(..)
-            | AstOp::Sub(..)
-            | AstOp::Mul(..)
-            | AstOp::UDiv(..)
-            | AstOp::SDiv(..)
-            | AstOp::URem(..)
-            | AstOp::SRem(..)
-            | AstOp::Pow(..)
-            | AstOp::LShL(..)
-            | AstOp::LShR(..)
-            | AstOp::AShL(..)
-            | AstOp::AShR(..)
-            | AstOp::RotateLeft(..)
-            | AstOp::RotateRight(..)
-            | AstOp::ZeroExt(..)
-            | AstOp::SignExt(..)
-            | AstOp::Extract(..)
-            | AstOp::Concat(..)
-            | AstOp::Reverse(..) => AstKind::BitVec,
-            AstOp::Eq(..)
-            | AstOp::Neq(..)
-            | AstOp::ULT(..)
-            | AstOp::ULE(..)
-            | AstOp::UGT(..)
-            | AstOp::UGE(..)
-            | AstOp::SLT(..)
-            | AstOp::SLE(..)
-            | AstOp::SGT(..)
-            | AstOp::SGE(..) => AstKind::Bool,
-            AstOp::FpToFp(..) | AstOp::BvToFpUnsigned(..) => AstKind::Float,
-            AstOp::FpToIEEEBV(..) | AstOp::FpToUBV(..) | AstOp::FpToSBV(..) => AstKind::BitVec,
-            AstOp::FpNeg(..)
-            | AstOp::FpAbs(..)
-            | AstOp::FpAdd(..)
-            | AstOp::FpSub(..)
-            | AstOp::FpMul(..)
-            | AstOp::FpDiv(..)
-            | AstOp::FpSqrt(..) => AstKind::Float,
-            AstOp::FpEq(..)
-            | AstOp::FpNeq(..)
-            | AstOp::FpLt(..)
-            | AstOp::FpLeq(..)
-            | AstOp::FpGt(..)
-            | AstOp::FpGeq(..)
-            | AstOp::FpIsNan(..)
-            | AstOp::FpIsInf(..) => AstKind::Bool,
-            AstOp::StrLen(..) => AstKind::BitVec,
-            AstOp::StrConcat(..) | AstOp::StrSubstr(..) => AstKind::String,
-            AstOp::StrContains(..) => AstKind::Bool,
-            AstOp::StrIndexOf(..) => AstKind::BitVec,
-            AstOp::StrReplace(..) => AstKind::String,
-            AstOp::StrPrefixOf(..) | AstOp::StrSuffixOf(..) => AstKind::Bool,
-            AstOp::StrToBV(..) => AstKind::BitVec,
-            AstOp::BVToStr(..) => AstKind::String,
-            AstOp::StrIsDigit(..) | AstOp::StrEq(..) | AstOp::StrNeq(..) => AstKind::Bool,
-            AstOp::Annotated(ast, ..) => ast.kind(),
+            AstOp::LogicalOp(op) => match op {
+                LogicalOp::Not(..)
+                | LogicalOp::And(..)
+                | LogicalOp::Or(..)
+                | LogicalOp::Xor(..) => AstKind::Bool,
+            },
+
+            AstOp::FloatOp(op) => match op {
+                FloatOp::FPS(..)
+                | FloatOp::FPV(..)
+                | FloatOp::FpNeg(..)
+                | FloatOp::FpAbs(..)
+                | FloatOp::FpAdd(..)
+                | FloatOp::FpSub(..)
+                | FloatOp::FpMul(..)
+                | FloatOp::FpDiv(..)
+                | FloatOp::FpSqrt(..)
+                | FloatOp::FpToFp(..)
+                | FloatOp::BvToFpUnsigned(..) => AstKind::Float,
+            },
+
+            AstOp::BooleanOp(op) => match op {
+                BooleanOp::BoolS(..)
+                | BooleanOp::BoolV(..)
+                | BooleanOp::Eq(..)
+                | BooleanOp::Neq(..)
+                | BooleanOp::ULT(..)
+                | BooleanOp::ULE(..)
+                | BooleanOp::UGT(..)
+                | BooleanOp::UGE(..)
+                | BooleanOp::SLT(..)
+                | BooleanOp::SLE(..)
+                | BooleanOp::SGT(..)
+                | BooleanOp::SGE(..)
+                | BooleanOp::FpEq(..)
+                | BooleanOp::FpNeq(..)
+                | BooleanOp::FpLt(..)
+                | BooleanOp::FpLeq(..)
+                | BooleanOp::FpGt(..)
+                | BooleanOp::FpGeq(..)
+                | BooleanOp::FpIsNan(..)
+                | BooleanOp::FpIsInf(..)
+                | BooleanOp::StrContains(..)
+                | BooleanOp::StrIsDigit(..)
+                | BooleanOp::StrPrefixOf(..)
+                | BooleanOp::StrSuffixOf(..)
+                | BooleanOp::StrEq(..)
+                | BooleanOp::StrNeq(..) => AstKind::Bool,
+            },
+
+            AstOp::BitVecOp(op) => match op {
+                BitVecOp::BVS(..)
+                | BitVecOp::BVV(..)
+                | BitVecOp::SI(..)
+                | BitVecOp::Add(..)
+                | BitVecOp::Sub(..)
+                | BitVecOp::Mul(..)
+                | BitVecOp::UDiv(..)
+                | BitVecOp::SDiv(..)
+                | BitVecOp::URem(..)
+                | BitVecOp::SRem(..)
+                | BitVecOp::Pow(..)
+                | BitVecOp::LShL(..)
+                | BitVecOp::LShR(..)
+                | BitVecOp::AShL(..)
+                | BitVecOp::AShR(..)
+                | BitVecOp::RotateLeft(..)
+                | BitVecOp::RotateRight(..)
+                | BitVecOp::ZeroExt(..)
+                | BitVecOp::SignExt(..)
+                | BitVecOp::Extract(..)
+                | BitVecOp::Concat(..)
+                | BitVecOp::Reverse(..)
+                | BitVecOp::FpToIEEEBV(..)
+                | BitVecOp::FpToUBV(..)
+                | BitVecOp::FpToSBV(..)
+                | BitVecOp::StrLen(..)
+                | BitVecOp::StrIndexOf(..)
+                | BitVecOp::StrToBV(..) => AstKind::BitVec,
+            },
+
+            AstOp::StringOp(op) => match op {
+                StringOp::StringS(..)
+                | StringOp::StringV(..)
+                | StringOp::StrConcat(..)
+                | StringOp::StrSubstr(..)
+                | StringOp::StrReplace(..)
+                | StringOp::BVToStr(..) => AstKind::String,
+            },
+
+            AstOp::If(.., ast) | AstOp::Annotated(ast, ..) => ast.kind(),
         }
     }
 
     pub fn child_iter(&self) -> impl Iterator<Item = &AstRef<'c>> {
         match self {
-            AstOp::BoolS(..)
-            | AstOp::BoolV(..)
-            | AstOp::BVS(..)
-            | AstOp::BVV(..)
-            | AstOp::FPS(..)
-            | AstOp::FPV(..)
-            | AstOp::StringS(..)
-            | AstOp::StringV(..) => Vec::new().into_iter(),
-            AstOp::Not(a)
-            | AstOp::Reverse(a)
-            | AstOp::ZeroExt(a, ..)
-            | AstOp::SignExt(a, ..)
-            | AstOp::Extract(a, ..)
-            | AstOp::FpToFp(a, ..)
-            | AstOp::BvToFpUnsigned(a, ..)
-            | AstOp::FpToIEEEBV(a)
-            | AstOp::FpToUBV(a, ..)
-            | AstOp::FpToSBV(a, ..)
-            | AstOp::FpNeg(a, ..)
-            | AstOp::FpAbs(a, ..)
-            | AstOp::FpSqrt(a, ..)
-            | AstOp::FpIsNan(a)
-            | AstOp::FpIsInf(a)
-            | AstOp::StrLen(a, ..)
-            | AstOp::StrToBV(a, ..)
-            | AstOp::BVToStr(a)
-            | AstOp::StrIsDigit(a)
+            // Cases with no children
+            AstOp::BooleanOp(BooleanOp::BoolS(..))
+            | AstOp::BooleanOp(BooleanOp::BoolV(..))
+            | AstOp::BitVecOp(BitVecOp::BVS(..))
+            | AstOp::BitVecOp(BitVecOp::BVV(..))
+            | AstOp::BitVecOp(BitVecOp::SI(..))
+            | AstOp::FloatOp(FloatOp::FPS(..))
+            | AstOp::FloatOp(FloatOp::FPV(..))
+            | AstOp::StringOp(StringOp::StringS(..))
+            | AstOp::StringOp(StringOp::StringV(..)) => Vec::new().into_iter(),
+
+            // Cases with one child
+            AstOp::LogicalOp(LogicalOp::Not(a))
+            | AstOp::BitVecOp(BitVecOp::Reverse(a))
+            | AstOp::BitVecOp(BitVecOp::ZeroExt(a, ..))
+            | AstOp::BitVecOp(BitVecOp::SignExt(a, ..))
+            | AstOp::BitVecOp(BitVecOp::Extract(a, ..))
+            | AstOp::FloatOp(FloatOp::FpToFp(a, ..))
+            | AstOp::FloatOp(FloatOp::BvToFpUnsigned(a, ..))
+            | AstOp::BitVecOp(BitVecOp::FpToIEEEBV(a))
+            | AstOp::BitVecOp(BitVecOp::FpToUBV(a, ..))
+            | AstOp::BitVecOp(BitVecOp::FpToSBV(a, ..))
+            | AstOp::FloatOp(FloatOp::FpNeg(a, ..))
+            | AstOp::FloatOp(FloatOp::FpAbs(a, ..))
+            | AstOp::FloatOp(FloatOp::FpSqrt(a, ..))
+            | AstOp::BooleanOp(BooleanOp::FpIsNan(a))
+            | AstOp::BooleanOp(BooleanOp::FpIsInf(a))
+            | AstOp::BitVecOp(BitVecOp::StrLen(a, ..))
+            | AstOp::BitVecOp(BitVecOp::StrToBV(a, ..))
+            | AstOp::StringOp(StringOp::BVToStr(a))
+            | AstOp::BooleanOp(BooleanOp::StrIsDigit(a))
             | AstOp::Annotated(a, ..) => vec![a].into_iter(),
-            AstOp::And(a, b)
-            | AstOp::Or(a, b)
-            | AstOp::Xor(a, b)
-            | AstOp::Add(a, b)
-            | AstOp::Sub(a, b)
-            | AstOp::Mul(a, b)
-            | AstOp::UDiv(a, b)
-            | AstOp::SDiv(a, b)
-            | AstOp::URem(a, b)
-            | AstOp::SRem(a, b)
-            | AstOp::Pow(a, b)
-            | AstOp::LShL(a, b)
-            | AstOp::LShR(a, b)
-            | AstOp::AShL(a, b)
-            | AstOp::AShR(a, b)
-            | AstOp::RotateLeft(a, b)
-            | AstOp::RotateRight(a, b)
-            | AstOp::Concat(a, b)
-            | AstOp::Eq(a, b)
-            | AstOp::Neq(a, b)
-            | AstOp::ULT(a, b)
-            | AstOp::ULE(a, b)
-            | AstOp::UGT(a, b)
-            | AstOp::UGE(a, b)
-            | AstOp::SLT(a, b)
-            | AstOp::SLE(a, b)
-            | AstOp::SGT(a, b)
-            | AstOp::SGE(a, b)
-            | AstOp::FpAdd(a, b, ..)
-            | AstOp::FpSub(a, b, ..)
-            | AstOp::FpMul(a, b, ..)
-            | AstOp::FpDiv(a, b, ..)
-            | AstOp::FpEq(a, b)
-            | AstOp::FpNeq(a, b)
-            | AstOp::FpLt(a, b)
-            | AstOp::FpLeq(a, b)
-            | AstOp::FpGt(a, b)
-            | AstOp::FpGeq(a, b)
-            | AstOp::StrConcat(a, b)
-            | AstOp::StrContains(a, b)
-            | AstOp::StrIndexOf(a, b, _)
-            | AstOp::StrPrefixOf(a, b)
-            | AstOp::StrSuffixOf(a, b)
-            | AstOp::StrEq(a, b)
-            | AstOp::StrNeq(a, b) => vec![a, b].into_iter(),
-            AstOp::StrSubstr(a, b, c) | AstOp::StrReplace(a, b, c) | AstOp::If(a, b, c) => {
-                vec![a, b, c].into_iter()
-            }
+
+            // Cases with two children
+            AstOp::LogicalOp(LogicalOp::And(a, b))
+            | AstOp::LogicalOp(LogicalOp::Or(a, b))
+            | AstOp::LogicalOp(LogicalOp::Xor(a, b))
+            | AstOp::BitVecOp(BitVecOp::Add(a, b))
+            | AstOp::BitVecOp(BitVecOp::Sub(a, b))
+            | AstOp::BitVecOp(BitVecOp::Mul(a, b))
+            | AstOp::BitVecOp(BitVecOp::UDiv(a, b))
+            | AstOp::BitVecOp(BitVecOp::SDiv(a, b))
+            | AstOp::BitVecOp(BitVecOp::URem(a, b))
+            | AstOp::BitVecOp(BitVecOp::SRem(a, b))
+            | AstOp::BitVecOp(BitVecOp::Pow(a, b))
+            | AstOp::BitVecOp(BitVecOp::LShL(a, b))
+            | AstOp::BitVecOp(BitVecOp::LShR(a, b))
+            | AstOp::BitVecOp(BitVecOp::AShL(a, b))
+            | AstOp::BitVecOp(BitVecOp::AShR(a, b))
+            | AstOp::BitVecOp(BitVecOp::RotateLeft(a, b))
+            | AstOp::BitVecOp(BitVecOp::RotateRight(a, b))
+            | AstOp::BitVecOp(BitVecOp::Concat(a, b))
+            | AstOp::BooleanOp(BooleanOp::Eq(a, b))
+            | AstOp::BooleanOp(BooleanOp::Neq(a, b))
+            | AstOp::BooleanOp(BooleanOp::ULT(a, b))
+            | AstOp::BooleanOp(BooleanOp::ULE(a, b))
+            | AstOp::BooleanOp(BooleanOp::UGT(a, b))
+            | AstOp::BooleanOp(BooleanOp::UGE(a, b))
+            | AstOp::BooleanOp(BooleanOp::SLT(a, b))
+            | AstOp::BooleanOp(BooleanOp::SLE(a, b))
+            | AstOp::BooleanOp(BooleanOp::SGT(a, b))
+            | AstOp::BooleanOp(BooleanOp::SGE(a, b))
+            | AstOp::FloatOp(FloatOp::FpAdd(a, b, ..))
+            | AstOp::FloatOp(FloatOp::FpSub(a, b, ..))
+            | AstOp::FloatOp(FloatOp::FpMul(a, b, ..))
+            | AstOp::FloatOp(FloatOp::FpDiv(a, b, ..))
+            | AstOp::BooleanOp(BooleanOp::FpEq(a, b))
+            | AstOp::BooleanOp(BooleanOp::FpNeq(a, b))
+            | AstOp::BooleanOp(BooleanOp::FpLt(a, b))
+            | AstOp::BooleanOp(BooleanOp::FpLeq(a, b))
+            | AstOp::BooleanOp(BooleanOp::FpGt(a, b))
+            | AstOp::BooleanOp(BooleanOp::FpGeq(a, b))
+            | AstOp::StringOp(StringOp::StrConcat(a, b))
+            | AstOp::BooleanOp(BooleanOp::StrContains(a, b))
+            | AstOp::BitVecOp(BitVecOp::StrIndexOf(a, b))
+            | AstOp::BooleanOp(BooleanOp::StrPrefixOf(a, b))
+            | AstOp::BooleanOp(BooleanOp::StrSuffixOf(a, b))
+            | AstOp::BooleanOp(BooleanOp::StrEq(a, b))
+            | AstOp::BooleanOp(BooleanOp::StrNeq(a, b)) => vec![a, b].into_iter(),
+
+            // Cases with three children
+            AstOp::StringOp(StringOp::StrSubstr(a, b, c))
+            | AstOp::StringOp(StringOp::StrReplace(a, b, c))
+            | AstOp::If(a, b, c) => vec![a, b, c].into_iter(),
         }
     }
 
