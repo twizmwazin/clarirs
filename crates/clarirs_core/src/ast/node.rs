@@ -7,6 +7,7 @@ use std::{
 
 use serde::Serialize;
 
+use crate::ast::op::BooleanOp;
 use crate::context::{Context, HasContext};
 
 use super::{kind::AstKind, op::AstOp};
@@ -100,11 +101,11 @@ impl<'c> AstNode<'c> {
     }
 
     pub fn is_true(&self) -> bool {
-        self.op == AstOp::BoolV(true)
+        matches!(self.op, AstOp::BooleanOp(BooleanOp::BoolV(true)))
     }
 
     pub fn is_false(&self) -> bool {
-        self.op == AstOp::BoolV(false)
+        matches!(self.op, AstOp::BooleanOp(BooleanOp::BoolV(false)))
     }
 }
 
