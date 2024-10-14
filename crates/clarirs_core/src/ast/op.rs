@@ -2,59 +2,67 @@ use serde::{de, Serialize};
 
 use crate::prelude::*;
 
-use crate::ast::node::{OpTrait, AstRef};
+use crate::ast::node::{AstRef, OpTrait};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 pub enum BooleanOp<'c> {
     BoolS(String),
     BoolV(bool),
-    Not(AstRef<'c>),
-    And(AstRef<'c>, AstRef<'c>),
-    Or(AstRef<'c>, AstRef<'c>),
-    Xor(AstRef<'c>, AstRef<'c>),
-    Eq(AstRef<'c>, AstRef<'c>),
-    Neq(AstRef<'c>, AstRef<'c>),
-    ULT(AstRef<'c>, AstRef<'c>),
-    ULE(AstRef<'c>, AstRef<'c>),
-    UGT(AstRef<'c>, AstRef<'c>),
-    UGE(AstRef<'c>, AstRef<'c>),
-    SLT(AstRef<'c>, AstRef<'c>),
-    SLE(AstRef<'c>, AstRef<'c>),
-    SGT(AstRef<'c>, AstRef<'c>),
-    SGE(AstRef<'c>, AstRef<'c>),
-    FpEq(AstRef<'c>, AstRef<'c>),
-    FpNeq(AstRef<'c>, AstRef<'c>),
-    FpLt(AstRef<'c>, AstRef<'c>),
-    FpLeq(AstRef<'c>, AstRef<'c>),
-    FpGt(AstRef<'c>, AstRef<'c>),
-    FpGeq(AstRef<'c>, AstRef<'c>),
-    FpIsNan(AstRef<'c>),
-    FpIsInf(AstRef<'c>),
-    StrContains(AstRef<'c>, AstRef<'c>),
-    StrPrefixOf(AstRef<'c>, AstRef<'c>),
-    StrSuffixOf(AstRef<'c>, AstRef<'c>),
-    StrIsDigit(AstRef<'c>),
-    StrEq(AstRef<'c>, AstRef<'c>),
-    StrNeq(AstRef<'c>, AstRef<'c>),
-    If(AstRef<'c>, AstRef<'c>, AstRef<'c>),
-    Annotated(AstRef<'c>, Annotation<'c>),
+    Not(AstRef<'c, BooleanOp<'c>>),
+    And(AstRef<'c, BooleanOp<'c>>, AstRef<'c, BooleanOp<'c>>),
+    Or(AstRef<'c, BooleanOp<'c>>, AstRef<'c, BooleanOp<'c>>),
+    Xor(AstRef<'c, BooleanOp<'c>>, AstRef<'c, BooleanOp<'c>>),
+    Eq(AstRef<'c, BooleanOp<'c>>, AstRef<'c, BooleanOp<'c>>),
+    Neq(AstRef<'c, BooleanOp<'c>>, AstRef<'c, BooleanOp<'c>>),
+    ULT(AstRef<'c, BooleanOp<'c>>, AstRef<'c, BooleanOp<'c>>),
+    ULE(AstRef<'c, BooleanOp<'c>>, AstRef<'c, BooleanOp<'c>>),
+    UGT(AstRef<'c, BooleanOp<'c>>, AstRef<'c, BooleanOp<'c>>),
+    UGE(AstRef<'c, BooleanOp<'c>>, AstRef<'c, BooleanOp<'c>>),
+    SLT(AstRef<'c, BooleanOp<'c>>, AstRef<'c, BooleanOp<'c>>),
+    SLE(AstRef<'c, BooleanOp<'c>>, AstRef<'c, BooleanOp<'c>>),
+    SGT(AstRef<'c, BooleanOp<'c>>, AstRef<'c, BooleanOp<'c>>),
+    SGE(AstRef<'c, BooleanOp<'c>>, AstRef<'c, BooleanOp<'c>>),
+    FpEq(AstRef<'c, BooleanOp<'c>>, AstRef<'c, BooleanOp<'c>>),
+    FpNeq(AstRef<'c, BooleanOp<'c>>, AstRef<'c, BooleanOp<'c>>),
+    FpLt(AstRef<'c, BooleanOp<'c>>, AstRef<'c, BooleanOp<'c>>),
+    FpLeq(AstRef<'c, BooleanOp<'c>>, AstRef<'c, BooleanOp<'c>>),
+    FpGt(AstRef<'c, BooleanOp<'c>>, AstRef<'c, BooleanOp<'c>>),
+    FpGeq(AstRef<'c, BooleanOp<'c>>, AstRef<'c, BooleanOp<'c>>),
+    FpIsNan(AstRef<'c, BooleanOp<'c>>),
+    FpIsInf(AstRef<'c, BooleanOp<'c>>),
+    StrContains(AstRef<'c, BooleanOp<'c>>, AstRef<'c, BooleanOp<'c>>),
+    StrPrefixOf(AstRef<'c, BooleanOp<'c>>, AstRef<'c, BooleanOp<'c>>),
+    StrSuffixOf(AstRef<'c, BooleanOp<'c>>, AstRef<'c, BooleanOp<'c>>),
+    StrIsDigit(AstRef<'c, BooleanOp<'c>>),
+    StrEq(AstRef<'c, BooleanOp<'c>>, AstRef<'c, BooleanOp<'c>>),
+    StrNeq(AstRef<'c, BooleanOp<'c>>, AstRef<'c, BooleanOp<'c>>),
+    If(
+        AstRef<'c, BooleanOp<'c>>,
+        AstRef<'c, BooleanOp<'c>>,
+        AstRef<'c, BooleanOp<'c>>,
+    ),
+    Annotated(AstRef<'c, BooleanOp<'c>>, Annotation<'c>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 pub enum FloatOp<'c> {
     FPS(String, FSort),
     FPV(Float),
-    FpNeg(AstRef<'c>, FPRM),
-    FpAbs(AstRef<'c>, FPRM),
-    FpAdd(AstRef<'c>, AstRef<'c>, FPRM),
-    FpSub(AstRef<'c>, AstRef<'c>, FPRM),
-    FpMul(AstRef<'c>, AstRef<'c>, FPRM),
-    FpDiv(AstRef<'c>, AstRef<'c>, FPRM),
-    FpSqrt(AstRef<'c>, FPRM),
-    FpToFp(AstRef<'c>, FSort),
-    BvToFpUnsigned(AstRef<'c>, FSort, FPRM),
-    If(AstRef<'c>, AstRef<'c>, AstRef<'c>),
-    Annotated(AstRef<'c>, Annotation<'c>),
+    FpNeg(AstRef<'c, FloatOp<'c>>, FPRM),
+    FpAbs(AstRef<'c, FloatOp<'c>>, FPRM),
+    FpAdd(AstRef<'c, FloatOp<'c>>, AstRef<'c, FloatOp<'c>>, FPRM),
+    FpSub(AstRef<'c, FloatOp<'c>>, AstRef<'c, FloatOp<'c>>, FPRM),
+    FpMul(AstRef<'c, FloatOp<'c>>, AstRef<'c, FloatOp<'c>>, FPRM),
+    FpDiv(AstRef<'c, FloatOp<'c>>, AstRef<'c, FloatOp<'c>>, FPRM),
+    FpSqrt(AstRef<'c, FloatOp<'c>>, FPRM),
+    FpToFp(AstRef<'c, FloatOp<'c>>, FSort),
+    BvToFpUnsigned(AstRef<'c, FloatOp<'c>>, FSort, FPRM),
+    If(
+        AstRef<'c, FloatOp<'c>>,
+        AstRef<'c, FloatOp<'c>>,
+        AstRef<'c, FloatOp<'c>>,
+    ),
+    Annotated(AstRef<'c, FloatOp<'c>>, Annotation<'c>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
@@ -62,53 +70,69 @@ pub enum BitVecOp<'c> {
     BVS(String, u32),
     BVV(BitVec),
     SI(String, BitVec, BitVec, BitVec, u32),
-    Not(AstRef<'c>),
-    And(AstRef<'c>, AstRef<'c>),
-    Or(AstRef<'c>, AstRef<'c>),
-    Xor(AstRef<'c>, AstRef<'c>),
-    Add(AstRef<'c>, AstRef<'c>),
-    Sub(AstRef<'c>, AstRef<'c>),
-    Mul(AstRef<'c>, AstRef<'c>),
-    UDiv(AstRef<'c>, AstRef<'c>),
-    SDiv(AstRef<'c>, AstRef<'c>),
-    URem(AstRef<'c>, AstRef<'c>),
-    SRem(AstRef<'c>, AstRef<'c>),
-    Pow(AstRef<'c>, AstRef<'c>),
-    LShL(AstRef<'c>, AstRef<'c>),
-    LShR(AstRef<'c>, AstRef<'c>),
-    AShL(AstRef<'c>, AstRef<'c>),
-    AShR(AstRef<'c>, AstRef<'c>),
-    RotateLeft(AstRef<'c>, AstRef<'c>),
-    RotateRight(AstRef<'c>, AstRef<'c>),
-    ZeroExt(AstRef<'c>, u32),
-    SignExt(AstRef<'c>, u32),
-    Extract(AstRef<'c>, u32, u32),
-    Concat(AstRef<'c>, AstRef<'c>),
-    Reverse(AstRef<'c>),
-    FpToIEEEBV(AstRef<'c>),
-    FpToUBV(AstRef<'c>, u32, FPRM),
-    FpToSBV(AstRef<'c>, u32, FPRM),
-    StrLen(AstRef<'c>, AstRef<'c>), // or StrLen(AstRef<'c>, u32),
-    StrIndexOf(AstRef<'c>, AstRef<'c>),
-    StrToBV(AstRef<'c>, AstRef<'c>), // StrToBV
-    If(AstRef<'c>, AstRef<'c>, AstRef<'c>),
-    Annotated(AstRef<'c>, Annotation<'c>),
+    Not(AstRef<'c, BitVecOp<'c>>),
+    And(AstRef<'c, BitVecOp<'c>>, AstRef<'c, BitVecOp<'c>>),
+    Or(AstRef<'c, BitVecOp<'c>>, AstRef<'c, BitVecOp<'c>>),
+    Xor(AstRef<'c, BitVecOp<'c>>, AstRef<'c, BitVecOp<'c>>),
+    Add(AstRef<'c, BitVecOp<'c>>, AstRef<'c, BitVecOp<'c>>),
+    Sub(AstRef<'c, BitVecOp<'c>>, AstRef<'c, BitVecOp<'c>>),
+    Mul(AstRef<'c, BitVecOp<'c>>, AstRef<'c, BitVecOp<'c>>),
+    UDiv(AstRef<'c, BitVecOp<'c>>, AstRef<'c, BitVecOp<'c>>),
+    SDiv(AstRef<'c, BitVecOp<'c>>, AstRef<'c, BitVecOp<'c>>),
+    URem(AstRef<'c, BitVecOp<'c>>, AstRef<'c, BitVecOp<'c>>),
+    SRem(AstRef<'c, BitVecOp<'c>>, AstRef<'c, BitVecOp<'c>>),
+    Pow(AstRef<'c, BitVecOp<'c>>, AstRef<'c, BitVecOp<'c>>),
+    LShL(AstRef<'c, BitVecOp<'c>>, AstRef<'c, BitVecOp<'c>>),
+    LShR(AstRef<'c, BitVecOp<'c>>, AstRef<'c, BitVecOp<'c>>),
+    AShL(AstRef<'c, BitVecOp<'c>>, AstRef<'c, BitVecOp<'c>>),
+    AShR(AstRef<'c, BitVecOp<'c>>, AstRef<'c, BitVecOp<'c>>),
+    RotateLeft(AstRef<'c, BitVecOp<'c>>, AstRef<'c, BitVecOp<'c>>),
+    RotateRight(AstRef<'c, BitVecOp<'c>>, AstRef<'c, BitVecOp<'c>>),
+    ZeroExt(AstRef<'c, BitVecOp<'c>>, u32),
+    SignExt(AstRef<'c, BitVecOp<'c>>, u32),
+    Extract(AstRef<'c, BitVecOp<'c>>, u32, u32),
+    Concat(AstRef<'c, BitVecOp<'c>>, AstRef<'c, BitVecOp<'c>>),
+    Reverse(AstRef<'c, BitVecOp<'c>>),
+    FpToIEEEBV(AstRef<'c, BitVecOp<'c>>),
+    FpToUBV(AstRef<'c, BitVecOp<'c>>, u32, FPRM),
+    FpToSBV(AstRef<'c, BitVecOp<'c>>, u32, FPRM),
+    StrLen(AstRef<'c, BitVecOp<'c>>, AstRef<'c, BitVecOp<'c>>), // or StrLen(AstRef<'c, BitVecOp<'c>>, u32),
+    StrIndexOf(AstRef<'c, BitVecOp<'c>>, AstRef<'c, BitVecOp<'c>>),
+    StrToBV(AstRef<'c, BitVecOp<'c>>, AstRef<'c, BitVecOp<'c>>), // StrToBV
+    If(
+        AstRef<'c, BitVecOp<'c>>,
+        AstRef<'c, BitVecOp<'c>>,
+        AstRef<'c, BitVecOp<'c>>,
+    ),
+    Annotated(AstRef<'c, BitVecOp<'c>>, Annotation<'c>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 pub enum StringOp<'c> {
     StringS(String, u32),
     StringV(String),
-    StrConcat(AstRef<'c>, AstRef<'c>), // StrConcat (Vec<AstRef<'c>>) To allow for any number of args,
-    StrSubstr(AstRef<'c>, AstRef<'c>, AstRef<'c>),
-    StrReplace(AstRef<'c>, AstRef<'c>, AstRef<'c>),
-    BVToStr(AstRef<'c>),
-    If(AstRef<'c>, AstRef<'c>, AstRef<'c>),
-    Annotated(AstRef<'c>, Annotation<'c>),
+    StrConcat(AstRef<'c, StringOp<'c>>, AstRef<'c, StringOp<'c>>), // StrConcat (Vec<AstRef<'c>>) To allow for any number of args,
+    StrSubstr(
+        AstRef<'c, StringOp<'c>>,
+        AstRef<'c, StringOp<'c>>,
+        AstRef<'c, StringOp<'c>>,
+    ),
+    StrReplace(
+        AstRef<'c, StringOp<'c>>,
+        AstRef<'c, StringOp<'c>>,
+        AstRef<'c, StringOp<'c>>,
+    ),
+    BVToStr(AstRef<'c, StringOp<'c>>),
+    If(
+        AstRef<'c, StringOp<'c>>,
+        AstRef<'c, StringOp<'c>>,
+        AstRef<'c, StringOp<'c>>,
+    ),
+    Annotated(AstRef<'c, StringOp<'c>>, Annotation<'c>),
 }
 
 impl<'c> OpTrait<'c> for BooleanOp<'c> {
-    fn child_iter(&self) -> Box<dyn Iterator<Item = &AstRef<'c>> + 'c> {
+    fn child_iter(&self) -> Box<dyn Iterator<Item = AstRef<'c, BooleanOp<'c>>> + 'c> {
         match self {
             // Cases with no children
             BooleanOp::BoolS(_) | BooleanOp::BoolV(_) => Box::new(std::iter::empty()),
@@ -118,7 +142,7 @@ impl<'c> OpTrait<'c> for BooleanOp<'c> {
             | BooleanOp::FpIsNan(a)
             | BooleanOp::FpIsInf(a)
             | BooleanOp::StrIsDigit(a)
-            | BooleanOp::Annotated(a, _) => Box::new(std::iter::once(a)),
+            | BooleanOp::Annotated(a, _) => Box::new(std::iter::once(a.clone())),
 
             // Cases with two children
             BooleanOp::And(a, b)
@@ -144,18 +168,13 @@ impl<'c> OpTrait<'c> for BooleanOp<'c> {
             | BooleanOp::StrPrefixOf(a, b)
             | BooleanOp::StrSuffixOf(a, b)
             | BooleanOp::StrEq(a, b)
-            | BooleanOp::StrNeq(a, b) => Box::new(vec![a, b].into_iter()),
+            | BooleanOp::StrNeq(a, b) => Box::new(vec![a.clone(), b.clone()].into_iter()),
 
             // Cases with three children
-            BooleanOp::If(a, b, c) => Box::new(vec![a, b, c].into_iter()),
+            BooleanOp::If(a, b, c) => Box::new(vec![a.clone(), b.clone(), c.clone()].into_iter()),
         }
     }
 
-    fn children(&self) -> Vec<AstRef<'c>> {
-        self.child_iter().cloned().collect()
-    }
-
-    // Override is_true and is_false
     fn is_true(&self) -> bool {
         matches!(self, BooleanOp::BoolV(true))
     }
@@ -166,7 +185,7 @@ impl<'c> OpTrait<'c> for BooleanOp<'c> {
 }
 
 impl<'c> OpTrait<'c> for FloatOp<'c> {
-    fn child_iter(&self) -> Box<dyn Iterator<Item = &AstRef<'c>> + 'c> {
+    fn child_iter(&self) -> Box<dyn Iterator<Item = AstRef<'c, FloatOp<'c>>> + 'c> {
         match self {
             FloatOp::FPS(_, _) | FloatOp::FPV(_) => Box::new(std::iter::empty()),
 
@@ -175,24 +194,20 @@ impl<'c> OpTrait<'c> for FloatOp<'c> {
             | FloatOp::FpSqrt(a, _)
             | FloatOp::FpToFp(a, _)
             | FloatOp::BvToFpUnsigned(a, _, _)
-            | FloatOp::Annotated(a, _) => Box::new(std::iter::once(a)),
+            | FloatOp::Annotated(a, _) => Box::new(std::iter::once(a.clone())),
 
             FloatOp::FpAdd(a, b, _)
             | FloatOp::FpSub(a, b, _)
             | FloatOp::FpMul(a, b, _)
-            | FloatOp::FpDiv(a, b, _) => Box::new(vec![a, b].into_iter()),
+            | FloatOp::FpDiv(a, b, _) => Box::new(vec![a.clone(), b.clone()].into_iter()),
 
-            FloatOp::If(a, b, c) => Box::new(vec![a, b, c].into_iter()),
+            FloatOp::If(a, b, c) => Box::new(vec![a.clone(), b.clone(), c.clone()].into_iter()),
         }
-    }
-
-    fn children(&self) -> Vec<AstRef<'c>> {
-        self.child_iter().cloned().collect()
     }
 }
 
 impl<'c> OpTrait<'c> for BitVecOp<'c> {
-    fn child_iter(&self) -> Box<dyn Iterator<Item = &AstRef<'c>> + 'c> {
+    fn child_iter(&self) -> Box<dyn Iterator<Item = AstRef<'c, BitVecOp<'c>>> + 'c> {
         match self {
             BitVecOp::BVS(..) | BitVecOp::BVV(..) | BitVecOp::SI(..) => {
                 Box::new(std::iter::empty())
@@ -208,7 +223,7 @@ impl<'c> OpTrait<'c> for BitVecOp<'c> {
             | BitVecOp::FpToSBV(a, _, _)
             | BitVecOp::StrLen(a, _)
             | BitVecOp::StrToBV(a, _)
-            | BitVecOp::Annotated(a, _) => Box::new(std::iter::once(a)),
+            | BitVecOp::Annotated(a, _) => Box::new(std::iter::once(a.clone())),
 
             BitVecOp::And(a, b)
             | BitVecOp::Or(a, b)
@@ -228,139 +243,27 @@ impl<'c> OpTrait<'c> for BitVecOp<'c> {
             | BitVecOp::RotateLeft(a, b)
             | BitVecOp::RotateRight(a, b)
             | BitVecOp::Concat(a, b)
-            | BitVecOp::StrIndexOf(a, b) => Box::new(vec![a, b].into_iter()),
+            | BitVecOp::StrIndexOf(a, b) => Box::new(vec![a.clone(), b.clone()].into_iter()),
 
-            BitVecOp::If(a, b, c) => Box::new(vec![a, b, c].into_iter()),
+            BitVecOp::If(a, b, c) => Box::new(vec![a.clone(), b.clone(), c.clone()].into_iter()),
         }
-    }
-
-    fn children(&self) -> Vec<AstRef<'c>> {
-        self.child_iter().cloned().collect()
     }
 }
 
 impl<'c> OpTrait<'c> for StringOp<'c> {
-    fn child_iter(&self) -> Box<dyn Iterator<Item = &AstRef<'c>> + 'c> {
+    fn child_iter(&self) -> Box<dyn Iterator<Item = AstRef<'c, StringOp<'c>>> + 'c> {
         match self {
             StringOp::StringS(..) | StringOp::StringV(..) => Box::new(std::iter::empty()),
 
-            StringOp::BVToStr(a) | StringOp::Annotated(a, _) => Box::new(std::iter::once(a)),
+            StringOp::BVToStr(a) | StringOp::Annotated(a, _) => {
+                Box::new(std::iter::once(a.clone()))
+            }
 
-            StringOp::StrConcat(a, b) => Box::new(vec![a, b].into_iter()),
+            StringOp::StrConcat(a, b) => Box::new(vec![a.clone(), b.clone()].into_iter()),
 
             StringOp::StrSubstr(a, b, c)
             | StringOp::StrReplace(a, b, c)
-            | StringOp::If(a, b, c) => Box::new(vec![a, b, c].into_iter()),
+            | StringOp::If(a, b, c) => Box::new(vec![a.clone(), b.clone(), c.clone()].into_iter()),
         }
     }
-
-    fn children(&self) -> Vec<AstRef<'c>> {
-        self.child_iter().cloned().collect()
-    }
 }
-
-
-// impl<'c> AstOp<'c> {
-//     pub fn child_iter(&self) -> impl Iterator<Item = &AstRef<'c>> {
-//         match self {
-//             // Cases with no children
-//             BooleanOp::BoolS(..)
-//             | BooleanOp::BoolV(..)
-//             | FloatOp::FPS(..)
-//             | FloatOp::FPV(..)
-//             | BitVecOp::BVS(..)
-//             | BitVecOp::BVV(..)
-//             | BitVecOp::SI(..)
-//             | StringOp::StringS(..)
-//             | StringOp::StringV(..) => Vec::new().into_iter(),
-
-//             // Cases with one child
-//             BooleanOp::Not(a)
-//             | BooleanOp::FpIsNan(a)
-//             | BooleanOp::FpIsInf(a)
-//             | BooleanOp::StrIsDigit(a)
-//             | FloatOp::FpToFp(a, ..)
-//             | FloatOp::BvToFpUnsigned(a, ..)
-//             | FloatOp::FpNeg(a, ..)
-//             | FloatOp::FpAbs(a, ..)
-//             | FloatOp::FpSqrt(a, ..)
-//             | BitVecOp::Not(a)
-//             | BitVecOp::Reverse(a)
-//             | BitVecOp::ZeroExt(a, ..)
-//             | BitVecOp::SignExt(a, ..)
-//             | BitVecOp::Extract(a, ..)
-//             | BitVecOp::FpToIEEEBV(a)
-//             | BitVecOp::FpToUBV(a, ..)
-//             | BitVecOp::FpToSBV(a, ..)
-//             | BitVecOp::StrLen(a, ..)
-//             | BitVecOp::StrToBV(a, ..)
-//             | StringOp::BVToStr(a)
-//             | BooleanOp::Annotated(a, ..)
-//             | FloatOp::Annotated(a, ..)
-//             | BitVecOp::Annotated(a, ..)
-//             | StringOp::Annotated(a, ..) => vec![a].into_iter(),
-
-//             // Cases with two children
-//             BooleanOp::StrContains(a, b)
-//             | BooleanOp::StrPrefixOf(a, b)
-//             | BooleanOp::StrSuffixOf(a, b)
-//             | BooleanOp::StrEq(a, b)
-//             | BooleanOp::StrNeq(a, b)
-//             | BooleanOp::And(a, b)
-//             | BooleanOp::Or(a, b)
-//             | BooleanOp::Xor(a, b)
-//             | BooleanOp::Eq(a, b)
-//             | BooleanOp::Neq(a, b)
-//             | BooleanOp::ULT(a, b)
-//             | BooleanOp::ULE(a, b)
-//             | BooleanOp::UGT(a, b)
-//             | BooleanOp::UGE(a, b)
-//             | BooleanOp::SLT(a, b)
-//             | BooleanOp::SLE(a, b)
-//             | BooleanOp::SGT(a, b)
-//             | BooleanOp::SGE(a, b)
-//             | BooleanOp::FpEq(a, b)
-//             | BooleanOp::FpNeq(a, b)
-//             | BooleanOp::FpLt(a, b)
-//             | BooleanOp::FpLeq(a, b)
-//             | BooleanOp::FpGt(a, b)
-//             | BooleanOp::FpGeq(a, b)
-//             | FloatOp::FpAdd(a, b, ..)
-//             | FloatOp::FpSub(a, b, ..)
-//             | FloatOp::FpMul(a, b, ..)
-//             | FloatOp::FpDiv(a, b, ..)
-//             | BitVecOp::And(a, b)
-//             | BitVecOp::Or(a, b)
-//             | BitVecOp::Xor(a, b)
-//             | BitVecOp::Add(a, b)
-//             | BitVecOp::Sub(a, b)
-//             | BitVecOp::Mul(a, b)
-//             | BitVecOp::UDiv(a, b)
-//             | BitVecOp::SDiv(a, b)
-//             | BitVecOp::URem(a, b)
-//             | BitVecOp::SRem(a, b)
-//             | BitVecOp::Pow(a, b)
-//             | BitVecOp::LShL(a, b)
-//             | BitVecOp::LShR(a, b)
-//             | BitVecOp::AShL(a, b)
-//             | BitVecOp::AShR(a, b)
-//             | BitVecOp::RotateLeft(a, b)
-//             | BitVecOp::RotateRight(a, b)
-//             | BitVecOp::Concat(a, b)
-//             | BitVecOp::StrIndexOf(a, b)
-//             | AstOp::StringOp(StringOp::StrConcat(a, b)) => vec![a, b].into_iter(),
-
-//             // Cases with three children
-//             BooleanOp::If(a, b, c)
-//             | FloatOp::If(a, b, c)
-//             | BitVecOp::If(a, b, c)
-//             | StringOp::StrSubstr(a, b, c)
-//             | StringOp::StrReplace(a, b, c)
-//             | StringOp::If(a, b, c) => vec![a, b, c].into_iter(),
-//         }
-//     }
-
-//     pub fn children(&self) -> Vec<&AstRef<'c>> {
-//         self.child_iter().collect()
-//     }
-// }
