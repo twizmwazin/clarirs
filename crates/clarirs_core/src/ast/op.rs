@@ -36,11 +36,11 @@ pub enum BooleanOp<'c> {
     StrIsDigit(AstRef<'c, BooleanOp<'c>>),
     StrEq(AstRef<'c, BooleanOp<'c>>, AstRef<'c, BooleanOp<'c>>),
     StrNeq(AstRef<'c, BooleanOp<'c>>, AstRef<'c, BooleanOp<'c>>),
-    If(
-        AstRef<'c, BooleanOp<'c>>,
-        AstRef<'c, BooleanOp<'c>>,
-        AstRef<'c, BooleanOp<'c>>,
-    ),
+    // If(
+    //     AstRef<'c, BooleanOp<'c>>,
+    //     AstRef<'c, BooleanOp<'c>>,
+    //     AstRef<'c, BooleanOp<'c>>,
+    // ),
     Annotated(AstRef<'c, BooleanOp<'c>>, Annotation<'c>),
 }
 
@@ -57,11 +57,11 @@ pub enum FloatOp<'c> {
     FpSqrt(AstRef<'c, FloatOp<'c>>, FPRM),
     FpToFp(AstRef<'c, FloatOp<'c>>, FSort),
     BvToFpUnsigned(AstRef<'c, FloatOp<'c>>, FSort, FPRM),
-    If(
-        AstRef<'c, FloatOp<'c>>,
-        AstRef<'c, FloatOp<'c>>,
-        AstRef<'c, FloatOp<'c>>,
-    ),
+    // If(
+    //     AstRef<'c, BooleanOp<'c>>,
+    //     AstRef<'c, FloatOp<'c>>,
+    //     AstRef<'c, FloatOp<'c>>,
+    // ),
     Annotated(AstRef<'c, FloatOp<'c>>, Annotation<'c>),
 }
 
@@ -96,14 +96,18 @@ pub enum BitVecOp<'c> {
     FpToIEEEBV(AstRef<'c, BitVecOp<'c>>),
     FpToUBV(AstRef<'c, BitVecOp<'c>>, u32, FPRM),
     FpToSBV(AstRef<'c, BitVecOp<'c>>, u32, FPRM),
-    StrLen(AstRef<'c, BitVecOp<'c>>, AstRef<'c, BitVecOp<'c>>), // or StrLen(AstRef<'c, BitVecOp<'c>>, u32),
-    StrIndexOf(AstRef<'c, BitVecOp<'c>>, AstRef<'c, BitVecOp<'c>>),
-    StrToBV(AstRef<'c, BitVecOp<'c>>, AstRef<'c, BitVecOp<'c>>), // StrToBV
-    If(
+    StrLen(AstRef<'c, BitVecOp<'c>>), // or StrLen(AstRef<'c, BitVecOp<'c>>, u32),
+    StrIndexOf(
         AstRef<'c, BitVecOp<'c>>,
         AstRef<'c, BitVecOp<'c>>,
         AstRef<'c, BitVecOp<'c>>,
     ),
+    StrToBV(AstRef<'c, BitVecOp<'c>>),
+    // If(
+    //     AstRef<'c, BooleanOp<'c>>,
+    //     AstRef<'c, BitVecOp<'c>>,
+    //     AstRef<'c, BitVecOp<'c>>,
+    // ),
     Annotated(AstRef<'c, BitVecOp<'c>>, Annotation<'c>),
 }
 
@@ -123,16 +127,19 @@ pub enum StringOp<'c> {
         AstRef<'c, StringOp<'c>>,
     ),
     BVToStr(AstRef<'c, StringOp<'c>>),
-    If(
-        AstRef<'c, StringOp<'c>>,
-        AstRef<'c, StringOp<'c>>,
-        AstRef<'c, StringOp<'c>>,
-    ),
+    // If(
+    //     AstRef<'c, BooleanOp<'c>>,
+    //     AstRef<'c, StringOp<'c>>,
+    //     AstRef<'c, StringOp<'c>>,
+    // ),
     Annotated(AstRef<'c, StringOp<'c>>, Annotation<'c>),
 }
 
 impl<'c> OpTrait<'c> for BooleanOp<'c> {
-    fn child_iter(&self) -> Box<dyn Iterator<Item = AstRef<'c, BooleanOp<'c>>> + 'c> {
+    // fn child_iter(&self) -> Box<dyn Iterator<Item = AstRef<'c, dyn OpTrait<'c>>> + 'c> {
+    type Child = BooleanOp<'c>;
+
+    fn child_iter(&self) -> Box<dyn Iterator<Item = AstRef<'c, Self::Child>> + 'c> {
         match self {
             // Cases with no children
             BooleanOp::BoolS(_) | BooleanOp::BoolV(_) => Box::new(std::iter::empty()),
@@ -169,9 +176,8 @@ impl<'c> OpTrait<'c> for BooleanOp<'c> {
             | BooleanOp::StrSuffixOf(a, b)
             | BooleanOp::StrEq(a, b)
             | BooleanOp::StrNeq(a, b) => Box::new(vec![a.clone(), b.clone()].into_iter()),
-
             // Cases with three children
-            BooleanOp::If(a, b, c) => Box::new(vec![a.clone(), b.clone(), c.clone()].into_iter()),
+            // BooleanOp::If(a, b, c) => Box::new(vec![a.clone(), b.clone(), c.clone()].into_iter()),
         }
     }
 
@@ -185,7 +191,11 @@ impl<'c> OpTrait<'c> for BooleanOp<'c> {
 }
 
 impl<'c> OpTrait<'c> for FloatOp<'c> {
-    fn child_iter(&self) -> Box<dyn Iterator<Item = AstRef<'c, FloatOp<'c>>> + 'c> {
+    // fn child_iter(&self) -> Box<dyn Iterator<Item = AstRef<'c, FloatOp<'c>>> + 'c>
+    // fn child_iter(&self) -> Box<dyn Iterator<Item = AstRef<'c, dyn OpTrait<'c>>> + 'c> {
+    type Child = FloatOp<'c>;
+
+    fn child_iter(&self) -> Box<dyn Iterator<Item = AstRef<'c, Self::Child>> + 'c> {
         match self {
             FloatOp::FPS(_, _) | FloatOp::FPV(_) => Box::new(std::iter::empty()),
 
@@ -196,18 +206,31 @@ impl<'c> OpTrait<'c> for FloatOp<'c> {
             | FloatOp::BvToFpUnsigned(a, _, _)
             | FloatOp::Annotated(a, _) => Box::new(std::iter::once(a.clone())),
 
+            // Box::new(std::iter::once(a.clone())),
             FloatOp::FpAdd(a, b, _)
             | FloatOp::FpSub(a, b, _)
             | FloatOp::FpMul(a, b, _)
             | FloatOp::FpDiv(a, b, _) => Box::new(vec![a.clone(), b.clone()].into_iter()),
-
-            FloatOp::If(a, b, c) => Box::new(vec![a.clone(), b.clone(), c.clone()].into_iter()),
+            // Box::new(vec![a.clone(), b.clone()].into_iter()),
+            // FloatOp::If(a, b, c) => Box::new(
+            //     vec![
+            //         a.clone() as AstRef<'c, dyn OpTrait<'c>>,
+            //         b.clone() as AstRef<'c, dyn OpTrait<'c>>,
+            //         c.clone() as AstRef<'c, dyn OpTrait<'c>>,
+            //     ]
+            //     .into_iter(),
+            // ),
+            // Box::new(vec![a.clone(), b.clone(), c.clone()].into_iter()),
         }
     }
 }
 
 impl<'c> OpTrait<'c> for BitVecOp<'c> {
-    fn child_iter(&self) -> Box<dyn Iterator<Item = AstRef<'c, BitVecOp<'c>>> + 'c> {
+    // fn child_iter(&self) -> Box<dyn Iterator<Item = AstRef<'c, BitVecOp<'c>>> + 'c> {
+    // fn child_iter(&self) -> Box<dyn Iterator<Item = AstRef<'c, dyn OpTrait<'c>>> + 'c> {
+    type Child = BitVecOp<'c>;
+
+    fn child_iter(&self) -> Box<dyn Iterator<Item = AstRef<'c, Self::Child>> + 'c> {
         match self {
             BitVecOp::BVS(..) | BitVecOp::BVV(..) | BitVecOp::SI(..) => {
                 Box::new(std::iter::empty())
@@ -221,8 +244,8 @@ impl<'c> OpTrait<'c> for BitVecOp<'c> {
             | BitVecOp::FpToIEEEBV(a)
             | BitVecOp::FpToUBV(a, _, _)
             | BitVecOp::FpToSBV(a, _, _)
-            | BitVecOp::StrLen(a, _)
-            | BitVecOp::StrToBV(a, _)
+            | BitVecOp::StrLen(a)
+            | BitVecOp::StrToBV(a)
             | BitVecOp::Annotated(a, _) => Box::new(std::iter::once(a.clone())),
 
             BitVecOp::And(a, b)
@@ -242,16 +265,21 @@ impl<'c> OpTrait<'c> for BitVecOp<'c> {
             | BitVecOp::AShR(a, b)
             | BitVecOp::RotateLeft(a, b)
             | BitVecOp::RotateRight(a, b)
-            | BitVecOp::Concat(a, b)
-            | BitVecOp::StrIndexOf(a, b) => Box::new(vec![a.clone(), b.clone()].into_iter()),
+            | BitVecOp::Concat(a, b) => Box::new(vec![a.clone(), b.clone()].into_iter()),
 
-            BitVecOp::If(a, b, c) => Box::new(vec![a.clone(), b.clone(), c.clone()].into_iter()),
+            BitVecOp::StrIndexOf(a, b, c) => {
+                Box::new(vec![a.clone(), b.clone(), c.clone()].into_iter())
+            } // BitVecOp::If(a, b, c) => Box::new(vec![a.clone(), b.clone(), c.clone()].into_iter()),
         }
     }
 }
 
 impl<'c> OpTrait<'c> for StringOp<'c> {
-    fn child_iter(&self) -> Box<dyn Iterator<Item = AstRef<'c, StringOp<'c>>> + 'c> {
+    // fn child_iter(&self) -> Box<dyn Iterator<Item = AstRef<'c, StringOp<'c>>> + 'c> {
+    // fn child_iter(&self) -> Box<dyn Iterator<Item = AstRef<'c, dyn OpTrait<'c>>> + 'c> {
+    type Child = StringOp<'c>;
+
+    fn child_iter(&self) -> Box<dyn Iterator<Item = AstRef<'c, Self::Child>> + 'c> {
         match self {
             StringOp::StringS(..) | StringOp::StringV(..) => Box::new(std::iter::empty()),
 
@@ -261,9 +289,62 @@ impl<'c> OpTrait<'c> for StringOp<'c> {
 
             StringOp::StrConcat(a, b) => Box::new(vec![a.clone(), b.clone()].into_iter()),
 
-            StringOp::StrSubstr(a, b, c)
-            | StringOp::StrReplace(a, b, c)
-            | StringOp::If(a, b, c) => Box::new(vec![a.clone(), b.clone(), c.clone()].into_iter()),
+            StringOp::StrSubstr(a, b, c) | StringOp::StrReplace(a, b, c) => {
+                Box::new(vec![a.clone(), b.clone(), c.clone()].into_iter())
+            } // StringOp::If(a, b, c) => Box::new(vec![a.clone() as AstRef<'c, dyn OpTrait<'c>>, b.clone() as AstRef<'c, dyn OpTrait<'c>>, c.clone() as AstRef<'c, dyn OpTrait<'c>>].into_iter()),
         }
+    }
+}
+
+// IfOp is generic over T, the operation type of the branches. This ensures that both branches are of the same type.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+pub struct IfOp<'c, T>
+where
+    T: OpTrait<'c> + Serialize,
+{
+    condition: AstRef<'c, BooleanOp<'c>>,
+    then_branch: AstRef<'c, T>,
+    else_branch: AstRef<'c, T>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+pub enum IfOpChild<'c, T>
+where
+    T: OpTrait<'c> + Serialize,
+{
+    Condition(AstRef<'c, BooleanOp<'c>>),
+    Branch(AstRef<'c, T>),
+}
+
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+pub enum OpUnion<'c, T>
+where
+    T: OpTrait<'c> + Serialize,
+{
+    Boolean(AstRef<'c, BooleanOp<'c>>),
+    Branch(AstRef<'c, T>),
+}
+
+pub trait AnyOp<'c>: OpTrait<'c> {}
+impl<'c, T> AnyOp<'c> for T where T: OpTrait<'c> {}
+
+type Child = dyn AnyOp<'c>;
+
+impl<'c, T> OpTrait<'c> for IfOp<'c, T>
+where
+    T: OpTrait<'c> + Serialize,
+{
+    type Child = dyn AnyOp<'c>;
+
+    fn child_iter(&self) -> Box<dyn Iterator<Item = AstRef<'c, Self::Child>> + 'c> {
+        Box::new(
+            vec![
+                self.condition.clone() as AstRef<'c, Self::Child>,
+                self.then_branch.clone() as AstRef<'c, Self::Child>,
+                self.else_branch.clone() as AstRef<'c, Self::Child>,
+            ]
+            .into_iter(),
+        )
     }
 }
