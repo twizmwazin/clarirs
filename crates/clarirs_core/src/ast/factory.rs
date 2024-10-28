@@ -1,374 +1,494 @@
 use num_bigint::BigUint;
 
+use super::factory_support::*;
 use crate::error::ClarirsError;
 use crate::prelude::*;
 
-pub trait AstFactory<'c> {
+pub trait AstFactory<'c>: Sized {
     // Required methods
-    fn make_ast(&'c self, op: AstOp<'c>) -> Result<AstRef<'c>, ClarirsError>;
+    fn make_bool(&'c self, op: BooleanOp<'c>) -> Result<BoolAst<'c>, ClarirsError>;
+    fn make_bitvec(&'c self, op: BitVecOp<'c>) -> Result<BitVecAst<'c>, ClarirsError>;
+    fn make_float(&'c self, op: FloatOp<'c>) -> Result<FloatAst<'c>, ClarirsError>;
+    fn make_string(&'c self, op: StringOp<'c>) -> Result<StringAst<'c>, ClarirsError>;
 
     // Provided methods
 
-    fn bools<S>(&'c self, name: S) -> Result<AstRef<'c>, ClarirsError>
-    where
-        S: Into<String>,
-    {
-        self.make_ast(AstOp::BoolS(name.into()))
+    fn bools<S: Into<String>>(&'c self, name: S) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool(BooleanOp::BoolS(name.into()))
     }
 
-    fn boolv(&'c self, value: bool) -> Result<AstRef<'c>, ClarirsError>
-where {
-        self.make_ast(AstOp::BoolV(value))
+    fn boolv(&'c self, value: bool) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool(BooleanOp::BoolV(value))
     }
 
-    fn bvs<S>(&'c self, name: S, width: u32) -> Result<AstRef<'c>, ClarirsError>
-    where
-        S: Into<String>,
-    {
-        self.make_ast(AstOp::BVS(name.into(), width))
+    fn bvs<S: Into<String>>(&'c self, name: S, width: u32) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::BVS(name.into(), width))
     }
 
-    fn bvv(&'c self, value: BitVec) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::BVV(value))
+    fn bvv(&'c self, value: BitVec) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::BVV(value))
     }
 
-    fn fps<S, FS: Into<FSort>>(&'c self, name: S, sort: FS) -> Result<AstRef<'c>, ClarirsError>
-    where
-        S: Into<String>,
-    {
-        self.make_ast(AstOp::FPS(name.into(), sort.into()))
+    fn fps<S: Into<String>, FS: Into<FSort>>(
+        &'c self,
+        name: S,
+        sort: FS,
+    ) -> Result<FloatAst<'c>, ClarirsError> {
+        self.make_float(FloatOp::FPS(name.into(), sort.into()))
     }
 
-    fn fpv<F>(&'c self, value: F) -> Result<AstRef<'c>, ClarirsError>
-    where
-        F: Into<Float>,
-    {
-        self.make_ast(AstOp::FPV(value.into()))
+    fn fpv<F: Into<Float>>(&'c self, value: F) -> Result<FloatAst<'c>, ClarirsError> {
+        self.make_float(FloatOp::FPV(value.into()))
     }
 
-    fn strings<S>(&'c self, name: S, width: u32) -> Result<AstRef<'c>, ClarirsError>
-    where
-        S: Into<String>,
-    {
-        self.make_ast(AstOp::StringS(name.into(), width))
+    fn strings<S: Into<String>>(
+        &'c self,
+        name: S,
+        width: u32,
+    ) -> Result<StringAst<'c>, ClarirsError> {
+        self.make_string(StringOp::StringS(name.into(), width))
     }
 
-    fn stringv<S>(&'c self, value: S) -> Result<AstRef<'c>, ClarirsError>
-    where
-        S: Into<String>,
-    {
-        self.make_ast(AstOp::StringV(value.into()))
+    fn stringv<S: Into<String>>(&'c self, value: S) -> Result<StringAst<'c>, ClarirsError> {
+        self.make_string(StringOp::StringV(value.into()))
     }
 
-    fn not(&'c self, ast: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::Not(ast.clone()))
+    fn not<Op: SupportsNot<'c>>(
+        &'c self,
+        ast: &AstRef<'c, Op>,
+    ) -> Result<AstRef<'c, Op>, ClarirsError> {
+        Op::not(self, ast)
     }
 
-    fn and(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::And(lhs.clone(), rhs.clone()))
+    fn and<Op: SupportsAnd<'c>>(
+        &'c self,
+        lhs: &AstRef<'c, Op>,
+        rhs: &AstRef<'c, Op>,
+    ) -> Result<AstRef<'c, Op>, ClarirsError> {
+        Op::and(self, lhs, rhs)
     }
 
-    fn or(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::Or(lhs.clone(), rhs.clone()))
+    fn or<Op: SupportsOr<'c>>(
+        &'c self,
+        lhs: &AstRef<'c, Op>,
+        rhs: &AstRef<'c, Op>,
+    ) -> Result<AstRef<'c, Op>, ClarirsError> {
+        Op::or(self, lhs, rhs)
     }
 
-    fn xor(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::Xor(lhs.clone(), rhs.clone()))
+    fn xor<Op: SupportsXor<'c>>(
+        &'c self,
+        lhs: &AstRef<'c, Op>,
+        rhs: &AstRef<'c, Op>,
+    ) -> Result<AstRef<'c, Op>, ClarirsError> {
+        Op::xor(self, lhs, rhs)
     }
 
-    fn add(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::Add(lhs.clone(), rhs.clone()))
+    fn add<Op: SupportsAdd<'c>>(
+        &'c self,
+        lhs: &AstRef<'c, Op>,
+        rhs: &AstRef<'c, Op>,
+    ) -> Result<AstRef<'c, Op>, ClarirsError> {
+        Op::add(self, lhs, rhs)
     }
 
-    fn sub(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::Sub(lhs.clone(), rhs.clone()))
+    fn sub<Op: SupportsSub<'c>>(
+        &'c self,
+        lhs: &AstRef<'c, Op>,
+        rhs: &AstRef<'c, Op>,
+    ) -> Result<AstRef<'c, Op>, ClarirsError> {
+        Op::sub(self, lhs, rhs)
     }
 
-    fn mul(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::Mul(lhs.clone(), rhs.clone()))
+    fn mul<Op: SupportsMul<'c>>(
+        &'c self,
+        lhs: &AstRef<'c, Op>,
+        rhs: &AstRef<'c, Op>,
+    ) -> Result<AstRef<'c, Op>, ClarirsError> {
+        Op::mul(self, lhs, rhs)
     }
 
-    fn udiv(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::UDiv(lhs.clone(), rhs.clone()))
+    fn udiv<Op: SupportsUDiv<'c>>(
+        &'c self,
+        lhs: &AstRef<'c, Op>,
+        rhs: &AstRef<'c, Op>,
+    ) -> Result<AstRef<'c, Op>, ClarirsError> {
+        Op::udiv(self, lhs, rhs)
     }
 
-    fn sdiv(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::SDiv(lhs.clone(), rhs.clone()))
+    fn sdiv<Op: SupportsSDiv<'c>>(
+        &'c self,
+        lhs: &AstRef<'c, Op>,
+        rhs: &AstRef<'c, Op>,
+    ) -> Result<AstRef<'c, Op>, ClarirsError> {
+        Op::sdiv(self, lhs, rhs)
     }
 
-    fn urem(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::URem(lhs.clone(), rhs.clone()))
+    fn urem<Op: SupportsURem<'c>>(
+        &'c self,
+        lhs: &AstRef<'c, Op>,
+        rhs: &AstRef<'c, Op>,
+    ) -> Result<AstRef<'c, Op>, ClarirsError> {
+        Op::urem(self, lhs, rhs)
     }
 
-    fn srem(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::SRem(lhs.clone(), rhs.clone()))
+    fn srem<Op: SupportsSRem<'c>>(
+        &'c self,
+        lhs: &AstRef<'c, Op>,
+        rhs: &AstRef<'c, Op>,
+    ) -> Result<AstRef<'c, Op>, ClarirsError> {
+        Op::srem(self, lhs, rhs)
     }
 
-    fn pow(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::Pow(lhs.clone(), rhs.clone()))
+    fn pow<Op: SupportsPow<'c>>(
+        &'c self,
+        lhs: &AstRef<'c, Op>,
+        rhs: &AstRef<'c, Op>,
+    ) -> Result<AstRef<'c, Op>, ClarirsError> {
+        Op::pow(self, lhs, rhs)
     }
 
-    fn lshl(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::LShL(lhs.clone(), rhs.clone()))
+    fn ashl(
+        &'c self,
+        lhs: &BitVecAst<'c>,
+        rhs: &BitVecAst<'c>,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::AShL(lhs.clone(), rhs.clone()))
     }
 
-    fn lshr(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::LShR(lhs.clone(), rhs.clone()))
+    fn ashr(
+        &'c self,
+        lhs: &BitVecAst<'c>,
+        rhs: &BitVecAst<'c>,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::AShR(lhs.clone(), rhs.clone()))
     }
 
-    fn ashl(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::AShL(lhs.clone(), rhs.clone()))
-    }
-
-    fn ashr(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::AShR(lhs.clone(), rhs.clone()))
+    fn lshr(
+        &'c self,
+        lhs: &BitVecAst<'c>,
+        rhs: &BitVecAst<'c>,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::LShR(lhs.clone(), rhs.clone()))
     }
 
     fn rotate_left(
         &'c self,
-        lhs: &AstRef<'c>,
-        rhs: &AstRef<'c>,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::RotateLeft(lhs.clone(), rhs.clone()))
+        lhs: &BitVecAst<'c>,
+        rhs: &BitVecAst<'c>,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::RotateLeft(lhs.clone(), rhs.clone()))
     }
 
     fn rotate_right(
         &'c self,
-        lhs: &AstRef<'c>,
-        rhs: &AstRef<'c>,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::RotateRight(lhs.clone(), rhs.clone()))
+        lhs: &BitVecAst<'c>,
+        rhs: &BitVecAst<'c>,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::RotateRight(lhs.clone(), rhs.clone()))
     }
 
-    fn zero_ext(&'c self, lhs: &AstRef<'c>, width: u32) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::ZeroExt(lhs.clone(), width))
+    fn zero_ext(&'c self, lhs: &BitVecAst<'c>, width: u32) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::ZeroExt(lhs.clone(), width))
     }
 
-    fn sign_ext(&'c self, lhs: &AstRef<'c>, width: u32) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::SignExt(lhs.clone(), width))
+    fn sign_ext(&'c self, lhs: &BitVecAst<'c>, width: u32) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::SignExt(lhs.clone(), width))
     }
 
     fn extract(
         &'c self,
-        lhs: &AstRef<'c>,
+        lhs: &BitVecAst<'c>,
         lower: u32,
         upper: u32,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::Extract(lhs.clone(), lower, upper))
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::Extract(lhs.clone(), lower, upper))
     }
 
-    fn concat(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::Concat(lhs.clone(), rhs.clone()))
+    fn concat(
+        &'c self,
+        lhs: &BitVecAst<'c>,
+        rhs: &BitVecAst<'c>,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::Concat(lhs.clone(), rhs.clone()))
     }
 
-    fn reverse(&'c self, lhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::Reverse(lhs.clone()))
+    fn reverse(&'c self, lhs: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::Reverse(lhs.clone()))
     }
 
-    fn eq_(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::Eq(lhs.clone(), rhs.clone()))
+    fn eq_(
+        &'c self,
+        lhs: &BitVecAst<'c>,
+        rhs: &BitVecAst<'c>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool(BooleanOp::Eq(lhs.clone(), rhs.clone()))
     }
 
-    fn neq(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::Neq(lhs.clone(), rhs.clone()))
+    fn neq(
+        &'c self,
+        lhs: &BitVecAst<'c>,
+        rhs: &BitVecAst<'c>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool(BooleanOp::Neq(lhs.clone(), rhs.clone()))
     }
 
-    fn ult(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::ULT(lhs.clone(), rhs.clone()))
+    fn ult(
+        &'c self,
+        lhs: &BitVecAst<'c>,
+        rhs: &BitVecAst<'c>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool(BooleanOp::ULT(lhs.clone(), rhs.clone()))
     }
 
-    fn ule(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::ULE(lhs.clone(), rhs.clone()))
+    fn ule(
+        &'c self,
+        lhs: &BitVecAst<'c>,
+        rhs: &BitVecAst<'c>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool(BooleanOp::ULE(lhs.clone(), rhs.clone()))
     }
 
-    fn ugt(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::UGT(lhs.clone(), rhs.clone()))
+    fn ugt(
+        &'c self,
+        lhs: &BitVecAst<'c>,
+        rhs: &BitVecAst<'c>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool(BooleanOp::UGT(lhs.clone(), rhs.clone()))
     }
 
-    fn uge(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::UGE(lhs.clone(), rhs.clone()))
+    fn uge(
+        &'c self,
+        lhs: &BitVecAst<'c>,
+        rhs: &BitVecAst<'c>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool(BooleanOp::UGE(lhs.clone(), rhs.clone()))
     }
 
-    fn slt(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::SLT(lhs.clone(), rhs.clone()))
+    fn slt(
+        &'c self,
+        lhs: &BitVecAst<'c>,
+        rhs: &BitVecAst<'c>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool(BooleanOp::SLT(lhs.clone(), rhs.clone()))
     }
 
-    fn sle(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::SLE(lhs.clone(), rhs.clone()))
+    fn sle(
+        &'c self,
+        lhs: &BitVecAst<'c>,
+        rhs: &BitVecAst<'c>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool(BooleanOp::SLE(lhs.clone(), rhs.clone()))
     }
 
-    fn sgt(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::SGT(lhs.clone(), rhs.clone()))
+    fn sgt(
+        &'c self,
+        lhs: &BitVecAst<'c>,
+        rhs: &BitVecAst<'c>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool(BooleanOp::SGT(lhs.clone(), rhs.clone()))
     }
 
-    fn sge(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::SGE(lhs.clone(), rhs.clone()))
+    fn sge(
+        &'c self,
+        lhs: &BitVecAst<'c>,
+        rhs: &BitVecAst<'c>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool(BooleanOp::SGE(lhs.clone(), rhs.clone()))
     }
 
     fn fp_to_fp<RM: Into<FPRM>, FS: Into<FSort>>(
         &'c self,
-        lhs: &AstRef<'c>,
+        lhs: &FloatAst<'c>,
         sort: FS,
         rm: RM,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpToFp(lhs.clone(), sort.into(), rm.into()))
+    ) -> Result<FloatAst<'c>, ClarirsError> {
+        self.make_float(FloatOp::FpToFp(lhs.clone(), sort.into(), rm.into()))
     }
 
     fn bv_to_fp_unsigned<RM: Into<FPRM>, FS: Into<FSort>>(
         &'c self,
-        lhs: &AstRef<'c>,
+        lhs: &BitVecAst<'c>,
         sort: FS,
         rm: RM,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::BvToFpUnsigned(lhs.clone(), sort.into(), rm.into()))
+    ) -> Result<FloatAst<'c>, ClarirsError> {
+        self.make_float(FloatOp::BvToFpUnsigned(lhs.clone(), sort.into(), rm.into()))
     }
 
-    fn fp_to_ieeebv(&'c self, lhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpToIEEEBV(lhs.clone()))
+    fn fp_to_ieeebv(&'c self, lhs: &FloatAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::FpToIEEEBV(lhs.clone()))
     }
 
     fn fp_to_ubv<RM: Into<FPRM>>(
         &'c self,
-        lhs: &AstRef<'c>,
+        lhs: &FloatAst<'c>,
         width: u32,
         rm: RM,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpToUBV(lhs.clone(), width, rm.into()))
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::FpToUBV(lhs.clone(), width, rm.into()))
     }
 
     fn fp_to_sbv<RM: Into<FPRM>>(
         &'c self,
-        lhs: &AstRef<'c>,
+        lhs: &FloatAst<'c>,
         width: u32,
         rm: RM,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpToSBV(lhs.clone(), width, rm.into()))
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::FpToSBV(lhs.clone(), width, rm.into()))
     }
 
     fn fp_neg<RM: Into<FPRM>>(
         &'c self,
-        lhs: &AstRef<'c>,
+        lhs: &FloatAst<'c>,
         rm: RM,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpNeg(lhs.clone(), rm.into()))
+    ) -> Result<FloatAst<'c>, ClarirsError> {
+        self.make_float(FloatOp::FpNeg(lhs.clone(), rm.into()))
     }
 
     fn fp_abs<RM: Into<FPRM>>(
         &'c self,
-        lhs: &AstRef<'c>,
+        lhs: &FloatAst<'c>,
         rm: RM,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpAbs(lhs.clone(), rm.into()))
+    ) -> Result<FloatAst<'c>, ClarirsError> {
+        self.make_float(FloatOp::FpAbs(lhs.clone(), rm.into()))
     }
 
     fn fp_add<RM: Into<FPRM>>(
         &'c self,
-        lhs: &AstRef<'c>,
-        rhs: &AstRef<'c>,
+        lhs: &FloatAst<'c>,
+        rhs: &FloatAst<'c>,
         rm: RM,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpAdd(lhs.clone(), rhs.clone(), rm.into()))
+    ) -> Result<FloatAst<'c>, ClarirsError> {
+        self.make_float(FloatOp::FpAdd(lhs.clone(), rhs.clone(), rm.into()))
     }
 
     fn fp_sub<RM: Into<FPRM>>(
         &'c self,
-        lhs: &AstRef<'c>,
-        rhs: &AstRef<'c>,
+        lhs: &FloatAst<'c>,
+        rhs: &FloatAst<'c>,
         rm: RM,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpSub(lhs.clone(), rhs.clone(), rm.into()))
+    ) -> Result<FloatAst<'c>, ClarirsError> {
+        self.make_float(FloatOp::FpSub(lhs.clone(), rhs.clone(), rm.into()))
     }
 
     fn fp_mul<RM: Into<FPRM>>(
         &'c self,
-        lhs: &AstRef<'c>,
-        rhs: &AstRef<'c>,
+        lhs: &FloatAst<'c>,
+        rhs: &FloatAst<'c>,
         rm: RM,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpMul(lhs.clone(), rhs.clone(), rm.into()))
+    ) -> Result<FloatAst<'c>, ClarirsError> {
+        self.make_float(FloatOp::FpMul(lhs.clone(), rhs.clone(), rm.into()))
     }
 
     fn fp_div<RM: Into<FPRM>>(
         &'c self,
-        lhs: &AstRef<'c>,
-        rhs: &AstRef<'c>,
+        lhs: &FloatAst<'c>,
+        rhs: &FloatAst<'c>,
         rm: RM,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpDiv(lhs.clone(), rhs.clone(), rm.into()))
+    ) -> Result<FloatAst<'c>, ClarirsError> {
+        self.make_float(FloatOp::FpDiv(lhs.clone(), rhs.clone(), rm.into()))
     }
 
     fn fp_sqrt<RM: Into<FPRM>>(
         &'c self,
-        lhs: &AstRef<'c>,
+        lhs: &FloatAst<'c>,
         rm: RM,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpSqrt(lhs.clone(), rm.into()))
+    ) -> Result<FloatAst<'c>, ClarirsError> {
+        self.make_float(FloatOp::FpSqrt(lhs.clone(), rm.into()))
     }
 
-    fn fp_eq(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpEq(lhs.clone(), rhs.clone()))
+    fn fp_eq(
+        &'c self,
+        lhs: &FloatAst<'c>,
+        rhs: &FloatAst<'c>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool(BooleanOp::FpEq(lhs.clone(), rhs.clone()))
     }
 
-    fn fp_neq(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpNeq(lhs.clone(), rhs.clone()))
+    fn fp_neq(
+        &'c self,
+        lhs: &FloatAst<'c>,
+        rhs: &FloatAst<'c>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool(BooleanOp::FpNeq(lhs.clone(), rhs.clone()))
     }
 
-    fn fp_lt(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpLt(lhs.clone(), rhs.clone()))
+    fn fp_lt(
+        &'c self,
+        lhs: &FloatAst<'c>,
+        rhs: &FloatAst<'c>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool(BooleanOp::FpLt(lhs.clone(), rhs.clone()))
     }
 
-    fn fp_leq(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpLeq(lhs.clone(), rhs.clone()))
+    fn fp_leq(
+        &'c self,
+        lhs: &FloatAst<'c>,
+        rhs: &FloatAst<'c>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool(BooleanOp::FpLeq(lhs.clone(), rhs.clone()))
     }
 
-    fn fp_gt(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpGt(lhs.clone(), rhs.clone()))
+    fn fp_gt(
+        &'c self,
+        lhs: &FloatAst<'c>,
+        rhs: &FloatAst<'c>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool(BooleanOp::FpGt(lhs.clone(), rhs.clone()))
     }
 
-    fn fp_geq(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpGeq(lhs.clone(), rhs.clone()))
+    fn fp_geq(
+        &'c self,
+        lhs: &FloatAst<'c>,
+        rhs: &FloatAst<'c>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool(BooleanOp::FpGeq(lhs.clone(), rhs.clone()))
     }
 
-    fn fp_is_nan(&'c self, lhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpIsNan(lhs.clone()))
+    fn fp_is_nan(&'c self, lhs: &FloatAst<'c>) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool(BooleanOp::FpIsNan(lhs.clone()))
     }
 
-    fn fp_is_inf(&'c self, lhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpIsInf(lhs.clone()))
+    fn fp_is_inf(&'c self, lhs: &FloatAst<'c>) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool(BooleanOp::FpIsInf(lhs.clone()))
     }
 
-    fn strlen(&'c self, lhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::StrLen(lhs.clone()))
+    fn strlen(&'c self, lhs: &StringAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::StrLen(lhs.clone()))
     }
 
-    fn strconcat(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::StrConcat(lhs.clone(), rhs.clone()))
+    fn strconcat(
+        &'c self,
+        lhs: &StringAst<'c>,
+        rhs: &StringAst<'c>,
+    ) -> Result<StringAst<'c>, ClarirsError> {
+        self.make_string(StringOp::StrConcat(lhs.clone(), rhs.clone()))
     }
 
     fn strsubstr(
         &'c self,
-        lhs: &AstRef<'c>,
-        start: &AstRef<'c>,
-        end: &AstRef<'c>,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::StrSubstr(lhs.clone(), start.clone(), end.clone()))
+        lhs: &StringAst<'c>,
+        start: &BitVecAst<'c>,
+        end: &BitVecAst<'c>,
+    ) -> Result<StringAst<'c>, ClarirsError> {
+        self.make_string(StringOp::StrSubstr(lhs.clone(), start.clone(), end.clone()))
     }
 
     fn strcontains(
         &'c self,
-        lhs: &AstRef<'c>,
-        rhs: &AstRef<'c>,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::StrContains(lhs.clone(), rhs.clone()))
+        lhs: &StringAst<'c>,
+        rhs: &StringAst<'c>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool(BooleanOp::StrContains(lhs.clone(), rhs.clone()))
     }
 
     fn strindexof(
         &'c self,
-        base: &AstRef<'c>,
-        substr: &AstRef<'c>,
-        offset: &AstRef<'c>,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::StrIndexOf(
+        base: &StringAst<'c>,
+        substr: &StringAst<'c>,
+        offset: &BitVecAst<'c>,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::StrIndexOf(
             base.clone(),
             substr.clone(),
             offset.clone(),
@@ -377,86 +497,96 @@ where {
 
     fn strreplace(
         &'c self,
-        lhs: &AstRef<'c>,
-        rhs: &AstRef<'c>,
-        start: &AstRef<'c>,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::StrReplace(lhs.clone(), rhs.clone(), start.clone()))
+        lhs: &StringAst<'c>,
+        rhs: &StringAst<'c>,
+        start: &StringAst<'c>,
+    ) -> Result<StringAst<'c>, ClarirsError> {
+        self.make_string(StringOp::StrReplace(
+            lhs.clone(),
+            rhs.clone(),
+            start.clone(),
+        ))
     }
 
     fn strprefixof(
         &'c self,
-        lhs: &AstRef<'c>,
-        rhs: &AstRef<'c>,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::StrPrefixOf(lhs.clone(), rhs.clone()))
+        lhs: &StringAst<'c>,
+        rhs: &StringAst<'c>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool(BooleanOp::StrPrefixOf(lhs.clone(), rhs.clone()))
     }
 
     fn strsuffixof(
         &'c self,
-        lhs: &AstRef<'c>,
-        rhs: &AstRef<'c>,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::StrSuffixOf(lhs.clone(), rhs.clone()))
+        lhs: &StringAst<'c>,
+        rhs: &StringAst<'c>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool(BooleanOp::StrSuffixOf(lhs.clone(), rhs.clone()))
     }
 
-    fn strtobv(&'c self, lhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::StrToBV(lhs.clone()))
+    fn strtobv(&'c self, lhs: &StringAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::StrToBV(lhs.clone()))
     }
 
-    fn bvtostr(&'c self, lhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::BVToStr(lhs.clone()))
+    fn bvtostr(&'c self, lhs: &BitVecAst<'c>) -> Result<StringAst<'c>, ClarirsError> {
+        self.make_string(StringOp::BVToStr(lhs.clone()))
     }
 
-    fn strisdigit(&'c self, lhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::StrIsDigit(lhs.clone()))
+    fn strisdigit(&'c self, lhs: &StringAst<'c>) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool(BooleanOp::StrIsDigit(lhs.clone()))
     }
 
-    fn streq(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::StrEq(lhs.clone(), rhs.clone()))
-    }
-
-    fn strneq(&'c self, lhs: &AstRef<'c>, rhs: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::StrNeq(lhs.clone(), rhs.clone()))
-    }
-
-    fn if_(
+    fn streq(
         &'c self,
-        cond: &AstRef<'c>,
-        then: &AstRef<'c>,
-        else_: &AstRef<'c>,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::If(cond.clone(), then.clone(), else_.clone()))
+        lhs: &StringAst<'c>,
+        rhs: &StringAst<'c>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool(BooleanOp::StrEq(lhs.clone(), rhs.clone()))
     }
 
-    fn annotated(
+    fn strneq(
         &'c self,
-        lhs: &AstRef<'c>,
-        annotation: Annotation<'c>,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::Annotated(lhs.clone(), annotation))
+        lhs: &StringAst<'c>,
+        rhs: &StringAst<'c>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool(BooleanOp::StrNeq(lhs.clone(), rhs.clone()))
+    }
+
+    fn if_<Op: SupportsIf<'c>>(
+        &'c self,
+        cond: &AstRef<'c, BooleanOp<'c>>,
+        then: &AstRef<'c, Op>,
+        else_: &AstRef<'c, Op>,
+    ) -> Result<AstRef<'c, Op>, ClarirsError> {
+        Op::if_(self, cond, then, else_)
+    }
+
+    fn annotated<Op: SupportsAnnotated<'c>>(
+        &'c self,
+        lhs: &AstRef<'c, Op>,
+        annotation: Annotation,
+    ) -> Result<AstRef<'c, Op>, ClarirsError> {
+        Op::annotated(self, lhs, annotation)
     }
 
     // Helper methods
-    fn true_(&'c self) -> Result<AstRef<'c>, ClarirsError> {
+    fn true_(&'c self) -> Result<BoolAst<'c>, ClarirsError> {
         self.boolv(true)
     }
 
-    fn false_(&'c self) -> Result<AstRef<'c>, ClarirsError> {
+    fn false_(&'c self) -> Result<BoolAst<'c>, ClarirsError> {
         self.boolv(false)
     }
 
-    fn bvv_prim<T>(&'c self, value: T) -> Result<AstRef<'c>, ClarirsError>
-    where
-        T: Into<u64>,
-    {
+    fn bvv_prim<T: Into<u64>>(&'c self, value: T) -> Result<BitVecAst<'c>, ClarirsError> {
         self.bvv(BitVec::from_prim(value))
     }
 
-    fn bvv_prim_with_size<T>(&'c self, value: T, length: usize) -> Result<AstRef<'c>, ClarirsError>
-    where
-        T: Into<u64>,
-    {
+    fn bvv_prim_with_size<T: Into<u64>>(
+        &'c self,
+        value: T,
+        length: usize,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
         self.bvv(BitVec::from_prim_with_size(value, length))
     }
 
@@ -464,11 +594,11 @@ where {
         &'c self,
         value: &BigUint,
         length: u32,
-    ) -> Result<AstRef<'c>, ClarirsError> {
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
         self.bvv(BitVec::from_biguint(value, length as usize)?)
     }
 
-    fn fpv_from_f64(&'c self, value: f64) -> Result<AstRef<'c>, ClarirsError> {
+    fn fpv_from_f64(&'c self, value: f64) -> Result<FloatAst<'c>, ClarirsError> {
         self.fpv(Float::from(value))
     }
 }

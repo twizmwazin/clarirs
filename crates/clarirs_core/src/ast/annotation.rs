@@ -1,17 +1,15 @@
 use serde::Serialize;
 
-use super::node::AstRef;
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
-pub struct Annotation<'c> {
+pub struct Annotation {
     name: String,
-    value: AstRef<'c>,
+    value: Vec<u8>,
     eliminatable: bool,
     relocatable: bool,
 }
 
-impl<'c> Annotation<'c> {
-    pub fn new(name: String, value: AstRef<'c>, eliminatable: bool, relocatable: bool) -> Self {
+impl<'c> Annotation {
+    pub fn new(name: String, value: Vec<u8>, eliminatable: bool, relocatable: bool) -> Self {
         Self {
             name,
             value,
@@ -24,7 +22,7 @@ impl<'c> Annotation<'c> {
         &self.name
     }
 
-    pub fn value(&'c self) -> &AstRef<'c> {
+    pub fn value(&'c self) -> &Vec<u8> {
         &self.value
     }
 
