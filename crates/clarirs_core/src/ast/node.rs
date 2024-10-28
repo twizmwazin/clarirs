@@ -1,5 +1,9 @@
 use std::{
-    collections::HashSet, fmt::Debug, hash::{Hash, Hasher}, sync::Arc, vec::IntoIter
+    collections::HashSet,
+    fmt::Debug,
+    hash::{Hash, Hasher},
+    sync::Arc,
+    vec::IntoIter,
 };
 
 use serde::Serialize;
@@ -107,7 +111,6 @@ impl<'c, O: Op<'c>> Op<'c> for AstNode<'c, O> {
     }
 }
 
-
 pub type AstRef<'c, Op> = Arc<AstNode<'c, Op>>;
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize)]
@@ -148,7 +151,8 @@ impl<'c> Op<'c> for VarAst<'c> {
             VarAst::BitVec(ast) => ast.variables(),
             VarAst::Float(ast) => ast.variables(),
             VarAst::String(ast) => ast.variables(),
-        }.clone()
+        }
+        .clone()
     }
 }
 

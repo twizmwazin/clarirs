@@ -42,8 +42,7 @@ impl<'c> ConcreteSolver<'c> {
     }
 }
 
-impl<'c> Solver<'c> for ConcreteSolver<'c>
-{
+impl<'c> Solver<'c> for ConcreteSolver<'c> {
     type Model = ConcreteModel;
 
     fn add(&mut self, _: &BoolAst<'c>) -> Result<(), ClarirsError> {

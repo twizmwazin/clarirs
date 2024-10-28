@@ -17,41 +17,39 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
         Ok(self
             .context()
             .simplification_cache
-            .get_or_insert_with_bool(self.hash(), || {
-                match &self.op() {
-                    BooleanOp::BoolS(_) => self.clone(),
-                    BooleanOp::BoolV(_) => self.clone(),
-                    BooleanOp::Not(arc) => todo!(),
-                    BooleanOp::And(arc, arc1) => todo!(),
-                    BooleanOp::Or(arc, arc1) => todo!(),
-                    BooleanOp::Xor(arc, arc1) => todo!(),
-                    BooleanOp::Eq(arc, arc1) => todo!(),
-                    BooleanOp::Neq(arc, arc1) => todo!(),
-                    BooleanOp::ULT(arc, arc1) => todo!(),
-                    BooleanOp::ULE(arc, arc1) => todo!(),
-                    BooleanOp::UGT(arc, arc1) => todo!(),
-                    BooleanOp::UGE(arc, arc1) => todo!(),
-                    BooleanOp::SLT(arc, arc1) => todo!(),
-                    BooleanOp::SLE(arc, arc1) => todo!(),
-                    BooleanOp::SGT(arc, arc1) => todo!(),
-                    BooleanOp::SGE(arc, arc1) => todo!(),
-                    BooleanOp::FpEq(arc, arc1) => todo!(),
-                    BooleanOp::FpNeq(arc, arc1) => todo!(),
-                    BooleanOp::FpLt(arc, arc1) => todo!(),
-                    BooleanOp::FpLeq(arc, arc1) => todo!(),
-                    BooleanOp::FpGt(arc, arc1) => todo!(),
-                    BooleanOp::FpGeq(arc, arc1) => todo!(),
-                    BooleanOp::FpIsNan(arc) => todo!(),
-                    BooleanOp::FpIsInf(arc) => todo!(),
-                    BooleanOp::StrContains(arc, arc1) => todo!(),
-                    BooleanOp::StrPrefixOf(arc, arc1) => todo!(),
-                    BooleanOp::StrSuffixOf(arc, arc1) => todo!(),
-                    BooleanOp::StrIsDigit(arc) => todo!(),
-                    BooleanOp::StrEq(arc, arc1) => todo!(),
-                    BooleanOp::StrNeq(arc, arc1) => todo!(),
-                    BooleanOp::If(arc, arc1, arc2) => todo!(),
-                    BooleanOp::Annotated(arc, annotation) => todo!(),
-                }
+            .get_or_insert_with_bool(self.hash(), || match &self.op() {
+                BooleanOp::BoolS(_) => self.clone(),
+                BooleanOp::BoolV(_) => self.clone(),
+                BooleanOp::Not(arc) => todo!(),
+                BooleanOp::And(arc, arc1) => todo!(),
+                BooleanOp::Or(arc, arc1) => todo!(),
+                BooleanOp::Xor(arc, arc1) => todo!(),
+                BooleanOp::Eq(arc, arc1) => todo!(),
+                BooleanOp::Neq(arc, arc1) => todo!(),
+                BooleanOp::ULT(arc, arc1) => todo!(),
+                BooleanOp::ULE(arc, arc1) => todo!(),
+                BooleanOp::UGT(arc, arc1) => todo!(),
+                BooleanOp::UGE(arc, arc1) => todo!(),
+                BooleanOp::SLT(arc, arc1) => todo!(),
+                BooleanOp::SLE(arc, arc1) => todo!(),
+                BooleanOp::SGT(arc, arc1) => todo!(),
+                BooleanOp::SGE(arc, arc1) => todo!(),
+                BooleanOp::FpEq(arc, arc1) => todo!(),
+                BooleanOp::FpNeq(arc, arc1) => todo!(),
+                BooleanOp::FpLt(arc, arc1) => todo!(),
+                BooleanOp::FpLeq(arc, arc1) => todo!(),
+                BooleanOp::FpGt(arc, arc1) => todo!(),
+                BooleanOp::FpGeq(arc, arc1) => todo!(),
+                BooleanOp::FpIsNan(arc) => todo!(),
+                BooleanOp::FpIsInf(arc) => todo!(),
+                BooleanOp::StrContains(arc, arc1) => todo!(),
+                BooleanOp::StrPrefixOf(arc, arc1) => todo!(),
+                BooleanOp::StrSuffixOf(arc, arc1) => todo!(),
+                BooleanOp::StrIsDigit(arc) => todo!(),
+                BooleanOp::StrEq(arc, arc1) => todo!(),
+                BooleanOp::StrNeq(arc, arc1) => todo!(),
+                BooleanOp::If(arc, arc1, arc2) => todo!(),
+                BooleanOp::Annotated(arc, annotation) => todo!(),
             }))
     }
 }
@@ -61,43 +59,41 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
         Ok(self
             .context()
             .simplification_cache
-            .get_or_insert_with_bv(self.hash(), || {
-                match &self.op() {
-                    BitVecOp::BVS(..) => self.clone(),
-                    BitVecOp::BVV(..) => self.clone(),
-                    BitVecOp::SI(..) => todo!(),
-                    BitVecOp::Not(ast) => todo!(),
-                    BitVecOp::And(arc, arc1) => todo!(),
-                    BitVecOp::Or(arc, arc1) => todo!(),
-                    BitVecOp::Xor(arc, arc1) => todo!(),
-                    BitVecOp::Add(arc, arc1) => todo!(),
-                    BitVecOp::Sub(arc, arc1) => todo!(),
-                    BitVecOp::Mul(arc, arc1) => todo!(),
-                    BitVecOp::UDiv(arc, arc1) => todo!(),
-                    BitVecOp::SDiv(arc, arc1) => todo!(),
-                    BitVecOp::URem(arc, arc1) => todo!(),
-                    BitVecOp::SRem(arc, arc1) => todo!(),
-                    BitVecOp::Pow(arc, arc1) => todo!(),
-                    BitVecOp::LShL(arc, arc1) => todo!(),
-                    BitVecOp::LShR(arc, arc1) => todo!(),
-                    BitVecOp::AShL(arc, arc1) => todo!(),
-                    BitVecOp::AShR(arc, arc1) => todo!(),
-                    BitVecOp::RotateLeft(arc, arc1) => todo!(),
-                    BitVecOp::RotateRight(arc, arc1) => todo!(),
-                    BitVecOp::ZeroExt(arc, _) => todo!(),
-                    BitVecOp::SignExt(arc, _) => todo!(),
-                    BitVecOp::Extract(arc, _, _) => todo!(),
-                    BitVecOp::Concat(arc, arc1) => todo!(),
-                    BitVecOp::Reverse(arc) => todo!(),
-                    BitVecOp::FpToIEEEBV(arc) => todo!(),
-                    BitVecOp::FpToUBV(arc, _, fprm) => todo!(),
-                    BitVecOp::FpToSBV(arc, _, fprm) => todo!(),
-                    BitVecOp::StrLen(arc) => todo!(),
-                    BitVecOp::StrIndexOf(arc, arc1, arc2) => todo!(),
-                    BitVecOp::StrToBV(arc) => todo!(),
-                    BitVecOp::If(arc, arc1, arc2) => todo!(),
-                    BitVecOp::Annotated(arc, annotation) => todo!(),
-                }
+            .get_or_insert_with_bv(self.hash(), || match &self.op() {
+                BitVecOp::BVS(..) => self.clone(),
+                BitVecOp::BVV(..) => self.clone(),
+                BitVecOp::SI(..) => todo!(),
+                BitVecOp::Not(ast) => todo!(),
+                BitVecOp::And(arc, arc1) => todo!(),
+                BitVecOp::Or(arc, arc1) => todo!(),
+                BitVecOp::Xor(arc, arc1) => todo!(),
+                BitVecOp::Add(arc, arc1) => todo!(),
+                BitVecOp::Sub(arc, arc1) => todo!(),
+                BitVecOp::Mul(arc, arc1) => todo!(),
+                BitVecOp::UDiv(arc, arc1) => todo!(),
+                BitVecOp::SDiv(arc, arc1) => todo!(),
+                BitVecOp::URem(arc, arc1) => todo!(),
+                BitVecOp::SRem(arc, arc1) => todo!(),
+                BitVecOp::Pow(arc, arc1) => todo!(),
+                BitVecOp::LShL(arc, arc1) => todo!(),
+                BitVecOp::LShR(arc, arc1) => todo!(),
+                BitVecOp::AShL(arc, arc1) => todo!(),
+                BitVecOp::AShR(arc, arc1) => todo!(),
+                BitVecOp::RotateLeft(arc, arc1) => todo!(),
+                BitVecOp::RotateRight(arc, arc1) => todo!(),
+                BitVecOp::ZeroExt(arc, _) => todo!(),
+                BitVecOp::SignExt(arc, _) => todo!(),
+                BitVecOp::Extract(arc, _, _) => todo!(),
+                BitVecOp::Concat(arc, arc1) => todo!(),
+                BitVecOp::Reverse(arc) => todo!(),
+                BitVecOp::FpToIEEEBV(arc) => todo!(),
+                BitVecOp::FpToUBV(arc, _, fprm) => todo!(),
+                BitVecOp::FpToSBV(arc, _, fprm) => todo!(),
+                BitVecOp::StrLen(arc) => todo!(),
+                BitVecOp::StrIndexOf(arc, arc1, arc2) => todo!(),
+                BitVecOp::StrToBV(arc) => todo!(),
+                BitVecOp::If(arc, arc1, arc2) => todo!(),
+                BitVecOp::Annotated(arc, annotation) => todo!(),
             }))
     }
 }
@@ -107,22 +103,20 @@ impl<'c> Simplify<'c> for FloatAst<'c> {
         Ok(self
             .context()
             .simplification_cache
-            .get_or_insert_with_float(self.hash(), || {
-                match &self.op() {
-                    FloatOp::FPS(_, fsort) => todo!(),
-                    FloatOp::FPV(float) => todo!(),
-                    FloatOp::FpNeg(arc, fprm) => todo!(),
-                    FloatOp::FpAbs(arc, fprm) => todo!(),
-                    FloatOp::FpAdd(arc, arc1, fprm) => todo!(),
-                    FloatOp::FpSub(arc, arc1, fprm) => todo!(),
-                    FloatOp::FpMul(arc, arc1, fprm) => todo!(),
-                    FloatOp::FpDiv(arc, arc1, fprm) => todo!(),
-                    FloatOp::FpSqrt(arc, fprm) => todo!(),
-                    FloatOp::FpToFp(arc, fsort, fprm) => todo!(),
-                    FloatOp::BvToFpUnsigned(arc, fsort, fprm) => todo!(),
-                    FloatOp::If(arc, arc1, arc2) => todo!(),
-                    FloatOp::Annotated(arc, annotation) => todo!(),
-                }
+            .get_or_insert_with_float(self.hash(), || match &self.op() {
+                FloatOp::FPS(_, fsort) => todo!(),
+                FloatOp::FPV(float) => todo!(),
+                FloatOp::FpNeg(arc, fprm) => todo!(),
+                FloatOp::FpAbs(arc, fprm) => todo!(),
+                FloatOp::FpAdd(arc, arc1, fprm) => todo!(),
+                FloatOp::FpSub(arc, arc1, fprm) => todo!(),
+                FloatOp::FpMul(arc, arc1, fprm) => todo!(),
+                FloatOp::FpDiv(arc, arc1, fprm) => todo!(),
+                FloatOp::FpSqrt(arc, fprm) => todo!(),
+                FloatOp::FpToFp(arc, fsort, fprm) => todo!(),
+                FloatOp::BvToFpUnsigned(arc, fsort, fprm) => todo!(),
+                FloatOp::If(arc, arc1, arc2) => todo!(),
+                FloatOp::Annotated(arc, annotation) => todo!(),
             }))
     }
 }
@@ -132,17 +126,15 @@ impl<'c> Simplify<'c> for StringAst<'c> {
         Ok(self
             .context()
             .simplification_cache
-            .get_or_insert_with_string(self.hash(), || {
-                match &self.op() {
-                    StringOp::StringS(_, _) => todo!(),
-                    StringOp::StringV(_) => todo!(),
-                    StringOp::StrConcat(arc, arc1) => todo!(),
-                    StringOp::StrSubstr(arc, arc1, arc2) => todo!(),
-                    StringOp::StrReplace(arc, arc1, arc2) => todo!(),
-                    StringOp::BVToStr(arc) => todo!(),
-                    StringOp::If(arc, arc1, arc2) => todo!(),
-                    StringOp::Annotated(arc, annotation) => todo!(),
-                }
+            .get_or_insert_with_string(self.hash(), || match &self.op() {
+                StringOp::StringS(_, _) => todo!(),
+                StringOp::StringV(_) => todo!(),
+                StringOp::StrConcat(arc, arc1) => todo!(),
+                StringOp::StrSubstr(arc, arc1, arc2) => todo!(),
+                StringOp::StrReplace(arc, arc1, arc2) => todo!(),
+                StringOp::BVToStr(arc) => todo!(),
+                StringOp::If(arc, arc1, arc2) => todo!(),
+                StringOp::Annotated(arc, annotation) => todo!(),
             }))
     }
 }
