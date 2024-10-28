@@ -5,20 +5,20 @@ use crate::prelude::*;
 pub struct ConcreteModel;
 
 impl<'c> Model<'c> for ConcreteModel {
-    fn batch_eval<I>(&self, exprs: I, _: u32) -> Result<Vec<AstRef<'c>>, ClarirsError>
-    where
-        I: IntoIterator<Item = AstRef<'c>>,
-    {
-        exprs
-            .into_iter()
-            .map(|e| {
-                if e.symbolic() {
-                    Err(ClarirsError::UnsupportedOperation)
-                } else {
-                    Ok(e.simplify()?)
-                }
-            })
-            .collect::<Result<Vec<AstRef<'c>>, ClarirsError>>()
+    fn eval_bool(&self, expr: &BoolAst<'c>) -> Result<BoolAst<'c>, ClarirsError> {
+        expr.simplify()
+    }
+
+    fn eval_bitvec(&self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        expr.simplify()
+    }
+
+    fn eval_float(&self, expr: &FloatAst<'c>) -> Result<FloatAst<'c>, ClarirsError> {
+        expr.simplify()
+    }
+
+    fn eval_string(&self, expr: &StringAst<'c>) -> Result<StringAst<'c>, ClarirsError> {
+        expr.simplify()
     }
 }
 
@@ -42,17 +42,15 @@ impl<'c> ConcreteSolver<'c> {
     }
 }
 
-impl<'c, 's> Solver<'c, 's> for ConcreteSolver<'c>
-where
-    'c: 's,
+impl<'c> Solver<'c> for ConcreteSolver<'c>
 {
     type Model = ConcreteModel;
 
-    fn add(&'s mut self, _: &AstRef<'c>) -> Result<(), ClarirsError> {
+    fn add(&mut self, _: &BoolAst<'c>) -> Result<(), ClarirsError> {
         Err(ClarirsError::UnsupportedOperation)
     }
 
-    fn model(&'s mut self) -> Result<Self::Model, ClarirsError> {
+    fn model(&mut self) -> Result<Self::Model, ClarirsError> {
         Ok(ConcreteModel)
     }
 }
@@ -69,16 +67,16 @@ mod tests {
         let mut solver = ConcreteSolver::new(&context)?;
 
         // Bool tests
-        solver.eval(&context.true_()?)?;
-        solver.eval(&context.false_()?)?;
-        assert!(solver.eval(&context.bools("test")?).is_err());
+        solver.eval_bool(&context.true_()?)?;
+        solver.eval_bool(&context.false_()?)?;
+        assert!(solver.eval_bool(&context.bools("test")?).is_err());
 
         // BV tests
         assert!(
-            solver.eval(&context.add(&context.bvv_prim(1u8)?, &context.bvv_prim(1u8)?)?)?
+            solver.eval_bitvec(&context.add(&context.bvv_prim(1u8)?, &context.bvv_prim(1u8)?)?)?
                 == context.bvv_prim(2u8)?
         );
-        assert!(solver.eval(&context.bvs("test", 8)?).is_err());
+        assert!(solver.eval_bitvec(&context.bvs("test", 8)?).is_err());
 
         Ok(())
     }
