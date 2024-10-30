@@ -102,6 +102,16 @@ pub fn FPV(py: Python, value: f64, sort: PyFSort) -> Result<Py<FP>, ClaripyError
     )
 }
 
+#[pyfunction]
+pub fn fpFP(
+    py: Python,
+    sign: Bound<BV>,
+    exponent: Bound<BV>,
+    significand: Bound<BV>,
+) -> Result<Py<FP>, ClaripyError> {
+    todo!()
+}
+
 #[pyfunction(name = "fpToFP", signature = (fp, sort, rm = None))]
 pub fn FpToFP(
     py: Python,
@@ -115,7 +125,7 @@ pub fn FpToFP(
     )
 }
 
-#[pyfunction(name = "bvToFpUnsigned", signature = (bv, sort, rm = None))]
+#[pyfunction(name = "fpToFPUnsigned", signature = (bv, sort, rm = None))]
 pub fn BvToFpUnsigned(
     py: Python,
     bv: Bound<BV>,
@@ -235,7 +245,7 @@ pub fn FpSqrt(py: Python, lhs: Bound<FP>, rm: Option<PyRM>) -> Result<Py<FP>, Cl
     )
 }
 
-#[pyfunction(name = "FpEq", signature = (lhs, rhs))]
+#[pyfunction(name = "fpEQ", signature = (lhs, rhs))]
 pub fn FpEq(py: Python, lhs: Bound<FP>, rhs: Bound<FP>) -> Result<Py<Bool>, ClaripyError> {
     Bool::new(
         py,
@@ -251,7 +261,7 @@ pub fn FpNeq(py: Python, lhs: Bound<FP>, rhs: Bound<FP>) -> Result<Py<Bool>, Cla
     )
 }
 
-#[pyfunction(name = "fpLt", signature = (lhs, rhs))]
+#[pyfunction(name = "fpLT", signature = (lhs, rhs))]
 pub fn FpLt(py: Python, lhs: Bound<FP>, rhs: Bound<FP>) -> Result<Py<Bool>, ClaripyError> {
     Bool::new(
         py,
@@ -259,7 +269,7 @@ pub fn FpLt(py: Python, lhs: Bound<FP>, rhs: Bound<FP>) -> Result<Py<Bool>, Clar
     )
 }
 
-#[pyfunction(name = "fpLeq", signature = (lhs, rhs))]
+#[pyfunction(name = "fpLEQ", signature = (lhs, rhs))]
 pub fn FpLeq(py: Python, lhs: Bound<FP>, rhs: Bound<FP>) -> Result<Py<Bool>, ClaripyError> {
     Bool::new(
         py,
@@ -267,7 +277,7 @@ pub fn FpLeq(py: Python, lhs: Bound<FP>, rhs: Bound<FP>) -> Result<Py<Bool>, Cla
     )
 }
 
-#[pyfunction(name = "fpGt", signature = (lhs, rhs))]
+#[pyfunction(name = "fpGT", signature = (lhs, rhs))]
 pub fn FpGt(py: Python, lhs: Bound<FP>, rhs: Bound<FP>) -> Result<Py<Bool>, ClaripyError> {
     Bool::new(
         py,
@@ -275,7 +285,7 @@ pub fn FpGt(py: Python, lhs: Bound<FP>, rhs: Bound<FP>) -> Result<Py<Bool>, Clar
     )
 }
 
-#[pyfunction(name = "fpGeq", signature = (lhs, rhs))]
+#[pyfunction(name = "fpGEQ", signature = (lhs, rhs))]
 pub fn FpGeq(py: Python, lhs: Bound<FP>, rhs: Bound<FP>) -> Result<Py<Bool>, ClaripyError> {
     Bool::new(
         py,
@@ -283,7 +293,7 @@ pub fn FpGeq(py: Python, lhs: Bound<FP>, rhs: Bound<FP>) -> Result<Py<Bool>, Cla
     )
 }
 
-#[pyfunction(name = "fpIsNan", signature = (fp))]
+#[pyfunction(name = "fpIsNaN", signature = (fp))]
 pub fn FpIsNan(py: Python, fp: Bound<FP>) -> Result<Py<Bool>, ClaripyError> {
     Bool::new(py, GLOBAL_CONTEXT.fp_is_nan(&fp.get().inner)?)
 }
@@ -301,6 +311,7 @@ pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
         m,
         FPS,
         FPV,
+        fpFP,
         FpToFP,
         BvToFpUnsigned,
         fpToIEEEBV,

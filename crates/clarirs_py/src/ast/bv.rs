@@ -125,7 +125,29 @@ binop!(Pow, pow, BV, BV, BV);
 binop!(ShL, ashl, BV, BV, BV);
 binop!(LShR, lshr, BV, BV, BV);
 binop!(AShR, ashr, BV, BV, BV);
+binop!(RotateLeft, rotate_left, BV, BV, BV);
+binop!(RotateRight, rotate_right, BV, BV, BV);
 binop!(Concat, concat, BV, BV, BV);
+
+#[pyfunction]
+pub fn Extract(py: Python, base: Bound<BV>, start: u32, end: u32) -> Result<Py<BV>, ClaripyError> {
+    BV::new(py, GLOBAL_CONTEXT.extract(&base.get().inner, start, end)?)
+}
+
+#[pyfunction]
+pub fn ZeroExt(py: Python, base: Bound<BV>, amount: u32) -> Result<Py<BV>, ClaripyError> {
+    BV::new(py, GLOBAL_CONTEXT.zero_ext(&base.get().inner, amount)?)
+}
+
+#[pyfunction]
+pub fn SignExt(py: Python, base: Bound<BV>, amount: u32) -> Result<Py<BV>, ClaripyError> {
+    BV::new(py, GLOBAL_CONTEXT.sign_ext(&base.get().inner, amount)?)
+}
+
+#[pyfunction]
+pub fn Reverse(py: Python, base: Bound<BV>) -> Result<Py<BV>, ClaripyError> {
+    BV::new(py, GLOBAL_CONTEXT.reverse(&base.get().inner)?)
+}
 
 binop!(ULT, ult, Bool, BV, BV);
 binop!(ULE, ule, Bool, BV, BV);
@@ -137,11 +159,6 @@ binop!(SGT, sgt, Bool, BV, BV);
 binop!(SGE, sge, Bool, BV, BV);
 binop!(Eq_, eq_, Bool, BV, BV);
 binop!(Neq, neq, Bool, BV, BV);
-
-#[pyfunction]
-pub fn Extract(py: Python, base: Bound<BV>, start: u32, end: u32) -> Result<Py<BV>, ClaripyError> {
-    BV::new(py, GLOBAL_CONTEXT.extract(&base.get().inner, start, end)?)
-}
 
 #[pyfunction]
 pub fn If(
@@ -160,8 +177,41 @@ pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<BV>()?;
 
     add_pyfunctions!(
-        m, BVS, BVV, Not, And, Or, Xor, Add, Sub, Mul, UDiv, SDiv, UMod, SMod, Pow, ShL, LShR,
-        AShR, Concat, Extract, ULT, ULE, UGT, UGE, SLT, SLE, SGT, SGE, Eq_, If,
+        m,
+        BVS,
+        BVV,
+        Not,
+        And,
+        Or,
+        Xor,
+        Add,
+        Sub,
+        Mul,
+        UDiv,
+        SDiv,
+        UMod,
+        SMod,
+        Pow,
+        ShL,
+        LShR,
+        AShR,
+        RotateLeft,
+        RotateRight,
+        Concat,
+        Extract,
+        ZeroExt,
+        SignExt,
+        Reverse,
+        ULT,
+        ULE,
+        UGT,
+        UGE,
+        SLT,
+        SLE,
+        SGT,
+        SGE,
+        Eq_,
+        If,
     );
 
     Ok(())
