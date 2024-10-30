@@ -84,6 +84,22 @@ pub trait AstFactory<'c>: Sized {
         Op::xor(self, lhs, rhs)
     }
 
+    fn eq_<Op: SupportsEq<'c>>(
+        &'c self,
+        lhs: &AstRef<'c, Op>,
+        rhs: &AstRef<'c, Op>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        Op::eq_(self, lhs, rhs)
+    }
+
+    fn neq<Op: SupportsNeq<'c>>(
+        &'c self,
+        lhs: &AstRef<'c, Op>,
+        rhs: &AstRef<'c, Op>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        Op::neq(self, lhs, rhs)
+    }
+
     fn add<Op: SupportsAdd<'c>>(
         &'c self,
         lhs: &AstRef<'c, Op>,
@@ -215,22 +231,6 @@ pub trait AstFactory<'c>: Sized {
 
     fn reverse(&'c self, lhs: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
         self.make_bitvec(BitVecOp::Reverse(lhs.clone()))
-    }
-
-    fn eq_(
-        &'c self,
-        lhs: &BitVecAst<'c>,
-        rhs: &BitVecAst<'c>,
-    ) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::Eq(lhs.clone(), rhs.clone()))
-    }
-
-    fn neq(
-        &'c self,
-        lhs: &BitVecAst<'c>,
-        rhs: &BitVecAst<'c>,
-    ) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::Neq(lhs.clone(), rhs.clone()))
     }
 
     fn ult(

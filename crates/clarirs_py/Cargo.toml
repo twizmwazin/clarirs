@@ -1,5 +1,5 @@
 [package]
-name = "claripy"
+name = "clarirs_py"
 version = "0.1.0"
 edition = "2021"
 description = "Python bindings for clarirs"
@@ -10,14 +10,19 @@ categories = { workspace = true }
 repository = { workspace = true }
 
 [dependencies]
-# pyo3 0.22.2 has an issue with raising exceptions on Python 3.12, so we use the
-# latest version from the master branch until a new release is made.
-# See https://github.com/PyO3/pyo3/pull/3306
-pyo3 = { git = "https://github.com/PyO3/pyo3.git", features = ["extension-module", "py-clone", "num-bigint"] }
+pyo3 = { version = "0.22.5", features = [
+    "extension-module",
+    "py-clone",
+    "num-bigint",
+] }
 clarirs_core = { path = "../clarirs_core", features = ["runtime-checks"] }
 thiserror = "1.0.63"
 num-bigint = "0.4.6"
 log = "0.4.22"
+dashmap = "6.1.0"
+
+[lib]
+name = "clarirs"
 
 [lints]
 workspace = true

@@ -2,6 +2,7 @@
 members = [
     "crates/clarirs_num",
     "crates/clarirs_core",
+    "crates/clarirs_py",
 ]
 resolver = "2"
 
@@ -14,4 +15,4 @@ repository = "https://github.com/twizmwazin/clarirs.git"
 
 [workspace.lints.clippy]
 all = "warn"
-cargo = "deny"
+cargo = "warn"

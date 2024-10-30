@@ -24,6 +24,8 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
                 BooleanOp::And(arc, arc1) => todo!(),
                 BooleanOp::Or(arc, arc1) => todo!(),
                 BooleanOp::Xor(arc, arc1) => todo!(),
+                BooleanOp::BoolEq(arc, arc1) => todo!(),
+                BooleanOp::BoolNeq(arc, arc1) => todo!(),
                 BooleanOp::Eq(arc, arc1) => todo!(),
                 BooleanOp::Neq(arc, arc1) => todo!(),
                 BooleanOp::ULT(arc, arc1) => todo!(),
