@@ -184,5 +184,7 @@ pub(crate) fn import(py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<bv::BV>()?;
     m.add_class::<fp::FP>()?;
     m.add_class::<string::PyAstString>()?;
+    m.add_function(wrap_pyfunction!(bool::true_op, m)?)?;
+    m.add_function(wrap_pyfunction!(bool::false_op, m)?)?;
     Ok(())
 }

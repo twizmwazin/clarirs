@@ -149,12 +149,12 @@ pub fn StrSuffixOf(
 }
 
 #[pyfunction]
-pub fn StrToBV(py: Python, s: Bound<PyAstString>) -> Result<Py<BV>, ClaripyError> {
+pub fn StrToInt(py: Python, s: Bound<PyAstString>) -> Result<Py<BV>, ClaripyError> {
     BV::new(py, GLOBAL_CONTEXT.strtobv(&s.get().inner)?)
 }
 
 #[pyfunction]
-pub fn BVToStr(py: Python, bv: Bound<BV>) -> Result<Py<PyAstString>, ClaripyError> {
+pub fn IntToStr(py: Python, bv: Bound<BV>) -> Result<Py<PyAstString>, ClaripyError> {
     PyAstString::new(py, GLOBAL_CONTEXT.bvtostr(&bv.get().inner)?)
 }
 
@@ -194,8 +194,8 @@ pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
         StrReplace,
         StrPrefixOf,
         StrSuffixOf,
-        StrToBV,
-        BVToStr,
+        StrToInt,
+        IntToStr,
         StrIsDigit,
         StrEq,
         StrNeq,
