@@ -13,6 +13,8 @@ pub enum BooleanOp<'c> {
     And(BoolAst<'c>, BoolAst<'c>),
     Or(BoolAst<'c>, BoolAst<'c>),
     Xor(BoolAst<'c>, BoolAst<'c>),
+    BoolEq(BoolAst<'c>, BoolAst<'c>),
+    BoolNeq(BoolAst<'c>, BoolAst<'c>),
     Eq(BitVecAst<'c>, BitVecAst<'c>),
     Neq(BitVecAst<'c>, BitVecAst<'c>),
     ULT(BitVecAst<'c>, BitVecAst<'c>),
@@ -56,7 +58,11 @@ impl<'c> Op<'c> for BooleanOp<'c> {
             BooleanOp::StrIsDigit(a) => vec![a.into()],
 
             // Cases with two children
-            BooleanOp::And(a, b) | BooleanOp::Or(a, b) | BooleanOp::Xor(a, b) => {
+            BooleanOp::And(a, b)
+            | BooleanOp::Or(a, b)
+            | BooleanOp::Xor(a, b)
+            | BooleanOp::BoolEq(a, b)
+            | BooleanOp::BoolNeq(a, b) => {
                 vec![a.into(), b.into()]
             }
             BooleanOp::Eq(a, b)

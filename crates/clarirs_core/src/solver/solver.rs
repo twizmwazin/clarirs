@@ -26,13 +26,13 @@ pub trait Model<'c> {
 
     /// Get the minimum value of an expression in the current model. If the constraints are
     /// unsatisfiable, an error is returned.
-    fn min(&self, expr: BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn min(&self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
         todo!()
     }
 
     /// Get the maximum value of an expression in the current model. If the constraints are
     /// unsatisfiable, an error is returned.
-    fn max(&self, expr: BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn max(&self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
         todo!()
     }
 }
@@ -104,13 +104,13 @@ pub trait Solver<'c>: Clone + HasContext<'c> {
 
     /// Get the minimum value of an expression in the current model. If the constraints are
     /// unsatisfiable, an error is returned.
-    fn min(&mut self, expr: BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn min(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
         self.model()?.min(expr)
     }
 
     /// Get the maximum value of an expression in the current model. If the constraints are
     /// unsatisfiable, an error is returned.
-    fn max(&mut self, expr: BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn max(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
         self.model()?.max(expr)
     }
 }

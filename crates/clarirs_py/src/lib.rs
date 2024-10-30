@@ -1,3 +1,4 @@
+#[allow(clippy::multiple_crate_versions)]
 #[macro_use]
 mod macros;
 
@@ -7,7 +8,6 @@ pub mod error;
 pub mod prelude;
 pub mod py_err;
 pub mod solver;
-pub mod weakref;
 
 use prelude::*;
 
@@ -18,7 +18,7 @@ fn import_submodule<'py>(
     name: &str,
     import_func: fn(Python<'py>, &Bound<'py, PyModule>) -> PyResult<()>,
 ) -> PyResult<()> {
-    let submodule = PyModule::new(py, name)?;
+    let submodule = PyModule::new_bound(py, name)?;
     import_func(py, &submodule)?;
     pyo3::py_run!(
         py,
@@ -33,15 +33,49 @@ fn import_submodule<'py>(
 }
 
 #[pyfunction(name = "simplify")]
-fn py_simplify(py: Python, ast: PyRef<Base>) -> Result<Py<Base>, ClaripyError> {
-    py_ast_from_astref(py, get_astref(ast).simplify()?)
+fn py_simplify(py: Python, expr: Bound<Base>) -> Result<Py<Base>, ClaripyError> {
+    if let Ok(bv_value) = expr.clone().into_any().downcast::<BV>() {
+        BV::new(py, bv_value.get().inner.simplify().unwrap()).map(|b| {
+            b.into_any()
+                .downcast_bound::<Base>(py)
+                .unwrap()
+                .clone()
+                .unbind()
+        })
+    } else if let Ok(bool_value) = expr.clone().into_any().downcast::<Bool>() {
+        Bool::new(py, bool_value.get().inner.simplify().unwrap()).map(|b| {
+            b.into_any()
+                .downcast_bound::<Base>(py)
+                .unwrap()
+                .clone()
+                .unbind()
+        })
+    } else if let Ok(fp_value) = expr.clone().into_any().downcast::<FP>() {
+        FP::new(py, fp_value.get().inner.simplify().unwrap()).map(|b| {
+            b.into_any()
+                .downcast_bound::<Base>(py)
+                .unwrap()
+                .clone()
+                .unbind()
+        })
+    } else if let Ok(string_value) = expr.clone().into_any().downcast::<PyAstString>() {
+        PyAstString::new(py, string_value.get().inner.simplify().unwrap()).map(|b| {
+            b.into_any()
+                .downcast_bound::<Base>(py)
+                .unwrap()
+                .clone()
+                .unbind()
+        })
+    } else {
+        panic!("Unsupported type");
+    }
 }
 
 #[pymodule]
-pub fn claripy(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
-    import_submodule(py, m, "claripy", "annotation", annotation::import)?;
-    import_submodule(py, m, "claripy", "ast", ast::import)?;
-    import_submodule(py, m, "claripy", "solver", solver::import)?;
+pub fn clarirs(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
+    import_submodule(py, m, "clarirs", "annotation", annotation::import)?;
+    import_submodule(py, m, "clarirs", "ast", ast::import)?;
+    import_submodule(py, m, "clarirs", "solver", solver::import)?;
 
     add_pyfunctions!(
         m,
@@ -61,12 +95,13 @@ pub fn claripy(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
         ast::bv::UMod,
         ast::bv::SMod,
         ast::bv::Pow,
-        ast::bv::LShL,
+        ast::bv::ShL,
         ast::bv::LShR,
         ast::bv::AShR,
-        ast::bv::AShL,
         ast::bv::Concat,
         ast::bv::Extract,
+        ast::bv::Eq_,
+        ast::bv::Neq,
         ast::bv::ULT,
         ast::bv::ULE,
         ast::bv::UGT,
@@ -78,6 +113,26 @@ pub fn claripy(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
         // FP
         ast::fp::FPS,
         ast::fp::FPV,
+        ast::fp::FpToFP,
+        ast::fp::BvToFpUnsigned,
+        ast::fp::fpToIEEEBV,
+        ast::fp::FpToUbv,
+        ast::fp::FpToBv,
+        ast::fp::FpNeg,
+        ast::fp::FpAbs,
+        ast::fp::FpAdd,
+        ast::fp::FpSub,
+        ast::fp::FpMul,
+        ast::fp::FpDiv,
+        ast::fp::FpSqrt,
+        ast::fp::FpEq,
+        ast::fp::FpNeq,
+        ast::fp::FpLt,
+        ast::fp::FpLeq,
+        ast::fp::FpGt,
+        ast::fp::FpGeq,
+        ast::fp::FpIsNan,
+        ast::fp::FpIsInf,
         // String
         ast::string::StringS,
         ast::string::StringV,
@@ -97,12 +152,11 @@ pub fn claripy(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
         ast::string::StrEq,
         ast::string::StrNeq,
         // Shared
-        ast::shared_ops::Not,
-        ast::shared_ops::And,
-        ast::shared_ops::Or,
-        ast::shared_ops::Xor,
-        ast::shared_ops::Eq_,
-        ast::shared_ops::If,
+        ast::If,
+        ast::Not,
+        ast::And,
+        ast::Or,
+        ast::Xor,
     );
 
     m.add_class::<ast::base::Base>()?;
@@ -110,7 +164,7 @@ pub fn claripy(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<ast::bool::Bool>()?;
     m.add_class::<ast::bv::BV>()?;
     m.add_class::<ast::fp::FP>()?;
-    m.add_class::<ast::string::AstString>()?;
+    m.add_class::<ast::string::PyAstString>()?;
 
     m.add_class::<annotation::PyAnnotation>()?;
     m.add_class::<annotation::SimplificationAvoidanceAnnotation>()?;
@@ -130,7 +184,7 @@ pub fn claripy(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Compat
 
     // fp
-    let fp = PyModule::new(py, "fp")?;
+    let fp = PyModule::new_bound(py, "fp")?;
     fp.add_class::<ast::fp::PyRM>()?;
     fp.add_class::<ast::fp::PyFSort>()?;
     fp.add("FSORT_FLOAT", ast::fp::fsort_float())?;
