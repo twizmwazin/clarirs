@@ -103,7 +103,12 @@ pub fn FPV(py: Python, value: f64, sort: PyFSort) -> Result<Py<FP>, ClaripyError
 }
 
 #[pyfunction]
-pub fn fpFP(py: Python, sign: Bound<BV>, exponent: Bound<BV>, significand: Bound<BV>) -> Result<Py<FP>, ClaripyError> {
+pub fn fpFP(
+    py: Python,
+    sign: Bound<BV>,
+    exponent: Bound<BV>,
+    significand: Bound<BV>,
+) -> Result<Py<FP>, ClaripyError> {
     todo!()
 }
 
