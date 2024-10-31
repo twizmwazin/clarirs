@@ -96,6 +96,13 @@ pub trait AstFactory<'c>: Sized {
         Op::neq(self, lhs, rhs)
     }
 
+    fn abs<Op: SupportsAbs<'c>>(
+        &'c self,
+        ast: &AstRef<'c, Op>,
+    ) -> Result<AstRef<'c, Op>, ClarirsError> {
+        Op::abs(self, ast)
+    }
+
     fn add<Op: SupportsAdd<'c>>(
         &'c self,
         lhs: &AstRef<'c, Op>,

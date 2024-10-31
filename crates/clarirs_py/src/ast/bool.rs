@@ -86,12 +86,37 @@ impl Bool {
         self.inner.depth() == 1
     }
 
-    fn is_true(self_: PyRef<Self>) -> bool {
-        self_.inner.is_true()
+    fn is_true(&self) -> bool {
+        self.inner.is_true()
     }
 
-    fn is_false(self_: PyRef<Self>) -> bool {
-        self_.inner.is_false()
+    fn is_false(&self) -> bool {
+        self.inner.is_false()
+    }
+
+    fn __invert__(&self, py: Python) -> Result<Py<Bool>, ClaripyError> {
+        Bool::new(py, &GLOBAL_CONTEXT.not(&self.inner)?)
+    }
+
+    fn __and__(&self, py: Python, other: CoerceBool) -> Result<Py<Bool>, ClaripyError> {
+        Bool::new(
+            py,
+            &GLOBAL_CONTEXT.and(&self.inner, &<CoerceBool as Into<BoolAst>>::into(other))?,
+        )
+    }
+
+    fn __or__(&self, py: Python, other: CoerceBool) -> Result<Py<Bool>, ClaripyError> {
+        Bool::new(
+            py,
+            &GLOBAL_CONTEXT.or(&self.inner, &<CoerceBool as Into<BoolAst>>::into(other))?,
+        )
+    }
+
+    fn __xor__(&self, py: Python, other: CoerceBool) -> Result<Py<Bool>, ClaripyError> {
+        Bool::new(
+            py,
+            &GLOBAL_CONTEXT.xor(&self.inner, &<CoerceBool as Into<BoolAst>>::into(other))?,
+        )
     }
 }
 
@@ -99,12 +124,13 @@ impl Bool {
 pub fn BoolS(py: Python, name: &str) -> Result<Py<Bool>, ClaripyError> {
     Bool::new(py, &GLOBAL_CONTEXT.bools(name)?)
 }
+
 #[pyfunction]
 pub fn BoolV(py: Python, value: bool) -> Result<Py<Bool>, ClaripyError> {
     Bool::new(py, &GLOBAL_CONTEXT.boolv(value)?)
 }
 
-#[pyfunction]
+#[pyfunction(name = "Eq")]
 pub fn Eq_(py: Python, a: Bound<Bool>, b: Bound<Bool>) -> Result<Py<Bool>, ClaripyError> {
     Bool::new(py, &GLOBAL_CONTEXT.eq_(&a.get().inner, &b.get().inner)?)
 }
@@ -112,19 +138,6 @@ pub fn Eq_(py: Python, a: Bound<Bool>, b: Bound<Bool>) -> Result<Py<Bool>, Clari
 #[pyfunction]
 pub fn Neq(py: Python, a: Bound<Bool>, b: Bound<Bool>) -> Result<Py<Bool>, ClaripyError> {
     Bool::new(py, &GLOBAL_CONTEXT.neq(&a.get().inner, &b.get().inner)?)
-}
-
-#[pyfunction]
-pub fn If(
-    py: Python,
-    cond: Bound<Bool>,
-    then_: Bound<Bool>,
-    else_: Bound<Bool>,
-) -> Result<Py<Bool>, ClaripyError> {
-    Bool::new(
-        py,
-        &GLOBAL_CONTEXT.if_(&cond.get().inner, &then_.get().inner, &else_.get().inner)?,
-    )
 }
 
 #[pyfunction(name = "true")]
@@ -139,7 +152,19 @@ pub fn false_op(py: Python) -> Result<Py<Bool>, ClaripyError> {
 pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<Bool>()?;
 
-    add_pyfunctions!(m, BoolS, BoolV, Not, And, Or, Xor, Eq_, If, true_op, false_op,);
+    add_pyfunctions!(
+        m,
+        BoolS,
+        BoolV,
+        Not,
+        And,
+        Or,
+        Xor,
+        Eq_,
+        super::If,
+        true_op,
+        false_op,
+    );
 
     Ok(())
 }

@@ -86,6 +86,316 @@ impl BV {
     fn is_leaf(&self) -> bool {
         self.inner.depth() == 1
     }
+
+    fn __add__(&self, py: Python, other: CoerceBV) -> Result<Py<BV>, ClaripyError> {
+        BV::new(
+            py,
+            &GLOBAL_CONTEXT.add(&self.inner, &<CoerceBV as Into<BitVecAst>>::into(other))?,
+        )
+    }
+
+    fn __radd__(&self, py: Python, other: CoerceBV) -> Result<Py<BV>, ClaripyError> {
+        self.__add__(py, other)
+    }
+
+    fn __sub__(&self, py: Python, other: CoerceBV) -> Result<Py<BV>, ClaripyError> {
+        BV::new(
+            py,
+            &GLOBAL_CONTEXT.sub(&self.inner, &<CoerceBV as Into<BitVecAst>>::into(other))?,
+        )
+    }
+
+    fn __rsub__(&self, py: Python, other: CoerceBV) -> Result<Py<BV>, ClaripyError> {
+        self.__sub__(py, other)
+    }
+
+    fn __mul__(&self, py: Python, other: CoerceBV) -> Result<Py<BV>, ClaripyError> {
+        BV::new(
+            py,
+            &GLOBAL_CONTEXT.mul(&self.inner, &<CoerceBV as Into<BitVecAst>>::into(other))?,
+        )
+    }
+
+    fn __rmul__(&self, py: Python, other: CoerceBV) -> Result<Py<BV>, ClaripyError> {
+        self.__mul__(py, other)
+    }
+
+    fn __truediv__(&self, py: Python, other: CoerceBV) -> Result<Py<BV>, ClaripyError> {
+        BV::new(
+            py,
+            &GLOBAL_CONTEXT.udiv(&self.inner, &<CoerceBV as Into<BitVecAst>>::into(other))?,
+        )
+    }
+
+    fn __rtruediv__(&self, py: Python, other: CoerceBV) -> Result<Py<BV>, ClaripyError> {
+        self.__truediv__(py, other)
+    }
+
+    fn __floordiv__(&self, py: Python, other: CoerceBV) -> Result<Py<BV>, ClaripyError> {
+        BV::new(
+            py,
+            &GLOBAL_CONTEXT.udiv(&self.inner, &<CoerceBV as Into<BitVecAst>>::into(other))?,
+        )
+    }
+
+    fn __rfloordiv__(&self, py: Python, other: CoerceBV) -> Result<Py<BV>, ClaripyError> {
+        self.__floordiv__(py, other)
+    }
+
+    fn __pow__(
+        &self,
+        py: Python,
+        other: CoerceBV,
+        _modulo: PyObject,
+    ) -> Result<Py<BV>, ClaripyError> {
+        // TODO: handle modulo
+        BV::new(
+            py,
+            &GLOBAL_CONTEXT.pow(&self.inner, &<CoerceBV as Into<BitVecAst>>::into(other))?,
+        )
+    }
+
+    fn __rpow__(
+        &self,
+        py: Python,
+        other: CoerceBV,
+        _modulo: PyObject,
+    ) -> Result<Py<BV>, ClaripyError> {
+        self.__pow__(py, other, _modulo)
+    }
+
+    fn __mod__(&self, py: Python, other: CoerceBV) -> Result<Py<BV>, ClaripyError> {
+        BV::new(
+            py,
+            &GLOBAL_CONTEXT.urem(&self.inner, &<CoerceBV as Into<BitVecAst>>::into(other))?,
+        )
+    }
+
+    fn __rmod__(&self, py: Python, other: CoerceBV) -> Result<Py<BV>, ClaripyError> {
+        self.__mod__(py, other)
+    }
+
+    fn SDiv(&self, py: Python, other: CoerceBV) -> Result<Py<BV>, ClaripyError> {
+        BV::new(
+            py,
+            &GLOBAL_CONTEXT.sdiv(&self.inner, &<CoerceBV as Into<BitVecAst>>::into(other))?,
+        )
+    }
+
+    fn SMod(&self, py: Python, other: CoerceBV) -> Result<Py<BV>, ClaripyError> {
+        BV::new(
+            py,
+            &GLOBAL_CONTEXT.srem(&self.inner, &<CoerceBV as Into<BitVecAst>>::into(other))?,
+        )
+    }
+
+    fn __and__(&self, py: Python, other: CoerceBV) -> Result<Py<BV>, ClaripyError> {
+        BV::new(
+            py,
+            &GLOBAL_CONTEXT.and(&self.inner, &<CoerceBV as Into<BitVecAst>>::into(other))?,
+        )
+    }
+
+    fn __rand__(&self, py: Python, other: CoerceBV) -> Result<Py<BV>, ClaripyError> {
+        self.__and__(py, other)
+    }
+
+    fn __or__(&self, py: Python, other: CoerceBV) -> Result<Py<BV>, ClaripyError> {
+        BV::new(
+            py,
+            &GLOBAL_CONTEXT.or(&self.inner, &<CoerceBV as Into<BitVecAst>>::into(other))?,
+        )
+    }
+
+    fn __ror__(&self, py: Python, other: CoerceBV) -> Result<Py<BV>, ClaripyError> {
+        self.__or__(py, other)
+    }
+
+    fn __xor__(&self, py: Python, other: CoerceBV) -> Result<Py<BV>, ClaripyError> {
+        BV::new(
+            py,
+            &GLOBAL_CONTEXT.xor(&self.inner, &<CoerceBV as Into<BitVecAst>>::into(other))?,
+        )
+    }
+
+    fn __rxor__(&self, py: Python, other: CoerceBV) -> Result<Py<BV>, ClaripyError> {
+        self.__xor__(py, other)
+    }
+
+    fn __lshift__(&self, py: Python, other: CoerceBV) -> Result<Py<BV>, ClaripyError> {
+        BV::new(
+            py,
+            &GLOBAL_CONTEXT.shl(&self.inner, &<CoerceBV as Into<BitVecAst>>::into(other))?,
+        )
+    }
+
+    fn __rlshift__(&self, py: Python, other: CoerceBV) -> Result<Py<BV>, ClaripyError> {
+        self.__lshift__(py, other)
+    }
+
+    fn __rshift__(&self, py: Python, other: CoerceBV) -> Result<Py<BV>, ClaripyError> {
+        BV::new(
+            py,
+            &GLOBAL_CONTEXT.ashr(&self.inner, &<CoerceBV as Into<BitVecAst>>::into(other))?,
+        )
+    }
+
+    fn __rrshift__(&self, py: Python, other: CoerceBV) -> Result<Py<BV>, ClaripyError> {
+        self.__rshift__(py, other)
+    }
+
+    fn LShR(&self, py: Python, other: CoerceBV) -> Result<Py<BV>, ClaripyError> {
+        BV::new(
+            py,
+            &GLOBAL_CONTEXT.lshr(&self.inner, &<CoerceBV as Into<BitVecAst>>::into(other))?,
+        )
+    }
+
+    fn __neg__(&self, py: Python) -> Result<Py<BV>, ClaripyError> {
+        BV::new(py, &GLOBAL_CONTEXT.not(&self.inner)?)
+    }
+
+    fn __invert__(&self, py: Python) -> Result<Py<BV>, ClaripyError> {
+        BV::new(py, &GLOBAL_CONTEXT.not(&self.inner)?)
+    }
+
+    fn __pos__(self_: Py<BV>) -> Result<Py<BV>, ClaripyError> {
+        Ok(self_)
+    }
+
+    fn __abs__(&self, py: Python) -> Result<Py<BV>, ClaripyError> {
+        BV::new(py, &GLOBAL_CONTEXT.abs(&self.inner)?)
+    }
+
+    fn __eq__(&self, py: Python, other: CoerceBV) -> Result<Py<Bool>, ClaripyError> {
+        Bool::new(
+            py,
+            &GLOBAL_CONTEXT.eq_(&self.inner, &<CoerceBV as Into<BitVecAst>>::into(other))?,
+        )
+    }
+
+    fn __ne__(&self, py: Python, other: CoerceBV) -> Result<Py<Bool>, ClaripyError> {
+        Bool::new(
+            py,
+            &GLOBAL_CONTEXT.neq(&self.inner, &<CoerceBV as Into<BitVecAst>>::into(other))?,
+        )
+    }
+
+    fn __lt__(&self, py: Python, other: CoerceBV) -> Result<Py<Bool>, ClaripyError> {
+        Bool::new(
+            py,
+            &GLOBAL_CONTEXT.ult(&self.inner, &<CoerceBV as Into<BitVecAst>>::into(other))?,
+        )
+    }
+
+    fn __le__(&self, py: Python, other: CoerceBV) -> Result<Py<Bool>, ClaripyError> {
+        Bool::new(
+            py,
+            &GLOBAL_CONTEXT.ule(&self.inner, &<CoerceBV as Into<BitVecAst>>::into(other))?,
+        )
+    }
+
+    fn __gt__(&self, py: Python, other: CoerceBV) -> Result<Py<Bool>, ClaripyError> {
+        Bool::new(
+            py,
+            &GLOBAL_CONTEXT.ugt(&self.inner, &<CoerceBV as Into<BitVecAst>>::into(other))?,
+        )
+    }
+
+    fn __ge__(&self, py: Python, other: CoerceBV) -> Result<Py<Bool>, ClaripyError> {
+        Bool::new(
+            py,
+            &GLOBAL_CONTEXT.uge(&self.inner, &<CoerceBV as Into<BitVecAst>>::into(other))?,
+        )
+    }
+
+    fn ULT(&self, py: Python, other: CoerceBV) -> Result<Py<Bool>, ClaripyError> {
+        Bool::new(
+            py,
+            &GLOBAL_CONTEXT.ult(&self.inner, &<CoerceBV as Into<BitVecAst>>::into(other))?,
+        )
+    }
+
+    fn ULE(&self, py: Python, other: CoerceBV) -> Result<Py<Bool>, ClaripyError> {
+        Bool::new(
+            py,
+            &GLOBAL_CONTEXT.ule(&self.inner, &<CoerceBV as Into<BitVecAst>>::into(other))?,
+        )
+    }
+
+    fn UGT(&self, py: Python, other: CoerceBV) -> Result<Py<Bool>, ClaripyError> {
+        Bool::new(
+            py,
+            &GLOBAL_CONTEXT.ugt(&self.inner, &<CoerceBV as Into<BitVecAst>>::into(other))?,
+        )
+    }
+
+    fn UGE(&self, py: Python, other: CoerceBV) -> Result<Py<Bool>, ClaripyError> {
+        Bool::new(
+            py,
+            &GLOBAL_CONTEXT.uge(&self.inner, &<CoerceBV as Into<BitVecAst>>::into(other))?,
+        )
+    }
+
+    fn SLT(&self, py: Python, other: CoerceBV) -> Result<Py<Bool>, ClaripyError> {
+        Bool::new(
+            py,
+            &GLOBAL_CONTEXT.slt(&self.inner, &<CoerceBV as Into<BitVecAst>>::into(other))?,
+        )
+    }
+
+    fn SLE(&self, py: Python, other: CoerceBV) -> Result<Py<Bool>, ClaripyError> {
+        Bool::new(
+            py,
+            &GLOBAL_CONTEXT.sle(&self.inner, &<CoerceBV as Into<BitVecAst>>::into(other))?,
+        )
+    }
+
+    fn SGT(&self, py: Python, other: CoerceBV) -> Result<Py<Bool>, ClaripyError> {
+        Bool::new(
+            py,
+            &GLOBAL_CONTEXT.sgt(&self.inner, &<CoerceBV as Into<BitVecAst>>::into(other))?,
+        )
+    }
+
+    fn SGE(&self, py: Python, other: CoerceBV) -> Result<Py<Bool>, ClaripyError> {
+        Bool::new(
+            py,
+            &GLOBAL_CONTEXT.sge(&self.inner, &<CoerceBV as Into<BitVecAst>>::into(other))?,
+        )
+    }
+
+    fn Extract(
+        &self,
+        py: Python,
+        upper_bound: u32,
+        lower_bound: u32,
+    ) -> Result<Py<BV>, ClaripyError> {
+        BV::new(
+            py,
+            &GLOBAL_CONTEXT.extract(&self.inner, upper_bound, lower_bound)?,
+        )
+    }
+
+    fn concat(&self, py: Python, other: CoerceBV) -> Result<Py<BV>, ClaripyError> {
+        BV::new(
+            py,
+            &GLOBAL_CONTEXT.concat(&self.inner, &<CoerceBV as Into<BitVecAst>>::into(other))?,
+        )
+    }
+
+    fn zero_ext(&self, py: Python, amount: u32) -> Result<Py<BV>, ClaripyError> {
+        BV::new(py, &GLOBAL_CONTEXT.zero_ext(&self.inner, amount)?)
+    }
+
+    fn sign_ext(&self, py: Python, amount: u32) -> Result<Py<BV>, ClaripyError> {
+        BV::new(py, &GLOBAL_CONTEXT.sign_ext(&self.inner, amount)?)
+    }
+
+    #[getter]
+    fn reversed(&self, py: Python) -> Result<Py<BV>, ClaripyError> {
+        BV::new(py, &GLOBAL_CONTEXT.reverse(&self.inner)?)
+    }
 }
 
 #[pyfunction]
