@@ -3,7 +3,7 @@
 use std::sync::LazyLock;
 
 use dashmap::DashMap;
-use pyo3::types::PyWeakrefReference;
+use pyo3::types::{PyFrozenSet, PyWeakrefReference};
 
 use crate::prelude::*;
 
@@ -16,7 +16,7 @@ pub struct PyAstString {
 }
 
 impl PyAstString {
-    pub fn new(py: Python, inner: StringAst<'static>) -> Result<Py<PyAstString>, ClaripyError> {
+    pub fn new(py: Python, inner: &StringAst<'static>) -> Result<Py<PyAstString>, ClaripyError> {
         if let Some(cache_hit) = PY_STRING_CACHE.get(&inner.hash()).and_then(|cache_hit| {
             cache_hit
                 .bind(py)
@@ -27,7 +27,7 @@ impl PyAstString {
         } else {
             let this = Py::new(
                 py,
-                PyClassInitializer::from(Base::new()).add_subclass(PyAstString {
+                PyClassInitializer::from(Base::new(py)).add_subclass(PyAstString {
                     inner: inner.clone(),
                 }),
             )?;
@@ -39,19 +39,64 @@ impl PyAstString {
     }
 }
 
+#[pymethods]
+impl PyAstString {
+    #[getter]
+    fn op(&self) -> String {
+        self.inner.op().to_opstring()
+    }
+
+    #[getter]
+    fn args(&self, py: Python) -> Result<Vec<PyObject>, ClaripyError> {
+        self.inner.op().extract_py_args(py)
+    }
+
+    #[getter]
+    fn variables(&self, py: Python) -> Result<Py<PyFrozenSet>, ClaripyError> {
+        Ok(PyFrozenSet::new_bound(
+            py,
+            self.inner
+                .variables()
+                .iter()
+                .map(|v| v.to_object(py))
+                .collect::<Vec<_>>()
+                .iter(),
+        )?
+        .unbind())
+    }
+
+    #[getter]
+    fn symbolic(&self) -> bool {
+        self.inner.symbolic()
+    }
+
+    fn hash(&self) -> u64 {
+        self.inner.hash()
+    }
+
+    #[getter]
+    fn depth(&self) -> u32 {
+        self.inner.depth()
+    }
+
+    fn is_leaf(&self) -> bool {
+        self.inner.depth() == 1
+    }
+}
+
 #[pyfunction]
-pub fn StringS(py: Python, name: &str, size: u32) -> Result<Py<PyAstString>, ClaripyError> {
-    PyAstString::new(py, GLOBAL_CONTEXT.strings(name, size)?)
+pub fn StringS(py: Python, name: &str) -> Result<Py<PyAstString>, ClaripyError> {
+    PyAstString::new(py, &GLOBAL_CONTEXT.strings(name)?)
 }
 
 #[pyfunction]
 pub fn StringV(py: Python, value: &str) -> Result<Py<PyAstString>, ClaripyError> {
-    PyAstString::new(py, GLOBAL_CONTEXT.stringv(value)?)
+    PyAstString::new(py, &GLOBAL_CONTEXT.stringv(value)?)
 }
 
 #[pyfunction]
 pub fn StrLen(py: Python, s: Bound<PyAstString>) -> Result<Py<BV>, ClaripyError> {
-    BV::new(py, GLOBAL_CONTEXT.strlen(&s.get().inner)?)
+    BV::new(py, &GLOBAL_CONTEXT.strlen(&s.get().inner)?)
 }
 
 #[pyfunction]
@@ -62,7 +107,7 @@ pub fn StrConcat(
 ) -> Result<Py<PyAstString>, ClaripyError> {
     PyAstString::new(
         py,
-        GLOBAL_CONTEXT.strconcat(&s1.get().inner, &s2.get().inner)?,
+        &GLOBAL_CONTEXT.strconcat(&s1.get().inner, &s2.get().inner)?,
     )
 }
 
@@ -75,7 +120,7 @@ pub fn StrSubstr(
 ) -> Result<Py<PyAstString>, ClaripyError> {
     PyAstString::new(
         py,
-        GLOBAL_CONTEXT.strsubstr(&base.get().inner, &start.get().inner, &end.get().inner)?,
+        &GLOBAL_CONTEXT.strsubstr(&base.get().inner, &start.get().inner, &end.get().inner)?,
     )
 }
 
@@ -87,7 +132,7 @@ pub fn StrContains(
 ) -> Result<Py<Bool>, ClaripyError> {
     Bool::new(
         py,
-        GLOBAL_CONTEXT.strcontains(&haystack.get().inner, &needle.get().inner)?,
+        &GLOBAL_CONTEXT.strcontains(&haystack.get().inner, &needle.get().inner)?,
     )
 }
 
@@ -100,7 +145,7 @@ pub fn StrIndexOf(
 ) -> Result<Py<BV>, ClaripyError> {
     BV::new(
         py,
-        GLOBAL_CONTEXT.strindexof(
+        &GLOBAL_CONTEXT.strindexof(
             &haystack.get().inner,
             &needle.get().inner,
             &start.get().inner,
@@ -117,7 +162,7 @@ pub fn StrReplace(
 ) -> Result<Py<PyAstString>, ClaripyError> {
     PyAstString::new(
         py,
-        GLOBAL_CONTEXT.strreplace(
+        &GLOBAL_CONTEXT.strreplace(
             &haystack.get().inner,
             &needle.get().inner,
             &replacement.get().inner,
@@ -133,7 +178,7 @@ pub fn StrPrefixOf(
 ) -> Result<Py<Bool>, ClaripyError> {
     Bool::new(
         py,
-        GLOBAL_CONTEXT.strprefixof(&needle.get().inner, &haystack.get().inner)?,
+        &GLOBAL_CONTEXT.strprefixof(&needle.get().inner, &haystack.get().inner)?,
     )
 }
 #[pyfunction]
@@ -144,23 +189,23 @@ pub fn StrSuffixOf(
 ) -> Result<Py<Bool>, ClaripyError> {
     Bool::new(
         py,
-        GLOBAL_CONTEXT.strsuffixof(&needle.get().inner, &haystack.get().inner)?,
+        &GLOBAL_CONTEXT.strsuffixof(&needle.get().inner, &haystack.get().inner)?,
     )
 }
 
 #[pyfunction]
 pub fn StrToInt(py: Python, s: Bound<PyAstString>) -> Result<Py<BV>, ClaripyError> {
-    BV::new(py, GLOBAL_CONTEXT.strtobv(&s.get().inner)?)
+    BV::new(py, &GLOBAL_CONTEXT.strtobv(&s.get().inner)?)
 }
 
 #[pyfunction]
 pub fn IntToStr(py: Python, bv: Bound<BV>) -> Result<Py<PyAstString>, ClaripyError> {
-    PyAstString::new(py, GLOBAL_CONTEXT.bvtostr(&bv.get().inner)?)
+    PyAstString::new(py, &GLOBAL_CONTEXT.bvtostr(&bv.get().inner)?)
 }
 
 #[pyfunction]
 pub fn StrIsDigit(py: Python, s: Bound<PyAstString>) -> Result<Py<Bool>, ClaripyError> {
-    Bool::new(py, GLOBAL_CONTEXT.strisdigit(&s.get().inner)?)
+    Bool::new(py, &GLOBAL_CONTEXT.strisdigit(&s.get().inner)?)
 }
 #[pyfunction]
 pub fn StrEq(
@@ -168,7 +213,7 @@ pub fn StrEq(
     s1: Bound<PyAstString>,
     s2: Bound<PyAstString>,
 ) -> Result<Py<Bool>, ClaripyError> {
-    Bool::new(py, GLOBAL_CONTEXT.streq(&s1.get().inner, &s2.get().inner)?)
+    Bool::new(py, &GLOBAL_CONTEXT.streq(&s1.get().inner, &s2.get().inner)?)
 }
 #[pyfunction]
 pub fn StrNeq(
@@ -176,7 +221,10 @@ pub fn StrNeq(
     s1: Bound<PyAstString>,
     s2: Bound<PyAstString>,
 ) -> Result<Py<Bool>, ClaripyError> {
-    Bool::new(py, GLOBAL_CONTEXT.strneq(&s1.get().inner, &s2.get().inner)?)
+    Bool::new(
+        py,
+        &GLOBAL_CONTEXT.strneq(&s1.get().inner, &s2.get().inner)?,
+    )
 }
 
 pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {

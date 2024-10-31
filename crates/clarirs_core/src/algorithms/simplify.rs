@@ -77,9 +77,8 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                 BitVecOp::URem(arc, arc1) => todo!(),
                 BitVecOp::SRem(arc, arc1) => todo!(),
                 BitVecOp::Pow(arc, arc1) => todo!(),
-                BitVecOp::LShL(arc, arc1) => todo!(),
+                BitVecOp::ShL(arc, arc1) => todo!(),
                 BitVecOp::LShR(arc, arc1) => todo!(),
-                BitVecOp::AShL(arc, arc1) => todo!(),
                 BitVecOp::AShR(arc, arc1) => todo!(),
                 BitVecOp::RotateLeft(arc, arc1) => todo!(),
                 BitVecOp::RotateRight(arc, arc1) => todo!(),
@@ -129,7 +128,7 @@ impl<'c> Simplify<'c> for StringAst<'c> {
             .context()
             .simplification_cache
             .get_or_insert_with_string(self.hash(), || match &self.op() {
-                StringOp::StringS(_, _) => todo!(),
+                StringOp::StringS(_) => todo!(),
                 StringOp::StringV(_) => todo!(),
                 StringOp::StrConcat(arc, arc1) => todo!(),
                 StringOp::StrSubstr(arc, arc1, arc2) => todo!(),

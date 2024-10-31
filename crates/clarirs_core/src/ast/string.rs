@@ -7,7 +7,7 @@ use crate::prelude::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 pub enum StringOp<'c> {
-    StringS(String, u32),
+    StringS(String),
     StringV(String),
     StrConcat(StringAst<'c>, StringAst<'c>),
     StrSubstr(StringAst<'c>, BitVecAst<'c>, BitVecAst<'c>),
@@ -38,7 +38,7 @@ impl<'c> Op<'c> for StringOp<'c> {
     }
 
     fn variables(&self) -> HashSet<String> {
-        if let StringOp::StringS(s, _) = self {
+        if let StringOp::StringS(s) = self {
             let mut set = HashSet::new();
             set.insert(s.clone());
             set

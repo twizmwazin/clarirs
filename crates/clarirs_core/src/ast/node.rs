@@ -21,6 +21,8 @@ pub struct AstNode<'c, O: Op<'c>> {
     symbolic: bool,
     #[serde(skip)]
     variables: HashSet<String>,
+    #[serde(skip)]
+    depth: u32,
 }
 
 impl<'c, O> Debug for AstNode<'c, O>
@@ -73,6 +75,7 @@ impl<'c, O: Op<'c> + Serialize> AstNode<'c, O> {
             hash,
             symbolic,
             variables,
+            depth: 0, // TODO: Implement depth calculation
         }
     }
 
@@ -90,6 +93,10 @@ impl<'c, O: Op<'c> + Serialize> AstNode<'c, O> {
 
     pub fn variables(&self) -> &HashSet<String> {
         &self.variables
+    }
+
+    pub fn depth(&self) -> u32 {
+        self.depth
     }
 }
 

@@ -1,8 +1,10 @@
+pub mod args;
 pub mod base;
 pub mod bits;
 pub mod bool;
 pub mod bv;
 pub mod fp;
+pub mod opstring;
 pub mod string;
 
 use std::sync::LazyLock;
@@ -17,7 +19,7 @@ pub static GLOBAL_CONTEXT: LazyLock<Context<'static>> = LazyLock::new(Context::n
 #[allow(non_snake_case)]
 pub fn Not(py: Python, b: Bound<Base>) -> Result<Py<Base>, ClaripyError> {
     if let Ok(b_bool) = b.clone().into_any().downcast::<Bool>() {
-        return Bool::new(py, GLOBAL_CONTEXT.not(&b_bool.get().inner)?).map(|b| {
+        return Bool::new(py, &GLOBAL_CONTEXT.not(&b_bool.get().inner)?).map(|b| {
             b.into_any()
                 .downcast_bound::<Base>(py)
                 .unwrap()
@@ -25,7 +27,7 @@ pub fn Not(py: Python, b: Bound<Base>) -> Result<Py<Base>, ClaripyError> {
                 .unbind()
         });
     } else if let Ok(b_bv) = b.clone().into_any().downcast::<BV>() {
-        return BV::new(py, GLOBAL_CONTEXT.not(&b_bv.get().inner)?).map(|b| {
+        return BV::new(py, &GLOBAL_CONTEXT.not(&b_bv.get().inner)?).map(|b| {
             b.into_any()
                 .downcast_bound::<Base>(py)
                 .unwrap()
@@ -46,7 +48,7 @@ macro_rules! define_binop {
                 if let Ok(b_bool) = b.clone().into_any().downcast::<Bool>() {
                     return Bool::new(
                         py,
-                        GLOBAL_CONTEXT.$op(&a_bool.get().inner, &b_bool.get().inner)?,
+                        &GLOBAL_CONTEXT.$op(&a_bool.get().inner, &b_bool.get().inner)?,
                     )
                     .map(|b| {
                         b.into_any()
@@ -62,7 +64,7 @@ macro_rules! define_binop {
                 if let Ok(b_bv) = b.clone().into_any().downcast::<BV>() {
                     return BV::new(
                         py,
-                        GLOBAL_CONTEXT.$op(&a_bv.get().inner, &b_bv.get().inner)?,
+                        &GLOBAL_CONTEXT.$op(&a_bv.get().inner, &b_bv.get().inner)?,
                     )
                     .map(|b| {
                         b.into_any()
@@ -99,7 +101,7 @@ pub fn If(
             let else_bv = else_bv.get().inner.clone();
             BV::new(
                 py,
-                GLOBAL_CONTEXT.if_(&cond.get().inner, &then_bv, &else_bv)?,
+                &GLOBAL_CONTEXT.if_(&cond.get().inner, &then_bv, &else_bv)?,
             )
             .map(|b| {
                 b.into_any()
@@ -117,7 +119,7 @@ pub fn If(
             let else_bv = else_bv.get().inner.clone();
             Bool::new(
                 py,
-                GLOBAL_CONTEXT.if_(&cond.get().inner, &then_bv, &else_bv)?,
+                &GLOBAL_CONTEXT.if_(&cond.get().inner, &then_bv, &else_bv)?,
             )
             .map(|b| {
                 b.into_any()
@@ -135,7 +137,7 @@ pub fn If(
             let else_bv = else_bv.get().inner.clone();
             FP::new(
                 py,
-                GLOBAL_CONTEXT.if_(&cond.get().inner, &then_bv, &else_bv)?,
+                &GLOBAL_CONTEXT.if_(&cond.get().inner, &then_bv, &else_bv)?,
             )
             .map(|b| {
                 b.into_any()
@@ -153,7 +155,7 @@ pub fn If(
             let else_bv = else_bv.get().inner.clone();
             PyAstString::new(
                 py,
-                GLOBAL_CONTEXT.if_(&cond.get().inner, &then_bv, &else_bv)?,
+                &GLOBAL_CONTEXT.if_(&cond.get().inner, &then_bv, &else_bv)?,
             )
             .map(|b| {
                 b.into_any()

@@ -341,36 +341,7 @@ fn test_not() -> Result<()> {
 }
 
 #[test]
-fn test_lshr() -> Result<()> {
-    let ctx = Context::new();
-
-    let table: Vec<(u64, u64, u64)> = vec![
-        (0, 0, 0),
-        (0, 1, 0),
-        (1, 0, 1),
-        (1, 1, 0),
-        (1, 2, 0),
-        (2, 1, 1),
-        (2, 2, 0),
-        (2, 3, 0),
-        (3, 2, 0),
-        (3, 3, 0),
-    ];
-
-    for (a, b, expected) in table {
-        let a = ctx.bvv_prim(a).unwrap();
-        let b = ctx.bvv_prim(b).unwrap();
-        let expected = ctx.bvv_prim(expected).unwrap();
-
-        let result = ctx.lshr(&a, &b)?.simplify()?;
-        assert_eq!(result, expected);
-    }
-
-    Ok(())
-}
-
-#[test]
-fn test_ashl() -> Result<()> {
+fn test_shl() -> Result<()> {
     let ctx = Context::new();
 
     let table: Vec<(u64, u64, u64)> = vec![
@@ -393,7 +364,36 @@ fn test_ashl() -> Result<()> {
         let b = ctx.bvv_prim(b).unwrap();
         let expected = ctx.bvv_prim(expected).unwrap();
 
-        let result = ctx.ashl(&a, &b)?.simplify()?;
+        let result = ctx.shl(&a, &b)?.simplify()?;
+        assert_eq!(result, expected);
+    }
+
+    Ok(())
+}
+
+#[test]
+fn test_lshr() -> Result<()> {
+    let ctx = Context::new();
+
+    let table: Vec<(u64, u64, u64)> = vec![
+        (0, 0, 0),
+        (0, 1, 0),
+        (1, 0, 1),
+        (1, 1, 0),
+        (1, 2, 0),
+        (2, 1, 1),
+        (2, 2, 0),
+        (2, 3, 0),
+        (3, 2, 0),
+        (3, 3, 0),
+    ];
+
+    for (a, b, expected) in table {
+        let a = ctx.bvv_prim(a).unwrap();
+        let b = ctx.bvv_prim(b).unwrap();
+        let expected = ctx.bvv_prim(expected).unwrap();
+
+        let result = ctx.lshr(&a, &b)?.simplify()?;
         assert_eq!(result, expected);
     }
 

@@ -22,7 +22,7 @@ impl PyConcreteSolver {
         if let Ok(bv_value) = expr.clone().into_any().downcast::<BV>() {
             BV::new(
                 py,
-                self.inner
+                &self.inner
                     .model()?
                     .eval_bitvec(&bv_value.get().inner)
                     .unwrap(),
@@ -37,7 +37,7 @@ impl PyConcreteSolver {
         } else if let Ok(bool_value) = expr.clone().into_any().downcast::<Bool>() {
             Bool::new(
                 py,
-                self.inner
+                &self.inner
                     .model()?
                     .eval_bool(&bool_value.get().inner)
                     .unwrap(),
@@ -52,7 +52,7 @@ impl PyConcreteSolver {
         } else if let Ok(fp_value) = expr.clone().into_any().downcast::<FP>() {
             FP::new(
                 py,
-                self.inner
+                &self.inner
                     .model()?
                     .eval_float(&fp_value.get().inner)
                     .unwrap(),
@@ -67,7 +67,7 @@ impl PyConcreteSolver {
         } else if let Ok(string_value) = expr.clone().into_any().downcast::<PyAstString>() {
             PyAstString::new(
                 py,
-                self.inner
+                &self.inner
                     .model()?
                     .eval_string(&string_value.get().inner)
                     .unwrap(),
@@ -111,11 +111,11 @@ impl PyConcreteSolver {
     }
 
     fn min(&mut self, py: Python, expr: Bound<BV>) -> Result<Py<BV>, ClaripyError> {
-        BV::new(py, self.inner.min(&expr.get().inner).unwrap())
+        BV::new(py, &self.inner.min(&expr.get().inner).unwrap())
     }
 
     fn max(&mut self, py: Python, expr: Bound<BV>) -> Result<Py<BV>, ClaripyError> {
-        BV::new(py, self.inner.max(&expr.get().inner).unwrap())
+        BV::new(py, &self.inner.max(&expr.get().inner).unwrap())
     }
 }
 

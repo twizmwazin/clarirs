@@ -95,6 +95,14 @@ impl Float {
 
         Self::new(self.sign, exponent, mantissa)
     }
+
+    pub fn as_f64(&self) -> f64 {
+        recompose_f64(
+            self.sign as u8,
+            *self.exponent.as_biguint().to_u64_digits().first().unwrap() as u16,
+            *self.mantissa.as_biguint().to_u64_digits().first().unwrap(),
+        )
+    }
 }
 
 impl From<f32> for Float {
