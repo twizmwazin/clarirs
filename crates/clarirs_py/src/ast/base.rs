@@ -1,15 +1,26 @@
+use pyo3::types::PyList;
+
 use crate::prelude::*;
 
 #[pyclass(subclass, frozen, weakref, module = "clarirs.ast.base")]
-#[derive(Clone, Default)]
-pub struct Base {}
-
-#[pymethods]
-impl Base {}
+#[derive(Clone)]
+pub struct Base {
+    errored: Py<PyList>,
+}
 
 impl Base {
-    pub fn new() -> Self {
-        Base {}
+    pub fn new(py: Python) -> Self {
+        Base {
+            errored: PyList::empty_bound(py).unbind(),
+        }
+    }
+}
+
+#[pymethods]
+impl Base {
+    #[getter]
+    fn _errored(&self) -> Py<PyList> {
+        self.errored.clone()
     }
 }
 

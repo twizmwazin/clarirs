@@ -41,12 +41,8 @@ pub trait AstFactory<'c>: Sized {
         self.make_float(FloatOp::FPV(value.into()))
     }
 
-    fn strings<S: Into<String>>(
-        &'c self,
-        name: S,
-        width: u32,
-    ) -> Result<StringAst<'c>, ClarirsError> {
-        self.make_string(StringOp::StringS(name.into(), width))
+    fn strings<S: Into<String>>(&'c self, name: S) -> Result<StringAst<'c>, ClarirsError> {
+        self.make_string(StringOp::StringS(name.into()))
     }
 
     fn stringv<S: Into<String>>(&'c self, value: S) -> Result<StringAst<'c>, ClarirsError> {
@@ -164,12 +160,12 @@ pub trait AstFactory<'c>: Sized {
         Op::pow(self, lhs, rhs)
     }
 
-    fn ashl(
+    fn shl(
         &'c self,
         lhs: &BitVecAst<'c>,
         rhs: &BitVecAst<'c>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::AShL(lhs.clone(), rhs.clone()))
+        self.make_bitvec(BitVecOp::ShL(lhs.clone(), rhs.clone()))
     }
 
     fn ashr(

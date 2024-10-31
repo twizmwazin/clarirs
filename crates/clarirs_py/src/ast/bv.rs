@@ -5,7 +5,7 @@ use std::sync::LazyLock;
 use dashmap::DashMap;
 use num_bigint::BigUint;
 use pyo3::exceptions::{PyTypeError, PyValueError};
-use pyo3::types::PyWeakrefReference;
+use pyo3::types::{PyFrozenSet, PyWeakrefReference};
 
 use crate::ast::{And, Not, Or, Xor};
 use crate::prelude::*;
@@ -18,7 +18,7 @@ pub struct BV {
 }
 
 impl BV {
-    pub fn new(py: Python, inner: BitVecAst<'static>) -> Result<Py<BV>, ClaripyError> {
+    pub fn new(py: Python, inner: &BitVecAst<'static>) -> Result<Py<BV>, ClaripyError> {
         if let Some(cache_hit) = PY_BV_CACHE.get(&inner.hash()).and_then(|cache_hit| {
             cache_hit
                 .bind(py)
@@ -29,7 +29,7 @@ impl BV {
         } else {
             let this = Py::new(
                 py,
-                PyClassInitializer::from(Base::new())
+                PyClassInitializer::from(Base::new(py))
                     .add_subclass(Bits::new())
                     .add_subclass(BV {
                         inner: inner.clone(),
@@ -44,11 +44,53 @@ impl BV {
 }
 
 #[pymethods]
-impl BV {}
+impl BV {
+    #[getter]
+    fn op(&self) -> String {
+        self.inner.op().to_opstring()
+    }
+
+    #[getter]
+    fn args(&self, py: Python) -> Result<Vec<PyObject>, ClaripyError> {
+        self.inner.op().extract_py_args(py)
+    }
+
+    #[getter]
+    fn variables(&self, py: Python) -> Result<Py<PyFrozenSet>, ClaripyError> {
+        Ok(PyFrozenSet::new_bound(
+            py,
+            self.inner
+                .variables()
+                .iter()
+                .map(|v| v.to_object(py))
+                .collect::<Vec<_>>()
+                .iter(),
+        )?
+        .unbind())
+    }
+
+    #[getter]
+    fn symbolic(&self) -> bool {
+        self.inner.symbolic()
+    }
+
+    fn hash(&self) -> u64 {
+        self.inner.hash()
+    }
+
+    #[getter]
+    fn depth(&self) -> u32 {
+        self.inner.depth()
+    }
+
+    fn is_leaf(&self) -> bool {
+        self.inner.depth() == 1
+    }
+}
 
 #[pyfunction]
 pub fn BVS(py: Python, name: String, size: u32) -> Result<Py<BV>, ClaripyError> {
-    BV::new(py, GLOBAL_CONTEXT.bvs(&name, size)?)
+    BV::new(py, &GLOBAL_CONTEXT.bvs(&name, size)?)
 }
 
 #[allow(non_snake_case)]
@@ -59,7 +101,7 @@ pub fn BVV(py: Python, value: Bound<PyAny>, size: Option<u32>) -> Result<Py<BV>,
             let a = GLOBAL_CONTEXT
                 .bvv_from_biguint_with_size(&int_val, size)
                 .map_err(ClaripyError::from)?;
-            return Ok(BV::new(py, a)?);
+            return Ok(BV::new(py, &a)?);
         } else {
             return Err(PyErr::new::<PyValueError, _>("size must be specified"));
         }
@@ -73,7 +115,7 @@ pub fn BVV(py: Python, value: Bound<PyAny>, size: Option<u32>) -> Result<Py<BV>,
         }
         return Ok(BV::new(
             py,
-            GLOBAL_CONTEXT
+            &GLOBAL_CONTEXT
                 .bvv_from_biguint_with_size(&int_val, bytes_val.len() as u32 * 8)
                 .map_err(ClaripyError::from)?,
         )?);
@@ -88,7 +130,7 @@ pub fn BVV(py: Python, value: Bound<PyAny>, size: Option<u32>) -> Result<Py<BV>,
         }
         return Ok(BV::new(
             py,
-            GLOBAL_CONTEXT
+            &GLOBAL_CONTEXT
                 .bvv_from_biguint_with_size(&int_val, bytes_val.len() as u32 * 8)
                 .map_err(ClaripyError::from)?,
         )?);
@@ -108,7 +150,7 @@ macro_rules! binop {
         ) -> Result<Py<$return_type>, ClaripyError> {
             <$return_type>::new(
                 py,
-                GLOBAL_CONTEXT.$context_method(&lhs.get().inner, &rhs.get().inner)?,
+                &GLOBAL_CONTEXT.$context_method(&lhs.get().inner, &rhs.get().inner)?,
             )
         }
     };
@@ -122,7 +164,7 @@ binop!(SDiv, sdiv, BV, BV, BV);
 binop!(UMod, urem, BV, BV, BV);
 binop!(SMod, srem, BV, BV, BV);
 binop!(Pow, pow, BV, BV, BV);
-binop!(ShL, ashl, BV, BV, BV);
+binop!(ShL, shl, BV, BV, BV);
 binop!(LShR, lshr, BV, BV, BV);
 binop!(AShR, ashr, BV, BV, BV);
 binop!(RotateLeft, rotate_left, BV, BV, BV);
@@ -131,22 +173,22 @@ binop!(Concat, concat, BV, BV, BV);
 
 #[pyfunction]
 pub fn Extract(py: Python, base: Bound<BV>, start: u32, end: u32) -> Result<Py<BV>, ClaripyError> {
-    BV::new(py, GLOBAL_CONTEXT.extract(&base.get().inner, start, end)?)
+    BV::new(py, &GLOBAL_CONTEXT.extract(&base.get().inner, start, end)?)
 }
 
 #[pyfunction]
 pub fn ZeroExt(py: Python, base: Bound<BV>, amount: u32) -> Result<Py<BV>, ClaripyError> {
-    BV::new(py, GLOBAL_CONTEXT.zero_ext(&base.get().inner, amount)?)
+    BV::new(py, &GLOBAL_CONTEXT.zero_ext(&base.get().inner, amount)?)
 }
 
 #[pyfunction]
 pub fn SignExt(py: Python, base: Bound<BV>, amount: u32) -> Result<Py<BV>, ClaripyError> {
-    BV::new(py, GLOBAL_CONTEXT.sign_ext(&base.get().inner, amount)?)
+    BV::new(py, &GLOBAL_CONTEXT.sign_ext(&base.get().inner, amount)?)
 }
 
 #[pyfunction]
 pub fn Reverse(py: Python, base: Bound<BV>) -> Result<Py<BV>, ClaripyError> {
-    BV::new(py, GLOBAL_CONTEXT.reverse(&base.get().inner)?)
+    BV::new(py, &GLOBAL_CONTEXT.reverse(&base.get().inner)?)
 }
 
 binop!(ULT, ult, Bool, BV, BV);
@@ -169,7 +211,7 @@ pub fn If(
 ) -> Result<Py<BV>, ClaripyError> {
     BV::new(
         py,
-        GLOBAL_CONTEXT.if_(&cond.get().inner, &then_.get().inner, &else_.get().inner)?,
+        &GLOBAL_CONTEXT.if_(&cond.get().inner, &then_.get().inner, &else_.get().inner)?,
     )
 }
 

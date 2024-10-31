@@ -22,9 +22,8 @@ pub enum BitVecOp<'c> {
     URem(BitVecAst<'c>, BitVecAst<'c>),
     SRem(BitVecAst<'c>, BitVecAst<'c>),
     Pow(BitVecAst<'c>, BitVecAst<'c>),
-    LShL(BitVecAst<'c>, BitVecAst<'c>),
+    ShL(BitVecAst<'c>, BitVecAst<'c>),
     LShR(BitVecAst<'c>, BitVecAst<'c>),
-    AShL(BitVecAst<'c>, BitVecAst<'c>),
     AShR(BitVecAst<'c>, BitVecAst<'c>),
     RotateLeft(BitVecAst<'c>, BitVecAst<'c>),
     RotateRight(BitVecAst<'c>, BitVecAst<'c>),
@@ -36,7 +35,7 @@ pub enum BitVecOp<'c> {
     FpToIEEEBV(FloatAst<'c>),
     FpToUBV(FloatAst<'c>, u32, FPRM),
     FpToSBV(FloatAst<'c>, u32, FPRM),
-    StrLen(StringAst<'c>), // or StrLen(BitVecAst<'c>, u32),
+    StrLen(StringAst<'c>),
     StrIndexOf(StringAst<'c>, StringAst<'c>, BitVecAst<'c>),
     StrToBV(StringAst<'c>),
     If(AstRef<'c, BooleanOp<'c>>, BitVecAst<'c>, BitVecAst<'c>),
@@ -72,9 +71,8 @@ impl<'c> Op<'c> for BitVecOp<'c> {
             | BitVecOp::URem(a, b)
             | BitVecOp::SRem(a, b)
             | BitVecOp::Pow(a, b)
-            | BitVecOp::LShL(a, b)
+            | BitVecOp::ShL(a, b)
             | BitVecOp::LShR(a, b)
-            | BitVecOp::AShL(a, b)
             | BitVecOp::AShR(a, b)
             | BitVecOp::RotateLeft(a, b)
             | BitVecOp::RotateRight(a, b)

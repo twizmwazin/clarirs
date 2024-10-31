@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Not, Rem, Shl, Shr, Sub};
 
-use num_bigint::BigUint;
+use num_bigint::{BigInt, BigUint};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use thiserror::Error;
@@ -69,6 +69,16 @@ impl BitVec {
         BitVec::new(
             value.iter_u64_digits().take((length / 64) + 1).collect(),
             length,
+        )
+    }
+
+    pub fn as_biguint(&self) -> BigUint {
+        BigUint::from_bytes_be(
+            self.words
+                .iter()
+                .flat_map(|w| w.to_be_bytes())
+                .collect::<Vec<u8>>()
+                .as_slice(),
         )
     }
 
