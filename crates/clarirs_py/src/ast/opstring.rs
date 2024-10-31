@@ -55,6 +55,7 @@ impl ToOpString for BitVecOp<'static> {
             BitVecOp::And(..) => "__and__".to_string(),
             BitVecOp::Or(..) => "__or__".to_string(),
             BitVecOp::Xor(..) => "__xor__".to_string(),
+            BitVecOp::Abs(..) => "__abs__".to_string(),
             BitVecOp::Add(..) => "__add__".to_string(),
             BitVecOp::Sub(..) => "__sub__".to_string(),
             BitVecOp::Mul(..) => "__mul__".to_string(),

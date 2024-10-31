@@ -14,6 +14,7 @@ pub enum BitVecOp<'c> {
     And(BitVecAst<'c>, BitVecAst<'c>),
     Or(BitVecAst<'c>, BitVecAst<'c>),
     Xor(BitVecAst<'c>, BitVecAst<'c>),
+    Abs(BitVecAst<'c>),
     Add(BitVecAst<'c>, BitVecAst<'c>),
     Sub(BitVecAst<'c>, BitVecAst<'c>),
     Mul(BitVecAst<'c>, BitVecAst<'c>),
@@ -50,6 +51,7 @@ impl<'c> Op<'c> for BitVecOp<'c> {
             BitVecOp::BVS(..) | BitVecOp::BVV(..) | BitVecOp::SI(..) => vec![],
 
             BitVecOp::Not(a)
+            | BitVecOp::Abs(a)
             | BitVecOp::Reverse(a)
             | BitVecOp::ZeroExt(a, _)
             | BitVecOp::SignExt(a, _)

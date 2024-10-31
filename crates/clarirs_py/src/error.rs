@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use pyo3::{exceptions::PyRuntimeError, PyErr, PyObject};
+use pyo3::{exceptions::PyRuntimeError, DowncastError, DowncastIntoError, PyErr, PyObject};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -14,6 +14,10 @@ pub enum ClaripyError {
     FailedToExtractArg(PyObject),
     #[error("Python error: {0}")]
     PythonError(String),
+    #[error("Casting error: {0}")]
+    CastingError(String),
+    #[error("Invalid argument type: {0}")]
+    InvalidArgumentType(String),
 }
 
 impl From<ClarirsError> for ClaripyError {
@@ -37,5 +41,17 @@ impl From<PyErr> for ClaripyError {
 impl From<ClaripyError> for PyErr {
     fn from(e: ClaripyError) -> Self {
         PyRuntimeError::new_err(format!("{}", e))
+    }
+}
+
+impl From<DowncastError<'_, '_>> for ClaripyError {
+    fn from(e: DowncastError) -> Self {
+        ClaripyError::CastingError(format!("{}", e))
+    }
+}
+
+impl From<DowncastIntoError<'_>> for ClaripyError {
+    fn from(e: DowncastIntoError) -> Self {
+        ClaripyError::CastingError(format!("{}", e))
     }
 }

@@ -3,6 +3,7 @@ pub mod base;
 pub mod bits;
 pub mod bool;
 pub mod bv;
+pub mod coerce;
 pub mod fp;
 pub mod opstring;
 pub mod string;

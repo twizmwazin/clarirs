@@ -69,6 +69,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                 BitVecOp::And(arc, arc1) => todo!(),
                 BitVecOp::Or(arc, arc1) => todo!(),
                 BitVecOp::Xor(arc, arc1) => todo!(),
+                BitVecOp::Abs(arc) => todo!(),
                 BitVecOp::Add(arc, arc1) => todo!(),
                 BitVecOp::Sub(arc, arc1) => todo!(),
                 BitVecOp::Mul(arc, arc1) => todo!(),
