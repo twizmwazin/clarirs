@@ -1,17 +1,19 @@
-use pyo3::types::PyList;
+use pyo3::types::PySet;
 
 use crate::prelude::*;
 
 #[pyclass(subclass, frozen, weakref, module = "clarirs.ast.base")]
 #[derive(Clone)]
 pub struct Base {
-    errored: Py<PyList>,
+    errored: Py<PySet>,
 }
 
 impl Base {
     pub fn new(py: Python) -> Self {
         Base {
-            errored: PyList::empty_bound(py).unbind(),
+            errored: PySet::empty_bound(py)
+                .expect("Failed to create PySet")
+                .unbind(),
         }
     }
 }
@@ -19,7 +21,7 @@ impl Base {
 #[pymethods]
 impl Base {
     #[getter]
-    fn _errored(&self) -> Py<PyList> {
+    fn _errored(&self) -> Py<PySet> {
         self.errored.clone()
     }
 }
