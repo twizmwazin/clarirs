@@ -97,4 +97,16 @@ impl<'c> Op<'c> for BitVecOp<'c> {
                 .fold(HashSet::new(), |acc, x| acc.union(&x).cloned().collect())
         }
     }
+
+    fn get_annotations(&self) -> Vec<Annotation> {
+        if let BitVecOp::Annotated(inner, anno) = self {
+            inner
+                .get_annotations()
+                .into_iter()
+                .chain(vec![anno.clone()])
+                .collect()
+        } else {
+            vec![]
+        }
+    }
 }
