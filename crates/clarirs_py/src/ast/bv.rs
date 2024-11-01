@@ -3,6 +3,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::LazyLock;
 
+use clarirs_core::ast::bitvec::BitVecExt;
 use dashmap::DashMap;
 use num_bigint::BigUint;
 use pyo3::exceptions::{PyTypeError, PyValueError};
@@ -106,6 +107,14 @@ impl BV {
 
     fn is_leaf(&self) -> bool {
         self.inner.depth() == 1
+    }
+
+    fn size(&self) -> usize {
+        self.inner.size() as usize
+    }
+
+    fn __len__(&self) -> usize {
+        self.size()
     }
 
     fn annotate(&self, py: Python, annotation: Bound<PyAny>) -> Result<Py<BV>, ClaripyError> {

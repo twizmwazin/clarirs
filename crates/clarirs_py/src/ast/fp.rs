@@ -5,6 +5,7 @@ use std::sync::{
     LazyLock,
 };
 
+use clarirs_core::ast::float::FloatExt;
 use dashmap::DashMap;
 use pyo3::types::{PyBytes, PyFrozenSet, PyWeakrefReference};
 
@@ -189,6 +190,14 @@ impl FP {
 
     fn is_leaf(&self) -> bool {
         self.inner.depth() == 1
+    }
+
+    fn size(&self) -> usize {
+        self.inner.size() as usize
+    }
+
+    fn __len__(&self) -> usize {
+        self.size()
     }
 
     fn annotate(&self, py: Python, annotation: Bound<PyAny>) -> Result<Py<FP>, ClaripyError> {
