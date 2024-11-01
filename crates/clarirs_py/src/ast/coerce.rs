@@ -1,5 +1,7 @@
 use std::str;
 
+use clarirs_core::ast::bitvec::BitVecExt;
+
 use crate::prelude::*;
 
 pub struct CoerceBool(pub Py<Bool>);
@@ -30,14 +32,56 @@ impl From<CoerceBool> for BoolAst<'static> {
     }
 }
 
-pub struct CoerceBV(pub Py<BV>);
+pub struct CoerceBV {
+    inner: Py<BV>,
+    coerced: bool,
+}
+
+impl CoerceBV {
+    pub fn new(bv: Py<BV>) -> Self {
+        CoerceBV {
+            inner: bv,
+            coerced: false,
+        }
+    }
+
+    pub fn new_coerced(bv: Py<BV>) -> Self {
+        CoerceBV {
+            inner: bv,
+            coerced: true,
+        }
+    }
+
+    pub fn extract_like(&self, py: Python, like: &BV) -> Py<BV> {
+        let our_size = self.inner.get().inner.size();
+        let like_size = like.inner.size();
+
+        if self.coerced && like_size != our_size {
+            if like_size > our_size {
+                self.inner.get().zero_extend(py, like_size).unwrap()
+            } else {
+                self.inner.get().Extract(py, like_size - 1, 0).unwrap()
+            }
+        } else {
+            self.inner.clone()
+        }
+    }
+
+    pub fn extract_pair(py: Python, lhs: &CoerceBV, rhs: &CoerceBV) -> (Py<BV>, Py<BV>) {
+        match (lhs.coerced, rhs.coerced) {
+            (true, true) | (false, false) => (lhs.inner.clone(), rhs.inner.clone()),
+            (true, false) => (lhs.extract_like(py, rhs.inner.get()), rhs.inner.clone()),
+            (false, true) => (lhs.inner.clone(), rhs.extract_like(py, lhs.inner.get())),
+        }
+    }
+}
 
 impl FromPyObject<'_> for CoerceBV {
     fn extract_bound(val: &Bound<'_, PyAny>) -> PyResult<Self> {
         if let Ok(bv_val) = val.downcast::<BV>() {
-            Ok(CoerceBV(bv_val.clone().unbind()))
+            Ok(CoerceBV::new(bv_val.clone().unbind()))
         } else if let Ok(bv_val) = val.extract::<u64>() {
-            Ok(CoerceBV(
+            Ok(CoerceBV::new_coerced(
                 BV::new(val.py(), &GLOBAL_CONTEXT.bvv_prim(bv_val).unwrap()).unwrap(),
             ))
         } else {
@@ -48,13 +92,13 @@ impl FromPyObject<'_> for CoerceBV {
 
 impl From<CoerceBV> for Py<BV> {
     fn from(val: CoerceBV) -> Self {
-        val.0
+        val.inner
     }
 }
 
 impl From<CoerceBV> for BitVecAst<'static> {
     fn from(val: CoerceBV) -> Self {
-        val.0.get().inner.clone()
+        val.inner.get().inner.clone()
     }
 }
 

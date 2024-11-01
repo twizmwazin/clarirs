@@ -44,7 +44,11 @@ macro_rules! define_binop {
     ($name:ident, $op:ident) => {
         #[pyfunction]
         #[allow(non_snake_case)]
-        pub fn $name(py: Python, a: Bound<Base>, b: Bound<Base>) -> Result<Py<Base>, ClaripyError> {
+        pub fn $name(
+            py: Python,
+            a: Bound<PyAny>,
+            b: Bound<PyAny>,
+        ) -> Result<Py<Base>, ClaripyError> {
             if let Ok(a_bool) = a.clone().into_any().downcast::<Bool>() {
                 if let Ok(b_bool) = b.clone().into_any().downcast::<Bool>() {
                     return Bool::new(
@@ -61,8 +65,9 @@ macro_rules! define_binop {
                 } else {
                     panic!("mismatched types")
                 }
-            } else if let Ok(a_bv) = a.clone().into_any().downcast::<BV>() {
-                if let Ok(b_bv) = b.clone().into_any().downcast::<BV>() {
+            } else if let Ok(a_bv) = a.clone().into_any().extract::<CoerceBV>() {
+                if let Ok(b_bv) = b.clone().into_any().extract::<CoerceBV>() {
+                    let (a_bv, b_bv) = CoerceBV::extract_pair(py, &a_bv, &b_bv);
                     return BV::new(
                         py,
                         &GLOBAL_CONTEXT.$op(&a_bv.get().inner, &b_bv.get().inner)?,
@@ -93,16 +98,19 @@ define_binop!(Xor, xor);
 pub fn If(
     py: Python,
     cond: Bound<Bool>,
-    then_: Bound<Base>,
-    else_: Bound<Base>,
+    then_: Bound<PyAny>,
+    else_: Bound<PyAny>,
 ) -> Result<Py<Base>, ClaripyError> {
-    if let Ok(then_bv) = then_.clone().into_any().downcast::<BV>() {
-        if let Ok(else_bv) = else_.clone().into_any().downcast::<BV>() {
-            let then_bv = then_bv.get().inner.clone();
-            let else_bv = else_bv.get().inner.clone();
+    if let Ok(then_bv) = then_.clone().into_any().extract::<CoerceBV>() {
+        if let Ok(else_bv) = else_.clone().into_any().extract::<CoerceBV>() {
+            let (then_bv, else_bv) = CoerceBV::extract_pair(py, &then_bv, &else_bv);
             BV::new(
                 py,
-                &GLOBAL_CONTEXT.if_(&cond.get().inner, &then_bv, &else_bv)?,
+                &GLOBAL_CONTEXT.if_(
+                    &cond.get().inner,
+                    &then_bv.get().inner,
+                    &else_bv.get().inner,
+                )?,
             )
             .map(|b| {
                 b.into_any()

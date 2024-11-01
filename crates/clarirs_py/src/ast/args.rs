@@ -95,9 +95,9 @@ impl ExtractPyArgs for BitVecOp<'static> {
                 vec![BV::new(py, expr)?.into_any(), amount.to_object(py)]
             }
             BitVecOp::Extract(expr, end, start) => vec![
-                BV::new(py, expr)?.into_any(),
                 end.to_object(py),
                 start.to_object(py),
+                BV::new(py, expr)?.into_any(),
             ],
             BitVecOp::Reverse(expr) => vec![BV::new(py, expr)?.into_any()],
             BitVecOp::FpToIEEEBV(expr) => vec![FP::new(py, expr)?.into_any()],
