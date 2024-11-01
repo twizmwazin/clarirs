@@ -52,6 +52,7 @@ dependencies = [
  "ahash",
  "anyhow",
  "clarirs_num",
+ "dashmap",
  "num-bigint",
  "paste",
  "petgraph",
