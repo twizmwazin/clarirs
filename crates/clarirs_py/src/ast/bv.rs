@@ -431,11 +431,11 @@ impl BV {
         )
     }
 
-    pub fn zero_ext(&self, py: Python, amount: u32) -> Result<Py<BV>, ClaripyError> {
+    pub fn zero_extend(&self, py: Python, amount: u32) -> Result<Py<BV>, ClaripyError> {
         BV::new(py, &GLOBAL_CONTEXT.zero_ext(&self.inner, amount)?)
     }
 
-    pub fn sign_ext(&self, py: Python, amount: u32) -> Result<Py<BV>, ClaripyError> {
+    pub fn sign_extend(&self, py: Python, amount: u32) -> Result<Py<BV>, ClaripyError> {
         BV::new(py, &GLOBAL_CONTEXT.sign_ext(&self.inner, amount)?)
     }
 
