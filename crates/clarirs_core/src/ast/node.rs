@@ -116,6 +116,10 @@ impl<'c, O: Op<'c>> Op<'c> for AstNode<'c, O> {
     fn variables(&self) -> HashSet<String> {
         self.variables.clone()
     }
+
+    fn get_annotations(&self) -> Vec<Annotation> {
+        self.op().get_annotations()
+    }
 }
 
 pub type AstRef<'c, Op> = Arc<AstNode<'c, Op>>;
@@ -160,6 +164,15 @@ impl<'c> Op<'c> for VarAst<'c> {
             VarAst::String(ast) => ast.variables(),
         }
         .clone()
+    }
+
+    fn get_annotations(&self) -> Vec<Annotation> {
+        match self {
+            VarAst::Boolean(ast) => ast.get_annotations(),
+            VarAst::BitVec(ast) => ast.get_annotations(),
+            VarAst::Float(ast) => ast.get_annotations(),
+            VarAst::String(ast) => ast.get_annotations(),
+        }
     }
 }
 

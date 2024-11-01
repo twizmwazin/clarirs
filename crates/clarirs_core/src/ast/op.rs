@@ -31,4 +31,6 @@ pub trait Op<'c>: Debug + Hash + Serialize {
     fn concrete(&self) -> bool {
         self.variables().is_empty()
     }
+
+    fn get_annotations(&self) -> Vec<Annotation>;
 }

@@ -6,7 +6,7 @@ use std::sync::{
 };
 
 use dashmap::DashMap;
-use pyo3::types::{PyFrozenSet, PyWeakrefReference};
+use pyo3::types::{PyBytes, PyFrozenSet, PyWeakrefReference};
 
 use crate::prelude::*;
 
@@ -82,6 +82,17 @@ impl PyAstString {
         self.inner.symbolic()
     }
 
+    #[getter]
+    fn annotations(&self, py: Python) -> PyResult<Vec<PyObject>> {
+        let pickle_loads = py.import_bound("pickle")?.getattr("loads")?;
+        self.inner
+            .get_annotations()
+            .iter()
+            .map(|a| pickle_loads.call1((PyBytes::new_bound(py, a.value()),)))
+            .map(|a| a.map(|a| a.unbind()))
+            .collect()
+    }
+
     fn hash(&self) -> u64 {
         self.inner.hash()
     }
@@ -93,6 +104,23 @@ impl PyAstString {
 
     fn is_leaf(&self) -> bool {
         self.inner.depth() == 1
+    }
+
+    fn annotate(&self, py: Python, annotation: Bound<PyAny>) -> Result<Py<PyAstString>, ClaripyError> {
+        let pickle_dumps = py.import_bound("pickle")?.getattr("dumps")?;
+        let annotation_bytes = pickle_dumps
+            .call1((&annotation,))?
+            .downcast::<PyBytes>()?
+            .extract::<Vec<u8>>()?;
+        let eliminatable = annotation.getattr("eliminatable")?.extract::<bool>()?;
+        let relocatable = annotation.getattr("relocatable")?.extract::<bool>()?;
+        PyAstString::new(
+            py,
+            &GLOBAL_CONTEXT.annotated(
+                &self.inner,
+                Annotation::new("".to_string(), annotation_bytes, eliminatable, relocatable),
+            )?,
+        )
     }
 }
 
