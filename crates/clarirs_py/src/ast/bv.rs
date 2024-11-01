@@ -24,7 +24,11 @@ impl BV {
         Self::new_with_name(py, inner, None)
     }
 
-    pub fn new_with_name(py: Python, inner: &BitVecAst<'static>, name: Option<String>) -> Result<Py<BV>, ClaripyError> {
+    pub fn new_with_name(
+        py: Python,
+        inner: &BitVecAst<'static>,
+        name: Option<String>,
+    ) -> Result<Py<BV>, ClaripyError> {
         if let Some(cache_hit) = PY_BV_CACHE.get(&inner.hash()).and_then(|cache_hit| {
             cache_hit
                 .bind(py)
@@ -405,7 +409,12 @@ impl BV {
 }
 
 #[pyfunction(signature = (name, size, explicit_name = false))]
-pub fn BVS(py: Python, name: String, size: u32, explicit_name: bool) -> Result<Py<BV>, ClaripyError> {
+pub fn BVS(
+    py: Python,
+    name: String,
+    size: u32,
+    explicit_name: bool,
+) -> Result<Py<BV>, ClaripyError> {
     let name: String = if explicit_name {
         name.to_string()
     } else {

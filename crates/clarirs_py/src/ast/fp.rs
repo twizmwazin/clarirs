@@ -1,6 +1,9 @@
 #![allow(non_snake_case)]
 
-use std::sync::{atomic::{AtomicUsize, Ordering}, LazyLock};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    LazyLock,
+};
 
 use dashmap::DashMap;
 use pyo3::types::{PyFrozenSet, PyWeakrefReference};
@@ -104,7 +107,11 @@ impl FP {
         Self::new_with_name(py, inner, None)
     }
 
-    pub fn new_with_name(py: Python, inner: &FloatAst<'static>, name: Option<String>) -> Result<Py<FP>, ClaripyError> {
+    pub fn new_with_name(
+        py: Python,
+        inner: &FloatAst<'static>,
+        name: Option<String>,
+    ) -> Result<Py<FP>, ClaripyError> {
         if let Some(cache_hit) = PY_FP_CACHE.get(&inner.hash()).and_then(|cache_hit| {
             cache_hit
                 .bind(py)
@@ -175,7 +182,12 @@ impl FP {
 }
 
 #[pyfunction(signature = (name, sort, explicit_name = false))]
-pub fn FPS(py: Python, name: &str, sort: PyFSort, explicit_name: bool) -> Result<Py<FP>, ClaripyError> {
+pub fn FPS(
+    py: Python,
+    name: &str,
+    sort: PyFSort,
+    explicit_name: bool,
+) -> Result<Py<FP>, ClaripyError> {
     let name: String = if explicit_name {
         name.to_string()
     } else {

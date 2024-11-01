@@ -1,6 +1,9 @@
 #![allow(non_snake_case)]
 
-use std::sync::{atomic::{AtomicUsize, Ordering}, LazyLock};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    LazyLock,
+};
 
 use dashmap::DashMap;
 use pyo3::types::{PyFrozenSet, PyWeakrefReference};
@@ -21,7 +24,11 @@ impl PyAstString {
         Self::new_with_name(py, inner, None)
     }
 
-    pub fn new_with_name(py: Python, inner: &StringAst<'static>, name: Option<String>) -> Result<Py<PyAstString>, ClaripyError> {
+    pub fn new_with_name(
+        py: Python,
+        inner: &StringAst<'static>,
+        name: Option<String>,
+    ) -> Result<Py<PyAstString>, ClaripyError> {
         if let Some(cache_hit) = PY_STRING_CACHE.get(&inner.hash()).and_then(|cache_hit| {
             cache_hit
                 .bind(py)
@@ -90,7 +97,11 @@ impl PyAstString {
 }
 
 #[pyfunction(signature = (name, explicit_name = false))]
-pub fn StringS(py: Python, name: &str, explicit_name: bool) -> Result<Py<PyAstString>, ClaripyError> {
+pub fn StringS(
+    py: Python,
+    name: &str,
+    explicit_name: bool,
+) -> Result<Py<PyAstString>, ClaripyError> {
     let name: String = if explicit_name {
         name.to_string()
     } else {
