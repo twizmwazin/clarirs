@@ -115,7 +115,11 @@ impl<'c> Op<'c> for BooleanOp<'c> {
 
     fn get_annotations(&self) -> Vec<Annotation> {
         if let BooleanOp::Annotated(inner, anno) = self {
-            inner.get_annotations().into_iter().chain(vec![anno.clone()]).collect()
+            inner
+                .get_annotations()
+                .into_iter()
+                .chain(vec![anno.clone()])
+                .collect()
         } else {
             vec![]
         }

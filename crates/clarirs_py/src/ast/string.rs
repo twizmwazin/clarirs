@@ -106,7 +106,11 @@ impl PyAstString {
         self.inner.depth() == 1
     }
 
-    fn annotate(&self, py: Python, annotation: Bound<PyAny>) -> Result<Py<PyAstString>, ClaripyError> {
+    fn annotate(
+        &self,
+        py: Python,
+        annotation: Bound<PyAny>,
+    ) -> Result<Py<PyAstString>, ClaripyError> {
         let pickle_dumps = py.import_bound("pickle")?.getattr("dumps")?;
         let annotation_bytes = pickle_dumps
             .call1((&annotation,))?

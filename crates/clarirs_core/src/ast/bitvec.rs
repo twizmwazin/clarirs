@@ -100,7 +100,11 @@ impl<'c> Op<'c> for BitVecOp<'c> {
 
     fn get_annotations(&self) -> Vec<Annotation> {
         if let BitVecOp::Annotated(inner, anno) = self {
-            inner.get_annotations().into_iter().chain(vec![anno.clone()]).collect()
+            inner
+                .get_annotations()
+                .into_iter()
+                .chain(vec![anno.clone()])
+                .collect()
         } else {
             vec![]
         }

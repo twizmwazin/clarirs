@@ -58,7 +58,11 @@ impl<'c> Op<'c> for FloatOp<'c> {
 
     fn get_annotations(&self) -> Vec<Annotation> {
         if let FloatOp::Annotated(inner, anno) = self {
-            inner.get_annotations().into_iter().chain(vec![anno.clone()]).collect()
+            inner
+                .get_annotations()
+                .into_iter()
+                .chain(vec![anno.clone()])
+                .collect()
         } else {
             vec![]
         }
