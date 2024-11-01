@@ -1,12 +1,13 @@
 #![allow(non_snake_case)]
 
-use std::sync::LazyLock;
+use std::sync::{atomic::{AtomicUsize, Ordering}, LazyLock};
 
 use dashmap::DashMap;
 use pyo3::types::{PyFrozenSet, PyWeakrefReference};
 
 use crate::prelude::*;
 
+static FPS_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static PY_FP_CACHE: LazyLock<DashMap<u64, Py<PyWeakrefReference>>> = LazyLock::new(DashMap::new);
 
 #[pyclass(name = "RM", module = "clarirs.ast.fp", eq)]
@@ -100,6 +101,10 @@ pub struct FP {
 
 impl FP {
     pub fn new(py: Python, inner: &FloatAst<'static>) -> Result<Py<FP>, ClaripyError> {
+        Self::new_with_name(py, inner, None)
+    }
+
+    pub fn new_with_name(py: Python, inner: &FloatAst<'static>, name: Option<String>) -> Result<Py<FP>, ClaripyError> {
         if let Some(cache_hit) = PY_FP_CACHE.get(&inner.hash()).and_then(|cache_hit| {
             cache_hit
                 .bind(py)
@@ -110,7 +115,7 @@ impl FP {
         } else {
             let this = Py::new(
                 py,
-                PyClassInitializer::from(Base::new(py))
+                PyClassInitializer::from(Base::new_with_name(py, name))
                     .add_subclass(Bits::new())
                     .add_subclass(FP {
                         inner: inner.clone(),
@@ -169,9 +174,15 @@ impl FP {
     }
 }
 
-#[pyfunction]
-pub fn FPS(py: Python, name: &str, sort: PyFSort) -> Result<Py<FP>, ClaripyError> {
-    FP::new(py, &GLOBAL_CONTEXT.fps(name, sort)?)
+#[pyfunction(signature = (name, sort, explicit_name = false))]
+pub fn FPS(py: Python, name: &str, sort: PyFSort, explicit_name: bool) -> Result<Py<FP>, ClaripyError> {
+    let name: String = if explicit_name {
+        name.to_string()
+    } else {
+        let counter = FPS_COUNTER.fetch_add(1, Ordering::Relaxed);
+        format!("FP{}_{}_{}", sort.0.size(), name, counter)
+    };
+    FP::new_with_name(py, &GLOBAL_CONTEXT.fps(&name, sort)?, Some(name))
 }
 
 #[pyfunction]

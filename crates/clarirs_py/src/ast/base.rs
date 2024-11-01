@@ -6,20 +6,39 @@ use crate::prelude::*;
 #[derive(Clone)]
 pub struct Base {
     errored: Py<PySet>,
+    name: Option<String>,
+    encoded_name: Option<Vec<u8>>,
 }
 
 impl Base {
     pub fn new(py: Python) -> Self {
-        Base {
+        Self::new_with_name(py, None)
+    }
+
+    pub fn new_with_name(py: Python, name: Option<String>) -> Self {
+        let encoded_name = name.as_ref().map(|name| name.as_bytes().to_vec());
+        Self {
             errored: PySet::empty_bound(py)
                 .expect("Failed to create PySet")
                 .unbind(),
+            name,
+            encoded_name,
         }
     }
 }
 
 #[pymethods]
 impl Base {
+    #[getter]
+    fn name(&self) -> Option<&str> {
+        self.name.as_deref()
+    }
+
+    #[getter]
+    fn _encoded_name(&self) -> Option<&[u8]> {
+        self.encoded_name.as_deref()
+    }
+
     #[getter]
     fn _errored(&self) -> Py<PySet> {
         self.errored.clone()

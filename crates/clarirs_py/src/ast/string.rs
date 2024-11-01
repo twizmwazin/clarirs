@@ -1,12 +1,13 @@
 #![allow(non_snake_case)]
 
-use std::sync::LazyLock;
+use std::sync::{atomic::{AtomicUsize, Ordering}, LazyLock};
 
 use dashmap::DashMap;
 use pyo3::types::{PyFrozenSet, PyWeakrefReference};
 
 use crate::prelude::*;
 
+static STRINGS_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static PY_STRING_CACHE: LazyLock<DashMap<u64, Py<PyWeakrefReference>>> =
     LazyLock::new(DashMap::new);
 
@@ -17,6 +18,10 @@ pub struct PyAstString {
 
 impl PyAstString {
     pub fn new(py: Python, inner: &StringAst<'static>) -> Result<Py<PyAstString>, ClaripyError> {
+        Self::new_with_name(py, inner, None)
+    }
+
+    pub fn new_with_name(py: Python, inner: &StringAst<'static>, name: Option<String>) -> Result<Py<PyAstString>, ClaripyError> {
         if let Some(cache_hit) = PY_STRING_CACHE.get(&inner.hash()).and_then(|cache_hit| {
             cache_hit
                 .bind(py)
@@ -27,7 +32,7 @@ impl PyAstString {
         } else {
             let this = Py::new(
                 py,
-                PyClassInitializer::from(Base::new(py)).add_subclass(PyAstString {
+                PyClassInitializer::from(Base::new_with_name(py, name)).add_subclass(PyAstString {
                     inner: inner.clone(),
                 }),
             )?;
@@ -84,9 +89,15 @@ impl PyAstString {
     }
 }
 
-#[pyfunction]
-pub fn StringS(py: Python, name: &str) -> Result<Py<PyAstString>, ClaripyError> {
-    PyAstString::new(py, &GLOBAL_CONTEXT.strings(name)?)
+#[pyfunction(signature = (name, explicit_name = false))]
+pub fn StringS(py: Python, name: &str, explicit_name: bool) -> Result<Py<PyAstString>, ClaripyError> {
+    let name: String = if explicit_name {
+        name.to_string()
+    } else {
+        let counter = STRINGS_COUNTER.fetch_add(1, Ordering::Relaxed);
+        format!("String_{}_{}", name, counter)
+    };
+    PyAstString::new_with_name(py, &GLOBAL_CONTEXT.strings(&name)?, Some(name))
 }
 
 #[pyfunction]

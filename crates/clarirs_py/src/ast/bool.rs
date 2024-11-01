@@ -1,5 +1,7 @@
 #![allow(non_snake_case)]
 
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 use std::sync::LazyLock;
 
 use ast::args::ExtractPyArgs;
@@ -11,6 +13,7 @@ use pyo3::types::PyWeakrefReference;
 use crate::ast::{And, Not, Or, Xor};
 use crate::prelude::*;
 
+static BOOLS_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static PY_BOOL_CACHE: LazyLock<DashMap<u64, Py<PyWeakrefReference>>> = LazyLock::new(DashMap::new);
 
 #[pyclass(extends=Base, subclass, frozen, weakref, module="clarirs.ast.bool")]
@@ -20,6 +23,14 @@ pub struct Bool {
 
 impl Bool {
     pub fn new(py: Python, inner: &BoolAst<'static>) -> Result<Py<Bool>, ClaripyError> {
+        Self::new_with_name(py, inner, None)
+    }
+
+    pub fn new_with_name(
+        py: Python,
+        inner: &BoolAst<'static>,
+        name: Option<String>,
+    ) -> Result<Py<Bool>, ClaripyError> {
         if let Some(cache_hit) = PY_BOOL_CACHE.get(&inner.hash()).and_then(|cache_hit| {
             cache_hit
                 .bind(py)
@@ -30,7 +41,7 @@ impl Bool {
         } else {
             let this = Py::new(
                 py,
-                PyClassInitializer::from(Base::new(py)).add_subclass(Bool {
+                PyClassInitializer::from(Base::new_with_name(py, name)).add_subclass(Bool {
                     inner: inner.clone(),
                 }),
             )?;
@@ -120,9 +131,15 @@ impl Bool {
     }
 }
 
-#[pyfunction]
-pub fn BoolS(py: Python, name: &str) -> Result<Py<Bool>, ClaripyError> {
-    Bool::new(py, &GLOBAL_CONTEXT.bools(name)?)
+#[pyfunction(signature = (name, explicit_name = false))]
+pub fn BoolS(py: Python, name: &str, explicit_name: bool) -> Result<Py<Bool>, ClaripyError> {
+    let name: String = if explicit_name {
+        name.to_string()
+    } else {
+        let counter = BOOLS_COUNTER.fetch_add(1, Ordering::Relaxed);
+        format!("Bool_{}_{}", name, counter)
+    };
+    Bool::new_with_name(py, &GLOBAL_CONTEXT.bools(&name)?, Some(name.clone()))
 }
 
 #[pyfunction]

@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
 
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::LazyLock;
 
 use dashmap::DashMap;
@@ -10,6 +11,7 @@ use pyo3::types::{PyFrozenSet, PyWeakrefReference};
 use crate::ast::{And, Not, Or, Xor};
 use crate::prelude::*;
 
+static BVS_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static PY_BV_CACHE: LazyLock<DashMap<u64, Py<PyWeakrefReference>>> = LazyLock::new(DashMap::new);
 
 #[pyclass(extends=Bits, subclass, frozen, weakref, module="clarirs.ast.bv")]
@@ -19,6 +21,10 @@ pub struct BV {
 
 impl BV {
     pub fn new(py: Python, inner: &BitVecAst<'static>) -> Result<Py<BV>, ClaripyError> {
+        Self::new_with_name(py, inner, None)
+    }
+
+    pub fn new_with_name(py: Python, inner: &BitVecAst<'static>, name: Option<String>) -> Result<Py<BV>, ClaripyError> {
         if let Some(cache_hit) = PY_BV_CACHE.get(&inner.hash()).and_then(|cache_hit| {
             cache_hit
                 .bind(py)
@@ -29,7 +35,7 @@ impl BV {
         } else {
             let this = Py::new(
                 py,
-                PyClassInitializer::from(Base::new(py))
+                PyClassInitializer::from(Base::new_with_name(py, name))
                     .add_subclass(Bits::new())
                     .add_subclass(BV {
                         inner: inner.clone(),
@@ -398,9 +404,15 @@ impl BV {
     }
 }
 
-#[pyfunction]
-pub fn BVS(py: Python, name: String, size: u32) -> Result<Py<BV>, ClaripyError> {
-    BV::new(py, &GLOBAL_CONTEXT.bvs(&name, size)?)
+#[pyfunction(signature = (name, size, explicit_name = false))]
+pub fn BVS(py: Python, name: String, size: u32, explicit_name: bool) -> Result<Py<BV>, ClaripyError> {
+    let name: String = if explicit_name {
+        name.to_string()
+    } else {
+        let counter = BVS_COUNTER.fetch_add(1, Ordering::Relaxed);
+        format!("BV{}_{}_{}", size, name, counter)
+    };
+    BV::new_with_name(py, &GLOBAL_CONTEXT.bvs(&name, size)?, Some(name.clone()))
 }
 
 #[allow(non_snake_case)]
