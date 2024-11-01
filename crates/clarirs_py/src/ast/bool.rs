@@ -57,17 +57,17 @@ impl Bool {
 #[pymethods]
 impl Bool {
     #[getter]
-    fn op(&self) -> String {
+    pub fn op(&self) -> String {
         self.inner.op().to_opstring()
     }
 
     #[getter]
-    fn args(&self, py: Python) -> Result<Vec<PyObject>, ClaripyError> {
+    pub fn args(&self, py: Python) -> Result<Vec<PyObject>, ClaripyError> {
         self.inner.op().extract_py_args(py)
     }
 
     #[getter]
-    fn variables(&self, py: Python) -> Result<Py<PyFrozenSet>, ClaripyError> {
+    pub fn variables(&self, py: Python) -> Result<Py<PyFrozenSet>, ClaripyError> {
         Ok(PyFrozenSet::new_bound(
             py,
             self.inner
@@ -81,12 +81,12 @@ impl Bool {
     }
 
     #[getter]
-    fn symbolic(&self) -> bool {
+    pub fn symbolic(&self) -> bool {
         self.inner.symbolic()
     }
 
     #[getter]
-    fn annotations(&self, py: Python) -> PyResult<Vec<PyObject>> {
+    pub fn annotations(&self, py: Python) -> PyResult<Vec<PyObject>> {
         let pickle_loads = py.import_bound("pickle")?.getattr("loads")?;
         self.inner
             .get_annotations()
@@ -96,28 +96,28 @@ impl Bool {
             .collect()
     }
 
-    fn hash(&self) -> u64 {
+    pub fn hash(&self) -> u64 {
         self.inner.hash()
     }
 
     #[getter]
-    fn depth(&self) -> u32 {
+    pub fn depth(&self) -> u32 {
         self.inner.depth()
     }
 
-    fn is_leaf(&self) -> bool {
+    pub fn is_leaf(&self) -> bool {
         self.inner.depth() == 1
     }
 
-    fn is_true(&self) -> bool {
+    pub fn is_true(&self) -> bool {
         self.inner.is_true()
     }
 
-    fn is_false(&self) -> bool {
+    pub fn is_false(&self) -> bool {
         self.inner.is_false()
     }
 
-    fn annotate(&self, py: Python, annotation: Bound<PyAny>) -> Result<Py<Bool>, ClaripyError> {
+    pub fn annotate(&self, py: Python, annotation: Bound<PyAny>) -> Result<Py<Bool>, ClaripyError> {
         let pickle_dumps = py.import_bound("pickle")?.getattr("dumps")?;
         let annotation_bytes = pickle_dumps
             .call1((&annotation,))?
@@ -134,25 +134,25 @@ impl Bool {
         )
     }
 
-    fn __invert__(&self, py: Python) -> Result<Py<Bool>, ClaripyError> {
+    pub fn __invert__(&self, py: Python) -> Result<Py<Bool>, ClaripyError> {
         Bool::new(py, &GLOBAL_CONTEXT.not(&self.inner)?)
     }
 
-    fn __and__(&self, py: Python, other: CoerceBool) -> Result<Py<Bool>, ClaripyError> {
+    pub fn __and__(&self, py: Python, other: CoerceBool) -> Result<Py<Bool>, ClaripyError> {
         Bool::new(
             py,
             &GLOBAL_CONTEXT.and(&self.inner, &<CoerceBool as Into<BoolAst>>::into(other))?,
         )
     }
 
-    fn __or__(&self, py: Python, other: CoerceBool) -> Result<Py<Bool>, ClaripyError> {
+    pub fn __or__(&self, py: Python, other: CoerceBool) -> Result<Py<Bool>, ClaripyError> {
         Bool::new(
             py,
             &GLOBAL_CONTEXT.or(&self.inner, &<CoerceBool as Into<BoolAst>>::into(other))?,
         )
     }
 
-    fn __xor__(&self, py: Python, other: CoerceBool) -> Result<Py<Bool>, ClaripyError> {
+    pub fn __xor__(&self, py: Python, other: CoerceBool) -> Result<Py<Bool>, ClaripyError> {
         Bool::new(
             py,
             &GLOBAL_CONTEXT.xor(&self.inner, &<CoerceBool as Into<BoolAst>>::into(other))?,

@@ -54,17 +54,17 @@ impl PyAstString {
 #[pymethods]
 impl PyAstString {
     #[getter]
-    fn op(&self) -> String {
+    pub fn op(&self) -> String {
         self.inner.op().to_opstring()
     }
 
     #[getter]
-    fn args(&self, py: Python) -> Result<Vec<PyObject>, ClaripyError> {
+    pub fn args(&self, py: Python) -> Result<Vec<PyObject>, ClaripyError> {
         self.inner.op().extract_py_args(py)
     }
 
     #[getter]
-    fn variables(&self, py: Python) -> Result<Py<PyFrozenSet>, ClaripyError> {
+    pub fn variables(&self, py: Python) -> Result<Py<PyFrozenSet>, ClaripyError> {
         Ok(PyFrozenSet::new_bound(
             py,
             self.inner
@@ -78,12 +78,12 @@ impl PyAstString {
     }
 
     #[getter]
-    fn symbolic(&self) -> bool {
+    pub fn symbolic(&self) -> bool {
         self.inner.symbolic()
     }
 
     #[getter]
-    fn annotations(&self, py: Python) -> PyResult<Vec<PyObject>> {
+    pub fn annotations(&self, py: Python) -> PyResult<Vec<PyObject>> {
         let pickle_loads = py.import_bound("pickle")?.getattr("loads")?;
         self.inner
             .get_annotations()
@@ -93,20 +93,20 @@ impl PyAstString {
             .collect()
     }
 
-    fn hash(&self) -> u64 {
+    pub fn hash(&self) -> u64 {
         self.inner.hash()
     }
 
     #[getter]
-    fn depth(&self) -> u32 {
+    pub fn depth(&self) -> u32 {
         self.inner.depth()
     }
 
-    fn is_leaf(&self) -> bool {
+    pub fn is_leaf(&self) -> bool {
         self.inner.depth() == 1
     }
 
-    fn annotate(
+    pub fn annotate(
         &self,
         py: Python,
         annotation: Bound<PyAny>,

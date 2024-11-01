@@ -30,17 +30,17 @@ impl Base {
 #[pymethods]
 impl Base {
     #[getter]
-    fn name(&self) -> Option<&str> {
+    pub fn name(&self) -> Option<&str> {
         self.name.as_deref()
     }
 
     #[getter]
-    fn _encoded_name(&self) -> Option<&[u8]> {
+    pub fn _encoded_name(&self) -> Option<&[u8]> {
         self.encoded_name.as_deref()
     }
 
     #[getter]
-    fn _errored(&self) -> Py<PySet> {
+    pub fn _errored(&self) -> Py<PySet> {
         self.errored.clone()
     }
 }
