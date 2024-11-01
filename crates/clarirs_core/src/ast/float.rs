@@ -68,3 +68,26 @@ impl<'c> Op<'c> for FloatOp<'c> {
         }
     }
 }
+
+pub trait FloatExt<'c> {
+    fn size(&self) -> u32;
+}
+
+impl<'c> FloatExt<'c> for FloatAst<'c> {
+    fn size(&self) -> u32 {
+        match self.op() {
+            FloatOp::FPS(_, sort) => sort.size(),
+            FloatOp::FPV(value) => value.fsort().size(),
+            FloatOp::FpNeg(a, _)
+            | FloatOp::FpAbs(a, _)
+            | FloatOp::FpSqrt(a, _)
+            | FloatOp::FpAdd(a, _, _)
+            | FloatOp::FpSub(a, _, _)
+            | FloatOp::FpMul(a, _, _)
+            | FloatOp::FpDiv(a, _, _)
+            | FloatOp::If(_, a, _)
+            | FloatOp::Annotated(a, _) => a.size(),
+            FloatOp::FpToFp(_, sort, _) | FloatOp::BvToFpUnsigned(_, sort, _) => sort.size(),
+        }
+    }
+}
