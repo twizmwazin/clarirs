@@ -508,13 +508,15 @@ pub fn BVV(py: Python, value: Bound<PyAny>, size: Option<u32>) -> Result<Py<BV>,
     ))
 }
 
-
 macro_rules! binop {
     ($name:ident, $context_method:ident, $ret:ty) => {
         #[pyfunction]
         pub fn $name(py: Python, lhs: CoerceBV, rhs: CoerceBV) -> Result<Py<$ret>, ClaripyError> {
             let (elhs, erhs) = CoerceBV::extract_pair(py, &lhs, &rhs);
-            <$ret>::new(py, &GLOBAL_CONTEXT.$context_method(&elhs.get().inner, &erhs.get().inner)?)
+            <$ret>::new(
+                py,
+                &GLOBAL_CONTEXT.$context_method(&elhs.get().inner, &erhs.get().inner)?,
+            )
         }
     };
 }
