@@ -66,7 +66,10 @@ impl ExtractPyArgs for BitVecOp<'static> {
     fn extract_py_args(&self, py: Python) -> Result<Vec<PyObject>, ClaripyError> {
         Ok(match self {
             BitVecOp::BVS(name, size) => vec![name.to_object(py), size.to_object(py)],
-            BitVecOp::BVV(bit_vec) => vec![bit_vec.as_biguint().to_object(py)],
+            BitVecOp::BVV(bit_vec) => vec![
+                bit_vec.as_biguint().to_object(py),
+                bit_vec.len().to_object(py),
+            ],
             BitVecOp::SI(_, bit_vec, bit_vec1, bit_vec2, _) => todo!(),
             BitVecOp::Not(expr) | BitVecOp::Abs(expr) => vec![BV::new(py, expr)?.into_any()],
             BitVecOp::And(lhs, rhs)
