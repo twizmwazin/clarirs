@@ -1,6 +1,6 @@
 use std::sync::{Arc, Weak};
 
-use dashmap::{mapref::entry, DashMap};
+use dashmap::DashMap;
 
 use crate::prelude::*;
 
