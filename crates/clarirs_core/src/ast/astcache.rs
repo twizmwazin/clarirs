@@ -1,6 +1,6 @@
-use std::sync::{Arc, RwLock, Weak};
+use std::sync::{Arc, Weak};
 
-use ahash::HashMap;
+use dashmap::DashMap;
 
 use crate::prelude::*;
 
@@ -12,9 +12,39 @@ enum AstCacheValue<'c> {
     String(Weak<AstNode<'c, StringOp<'c>>>),
 }
 
+impl<'c> AstCacheValue<'c> {
+    fn as_bool(&self) -> Option<BoolAst<'c>> {
+        match self {
+            AstCacheValue::Boolean(weak) => weak.upgrade(),
+            _ => None,
+        }
+    }
+
+    fn as_bv(&self) -> Option<BitVecAst<'c>> {
+        match self {
+            AstCacheValue::BitVec(weak) => weak.upgrade(),
+            _ => None,
+        }
+    }
+
+    fn as_float(&self) -> Option<FloatAst<'c>> {
+        match self {
+            AstCacheValue::Float(weak) => weak.upgrade(),
+            _ => None,
+        }
+    }
+
+    fn as_string(&self) -> Option<StringAst<'c>> {
+        match self {
+            AstCacheValue::String(weak) => weak.upgrade(),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct AstCache<'c> {
-    inner: RwLock<HashMap<u64, AstCacheValue<'c>>>,
+    inner: DashMap<u64, AstCacheValue<'c>, ahash::RandomState>,
 }
 
 impl<'c> AstCache<'c> {
@@ -23,21 +53,14 @@ impl<'c> AstCache<'c> {
         hash: u64,
         f: F,
     ) -> BoolAst<'c> {
-        let mut inner = self.inner.write().unwrap();
-        let entry = inner
-            .entry(hash)
-            .or_insert_with(|| AstCacheValue::Boolean(Weak::new()));
-        match entry {
-            AstCacheValue::Boolean(weak) => {
-                if let Some(arc) = weak.upgrade() {
-                    arc
-                } else {
-                    let arc = f();
-                    *entry = AstCacheValue::Boolean(Arc::downgrade(&arc));
-                    arc
-                }
+        match self.inner.get(&hash).and_then(|e| e.value().as_bool()) {
+            Some(e) => e,
+            None => {
+                let this = f();
+                self.inner
+                    .insert(hash, AstCacheValue::Boolean(Arc::downgrade(&this)));
+                this
             }
-            _ => unreachable!(),
         }
     }
 
@@ -46,21 +69,14 @@ impl<'c> AstCache<'c> {
         hash: u64,
         f: F,
     ) -> BitVecAst<'c> {
-        let mut inner = self.inner.write().unwrap();
-        let entry = inner
-            .entry(hash)
-            .or_insert_with(|| AstCacheValue::BitVec(Weak::new()));
-        match entry {
-            AstCacheValue::BitVec(weak) => {
-                if let Some(arc) = weak.upgrade() {
-                    arc
-                } else {
-                    let arc = f();
-                    *entry = AstCacheValue::BitVec(Arc::downgrade(&arc));
-                    arc
-                }
+        match self.inner.get(&hash).and_then(|e| e.value().as_bv()) {
+            Some(e) => e,
+            None => {
+                let this = f();
+                self.inner
+                    .insert(hash, AstCacheValue::BitVec(Arc::downgrade(&this)));
+                this
             }
-            _ => unreachable!(),
         }
     }
 
@@ -69,21 +85,14 @@ impl<'c> AstCache<'c> {
         hash: u64,
         f: F,
     ) -> FloatAst<'c> {
-        let mut inner = self.inner.write().unwrap();
-        let entry = inner
-            .entry(hash)
-            .or_insert_with(|| AstCacheValue::Float(Weak::new()));
-        match entry {
-            AstCacheValue::Float(weak) => {
-                if let Some(arc) = weak.upgrade() {
-                    arc
-                } else {
-                    let arc = f();
-                    *entry = AstCacheValue::Float(Arc::downgrade(&arc));
-                    arc
-                }
+        match self.inner.get(&hash).and_then(|e| e.value().as_float()) {
+            Some(e) => e,
+            None => {
+                let this = f();
+                self.inner
+                    .insert(hash, AstCacheValue::Float(Arc::downgrade(&this)));
+                this
             }
-            _ => unreachable!(),
         }
     }
 
@@ -92,21 +101,14 @@ impl<'c> AstCache<'c> {
         hash: u64,
         f: F,
     ) -> StringAst<'c> {
-        let mut inner = self.inner.write().unwrap();
-        let entry = inner
-            .entry(hash)
-            .or_insert_with(|| AstCacheValue::String(Weak::new()));
-        match entry {
-            AstCacheValue::String(weak) => {
-                if let Some(arc) = weak.upgrade() {
-                    arc
-                } else {
-                    let arc = f();
-                    *entry = AstCacheValue::String(Arc::downgrade(&arc));
-                    arc
-                }
+        match self.inner.get(&hash).and_then(|e| e.value().as_string()) {
+            Some(e) => e,
+            None => {
+                let this = f();
+                self.inner
+                    .insert(hash, AstCacheValue::String(Arc::downgrade(&this)));
+                this
             }
-            _ => unreachable!(),
         }
     }
 }
