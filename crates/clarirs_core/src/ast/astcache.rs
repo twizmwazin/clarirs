@@ -13,30 +13,30 @@ enum AstCacheValue<'c> {
 }
 
 impl<'c> AstCacheValue<'c> {
-    fn as_bool(&self) -> Option<&Weak<AstNode<'c, BooleanOp<'c>>>> {
+    fn as_bool(&self) -> Option<BoolAst<'c>> {
         match self {
-            AstCacheValue::Boolean(weak) => Some(weak),
+            AstCacheValue::Boolean(weak) => weak.upgrade(),
             _ => None,
         }
     }
 
-    fn as_bv(&self) -> Option<&Weak<AstNode<'c, BitVecOp<'c>>>> {
+    fn as_bv(&self) -> Option<BitVecAst<'c>> {
         match self {
-            AstCacheValue::BitVec(weak) => Some(weak),
+            AstCacheValue::BitVec(weak) => weak.upgrade(),
             _ => None,
         }
     }
 
-    fn as_float(&self) -> Option<&Weak<AstNode<'c, FloatOp<'c>>>> {
+    fn as_float(&self) -> Option<FloatAst<'c>> {
         match self {
-            AstCacheValue::Float(weak) => Some(weak),
+            AstCacheValue::Float(weak) => weak.upgrade(),
             _ => None,
         }
     }
 
-    fn as_string(&self) -> Option<&Weak<AstNode<'c, StringOp<'c>>>> {
+    fn as_string(&self) -> Option<StringAst<'c>> {
         match self {
-            AstCacheValue::String(weak) => Some(weak),
+            AstCacheValue::String(weak) => weak.upgrade(),
             _ => None,
         }
     }
@@ -53,11 +53,7 @@ impl<'c> AstCache<'c> {
         hash: u64,
         f: F,
     ) -> BoolAst<'c> {
-        match self
-            .inner
-            .get(&hash)
-            .and_then(|e| e.value().as_bool().and_then(|weak| weak.upgrade()))
-        {
+        match self.inner.get(&hash).and_then(|e| e.value().as_bool()) {
             Some(e) => e,
             None => {
                 let this = f();
@@ -73,11 +69,7 @@ impl<'c> AstCache<'c> {
         hash: u64,
         f: F,
     ) -> BitVecAst<'c> {
-        match self
-            .inner
-            .get(&hash)
-            .and_then(|e| e.value().as_bv().and_then(|weak| weak.upgrade()))
-        {
+        match self.inner.get(&hash).and_then(|e| e.value().as_bv()) {
             Some(e) => e,
             None => {
                 let this = f();
@@ -93,11 +85,7 @@ impl<'c> AstCache<'c> {
         hash: u64,
         f: F,
     ) -> FloatAst<'c> {
-        match self
-            .inner
-            .get(&hash)
-            .and_then(|e| e.value().as_float().and_then(|weak| weak.upgrade()))
-        {
+        match self.inner.get(&hash).and_then(|e| e.value().as_float()) {
             Some(e) => e,
             None => {
                 let this = f();
@@ -113,11 +101,7 @@ impl<'c> AstCache<'c> {
         hash: u64,
         f: F,
     ) -> StringAst<'c> {
-        match self
-            .inner
-            .get(&hash)
-            .and_then(|e| e.value().as_string().and_then(|weak| weak.upgrade()))
-        {
+        match self.inner.get(&hash).and_then(|e| e.value().as_string()) {
             Some(e) => e,
             None => {
                 let this = f();
