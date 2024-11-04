@@ -96,6 +96,18 @@ impl From<CoerceBV> for Py<BV> {
     }
 }
 
+impl From<Py<BV>> for CoerceBV {
+    fn from(val: Py<BV>) -> Self {
+        CoerceBV::new(val)
+    }
+}
+
+impl From<Bound<'_, BV>> for CoerceBV {
+    fn from(val: Bound<BV>) -> Self {
+        CoerceBV::new(val.unbind())
+    }
+}
+
 impl From<CoerceBV> for BitVecAst<'static> {
     fn from(val: CoerceBV) -> Self {
         val.inner.get().inner.clone()
