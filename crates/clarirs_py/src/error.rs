@@ -18,6 +18,8 @@ pub enum ClaripyError {
     CastingError(String),
     #[error("Invalid argument type: {0}")]
     InvalidArgumentType(String),
+    #[error("Invalid Operation: {0}")]
+    InvalidOp(String),
 }
 
 impl From<ClarirsError> for ClaripyError {

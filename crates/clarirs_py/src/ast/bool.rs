@@ -56,6 +56,147 @@ impl Bool {
 
 #[pymethods]
 impl Bool {
+    #[new]
+    pub fn py_new(
+        py: Python,
+        op: &str,
+        args: Vec<PyObject>,
+    ) -> Result<Py<Bool>, ClaripyError> {
+        Bool::new(
+            py,
+            &match op {
+                "BoolS" => GLOBAL_CONTEXT.bools(&args[0].extract::<String>(py)?)?,
+                "BoolV" => GLOBAL_CONTEXT.boolv(args[0].extract::<bool>(py)?)?,
+                "Not" => GLOBAL_CONTEXT.not(&args[0].downcast_bound::<Bool>(py)?.get().inner)?,
+                "And" => GLOBAL_CONTEXT.and(
+                    &args[0].downcast_bound::<Bool>(py)?.get().inner,
+                    &args[1].downcast_bound::<Bool>(py)?.get().inner,
+                )?,
+                "Or" => GLOBAL_CONTEXT.or(
+                    &args[0].downcast_bound::<Bool>(py)?.get().inner,
+                    &args[1].downcast_bound::<Bool>(py)?.get().inner,
+                )?,
+                "Xor" => GLOBAL_CONTEXT.xor(
+                    &args[0].downcast_bound::<Bool>(py)?.get().inner,
+                    &args[1].downcast_bound::<Bool>(py)?.get().inner,
+                )?,
+                "__eq__" => {
+                    if args[0].downcast_bound::<Bool>(py).is_ok() {
+                        GLOBAL_CONTEXT.eq_(
+                            &args[0].downcast_bound::<Bool>(py)?.get().inner,
+                            &args[1].downcast_bound::<Bool>(py)?.get().inner,
+                        )?
+                    } else if args[0].downcast_bound::<BV>(py).is_ok() {
+                        GLOBAL_CONTEXT.eq_(
+                            &args[0].downcast_bound::<BV>(py)?.get().inner,
+                            &args[1].downcast_bound::<BV>(py)?.get().inner,
+                        )?
+                    } else {
+                        GLOBAL_CONTEXT.eq_(
+                            &args[0].downcast_bound::<PyAstString>(py)?.get().inner,
+                            &args[1].downcast_bound::<PyAstString>(py)?.get().inner,
+                        )?
+                    }
+                },
+                "__ne__" => {
+                    if args[0].downcast_bound::<Bool>(py).is_ok() {
+                        GLOBAL_CONTEXT.neq(
+                            &args[0].downcast_bound::<Bool>(py)?.get().inner,
+                            &args[1].downcast_bound::<Bool>(py)?.get().inner,
+                        )?
+                    } else if args[0].downcast_bound::<BV>(py).is_ok() {
+                        GLOBAL_CONTEXT.neq(
+                            &args[0].downcast_bound::<BV>(py)?.get().inner,
+                            &args[1].downcast_bound::<BV>(py)?.get().inner,
+                        )?
+                    } else {
+                        GLOBAL_CONTEXT.neq(
+                            &args[0].downcast_bound::<PyAstString>(py)?.get().inner,
+                            &args[1].downcast_bound::<PyAstString>(py)?.get().inner,
+                        )?
+                    }
+                }
+                "ULE" | "__le__" => GLOBAL_CONTEXT.ule(
+                    &args[0].downcast_bound::<BV>(py)?.get().inner,
+                    &args[1].downcast_bound::<BV>(py)?.get().inner,
+                )?,
+                "ULT" | "__lt__" => GLOBAL_CONTEXT.ult(
+                    &args[0].downcast_bound::<BV>(py)?.get().inner,
+                    &args[1].downcast_bound::<BV>(py)?.get().inner,
+                )?,
+                "UGE" | "__ge__" => GLOBAL_CONTEXT.uge(
+                    &args[0].downcast_bound::<BV>(py)?.get().inner,
+                    &args[1].downcast_bound::<BV>(py)?.get().inner,
+                )?,
+                "UGT" | "__gt__" => GLOBAL_CONTEXT.ugt(
+                    &args[0].downcast_bound::<BV>(py)?.get().inner,
+                    &args[1].downcast_bound::<BV>(py)?.get().inner,
+                )?,
+                "SLT" => GLOBAL_CONTEXT.slt(
+                    &args[0].downcast_bound::<BV>(py)?.get().inner,
+                    &args[1].downcast_bound::<BV>(py)?.get().inner,
+                )?,
+                "SLE" => GLOBAL_CONTEXT.sle(
+                    &args[0].downcast_bound::<BV>(py)?.get().inner,
+                    &args[1].downcast_bound::<BV>(py)?.get().inner,
+                )?,
+                "SGT" => GLOBAL_CONTEXT.sgt(
+                    &args[0].downcast_bound::<BV>(py)?.get().inner,
+                    &args[1].downcast_bound::<BV>(py)?.get().inner,
+                )?,
+                "SGE" => GLOBAL_CONTEXT.sge(
+                    &args[0].downcast_bound::<BV>(py)?.get().inner,
+                    &args[1].downcast_bound::<BV>(py)?.get().inner,
+                )?,
+                "fpEQ" => GLOBAL_CONTEXT.fp_eq(
+                    &args[0].downcast_bound::<FP>(py)?.get().inner,
+                    &args[1].downcast_bound::<FP>(py)?.get().inner,
+                )?,
+                "fpNEQ" => GLOBAL_CONTEXT.fp_neq(
+                    &args[0].downcast_bound::<FP>(py)?.get().inner,
+                    &args[1].downcast_bound::<FP>(py)?.get().inner,
+                )?,
+                "fpLT" => GLOBAL_CONTEXT.fp_lt(
+                    &args[0].downcast_bound::<FP>(py)?.get().inner,
+                    &args[1].downcast_bound::<FP>(py)?.get().inner,
+                )?,
+                "fpLEQ" => GLOBAL_CONTEXT.fp_leq(
+                    &args[0].downcast_bound::<FP>(py)?.get().inner,
+                    &args[1].downcast_bound::<FP>(py)?.get().inner,
+                )?,
+                "fpGT" => GLOBAL_CONTEXT.fp_gt(
+                    &args[0].downcast_bound::<FP>(py)?.get().inner,
+                    &args[1].downcast_bound::<FP>(py)?.get().inner,
+                )?,
+                "fpGEQ" => GLOBAL_CONTEXT.fp_geq(
+                    &args[0].downcast_bound::<FP>(py)?.get().inner,
+                    &args[1].downcast_bound::<FP>(py)?.get().inner,
+                )?,
+                "fpIsNan" => GLOBAL_CONTEXT.fp_is_nan(&args[0].downcast_bound::<FP>(py)?.get().inner)?,
+                "fpIsInf" => GLOBAL_CONTEXT.fp_is_inf(&args[0].downcast_bound::<FP>(py)?.get().inner)?,
+                "StrContains" => GLOBAL_CONTEXT.strcontains(
+                    &args[0].downcast_bound::<PyAstString>(py)?.get().inner,
+                    &args[1].downcast_bound::<PyAstString>(py)?.get().inner,
+                )?,
+                "StrPrefixOf" => GLOBAL_CONTEXT.strprefixof(
+                    &args[0].downcast_bound::<PyAstString>(py)?.get().inner,
+                    &args[1].downcast_bound::<PyAstString>(py)?.get().inner,
+                )?,
+                "StrSuffixOf" => GLOBAL_CONTEXT.strsuffixof(
+                    &args[0].downcast_bound::<PyAstString>(py)?.get().inner,
+                    &args[1].downcast_bound::<PyAstString>(py)?.get().inner,
+                )?,
+                "StrIsDigit" => GLOBAL_CONTEXT.strisdigit(&args[0].downcast_bound::<PyAstString>(py)?.get().inner)?,
+                "If" => GLOBAL_CONTEXT.if_(
+                    &args[0].downcast_bound::<Bool>(py)?.get().inner,
+                    &args[1].downcast_bound::<Bool>(py)?.get().inner,
+                    &args[2].downcast_bound::<Bool>(py)?.get().inner,
+                )?,
+                _ => return Err(ClaripyError::InvalidOp(op.to_string())),
+            },
+        )
+    }
+
     #[getter]
     pub fn op(&self) -> String {
         self.inner.op().to_opstring()
