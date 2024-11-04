@@ -534,7 +534,17 @@ binop!(LShR, lshr, BV);
 binop!(AShR, ashr, BV);
 binop!(RotateLeft, rotate_left, BV);
 binop!(RotateRight, rotate_right, BV);
-binop!(Concat, concat, BV);
+binop!(Concat_inner, concat, BV);
+
+#[pyfunction(signature = (*args))]
+pub fn Concat(py: Python, args: Vec<Bound<BV>>) -> Result<Py<BV>, ClaripyError> {
+    let mut args = args.into_iter();
+    let first = args.next().ok_or(ClaripyError::MissingArgIndex(0))?;
+    args.try_fold(first, |acc, arg| {
+        Concat_inner(py, acc.into(), arg.unbind().into()).map(|r| r.bind(py).clone())
+    })
+    .map(|r| r.unbind())
+}
 
 #[pyfunction]
 pub fn Extract(py: Python, base: Bound<BV>, start: u32, end: u32) -> Result<Py<BV>, ClaripyError> {

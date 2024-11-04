@@ -89,9 +89,35 @@ macro_rules! define_binop {
     };
 }
 
-define_binop!(And, and);
-define_binop!(Or, or);
+define_binop!(And_inner, and);
+define_binop!(Or_inner, or);
 define_binop!(Xor, xor);
+
+// The following ops are reducable and support a variable number of arguments
+
+#[pyfunction(signature = (*args))]
+pub fn And(py: Python, args: Vec<Bound<PyAny>>) -> Result<Py<Base>, ClaripyError> {
+    let mut args = args.into_iter();
+    let first = args.next().ok_or(ClaripyError::MissingArgIndex(0))?;
+    Ok(args
+        .try_fold(first, |acc, arg| {
+            And_inner(py, acc, arg).map(|b| b.into_any().bind(py).clone())
+        })?
+        .downcast_into::<Base>()?
+        .unbind())
+}
+
+#[pyfunction(signature = (*args))]
+pub fn Or(py: Python, args: Vec<Bound<PyAny>>) -> Result<Py<Base>, ClaripyError> {
+    let mut args = args.into_iter();
+    let first = args.next().ok_or(ClaripyError::MissingArgIndex(0))?;
+    Ok(args
+        .try_fold(first, |acc, arg| {
+            Or_inner(py, acc, arg).map(|b| b.into_any().bind(py).clone())
+        })?
+        .downcast_into::<Base>()?
+        .unbind())
+}
 
 #[pyfunction]
 #[allow(non_snake_case)]
