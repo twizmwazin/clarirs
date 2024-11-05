@@ -5,7 +5,7 @@ use std::sync::LazyLock;
 
 use clarirs_core::ast::bitvec::BitVecExt;
 use dashmap::DashMap;
-use num_bigint::BigUint;
+use num_bigint::{BigInt, BigUint};
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::types::{PyBytes, PyFrozenSet, PyWeakrefReference};
 
@@ -592,6 +592,21 @@ pub fn BVV(py: Python, value: Bound<PyAny>, size: Option<u32>) -> Result<Py<BV>,
         if let Some(size) = size {
             let a = GLOBAL_CONTEXT
                 .bvv_from_biguint_with_size(&int_val, size)
+                .map_err(ClaripyError::from)?;
+            return Ok(BV::new(py, &a)?);
+        } else {
+            return Err(PyErr::new::<PyValueError, _>("size must be specified"));
+        }
+    }
+    if let Ok(int_val) = value.extract::<BigInt>() {
+        if let Some(size) = size {
+            let uint_value = int_val.to_biguint().unwrap_or(
+                ((BigInt::from(1) << (size - 1)) + int_val)
+                    .to_biguint()
+                    .expect("BigInt to BigUInt failed"),
+            );
+            let a = GLOBAL_CONTEXT
+                .bvv_from_biguint_with_size(&uint_value, size)
                 .map_err(ClaripyError::from)?;
             return Ok(BV::new(py, &a)?);
         } else {
