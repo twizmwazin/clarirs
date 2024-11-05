@@ -52,27 +52,32 @@ impl CoerceBV {
         }
     }
 
-    pub fn extract_like(&self, py: Python, like: &BV) -> Py<BV> {
+    pub fn extract_like(&self, py: Python, like: &BV) -> Result<Py<BV>, ClaripyError> {
         let our_size = self.inner.get().inner.size();
         let like_size = like.inner.size();
 
         if self.coerced && like_size != our_size {
-            if like_size > our_size {
-                self.inner.get().zero_extend(py, like_size).unwrap()
-            } else {
-                self.inner.get().Extract(py, like_size - 1, 0).unwrap()
+            match self.inner.get().inner.op() {
+                BitVecOp::BVV(val) => BV::new(py, &GLOBAL_CONTEXT.bvv_from_biguint_with_size(&val.as_biguint(), like_size)?),
+                _ => {
+                    if like_size > our_size {
+                        self.inner.get().zero_extend(py, like_size)
+                    } else {
+                        self.inner.get().Extract(py, like_size - 1, 0)
+                    }
+                }
             }
         } else {
-            self.inner.clone()
+            Ok(self.inner.clone())
         }
     }
 
-    pub fn extract_pair(py: Python, lhs: &CoerceBV, rhs: &CoerceBV) -> (Py<BV>, Py<BV>) {
-        match (lhs.coerced, rhs.coerced) {
+    pub fn extract_pair(py: Python, lhs: &CoerceBV, rhs: &CoerceBV) -> Result<(Py<BV>, Py<BV>), ClaripyError> {
+        Ok(match (lhs.coerced, rhs.coerced) {
             (true, true) | (false, false) => (lhs.inner.clone(), rhs.inner.clone()),
-            (true, false) => (lhs.extract_like(py, rhs.inner.get()), rhs.inner.clone()),
-            (false, true) => (lhs.inner.clone(), rhs.extract_like(py, lhs.inner.get())),
-        }
+            (true, false) => (lhs.extract_like(py, rhs.inner.get())?, rhs.inner.clone()),
+            (false, true) => (lhs.inner.clone(), rhs.extract_like(py, lhs.inner.get())?),
+        })
     }
 }
 

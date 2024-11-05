@@ -67,7 +67,7 @@ macro_rules! define_binop {
                 }
             } else if let Ok(a_bv) = a.clone().into_any().extract::<CoerceBV>() {
                 if let Ok(b_bv) = b.clone().into_any().extract::<CoerceBV>() {
-                    let (a_bv, b_bv) = CoerceBV::extract_pair(py, &a_bv, &b_bv);
+                    let (a_bv, b_bv) = CoerceBV::extract_pair(py, &a_bv, &b_bv)?;
                     return BV::new(
                         py,
                         &GLOBAL_CONTEXT.$op(&a_bv.get().inner, &b_bv.get().inner)?,
@@ -129,7 +129,7 @@ pub fn If(
 ) -> Result<Py<Base>, ClaripyError> {
     if let Ok(then_bv) = then_.clone().into_any().extract::<CoerceBV>() {
         if let Ok(else_bv) = else_.clone().into_any().extract::<CoerceBV>() {
-            let (then_bv, else_bv) = CoerceBV::extract_pair(py, &then_bv, &else_bv);
+            let (then_bv, else_bv) = CoerceBV::extract_pair(py, &then_bv, &else_bv)?;
             BV::new(
                 py,
                 &GLOBAL_CONTEXT.if_(
