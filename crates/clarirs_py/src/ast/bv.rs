@@ -56,6 +56,130 @@ impl BV {
 
 #[pymethods]
 impl BV {
+    #[new]
+    pub fn py_new(py: Python, op: &str, args: Vec<PyObject>) -> Result<Py<BV>, ClaripyError> {
+        BV::new(
+            py,
+            &match op {
+                "BVS" => {
+                    GLOBAL_CONTEXT.bvs(args[0].extract::<String>(py)?, args[1].extract(py)?)?
+                }
+                "BVV" => GLOBAL_CONTEXT
+                    .bvv_from_biguint_with_size(&args[0].extract(py)?, args[1].extract(py)?)?,
+                "__neg__" => GLOBAL_CONTEXT.not(&args[0].downcast_bound::<BV>(py)?.get().inner)?,
+                "__and__" => GLOBAL_CONTEXT.and(
+                    &args[0].downcast_bound::<BV>(py)?.get().inner,
+                    &args[1].downcast_bound::<BV>(py)?.get().inner,
+                )?,
+                "__or__" => GLOBAL_CONTEXT.or(
+                    &args[0].downcast_bound::<BV>(py)?.get().inner,
+                    &args[1].downcast_bound::<BV>(py)?.get().inner,
+                )?,
+                "__xor__" => GLOBAL_CONTEXT.xor(
+                    &args[0].downcast_bound::<BV>(py)?.get().inner,
+                    &args[1].downcast_bound::<BV>(py)?.get().inner,
+                )?,
+                "__abs__" => GLOBAL_CONTEXT.abs(&args[0].downcast_bound::<BV>(py)?.get().inner)?,
+                "__add__" => GLOBAL_CONTEXT.add(
+                    &args[0].downcast_bound::<BV>(py)?.get().inner,
+                    &args[1].downcast_bound::<BV>(py)?.get().inner,
+                )?,
+                "__sub__" => GLOBAL_CONTEXT.sub(
+                    &args[0].downcast_bound::<BV>(py)?.get().inner,
+                    &args[1].downcast_bound::<BV>(py)?.get().inner,
+                )?,
+                "__mul__" => GLOBAL_CONTEXT.mul(
+                    &args[0].downcast_bound::<BV>(py)?.get().inner,
+                    &args[1].downcast_bound::<BV>(py)?.get().inner,
+                )?,
+                "__floordiv__" => GLOBAL_CONTEXT.udiv(
+                    &args[0].downcast_bound::<BV>(py)?.get().inner,
+                    &args[1].downcast_bound::<BV>(py)?.get().inner,
+                )?,
+                "SDiv" => GLOBAL_CONTEXT.sdiv(
+                    &args[0].downcast_bound::<BV>(py)?.get().inner,
+                    &args[1].downcast_bound::<BV>(py)?.get().inner,
+                )?,
+                "__mod__" => GLOBAL_CONTEXT.urem(
+                    &args[0].downcast_bound::<BV>(py)?.get().inner,
+                    &args[1].downcast_bound::<BV>(py)?.get().inner,
+                )?,
+                "SMod" => GLOBAL_CONTEXT.srem(
+                    &args[0].downcast_bound::<BV>(py)?.get().inner,
+                    &args[1].downcast_bound::<BV>(py)?.get().inner,
+                )?,
+                "__pow__" => GLOBAL_CONTEXT.pow(
+                    &args[0].downcast_bound::<BV>(py)?.get().inner,
+                    &args[1].downcast_bound::<BV>(py)?.get().inner,
+                )?,
+                "__lshift__" => GLOBAL_CONTEXT.shl(
+                    &args[0].downcast_bound::<BV>(py)?.get().inner,
+                    &args[1].downcast_bound::<BV>(py)?.get().inner,
+                )?,
+                "LShR" => GLOBAL_CONTEXT.lshr(
+                    &args[0].downcast_bound::<BV>(py)?.get().inner,
+                    &args[1].downcast_bound::<BV>(py)?.get().inner,
+                )?,
+                "__rshift__" => GLOBAL_CONTEXT.ashr(
+                    &args[0].downcast_bound::<BV>(py)?.get().inner,
+                    &args[1].downcast_bound::<BV>(py)?.get().inner,
+                )?,
+                "RotateLeft" => GLOBAL_CONTEXT.rotate_left(
+                    &args[0].downcast_bound::<BV>(py)?.get().inner,
+                    &args[1].downcast_bound::<BV>(py)?.get().inner,
+                )?,
+                "RotateRight" => GLOBAL_CONTEXT.rotate_right(
+                    &args[0].downcast_bound::<BV>(py)?.get().inner,
+                    &args[1].downcast_bound::<BV>(py)?.get().inner,
+                )?,
+                "ZeroExt" => GLOBAL_CONTEXT.zero_ext(
+                    &args[0].downcast_bound::<BV>(py)?.get().inner,
+                    args[1].extract(py)?,
+                )?,
+                "SignExt" => GLOBAL_CONTEXT.sign_ext(
+                    &args[0].downcast_bound::<BV>(py)?.get().inner,
+                    args[1].extract(py)?,
+                )?,
+                "Extract" => GLOBAL_CONTEXT.extract(
+                    &args[0].downcast_bound::<BV>(py)?.get().inner,
+                    args[1].extract(py)?,
+                    args[2].extract(py)?,
+                )?,
+                "Concat" => GLOBAL_CONTEXT.concat(
+                    &args[0].downcast_bound::<BV>(py)?.get().inner,
+                    &args[1].downcast_bound::<BV>(py)?.get().inner,
+                )?,
+                "Reverse" => {
+                    GLOBAL_CONTEXT.reverse(&args[0].downcast_bound::<BV>(py)?.get().inner)?
+                }
+                "fpToIEEEBV" => {
+                    GLOBAL_CONTEXT.fp_to_ieeebv(&args[0].downcast_bound::<FP>(py)?.get().inner)?
+                }
+                // "fpToUBV" => GLOBAL_CONTEXT.fp_to_ubv(
+                //     &args[0].downcast_bound::<FP>(py)?.get().inner,
+                // )?,
+                // "fpToSBV" => GLOBAL_CONTEXT.fp_to_sbv(
+                //     &args[0].downcast_bound::<FP>(py)?.get().inner,
+                // )?,
+                "StrLen" => GLOBAL_CONTEXT
+                    .strlen(&args[0].downcast_bound::<PyAstString>(py)?.get().inner)?,
+                "StrIndexOf" => GLOBAL_CONTEXT.strindexof(
+                    &args[0].downcast_bound::<PyAstString>(py)?.get().inner,
+                    &args[1].downcast_bound::<PyAstString>(py)?.get().inner,
+                    &args[2].downcast_bound::<BV>(py)?.get().inner,
+                )?,
+                "StrToBV" => GLOBAL_CONTEXT
+                    .strtobv(&args[0].downcast_bound::<PyAstString>(py)?.get().inner)?,
+                "If" => GLOBAL_CONTEXT.if_(
+                    &args[0].downcast_bound::<Bool>(py)?.get().inner,
+                    &args[1].downcast_bound::<BV>(py)?.get().inner,
+                    &args[2].downcast_bound::<BV>(py)?.get().inner,
+                )?,
+                _ => return Err(ClaripyError::InvalidOperation(op.to_string())),
+            },
+        )
+    }
+
     #[getter]
     pub fn op(&self) -> String {
         self.inner.op().to_opstring()
