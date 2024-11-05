@@ -206,13 +206,13 @@ pub fn StrConcat(
 #[pyfunction]
 pub fn StrSubstr(
     py: Python,
+    start: CoerceBV,
+    size: CoerceBV,
     base: Bound<PyAstString>,
-    start: Bound<BV>,
-    end: Bound<BV>,
 ) -> Result<Py<PyAstString>, ClaripyError> {
     PyAstString::new(
         py,
-        &GLOBAL_CONTEXT.strsubstr(&base.get().inner, &start.get().inner, &end.get().inner)?,
+        &GLOBAL_CONTEXT.strsubstr(&base.get().inner, &start.into(), &size.into())?,
     )
 }
 
@@ -233,15 +233,11 @@ pub fn StrIndexOf(
     py: Python,
     haystack: Bound<PyAstString>,
     needle: Bound<PyAstString>,
-    start: Bound<BV>,
+    start: CoerceBV,
 ) -> Result<Py<BV>, ClaripyError> {
     BV::new(
         py,
-        &GLOBAL_CONTEXT.strindexof(
-            &haystack.get().inner,
-            &needle.get().inner,
-            &start.get().inner,
-        )?,
+        &GLOBAL_CONTEXT.strindexof(&haystack.get().inner, &needle.get().inner, &start.into())?,
     )
 }
 

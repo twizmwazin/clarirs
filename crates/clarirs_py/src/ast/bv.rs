@@ -686,17 +686,17 @@ pub fn Concat(py: Python, args: Vec<Bound<BV>>) -> Result<Py<BV>, ClaripyError> 
 }
 
 #[pyfunction]
-pub fn Extract(py: Python, base: Bound<BV>, start: u32, end: u32) -> Result<Py<BV>, ClaripyError> {
+pub fn Extract(py: Python, end: u32, start: u32, base: Bound<BV>) -> Result<Py<BV>, ClaripyError> {
     BV::new(py, &GLOBAL_CONTEXT.extract(&base.get().inner, start, end)?)
 }
 
 #[pyfunction]
-pub fn ZeroExt(py: Python, base: Bound<BV>, amount: u32) -> Result<Py<BV>, ClaripyError> {
+pub fn ZeroExt(py: Python, amount: u32, base: Bound<BV>) -> Result<Py<BV>, ClaripyError> {
     BV::new(py, &GLOBAL_CONTEXT.zero_ext(&base.get().inner, amount)?)
 }
 
 #[pyfunction]
-pub fn SignExt(py: Python, base: Bound<BV>, amount: u32) -> Result<Py<BV>, ClaripyError> {
+pub fn SignExt(py: Python, amount: u32, base: Bound<BV>) -> Result<Py<BV>, ClaripyError> {
     BV::new(py, &GLOBAL_CONTEXT.sign_ext(&base.get().inner, amount)?)
 }
 
