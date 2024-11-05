@@ -68,6 +68,7 @@ impl<'c, O: Op<'c> + Serialize> AstNode<'c, O> {
             .child_iter()
             .flat_map(|child| child.variables().clone().into_iter())
             .collect::<HashSet<String>>();
+        let depth = op.depth();
 
         Self {
             op,
@@ -75,7 +76,7 @@ impl<'c, O: Op<'c> + Serialize> AstNode<'c, O> {
             hash,
             symbolic,
             variables,
-            depth: 0, // TODO: Implement depth calculation
+            depth,
         }
     }
 
@@ -94,15 +95,15 @@ impl<'c, O: Op<'c> + Serialize> AstNode<'c, O> {
     pub fn variables(&self) -> &HashSet<String> {
         &self.variables
     }
-
-    pub fn depth(&self) -> u32 {
-        self.depth
-    }
 }
 
 impl<'c, O: Op<'c>> Op<'c> for AstNode<'c, O> {
     fn child_iter(&self) -> IntoIter<VarAst<'c>> {
         self.op.child_iter()
+    }
+
+    fn depth(&self) -> u32 {
+        self.depth
     }
 
     fn is_true(&self) -> bool {
@@ -139,6 +140,15 @@ impl<'c> Op<'c> for VarAst<'c> {
             VarAst::BitVec(ast) => ast.child_iter(),
             VarAst::Float(ast) => ast.child_iter(),
             VarAst::String(ast) => ast.child_iter(),
+        }
+    }
+
+    fn depth(&self) -> u32 {
+        match self {
+            VarAst::Boolean(ast) => ast.depth(),
+            VarAst::BitVec(ast) => ast.depth(),
+            VarAst::Float(ast) => ast.depth(),
+            VarAst::String(ast) => ast.depth(),
         }
     }
 

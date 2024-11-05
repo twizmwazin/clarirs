@@ -14,6 +14,10 @@ pub trait Op<'c>: Debug + Hash + Serialize {
         self.child_iter().collect()
     }
 
+    fn depth(&self) -> u32 {
+        1 + self.children().iter().map(|c| c.depth()).max().unwrap_or(0)
+    }
+
     fn is_true(&self) -> bool {
         false
     }
