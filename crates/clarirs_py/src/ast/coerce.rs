@@ -58,7 +58,10 @@ impl CoerceBV {
 
         if self.coerced && like_size != our_size {
             match self.inner.get().inner.op() {
-                BitVecOp::BVV(val) => BV::new(py, &GLOBAL_CONTEXT.bvv_from_biguint_with_size(&val.as_biguint(), like_size)?),
+                BitVecOp::BVV(val) => BV::new(
+                    py,
+                    &GLOBAL_CONTEXT.bvv_from_biguint_with_size(&val.as_biguint(), like_size)?,
+                ),
                 _ => {
                     if like_size > our_size {
                         self.inner.get().zero_extend(py, like_size)
@@ -72,7 +75,11 @@ impl CoerceBV {
         }
     }
 
-    pub fn extract_pair(py: Python, lhs: &CoerceBV, rhs: &CoerceBV) -> Result<(Py<BV>, Py<BV>), ClaripyError> {
+    pub fn extract_pair(
+        py: Python,
+        lhs: &CoerceBV,
+        rhs: &CoerceBV,
+    ) -> Result<(Py<BV>, Py<BV>), ClaripyError> {
         Ok(match (lhs.coerced, rhs.coerced) {
             (true, true) | (false, false) => (lhs.inner.clone(), rhs.inner.clone()),
             (true, false) => (lhs.extract_like(py, rhs.inner.get())?, rhs.inner.clone()),
