@@ -164,6 +164,25 @@ impl PyAstString {
             )?,
         )
     }
+
+    pub fn __add__(
+        &self,
+        py: Python,
+        other: Bound<PyAstString>,
+    ) -> Result<Py<PyAstString>, ClaripyError> {
+        PyAstString::new(
+            py,
+            &GLOBAL_CONTEXT.strconcat(&self.inner, &other.get().inner)?,
+        )
+    }
+
+    pub fn __eq__(&self, py: Python, other: Bound<PyAstString>) -> Result<Py<Bool>, ClaripyError> {
+        Bool::new(py, &GLOBAL_CONTEXT.streq(&self.inner, &other.get().inner)?)
+    }
+
+    pub fn __ne__(&self, py: Python, other: Bound<PyAstString>) -> Result<Py<Bool>, ClaripyError> {
+        Bool::new(py, &GLOBAL_CONTEXT.strneq(&self.inner, &other.get().inner)?)
+    }
 }
 
 #[pyfunction(signature = (name, explicit_name = false))]
