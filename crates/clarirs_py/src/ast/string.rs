@@ -135,6 +135,10 @@ impl PyAstString {
         self.inner.hash()
     }
 
+    pub fn __hash__(&self) -> usize {
+        self.hash() as usize
+    }
+
     #[getter]
     pub fn depth(&self) -> u32 {
         self.inner.depth()
