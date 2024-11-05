@@ -57,11 +57,7 @@ impl Bool {
 #[pymethods]
 impl Bool {
     #[new]
-    pub fn py_new(
-        py: Python,
-        op: &str,
-        args: Vec<PyObject>,
-    ) -> Result<Py<Bool>, ClaripyError> {
+    pub fn py_new(py: Python, op: &str, args: Vec<PyObject>) -> Result<Py<Bool>, ClaripyError> {
         Bool::new(
             py,
             &match op {
@@ -97,7 +93,7 @@ impl Bool {
                             &args[1].downcast_bound::<PyAstString>(py)?.get().inner,
                         )?
                     }
-                },
+                }
                 "__ne__" => {
                     if args[0].downcast_bound::<Bool>(py).is_ok() {
                         GLOBAL_CONTEXT.neq(
@@ -172,8 +168,12 @@ impl Bool {
                     &args[0].downcast_bound::<FP>(py)?.get().inner,
                     &args[1].downcast_bound::<FP>(py)?.get().inner,
                 )?,
-                "fpIsNan" => GLOBAL_CONTEXT.fp_is_nan(&args[0].downcast_bound::<FP>(py)?.get().inner)?,
-                "fpIsInf" => GLOBAL_CONTEXT.fp_is_inf(&args[0].downcast_bound::<FP>(py)?.get().inner)?,
+                "fpIsNan" => {
+                    GLOBAL_CONTEXT.fp_is_nan(&args[0].downcast_bound::<FP>(py)?.get().inner)?
+                }
+                "fpIsInf" => {
+                    GLOBAL_CONTEXT.fp_is_inf(&args[0].downcast_bound::<FP>(py)?.get().inner)?
+                }
                 "StrContains" => GLOBAL_CONTEXT.strcontains(
                     &args[0].downcast_bound::<PyAstString>(py)?.get().inner,
                     &args[1].downcast_bound::<PyAstString>(py)?.get().inner,
@@ -186,7 +186,8 @@ impl Bool {
                     &args[0].downcast_bound::<PyAstString>(py)?.get().inner,
                     &args[1].downcast_bound::<PyAstString>(py)?.get().inner,
                 )?,
-                "StrIsDigit" => GLOBAL_CONTEXT.strisdigit(&args[0].downcast_bound::<PyAstString>(py)?.get().inner)?,
+                "StrIsDigit" => GLOBAL_CONTEXT
+                    .strisdigit(&args[0].downcast_bound::<PyAstString>(py)?.get().inner)?,
                 "If" => GLOBAL_CONTEXT.if_(
                     &args[0].downcast_bound::<Bool>(py)?.get().inner,
                     &args[1].downcast_bound::<Bool>(py)?.get().inner,

@@ -54,7 +54,11 @@ impl PyAstString {
 #[pymethods]
 impl PyAstString {
     #[new]
-    pub fn py_new(py: Python, op: &str, args: Vec<PyObject>) -> Result<Py<PyAstString>, ClaripyError> {
+    pub fn py_new(
+        py: Python,
+        op: &str,
+        args: Vec<PyObject>,
+    ) -> Result<Py<PyAstString>, ClaripyError> {
         PyAstString::new(
             py,
             &match op {
@@ -74,14 +78,16 @@ impl PyAstString {
                     &args[1].downcast_bound::<PyAstString>(py)?.get().inner,
                     &args[2].downcast_bound::<PyAstString>(py)?.get().inner,
                 )?,
-                "IntToStr" => GLOBAL_CONTEXT.bvtostr(&args[0].downcast_bound::<BV>(py)?.get().inner)?,
+                "IntToStr" => {
+                    GLOBAL_CONTEXT.bvtostr(&args[0].downcast_bound::<BV>(py)?.get().inner)?
+                }
                 "If" => GLOBAL_CONTEXT.if_(
                     &args[0].downcast_bound::<Bool>(py)?.get().inner,
                     &args[1].downcast_bound::<PyAstString>(py)?.get().inner,
                     &args[2].downcast_bound::<PyAstString>(py)?.get().inner,
                 )?,
                 _ => return Err(ClaripyError::InvalidOperation(op.to_string())),
-            }
+            },
         )
     }
 
