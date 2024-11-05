@@ -237,11 +237,7 @@ pub fn StrIndexOf(
 ) -> Result<Py<BV>, ClaripyError> {
     BV::new(
         py,
-        &GLOBAL_CONTEXT.strindexof(
-            &haystack.get().inner,
-            &needle.get().inner,
-            &start.into(),
-        )?,
+        &GLOBAL_CONTEXT.strindexof(&haystack.get().inner, &needle.get().inner, &start.into())?,
     )
 }
 

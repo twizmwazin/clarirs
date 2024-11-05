@@ -474,7 +474,11 @@ pub trait AstFactory<'c>: Sized {
         start: &BitVecAst<'c>,
         size: &BitVecAst<'c>,
     ) -> Result<StringAst<'c>, ClarirsError> {
-        self.make_string(StringOp::StrSubstr(lhs.clone(), start.clone(), size.clone()))
+        self.make_string(StringOp::StrSubstr(
+            lhs.clone(),
+            start.clone(),
+            size.clone(),
+        ))
     }
 
     fn strcontains(
