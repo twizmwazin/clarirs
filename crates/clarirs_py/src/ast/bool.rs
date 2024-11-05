@@ -300,6 +300,20 @@ impl Bool {
             &GLOBAL_CONTEXT.xor(&self.inner, &<CoerceBool as Into<BoolAst>>::into(other))?,
         )
     }
+
+    pub fn __eq__(&self, py: Python, other: CoerceBool) -> Result<Py<Bool>, ClaripyError> {
+        Bool::new(
+            py,
+            &GLOBAL_CONTEXT.eq_(&self.inner, &<CoerceBool as Into<BoolAst>>::into(other))?,
+        )
+    }
+
+    pub fn __ne__(&self, py: Python, other: CoerceBool) -> Result<Py<Bool>, ClaripyError> {
+        Bool::new(
+            py,
+            &GLOBAL_CONTEXT.neq(&self.inner, &<CoerceBool as Into<BoolAst>>::into(other))?,
+        )
+    }
 }
 
 #[pyfunction(signature = (name, explicit_name = false))]
