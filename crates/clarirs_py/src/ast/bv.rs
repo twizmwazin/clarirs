@@ -141,9 +141,9 @@ impl BV {
                     args[1].extract(py)?,
                 )?,
                 "Extract" => GLOBAL_CONTEXT.extract(
-                    &args[0].downcast_bound::<BV>(py)?.get().inner,
+                    &args[2].downcast_bound::<BV>(py)?.get().inner,
+                    args[0].extract(py)?,
                     args[1].extract(py)?,
-                    args[2].extract(py)?,
                 )?,
                 "Concat" => GLOBAL_CONTEXT.concat(
                     &args[0].downcast_bound::<BV>(py)?.get().inner,
