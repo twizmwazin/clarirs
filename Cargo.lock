@@ -53,6 +53,7 @@ dependencies = [
  "anyhow",
  "clarirs_num",
  "num-bigint",
+ "num-traits",
  "paste",
  "petgraph",
  "rand",
@@ -67,6 +68,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "num-bigint",
+ "num-traits",
  "serde",
  "smallvec",
  "thiserror",

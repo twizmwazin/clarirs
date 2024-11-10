@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
+use std::ops::{Add, Div, Mul, Rem, Sub};
 
 use super::BitVec;
+use num_bigint::{BigInt, BigUint};
+use num_traits::{ToPrimitive, Zero};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct FSort {
@@ -78,6 +81,27 @@ impl Float {
         FSort::new(self.exponent.len() as u32, self.mantissa.len() as u32)
     }
 
+
+    /// Constructs a `Float` from an `f64` with rounding and format adjustments
+    pub fn from_f64_with_rounding(value: f64, _fprm: FPRM, fsort: FSort) -> Self {
+        let sign = value.is_sign_negative();
+        let abs_value = value.abs();
+
+        let exp = abs_value.log2().floor() as u32;
+        let mantissa_val = abs_value / 2f64.powf(exp as f64) - 1.0;
+
+        let exponent = BitVec::from_prim_with_size(
+            exp + ((1 << (fsort.exponent() - 1)) - 1),
+            fsort.exponent() as usize,
+        );
+        let mantissa = BitVec::from_prim_with_size(
+            (mantissa_val * (1 << fsort.mantissa()) as f64) as u64,
+            fsort.mantissa() as usize,
+        );
+
+        Self::new(sign, exponent, mantissa)
+    }
+
     pub fn to_fsort(&self, fsort: FSort, rm: FPRM) -> Self {
         // TODO: This implementation only currently works for the same fsort
 
@@ -96,13 +120,308 @@ impl Float {
         Self::new(self.sign, exponent, mantissa)
     }
 
-    pub fn as_f64(&self) -> f64 {
-        recompose_f64(
-            self.sign as u8,
-            *self.exponent.as_biguint().to_u64_digits().first().unwrap() as u16,
-            *self.mantissa.as_biguint().to_u64_digits().first().unwrap(),
-        )
+    pub fn compare_fp(&self, other: &Self) -> bool {
+        self.sign == other.sign
+            && self.exponent == other.exponent
+            && self.mantissa == other.mantissa
     }
+
+    pub fn lt(&self, other: &Self) -> bool {
+        // Handle sign: If the signs differ, the positive number is greater.
+        if self.sign() != other.sign() {
+            return self.sign();
+        }
+
+        // If both numbers are positive, compare as usual; if negative, reverse the comparison.
+        let both_negative = self.sign();
+
+        // Compare exponents
+        match self.exponent().cmp(other.exponent()) {
+            std::cmp::Ordering::Less => return !both_negative,
+            std::cmp::Ordering::Greater => return both_negative,
+            std::cmp::Ordering::Equal => {}
+        }
+
+        // Exponents are equal, so compare mantissas
+        match self.mantissa().cmp(other.mantissa()) {
+            std::cmp::Ordering::Less => !both_negative,
+            std::cmp::Ordering::Greater => both_negative,
+            std::cmp::Ordering::Equal => false, // Numbers are equal
+        }
+    }
+
+    pub fn leq(&self, other: &Self) -> bool {
+        // Handle sign: If the signs differ, the positive number is greater.
+        if self.sign() != other.sign() {
+            return self.sign();
+        }
+
+        // If both numbers are positive, compare as usual; if negative, reverse the comparison.
+        let both_negative = self.sign();
+
+        // Compare exponents
+        match self.exponent().cmp(other.exponent()) {
+            std::cmp::Ordering::Less => return !both_negative,
+            std::cmp::Ordering::Greater => return both_negative,
+            std::cmp::Ordering::Equal => {}
+        }
+
+        // Exponents are equal, so compare mantissas
+        match self.mantissa().cmp(other.mantissa()) {
+            std::cmp::Ordering::Less => !both_negative,
+            std::cmp::Ordering::Greater => both_negative,
+            std::cmp::Ordering::Equal => true, // Numbers are equal, so return true
+        }
+    }
+
+    pub fn gt(&self, other: &Self) -> bool {
+        // Handle sign: If the signs differ, the positive number is greater.
+        if self.sign() != other.sign() {
+            return !self.sign();
+        }
+
+        // If both numbers are positive, compare as usual; if negative, reverse the comparison.
+        let both_negative = self.sign();
+
+        // Compare exponents
+        match self.exponent().cmp(other.exponent()) {
+            std::cmp::Ordering::Less => return both_negative,
+            std::cmp::Ordering::Greater => return !both_negative,
+            std::cmp::Ordering::Equal => {}
+        }
+
+        // Exponents are equal, so compare mantissas
+        match self.mantissa().cmp(other.mantissa()) {
+            std::cmp::Ordering::Less => both_negative,
+            std::cmp::Ordering::Greater => !both_negative,
+            std::cmp::Ordering::Equal => false, // Numbers are equal, so return false
+        }
+    }
+
+    pub fn geq(&self, other: &Self) -> bool {
+        // Handle sign: If the signs differ, the positive number is greater.
+        if self.sign() != other.sign() {
+            return !self.sign();
+        }
+
+        // If both numbers are positive, compare as usual; if negative, reverse the comparison.
+        let both_negative = self.sign();
+
+        // Compare exponents
+        match self.exponent().cmp(other.exponent()) {
+            std::cmp::Ordering::Less => return both_negative,
+            std::cmp::Ordering::Greater => return !both_negative,
+            std::cmp::Ordering::Equal => {}
+        }
+
+        // Exponents are equal, so compare mantissas
+        match self.mantissa().cmp(other.mantissa()) {
+            std::cmp::Ordering::Less => both_negative,
+            std::cmp::Ordering::Greater => !both_negative,
+            std::cmp::Ordering::Equal => true, // Numbers are equal, so return true
+        }
+    }
+
+    pub fn is_nan(&self) -> bool {
+        // The exponent should be all ones, and the mantissa should not be zero
+        self.exponent.is_all_ones() && !self.mantissa.is_zero()
+    }
+
+    pub fn is_infinity(&self) -> bool {
+        // The exponent should be all ones, and the mantissa should be zero
+        self.exponent.is_all_ones() && self.mantissa.is_zero()
+    }
+
+    pub fn to_ieee_bits(&self) -> BigUint {
+        // Construct IEEE 754 representation using sign, exponent, and mantissa
+        let sign_bit = if self.sign {
+            BigUint::from(1u8) << (self.fsort().size() as usize - 1)
+        } else {
+            BigUint::zero()
+        };
+        let exponent_bits = self.exponent.to_biguint() << self.mantissa.len();
+        let mantissa_bits = self.mantissa.to_biguint();
+
+        sign_bit | exponent_bits | mantissa_bits
+    }
+
+    /// Converts the float to an unsigned integer representation as BigUint
+    pub fn to_unsigned_biguint(&self) -> Option<BigUint> {
+        // Convert to f64 and then to BigUint for unsigned integer conversion
+        self.to_f64().map(|value| BigUint::from(value as u64))
+    }
+
+    /// Converts the float to a signed integer representation as BigInt
+    pub fn to_signed_bigint(&self) -> Option<BigInt> {
+        // Convert to f64 and then to BigInt for signed integer conversion
+        self.to_f64().map(|value| BigInt::from(value as i64))
+    }
+
+    /// Converts the float to an `f64` representation, if possible
+    pub fn to_f64(&self) -> Option<f64> {
+        // Check if the exponent or mantissa is too large to fit in `f64`
+        if self.exponent.len() > 11 || self.mantissa.len() > 52 {
+            return None; // Return None if it exceeds `f64` range
+        }
+
+        // Convert the exponent and mantissa from BitVec to integer values
+        let exponent = self.exponent.to_biguint().to_u64()? as i64;
+        let mantissa = self.mantissa.to_biguint().to_u64()? as u64;
+
+        // Bias adjustment for IEEE 754 format (for `f64`, the bias is 1023)
+        let bias = 1023;
+        let adjusted_exponent = (exponent - bias) as i32;
+
+        // Reconstruct the `f64` value based on IEEE 754
+        let mut value = (mantissa as f64) / (1 << 52) as f64; // Normalize mantissa
+        value += 1.0; // Add the implicit leading 1 in IEEE 754
+
+        // Apply the exponent by scaling the value
+        value *= 2f64.powi(adjusted_exponent);
+
+        // Apply the sign
+        if self.sign {
+            value = -value;
+        }
+
+        Some(value)
+    }
+
+    pub fn convert_to_format(&self, fsort: FSort, fprm: FPRM) -> Self {
+        // Assuming `to_f64()` provides the current float as `f64`, convert it to the new format
+        let f64_value = self.to_f64().unwrap_or(0.0); // Fallback to 0.0 if conversion fails
+        Float::from_f64_with_rounding(f64_value, fprm, fsort)
+    }
+
+    pub fn from_unsigned_biguint_with_rounding(
+        value: &BigUint,
+        fsort: FSort,
+        fprm: FPRM,
+    ) -> Self {
+        // Convert BigUint to f64 for simplicity in this example
+        let float_value = value.to_f64().unwrap_or(0.0); // Fallback to 0.0 if conversion fails
+        Float::from_f64_with_rounding(float_value, fprm, fsort)
+    }
+
+
+}
+
+impl Add for Float {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        // Ensure `self` is the larger exponent; if not, swap them
+        let (larger, smaller) = if self.exponent > rhs.exponent {
+            (self, rhs)
+        } else {
+            (rhs, self)
+        };
+
+        // Align mantissas by shifting the smaller mantissa
+        let exponent_diff = larger.exponent.len() as usize - smaller.exponent.len() as usize;
+        let aligned_smaller_mantissa = smaller.mantissa.clone() >> exponent_diff;
+
+        // Add or subtract mantissas based on the signs
+        let (new_sign, new_mantissa) = if larger.sign == smaller.sign {
+            // Same sign, add mantissas
+            (larger.sign, larger.mantissa + aligned_smaller_mantissa)
+        } else {
+            // Different signs, subtract mantissas
+            if larger.mantissa > aligned_smaller_mantissa {
+                (larger.sign, larger.mantissa - aligned_smaller_mantissa)
+            } else {
+                (!larger.sign, aligned_smaller_mantissa - larger.mantissa)
+            }
+        };
+
+        // Normalize the result
+        let (normalized_exponent, normalized_mantissa) = normalize(new_mantissa, larger.exponent);
+
+        Float {
+            sign: new_sign,
+            exponent: normalized_exponent,
+            mantissa: normalized_mantissa,
+        }
+    }
+}
+
+impl Sub for Float {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        // Subtraction is addition with the opposite sign
+        self + Float {
+            sign: !rhs.sign,
+            ..rhs
+        }
+    }
+}
+
+impl Mul for Float {
+    type Output = Self;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        // Multiply mantissas
+        let mantissa_product = self.mantissa.clone() * rhs.mantissa.clone();
+
+        // Add exponents
+        let exponent_sum = self.exponent + rhs.exponent;
+
+        // Determine resulting sign
+        let result_sign = self.sign ^ rhs.sign;
+
+        // Normalize the result
+        let (normalized_exponent, normalized_mantissa) = normalize(mantissa_product, exponent_sum);
+
+        Float {
+            sign: result_sign,
+            exponent: normalized_exponent,
+            mantissa: normalized_mantissa,
+        }
+    }
+}
+
+impl Div for Float {
+    type Output = Self;
+
+    // TODO: Check for following cases:
+    // Correct rounding modes.
+    // Handling edge cases (e.g., NaNs, infinities).
+    // Precision management and overflow/underflow handling.
+
+    fn div(self, rhs: Self) -> Self::Output {
+        // Divide mantissas
+        let mantissa_quotient = self.mantissa.clone() / rhs.mantissa.clone();
+
+        // Subtract exponents
+        let exponent_diff = self.exponent - rhs.exponent;
+
+        // Determine resulting sign
+        let result_sign = self.sign ^ rhs.sign;
+
+        // Normalize the result
+        let (normalized_exponent, normalized_mantissa) =
+            normalize(mantissa_quotient, exponent_diff);
+
+        Float {
+            sign: result_sign,
+            exponent: normalized_exponent,
+            mantissa: normalized_mantissa,
+        }
+    }
+}
+
+// Helper function to normalize the mantissa and adjust the exponent
+fn normalize(mantissa: BitVec, exponent: BitVec) -> (BitVec, BitVec) {
+    // Calculate the amount of shift required to normalize mantissa
+    let shift_amount = mantissa.leading_zeros() as usize;
+
+    // Shift mantissa and adjust exponent, using cloned values
+    let normalized_mantissa = mantissa << shift_amount;
+    let normalized_exponent =
+        exponent.clone() - BitVec::from_prim_with_size(shift_amount as u32, exponent.len());
+
+    (normalized_exponent, normalized_mantissa)
 }
 
 impl From<f32> for Float {

@@ -1,4 +1,4 @@
-use std::sync::{RwLock, Weak};
+use std::sync::{Arc, RwLock, Weak};
 
 use ahash::HashMap;
 
@@ -72,67 +72,184 @@ pub struct AstCache<'c> {
 }
 
 impl<'c> AstCache<'c> {
-    pub fn get_or_insert_with_bool<F: FnOnce() -> BoolAst<'c>>(
-        &self,
-        hash: u64,
-        f: F,
-    ) -> BoolAst<'c> {
+
+    pub fn get_or_insert_with_bool<F>(&self, hash: u64, f: F) -> Result<BoolAst<'c>, ClarirsError>
+    where
+        F: FnOnce() -> Result<BoolAst<'c>, ClarirsError>,
+    {
         let mut inner = self.inner.write().unwrap();
-        match inner.get(&hash).and_then(|v| v.as_bool()) {
-            Some(value) => value,
-            None => {
-                let this = f();
-                inner.insert(hash, this.clone().into());
-                this
+        let entry = inner
+            .entry(hash)
+            .or_insert_with(|| AstCacheValue::Boolean(Weak::new()));
+        match entry {
+            AstCacheValue::Boolean(weak) => {
+                if let Some(arc) = weak.upgrade() {
+                    Ok(arc)
+                } else {
+                    let arc = f()?;
+                    *entry = AstCacheValue::Boolean(Arc::downgrade(&arc));
+                    Ok(arc)
+                }
             }
+            _ => unreachable!(),
+        }
+    }
+    
+    pub fn get_or_insert_with_bv<F>(&self, hash: u64, f: F) -> Result<BitVecAst<'c>, ClarirsError>
+    where
+        F: FnOnce() -> Result<BitVecAst<'c>, ClarirsError>,
+    {
+        let mut inner = self.inner.write().unwrap();
+        let entry = inner
+            .entry(hash)
+            .or_insert_with(|| AstCacheValue::BitVec(Weak::new()));
+        match entry {
+            AstCacheValue::BitVec(weak) => {
+                if let Some(arc) = weak.upgrade() {
+                    Ok(arc)
+                } else {
+                    let arc = f()?;
+                    *entry = AstCacheValue::BitVec(Arc::downgrade(&arc));
+                    Ok(arc)
+                }
+            }
+            _ => unreachable!(),
         }
     }
 
-    pub fn get_or_insert_with_bv<F: FnOnce() -> BitVecAst<'c>>(
-        &self,
-        hash: u64,
-        f: F,
-    ) -> BitVecAst<'c> {
+    pub fn get_or_insert_with_float<F>(&self, hash: u64, f: F) -> Result<FloatAst<'c>, ClarirsError>
+    where
+        F: FnOnce() -> Result<FloatAst<'c>, ClarirsError>,
+    {
         let mut inner = self.inner.write().unwrap();
-        match inner.get(&hash).and_then(|v| v.as_bv()) {
-            Some(value) => value,
-            None => {
-                let this = f();
-                inner.insert(hash, this.clone().into());
-                this
+        let entry = inner
+            .entry(hash)
+            .or_insert_with(|| AstCacheValue::Float(Weak::new()));
+        match entry {
+            AstCacheValue::Float(weak) => {
+                if let Some(arc) = weak.upgrade() {
+                    Ok(arc)
+                } else {
+                    let arc = f()?;
+                    *entry = AstCacheValue::Float(Arc::downgrade(&arc));
+                    Ok(arc)
+                }
             }
+            _ => unreachable!(),
         }
     }
 
-    pub fn get_or_insert_with_float<F: FnOnce() -> FloatAst<'c>>(
-        &self,
-        hash: u64,
-        f: F,
-    ) -> FloatAst<'c> {
+    pub fn get_or_insert_with_string<F>(&self, hash: u64, f: F) -> Result<StringAst<'c>, ClarirsError>
+    where
+        F: FnOnce() -> Result<StringAst<'c>, ClarirsError>,
+    {
         let mut inner = self.inner.write().unwrap();
-        match inner.get(&hash).and_then(|v| v.as_float()) {
-            Some(value) => value,
-            None => {
-                let this = f();
-                inner.insert(hash, this.clone().into());
-                this
+        let entry = inner
+            .entry(hash)
+            .or_insert_with(|| AstCacheValue::String(Weak::new()));
+        match entry {
+            AstCacheValue::String(weak) => {
+                if let Some(arc) = weak.upgrade() {
+                    Ok(arc)
+                } else {
+                    let arc = f()?;
+                    *entry = AstCacheValue::String(Arc::downgrade(&arc));
+                    Ok(arc)
+                }
             }
+            _ => unreachable!(),
         }
     }
 
-    pub fn get_or_insert_with_string<F: FnOnce() -> StringAst<'c>>(
-        &self,
-        hash: u64,
-        f: F,
-    ) -> StringAst<'c> {
-        let mut inner = self.inner.write().unwrap();
-        match inner.get(&hash).and_then(|v| v.as_string()) {
-            Some(value) => value,
-            None => {
-                let this = f();
-                inner.insert(hash, this.clone().into());
-                this
-            }
-        }
-    }
+    // pub fn get_or_insert_with_bool<F: FnOnce() -> BoolAst<'c>>(
+    //     &self,
+    //     hash: u64,
+    //     f: F,
+    // ) -> BoolAst<'c> {
+    //     let mut inner = self.inner.write().unwrap();
+    //     let entry = inner
+    //         .entry(hash)
+    //         .or_insert_with(|| AstCacheValue::Boolean(Weak::new()));
+    //     match entry {
+    //         AstCacheValue::Boolean(weak) => {
+    //             if let Some(arc) = weak.upgrade() {
+    //                 arc
+    //             } else {
+    //                 let arc = f();
+    //                 *entry = AstCacheValue::Boolean(Arc::downgrade(&arc));
+    //                 arc
+    //             }
+    //         }
+    //         _ => unreachable!(),
+    //     }
+    // }
+
+    // pub fn get_or_insert_with_bv<F: FnOnce() -> BitVecAst<'c>>(
+    //     &self,
+    //     hash: u64,
+    //     f: F,
+    // ) -> BitVecAst<'c> {
+    //     let mut inner = self.inner.write().unwrap();
+    //     let entry = inner
+    //         .entry(hash)
+    //         .or_insert_with(|| AstCacheValue::BitVec(Weak::new()));
+    //     match entry {
+    //         AstCacheValue::BitVec(weak) => {
+    //             if let Some(arc) = weak.upgrade() {
+    //                 arc
+    //             } else {
+    //                 let arc = f();
+    //                 *entry = AstCacheValue::BitVec(Arc::downgrade(&arc));
+    //                 arc
+    //             }
+    //         }
+    //         _ => unreachable!(),
+    //     }
+    // }
+
+    // pub fn get_or_insert_with_float<F: FnOnce() -> FloatAst<'c>>(
+    //     &self,
+    //     hash: u64,
+    //     f: F,
+    // ) -> FloatAst<'c> {
+    //     let mut inner = self.inner.write().unwrap();
+    //     let entry = inner
+    //         .entry(hash)
+    //         .or_insert_with(|| AstCacheValue::Float(Weak::new()));
+    //     match entry {
+    //         AstCacheValue::Float(weak) => {
+    //             if let Some(arc) = weak.upgrade() {
+    //                 arc
+    //             } else {
+    //                 let arc = f();
+    //                 *entry = AstCacheValue::Float(Arc::downgrade(&arc));
+    //                 arc
+    //             }
+    //         }
+    //         _ => unreachable!(),
+    //     }
+    // }
+
+    // pub fn get_or_insert_with_string<F: FnOnce() -> StringAst<'c>>(
+    //     &self,
+    //     hash: u64,
+    //     f: F,
+    // ) -> StringAst<'c> {
+    //     let mut inner = self.inner.write().unwrap();
+    //     let entry = inner
+    //         .entry(hash)
+    //         .or_insert_with(|| AstCacheValue::String(Weak::new()));
+    //     match entry {
+    //         AstCacheValue::String(weak) => {
+    //             if let Some(arc) = weak.upgrade() {
+    //                 arc
+    //             } else {
+    //                 let arc = f();
+    //                 *entry = AstCacheValue::String(Arc::downgrade(&arc));
+    //                 arc
+    //             }
+    //         }
+    //         _ => unreachable!(),
+    //     }
+    // }
 }

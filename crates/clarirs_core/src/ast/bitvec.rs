@@ -25,8 +25,10 @@ pub enum BitVecOp<'c> {
     URem(BitVecAst<'c>, BitVecAst<'c>),
     SRem(BitVecAst<'c>, BitVecAst<'c>),
     Pow(BitVecAst<'c>, BitVecAst<'c>),
-    ShL(BitVecAst<'c>, BitVecAst<'c>),
+    // ShL(BitVecAst<'c>, BitVecAst<'c>),
+    LShL(BitVecAst<'c>, BitVecAst<'c>),
     LShR(BitVecAst<'c>, BitVecAst<'c>),
+    AShL(BitVecAst<'c>, BitVecAst<'c>),
     AShR(BitVecAst<'c>, BitVecAst<'c>),
     RotateLeft(BitVecAst<'c>, BitVecAst<'c>),
     RotateRight(BitVecAst<'c>, BitVecAst<'c>),
@@ -75,8 +77,10 @@ impl<'c> Op<'c> for BitVecOp<'c> {
             | BitVecOp::URem(a, b)
             | BitVecOp::SRem(a, b)
             | BitVecOp::Pow(a, b)
-            | BitVecOp::ShL(a, b)
+            // | BitVecOp::ShL(a, b)
+            | BitVecOp::LShL(a, b)
             | BitVecOp::LShR(a, b)
+            | BitVecOp::AShL(a, b)
             | BitVecOp::AShR(a, b)
             | BitVecOp::RotateLeft(a, b)
             | BitVecOp::RotateRight(a, b)
@@ -141,8 +145,10 @@ impl<'c> BitVecExt<'c> for BitVecAst<'c> {
             | BitVecOp::URem(a, _)
             | BitVecOp::SRem(a, _)
             | BitVecOp::Pow(a, _)
-            | BitVecOp::ShL(a, _)
+            // | BitVecOp::ShL(a, _)
+            | BitVecOp::LShL(a, _)
             | BitVecOp::LShR(a, _)
+            | BitVecOp::AShL(a, _)
             | BitVecOp::AShR(a, _)
             | BitVecOp::RotateLeft(a, _)
             | BitVecOp::RotateRight(a, _) => a.size(),

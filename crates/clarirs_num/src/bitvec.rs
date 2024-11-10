@@ -1,7 +1,8 @@
 use std::fmt::Debug;
 use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Not, Rem, Shl, Shr, Sub};
 
-use num_bigint::{BigInt, BigUint};
+use num_bigint::BigUint;
+use num_traits::cast::ToPrimitive;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use thiserror::Error;
@@ -95,6 +96,77 @@ impl BitVec {
         new_bv.reverse();
         BitVec::new(new_bv, self.length)
     }
+
+    // Check if all bits in the BitVec are 1
+    pub fn is_all_ones(&self) -> bool {
+        // Check each word to see if all bits are set to 1
+        for (i, &word) in self.words.iter().enumerate() {
+            if i == self.words.len() - 1 {
+                // For the final word, apply the final_word_mask
+                if word != self.final_word_mask {
+                    return false;
+                }
+            } else {
+                // For all other words, they must be completely filled with 1s
+                if word != !0 {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
+    // Check if all bits are 1
+    // pub fn is_all_ones(&self) -> bool {
+    //     self.words.iter().all(|&word| word == !0) // !0 is all bits set to 1
+    // }
+
+    // Check if all bits in the BitVec are 0
+    pub fn is_zero(&self) -> bool {
+        // Check each word to see if all bits are 0
+        self.words.iter().all(|&word| word == 0)
+    }
+
+    // Converts the BitVec to a usize if it fits within the usize range, otherwise returns None
+    pub fn to_usize(&self) -> Option<usize> {
+        // Check that the BitVec's bit length does not exceed the size of usize
+        if self.len() > (usize::BITS as usize) {
+            None
+        } else {
+            Some(self.to_biguint().to_usize().unwrap_or(0))
+        }
+    }
+
+    // pub fn to_biguint(&self) -> num_bigint::BigUint {
+    //     num_bigint::BigUint::from_bytes_le(&self.words.iter().flat_map(|w| w.to_le_bytes()).collect::<Vec<u8>>())
+    // }
+
+    // Converts the BitVec to BigUint
+    pub fn to_biguint(&self) -> BigUint {
+        BigUint::from_bytes_le(
+            &self
+                .words
+                .iter()
+                .flat_map(|w| w.to_le_bytes())
+                .collect::<Vec<u8>>(),
+        )
+    }
+
+    /// Counts the number of leading zeros in the BitVec.
+    pub fn leading_zeros(&self) -> usize {
+        let mut count = 0;
+        for word in self.words.iter().rev() {
+            // Start from the most significant word
+            if *word == 0 {
+                count += 64; // Each word is 64 bits, so add 64 if the word is all zeros
+            } else {
+                count += word.leading_zeros() as usize; // Count leading zeros in the current word
+                break; // Stop once a non-zero word is found
+            }
+        }
+        count.min(self.length) // Ensure count does not exceed the BitVec length
+    }
+
 }
 
 impl Debug for BitVec {
@@ -167,6 +239,14 @@ impl Add for BitVec {
             *w &= self.final_word_mask;
         }
         BitVec::new(new_bv, self.length)
+    }
+}
+
+impl Sub for BitVec {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        BitVec::from_biguint_trunc(&(BigUint::from(&self) - BigUint::from(&rhs)), self.length)
     }
 }
 
@@ -294,14 +374,6 @@ impl Shr<usize> for BitVec {
                 .collect(),
             self.length,
         )
-    }
-}
-
-impl Sub for BitVec {
-    type Output = Self;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        BitVec::from_biguint_trunc(&(BigUint::from(&self) - BigUint::from(&rhs)), self.length)
     }
 }
 
