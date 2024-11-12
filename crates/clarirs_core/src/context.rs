@@ -73,14 +73,14 @@ impl<'c> AstFactory<'c> for Context<'c> {
 }
 
 pub trait HasContext<'c> {
-    fn context(&self) -> &Context<'c>;
+    fn context(&self) -> &'c Context<'c>;
 }
 
 impl<'c, T> HasContext<'c> for Arc<T>
 where
     T: HasContext<'c>,
 {
-    fn context(&self) -> &Context<'c> {
+    fn context(&self) -> &'c Context<'c> {
         self.as_ref().context()
     }
 }

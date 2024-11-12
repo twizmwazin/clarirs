@@ -17,11 +17,11 @@ macro_rules! simplify {
 }
 
 pub trait Simplify<'c>: Sized {
-    fn simplify(&'c self) -> Result<Self, ClarirsError>;
+    fn simplify(&self) -> Result<Self, ClarirsError>;
 }
 
 impl<'c> Simplify<'c> for BoolAst<'c> {
-    fn simplify(&'c self) -> Result<Self, ClarirsError> {
+    fn simplify(&self) -> Result<Self, ClarirsError> {
         let ctx = self.context();
 
         self.context()
@@ -288,7 +288,7 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
 }
 
 impl<'c> Simplify<'c> for BitVecAst<'c> {
-    fn simplify(&'c self) -> Result<Self, ClarirsError> {
+    fn simplify(&self) -> Result<Self, ClarirsError> {
         let ctx = self.context();
 
         self.context()
@@ -823,7 +823,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
 }
 
 impl<'c> Simplify<'c> for FloatAst<'c> {
-    fn simplify(&'c self) -> Result<Self, ClarirsError> {
+    fn simplify(&self) -> Result<Self, ClarirsError> {
         let ctx = self.context();
 
         self.context()
@@ -950,7 +950,7 @@ impl<'c> Simplify<'c> for FloatAst<'c> {
 }
 
 impl<'c> Simplify<'c> for StringAst<'c> {
-    fn simplify(&'c self) -> Result<Self, ClarirsError> {
+    fn simplify(&self) -> Result<Self, ClarirsError> {
         let ctx = self.context();
 
         self.context()
