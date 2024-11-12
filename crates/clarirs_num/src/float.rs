@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::ops::{Add, Div, Mul, Rem, Sub};
+use std::ops::{Add, Div, Mul, Sub};
 
 use super::BitVec;
 use num_bigint::{BigInt, BigUint};
@@ -81,7 +81,6 @@ impl Float {
         FSort::new(self.exponent.len() as u32, self.mantissa.len() as u32)
     }
 
-
     /// Constructs a `Float` from an `f64` with rounding and format adjustments
     pub fn from_f64_with_rounding(value: f64, _fprm: FPRM, fsort: FSort) -> Self {
         let sign = value.is_sign_negative();
@@ -102,7 +101,7 @@ impl Float {
         Self::new(sign, exponent, mantissa)
     }
 
-    pub fn to_fsort(&self, fsort: FSort, rm: FPRM) -> Self {
+    pub fn to_fsort(&self, fsort: FSort, _rm: FPRM) -> Self {
         // TODO: This implementation only currently works for the same fsort
 
         let exponent = match fsort.exponent().cmp(&(self.exponent.len() as u32)) {
@@ -273,7 +272,7 @@ impl Float {
         let adjusted_exponent = (exponent - bias) as i32;
 
         // Reconstruct the `f64` value based on IEEE 754
-        let mut value = (mantissa as f64) / (1 << 52) as f64; // Normalize mantissa
+        let mut value = (mantissa as f64) / (1u64 << 52) as f64; // Normalize mantissa
         value += 1.0; // Add the implicit leading 1 in IEEE 754
 
         // Apply the exponent by scaling the value
@@ -293,17 +292,11 @@ impl Float {
         Float::from_f64_with_rounding(f64_value, fprm, fsort)
     }
 
-    pub fn from_unsigned_biguint_with_rounding(
-        value: &BigUint,
-        fsort: FSort,
-        fprm: FPRM,
-    ) -> Self {
+    pub fn from_unsigned_biguint_with_rounding(value: &BigUint, fsort: FSort, fprm: FPRM) -> Self {
         // Convert BigUint to f64 for simplicity in this example
         let float_value = value.to_f64().unwrap_or(0.0); // Fallback to 0.0 if conversion fails
         Float::from_f64_with_rounding(float_value, fprm, fsort)
     }
-
-
 }
 
 impl Add for Float {
