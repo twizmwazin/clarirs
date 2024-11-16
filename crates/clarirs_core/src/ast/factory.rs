@@ -167,20 +167,12 @@ pub trait AstFactory<'c>: Sized {
         Op::pow(self, lhs, rhs)
     }
 
-    // fn shl(
-    //     &'c self,
-    //     lhs: &BitVecAst<'c>,
-    //     rhs: &BitVecAst<'c>,
-    // ) -> Result<BitVecAst<'c>, ClarirsError> {
-    //     self.make_bitvec(BitVecOp::ShL(lhs.clone(), rhs.clone()))
-    // }
-
-    fn ashl(
+    fn shl(
         &'c self,
         lhs: &BitVecAst<'c>,
         rhs: &BitVecAst<'c>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::AShL(lhs.clone(), rhs.clone()))
+        self.make_bitvec(BitVecOp::ShL(lhs.clone(), rhs.clone()))
     }
 
     fn ashr(
@@ -189,14 +181,6 @@ pub trait AstFactory<'c>: Sized {
         rhs: &BitVecAst<'c>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
         self.make_bitvec(BitVecOp::AShR(lhs.clone(), rhs.clone()))
-    }
-
-    fn lshl(
-        &'c self,
-        lhs: &BitVecAst<'c>,
-        rhs: &BitVecAst<'c>,
-    ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::LShL(lhs.clone(), rhs.clone()))
     }
 
     fn lshr(

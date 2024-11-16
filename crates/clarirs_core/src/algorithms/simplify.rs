@@ -469,7 +469,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                         _ => ctx.pow(&arc, &arc1), // Fallback for non-concrete values
                     }
                 }
-                BitVecOp::LShL(arc, arc1) => {
+                BitVecOp::ShL(arc, arc1) => {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
                         (BitVecOp::BVV(value), BitVecOp::BVV(shift_amount)) => {
@@ -477,7 +477,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                             let result = value.clone() << shift_amount_usize;
                             ctx.bvv(result)
                         }
-                        _ => ctx.lshl(&arc, &arc1),
+                        _ => ctx.shl(&arc, &arc1),
                     }
                 }
                 BitVecOp::LShR(arc, arc1) => {
@@ -489,33 +489,6 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                             ctx.bvv(result)
                         }
                         _ => ctx.lshr(&arc, &arc1),
-                    }
-                }
-                BitVecOp::AShL(arc, arc1) => {
-                    simplify!(arc, arc1);
-
-                    match (arc.op(), arc1.op()) {
-                        (BitVecOp::BVV(value), BitVecOp::BVV(shift_amount)) => {
-                            let shift_amount_usize = shift_amount.to_usize().unwrap_or(0);
-                            let bit_length = value.len();
-
-                            // Convert `BitVec` to `BigUint` for manipulation
-                            let unsigned_value = value.to_biguint();
-
-                            // Perform the left shift operation
-                            let shifted_value = unsigned_value.clone() << shift_amount_usize;
-
-                            // Apply a mask to ensure the result fits within the original bit length
-                            let mask = (BigUint::one() << bit_length) - BigUint::one();
-                            let masked_result = shifted_value & mask;
-
-                            // Convert the result back to `BitVec` with the original bit length
-                            let result_bitvec =
-                                BitVec::from_biguint_trunc(&masked_result, bit_length);
-
-                            ctx.bvv(result_bitvec)
-                        }
-                        _ => ctx.ashl(&arc, &arc1),
                     }
                 }
                 BitVecOp::AShR(arc, arc1) => {
