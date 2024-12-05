@@ -22,12 +22,11 @@ fn test_add() -> Result<()> {
         let a = ctx.bvv_prim(a).unwrap();
         let b = ctx.bvv_prim(b).unwrap();
         let expected = ctx.bvv_prim(expected).unwrap();
-    
+
         let result = ctx.add(&a, &b)?;
         let simplified = result.simplify()?;
-    
+
         assert_eq!(simplified, expected);
-        
     }
 
     Ok(())
