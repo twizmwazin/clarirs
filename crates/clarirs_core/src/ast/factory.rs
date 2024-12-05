@@ -108,6 +108,8 @@ pub trait AstFactory<'c>: Sized {
         lhs: &AstRef<'c, Op>,
         rhs: &AstRef<'c, Op>,
     ) -> Result<AstRef<'c, Op>, ClarirsError> {
+        println!("Inside add");
+        println!("lhs: {:?} | rhs: {:?}", lhs, rhs);
         Op::add(self, lhs, rhs)
     }
 

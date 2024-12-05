@@ -7,14 +7,14 @@ fn test_add() -> Result<()> {
 
     let table: Vec<(u64, u64, u64)> = vec![
         (0, 0, 0),
-        // (0, 1, 1),
-        // (1, 0, 1),
-        // (1, 1, 2),
-        // (1, 2, 3),
-        // (2, 1, 3),
-        // (2, 2, 4),
-        // (2, 3, 5),
-        // (3, 2, 5),
+        (0, 1, 1),
+        (1, 0, 1),
+        (1, 1, 2),
+        (1, 2, 3),
+        (2, 1, 3),
+        (2, 2, 4),
+        (2, 3, 5),
+        (3, 2, 5),
         (3, 3, 6),
     ];
 
@@ -22,10 +22,12 @@ fn test_add() -> Result<()> {
         let a = ctx.bvv_prim(a).unwrap();
         let b = ctx.bvv_prim(b).unwrap();
         let expected = ctx.bvv_prim(expected).unwrap();
-
-        let result = ctx.add(&a, &b)?.simplify()?;
-
-        assert_eq!(result, expected);
+    
+        let result = ctx.add(&a, &b)?;
+        let simplified = result.simplify()?;
+    
+        assert_eq!(simplified, expected);
+        
     }
 
     Ok(())
@@ -466,7 +468,7 @@ fn test_concat() -> Result<()> {
 
 #[test]
 fn test_extract() -> Result<()> {
-    let ctx = Context::new();
+    let _ctx = Context::new();
 
     todo!();
 }

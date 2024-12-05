@@ -36,8 +36,9 @@ impl<'c> AstFactory<'c> for Context<'c> {
         op.hash(&mut hasher);
         let hash = hasher.finish();
 
-        let arc =
-            self.ast_cache.get_or_insert_with_bool(hash, || Ok(Arc::new(AstNode::new(self, op, hash))))?;
+        let arc = self
+            .ast_cache
+            .get_or_insert_with_bool(hash, || Ok(Arc::new(AstNode::new(self, op, hash))))?;
         Ok(arc)
     }
 
@@ -46,8 +47,9 @@ impl<'c> AstFactory<'c> for Context<'c> {
         op.hash(&mut hasher);
         let hash = hasher.finish();
 
-        let arc =
-            self.ast_cache.get_or_insert_with_bv(hash, || Ok(Arc::new(AstNode::new(self, op, hash))))?;
+        let arc = self
+            .ast_cache
+            .get_or_insert_with_bv(hash, || Ok(Arc::new(AstNode::new(self, op, hash))))?;
         Ok(arc)
     }
 
@@ -56,8 +58,9 @@ impl<'c> AstFactory<'c> for Context<'c> {
         op.hash(&mut hasher);
         let hash = hasher.finish();
 
-        let arc =
-            self.ast_cache.get_or_insert_with_float(hash, || Ok(Arc::new(AstNode::new(self, op, hash))))?;
+        let arc = self
+            .ast_cache
+            .get_or_insert_with_float(hash, || Ok(Arc::new(AstNode::new(self, op, hash))))?;
         Ok(arc)
     }
 
@@ -66,8 +69,9 @@ impl<'c> AstFactory<'c> for Context<'c> {
         op.hash(&mut hasher);
         let hash = hasher.finish();
 
-        let arc =
-            self.ast_cache.get_or_insert_with_string(hash, || Ok(Arc::new(AstNode::new(self, op, hash))))?;
+        let arc = self
+            .ast_cache
+            .get_or_insert_with_string(hash, || Ok(Arc::new(AstNode::new(self, op, hash))))?;
         Ok(arc)
     }
 }

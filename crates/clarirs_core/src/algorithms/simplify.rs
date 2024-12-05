@@ -2,13 +2,11 @@ use std::sync::Arc;
 
 use crate::prelude::*;
 use clarirs_num::*;
-use num_bigint::{BigInt, BigUint, ToBigUint};
+use num_bigint::{BigInt, BigUint};
 use num_traits::Num;
 use num_traits::One;
-use num_traits::Signed;
 use num_traits::ToPrimitive;
 use num_traits::Zero;
-use std::ops::Shl;
 
 macro_rules! simplify {
     ($($var:ident),*) => {
@@ -23,10 +21,10 @@ pub trait Simplify<'c>: Sized {
 impl<'c> Simplify<'c> for BoolAst<'c> {
     fn simplify(&self) -> Result<Self, ClarirsError> {
         let ctx = self.context();
+        let hash = self.hash();
 
-        self.context()
-            .simplification_cache
-            .get_or_insert_with_bool(self.hash(), move || match &self.op() {
+        ctx.simplification_cache.get_or_insert_with_bool(hash, || {
+            match &self.op() {
                 BooleanOp::BoolS(name) => ctx.bools(name.clone()),
                 BooleanOp::BoolV(value) => ctx.boolv(*value),
                 BooleanOp::Not(arc) => {
@@ -65,22 +63,16 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
                     }
                 }
                 BooleanOp::Xor(arc, arc1) => {
-                    {
-                        simplify!(arc, arc1);
-                        match (arc.op(), arc1.op()) {
-                            (BooleanOp::BoolV(lhs), BooleanOp::BoolV(rhs)) => {
-                                ctx.boolv(*lhs ^ *rhs)
-                            }
-                            // (BooleanOp::BoolV(true), v) | (v, BooleanOp::BoolV(true)) => ctx.make_bool(ctx.not(&v.clone())?),
-                            (BooleanOp::BoolV(false), v) | (v, BooleanOp::BoolV(false)) => {
-                                ctx.make_bool(v.clone())
-                            }
-                            (BooleanOp::Not(lhs), BooleanOp::Not(rhs)) => {
-                                ctx.not(&ctx.and(lhs, rhs)?)
-                            }
-                            // (AstOp::BVV(lhs), AstOp::BVV(rhs)) => ctx.bvv(lhs.clone() || rhs.clone())?,
-                            _ => ctx.and(&arc, &arc1),
+                    simplify!(arc, arc1);
+                    match (arc.op(), arc1.op()) {
+                        (BooleanOp::BoolV(lhs), BooleanOp::BoolV(rhs)) => ctx.boolv(*lhs ^ *rhs),
+                        // (BooleanOp::BoolV(true), v) | (v, BooleanOp::BoolV(true)) => ctx.make_bool(ctx.not(&v.clone())?),
+                        (BooleanOp::BoolV(false), v) | (v, BooleanOp::BoolV(false)) => {
+                            ctx.make_bool(v.clone())
                         }
+                        (BooleanOp::Not(lhs), BooleanOp::Not(rhs)) => ctx.not(&ctx.and(lhs, rhs)?),
+                        // (AstOp::BVV(lhs), AstOp::BVV(rhs)) => ctx.bvv(lhs.clone() || rhs.clone())?,
+                        _ => ctx.and(&arc, &arc1),
                     }
                 }
                 BooleanOp::BoolEq(arc, arc1) => {
@@ -283,19 +275,23 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
 
                 BooleanOp::If(arc, arc1, arc2) => todo!(),
                 BooleanOp::Annotated(arc, annotation) => todo!(),
-            })
+            }
+        })
     }
 }
 
 impl<'c> Simplify<'c> for BitVecAst<'c> {
     fn simplify(&self) -> Result<Self, ClarirsError> {
         let ctx = self.context();
+        let hash = self.hash();
 
-        self.context()
-            .simplification_cache
-            .get_or_insert_with_bv(self.hash(), move || match &self.op() {
+        ctx.simplification_cache.get_or_insert_with_bv(hash, || {
+            match &self.op() {
                 BitVecOp::BVS(name, width) => ctx.bvs(name.clone(), *width),
-                BitVecOp::BVV(value) => ctx.bvv(value.clone()),
+                BitVecOp::BVV(_) => {
+                    println!("Simplify called on BVV. Returning self.");
+                    Ok(self.clone())
+                }
                 BitVecOp::SI(..) => todo!(),
                 BitVecOp::Not(ast) => {
                     simplify!(ast);
@@ -344,7 +340,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                                 ctx.bvv(value.clone())
                             }
                         }
-                        _ => ctx.abs(&arc), 
+                        _ => ctx.abs(&arc),
                     }
                 }
                 BitVecOp::Add(arc, arc1) => {
@@ -791,17 +787,18 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
 
                 BitVecOp::If(arc, arc1, arc2) => todo!(),
                 BitVecOp::Annotated(arc, annotation) => todo!(),
-            })
+            }
+        })
     }
 }
 
 impl<'c> Simplify<'c> for FloatAst<'c> {
     fn simplify(&self) -> Result<Self, ClarirsError> {
         let ctx = self.context();
+        let hash = self.hash();
 
-        self.context()
-            .simplification_cache
-            .get_or_insert_with_float(self.hash(), move || match &self.op() {
+        ctx.simplification_cache.get_or_insert_with_float(hash, || {
+            match &self.op() {
                 FloatOp::FPS(name, fsort) => ctx.fps(name.clone(), fsort.clone()),
                 FloatOp::FPV(float) => ctx.fpv(float.clone()),
 
@@ -918,347 +915,86 @@ impl<'c> Simplify<'c> for FloatAst<'c> {
                 }
                 FloatOp::If(arc, arc1, arc2) => todo!(),
                 FloatOp::Annotated(arc, annotation) => todo!(),
-            })
+            }
+        })
     }
 }
 
 impl<'c> Simplify<'c> for StringAst<'c> {
     fn simplify(&self) -> Result<Self, ClarirsError> {
         let ctx = self.context();
+        let hash = self.hash();
 
-        self.context()
-            .simplification_cache
-            .get_or_insert_with_string(self.hash(), move || match &self.op() {
-                StringOp::StringS(name) => ctx.strings(name.clone()),
-                StringOp::StringV(value) => ctx.stringv(value.clone()),
-                StringOp::StrConcat(arc, arc1) => {
-                    simplify!(arc, arc1);
-                    match (arc.op(), arc1.op()) {
-                        (StringOp::StringV(str1), StringOp::StringV(str2)) => {
-                            let concatenated = format!("{}{}", str1, str2);
-                            ctx.stringv(concatenated)
+        ctx.simplification_cache
+            .get_or_insert_with_string(hash, || {
+                match &self.op() {
+                    StringOp::StringS(name) => ctx.strings(name.clone()),
+                    StringOp::StringV(value) => ctx.stringv(value.clone()),
+                    StringOp::StrConcat(arc, arc1) => {
+                        simplify!(arc, arc1);
+                        match (arc.op(), arc1.op()) {
+                            (StringOp::StringV(str1), StringOp::StringV(str2)) => {
+                                let concatenated = format!("{}{}", str1, str2);
+                                ctx.stringv(concatenated)
+                            }
+                            _ => ctx.strconcat(&arc, &arc1),
                         }
-                        _ => ctx.strconcat(&arc, &arc1),
                     }
-                }
-                StringOp::StrSubstr(arc, arc1, arc2) => {
-                    simplify!(arc, arc1, arc2);
-                    match (arc.op(), arc1.op(), arc2.op()) {
-                        (StringOp::StringV(str), BitVecOp::BVV(start), BitVecOp::BVV(length)) => {
-                            // Convert start and length to isize, then handle them as usize if they are non-negative
-                            let start = start.to_usize().unwrap_or(0).max(0) as usize;
-                            let length =
-                                length.to_usize().unwrap_or(str.len() as usize).max(0) as usize;
-                            let end = start.saturating_add(length).min(str.len());
+                    StringOp::StrSubstr(arc, arc1, arc2) => {
+                        simplify!(arc, arc1, arc2);
+                        match (arc.op(), arc1.op(), arc2.op()) {
+                            (
+                                StringOp::StringV(str),
+                                BitVecOp::BVV(start),
+                                BitVecOp::BVV(length),
+                            ) => {
+                                // Convert start and length to isize, then handle them as usize if they are non-negative
+                                let start = start.to_usize().unwrap_or(0).max(0) as usize;
+                                let length =
+                                    length.to_usize().unwrap_or(str.len() as usize).max(0) as usize;
+                                let end = start.saturating_add(length).min(str.len());
 
-                            // Extract the substring safely within bounds
-                            let substring = str.get(start..end).unwrap_or("").to_string();
-                            ctx.stringv(substring)
+                                // Extract the substring safely within bounds
+                                let substring = str.get(start..end).unwrap_or("").to_string();
+                                ctx.stringv(substring)
+                            }
+                            _ => ctx.strsubstr(&arc, &arc1, &arc2),
                         }
-                        _ => ctx.strsubstr(&arc, &arc1, &arc2),
                     }
-                }
-                StringOp::StrReplace(arc, arc1, arc2) => {
-                    simplify!(arc, arc1, arc2); // Simplify all arguments
-                    match (arc.op(), arc1.op(), arc2.op()) {
-                        (
-                            StringOp::StringV(initial),
-                            StringOp::StringV(pattern),
-                            StringOp::StringV(replacement),
-                        ) => {
-                            // Case: Replace first occurrence of `pattern` with `replacement` in `initial` as per ClariPy DONE
-                            let new_value = initial.replacen(pattern, replacement, 1);
-                            // Case: Replace all occurrences of `pattern` with `replacement` in `initial` LEFT
-                            // let new_value = initial.replace(pattern, replacement);
-                            ctx.stringv(new_value)
+                    StringOp::StrReplace(arc, arc1, arc2) => {
+                        simplify!(arc, arc1, arc2); // Simplify all arguments
+                        match (arc.op(), arc1.op(), arc2.op()) {
+                            (
+                                StringOp::StringV(initial),
+                                StringOp::StringV(pattern),
+                                StringOp::StringV(replacement),
+                            ) => {
+                                // Case: Replace first occurrence of `pattern` with `replacement` in `initial` as per ClariPy DONE
+                                let new_value = initial.replacen(pattern, replacement, 1);
+                                // Case: Replace all occurrences of `pattern` with `replacement` in `initial` LEFT
+                                // let new_value = initial.replace(pattern, replacement);
+                                ctx.stringv(new_value)
+                            }
+                            _ => ctx.strreplace(&arc, &arc1, &arc2), // Fallback to symbolic StrReplace
                         }
-                        _ => ctx.strreplace(&arc, &arc1, &arc2), // Fallback to symbolic StrReplace
                     }
-                }
-                StringOp::BVToStr(arc) => {
-                    simplify!(arc);
+                    StringOp::BVToStr(arc) => {
+                        simplify!(arc);
 
-                    match arc.op() {
-                        BitVecOp::BVV(value) => {
-                            // Convert the BitVec value to an integer, then to a string
-                            let int_value = value.to_biguint();
-                            let string_value = int_value.to_string();
+                        match arc.op() {
+                            BitVecOp::BVV(value) => {
+                                // Convert the BitVec value to an integer, then to a string
+                                let int_value = value.to_biguint();
+                                let string_value = int_value.to_string();
 
-                            ctx.stringv(string_value)
+                                ctx.stringv(string_value)
+                            }
+                            _ => ctx.bvtostr(&arc),
                         }
-                        _ => ctx.bvtostr(&arc),
                     }
+                    StringOp::If(arc, arc1, arc2) => todo!(),
+                    StringOp::Annotated(arc, annotation) => todo!(),
                 }
-                StringOp::If(arc, arc1, arc2) => todo!(),
-                StringOp::Annotated(arc, annotation) => todo!(),
             })
     }
 }
-
-// pub fn simplify<'c>(ast: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-//     let ctx = ast.context();
-
-//     if let Some(ast) = ctx.simplification_cache.read()?.get(&ast.hash()) {
-//         if let Some(ast) = ast.upgrade() {
-//             return Ok(ast);
-//         }
-//     }
-
-//     let ast: AstRef = match &ast.op() {
-//         AstOp::BoolS(..)
-//         | AstOp::BoolV(..)
-//         | AstOp::BVS(..)
-//         | AstOp::BVV(..)
-//         | AstOp::FPS(..)
-//         | AstOp::FPV(..)
-//         | AstOp::StringS(..)
-//         | AstOp::StringV(..) => ast.clone(),
-//         AstOp::Not(ast) => {
-//             simplify!(ast);
-//             match &ast.op() {
-//                 AstOp::Not(ast) => ast.clone(),
-//                 AstOp::BoolV(v) => ctx.boolv(!v)?,
-//                 AstOp::BVV(v) => ctx.bvv(!v.clone())?,
-//                 _ => ctx.not(&ast)?,
-//             }
-//         }
-//         AstOp::And(lhs, rhs) => {
-//             simplify!(lhs, rhs);
-//             match (lhs.op(), rhs.op()) {
-//                 (AstOp::BoolV(lhs), AstOp::BoolV(rhs)) => ctx.boolv(*lhs && *rhs)?,
-//                 (AstOp::BoolV(true), v) | (v, AstOp::BoolV(true)) => ctx.make_ast(v.clone())?,
-//                 (AstOp::BoolV(false), _) | (_, AstOp::BoolV(false)) => ctx.false_()?,
-//                 (AstOp::Not(lhs), AstOp::Not(rhs)) => ctx.not(&ctx.or(lhs, rhs)?)?,
-//                 (AstOp::BVV(lhs), AstOp::BVV(rhs)) => ctx.bvv(lhs.clone() & rhs.clone())?,
-//                 _ => ctx.and(&lhs, &rhs)?,
-//             }
-//         }
-//         AstOp::Or(lhs, rhs) => {
-//             simplify!(lhs, rhs);
-//             match (lhs.op(), rhs.op()) {
-//                 (AstOp::BoolV(lhs), AstOp::BoolV(rhs)) => ctx.boolv(*lhs || *rhs)?,
-//                 (AstOp::BoolV(true), _) | (_, AstOp::BoolV(true)) => ctx.true_()?,
-//                 (AstOp::BoolV(false), v) | (v, AstOp::BoolV(false)) => ctx.make_ast(v.clone())?,
-//                 (AstOp::Not(lhs), AstOp::Not(rhs)) => ctx.not(&ctx.and(lhs, rhs)?)?,
-//                 (AstOp::BVV(lhs), AstOp::BVV(rhs)) => ctx.bvv(lhs.clone() | rhs.clone())?,
-//                 _ => ctx.or(&lhs, &rhs)?,
-//             }
-//         }
-//         AstOp::Xor(lhs, rhs) => {
-//             simplify!(lhs, rhs);
-//             match (lhs.op(), rhs.op()) {
-//                 (AstOp::BoolV(lhs), AstOp::BoolV(rhs)) => ctx.boolv(*lhs ^ *rhs)?,
-//                 (AstOp::BoolV(true), v) | (v, AstOp::BoolV(true)) => {
-//                     ctx.not(&ctx.make_ast(v.clone())?)?
-//                 }
-//                 (AstOp::BoolV(false), v) | (v, AstOp::BoolV(false)) => ctx.make_ast(v.clone())?,
-//                 (AstOp::BVV(lhs), AstOp::BVV(rhs)) => ctx.bvv(lhs.clone() ^ rhs.clone())?,
-//                 _ => ctx.xor(&lhs, &rhs)?,
-//             }
-//         }
-//         AstOp::Add(lhs, rhs) => {
-//             simplify!(lhs, rhs);
-//             match (lhs.op(), rhs.op()) {
-//                 (AstOp::BVV(lhs), AstOp::BVV(rhs)) => ctx.bvv(lhs.clone() + rhs.clone())?,
-//                 _ => ctx.add(&lhs, &rhs)?,
-//             }
-//         }
-//         AstOp::Sub(lhs, rhs) => {
-//             simplify!(lhs, rhs);
-//             match (lhs.op(), rhs.op()) {
-//                 (AstOp::BVV(lhs), AstOp::BVV(rhs)) => ctx.bvv(lhs.clone() - rhs.clone())?,
-//                 _ => ctx.sub(&lhs, &rhs)?,
-//             }
-//         }
-//         AstOp::Mul(lhs, rhs) => {
-//             simplify!(lhs, rhs);
-//             match (lhs.op(), rhs.op()) {
-//                 (AstOp::BVV(lhs), AstOp::BVV(rhs)) => ctx.bvv(lhs.clone() * rhs.clone())?,
-//                 _ => ctx.mul(&lhs, &rhs)?,
-//             }
-//         }
-//         AstOp::UDiv(lhs, rhs) => {
-//             simplify!(lhs, rhs);
-//             match (lhs.op(), rhs.op()) {
-//                 (AstOp::BVV(lhs), AstOp::BVV(rhs)) => ctx.bvv(lhs.clone() / rhs.clone())?,
-//                 _ => ctx.udiv(&lhs, &rhs)?,
-//             }
-//         }
-//         AstOp::SDiv(_, _) => todo!(),
-//         AstOp::URem(lhs, rhs) => {
-//             simplify!(lhs, rhs);
-//             match (lhs.op(), rhs.op()) {
-//                 (AstOp::BVV(lhs), AstOp::BVV(rhs)) => ctx.bvv(lhs.clone() % rhs.clone())?,
-//                 _ => ctx.urem(&lhs, &rhs)?,
-//             }
-//         }
-//         AstOp::SRem(_, _) => todo!(),
-//         AstOp::Pow(_, _) => todo!(),
-//         AstOp::LShL(_, _) => todo!(),
-//         AstOp::LShR(_, _) => todo!(),
-//         AstOp::AShL(_, _) => todo!(),
-//         AstOp::AShR(_, _) => todo!(),
-//         AstOp::RotateLeft(_, _) => todo!(),
-//         AstOp::RotateRight(_, _) => todo!(),
-//         AstOp::ZeroExt(_, _) => todo!(),
-//         AstOp::SignExt(_, _) => todo!(),
-//         AstOp::Extract(_, _, _) => todo!(),
-//         AstOp::Concat(_, _) => todo!(),
-//         AstOp::Reverse(ast) => {
-//             simplify!(ast);
-//             match &ast.op() {
-//                 AstOp::BVV(v) => ctx.bvv(v.clone().reverse())?,
-//                 AstOp::Reverse(ast) => ast.clone(),
-//                 _ => ctx.reverse(&ast)?,
-//             }
-//         }
-//         AstOp::Eq(lhs, rhs) => {
-//             simplify!(lhs, rhs);
-//             match (lhs.op(), rhs.op()) {
-//                 (AstOp::BVV(lhs), AstOp::BVV(rhs)) => ctx.boolv(lhs == rhs)?,
-//                 _ => ctx.eq_(&lhs, &rhs)?,
-//             }
-//         }
-//         AstOp::Neq(lhs, rhs) => {
-//             simplify!(lhs, rhs);
-//             match (lhs.op(), rhs.op()) {
-//                 (AstOp::BVV(lhs), AstOp::BVV(rhs)) => ctx.boolv(lhs != rhs)?,
-//                 _ => ctx.neq(&lhs, &rhs)?,
-//             }
-//         }
-//         AstOp::ULT(lhs, rhs) => {
-//             simplify!(lhs, rhs);
-//             match (lhs.op(), rhs.op()) {
-//                 (AstOp::BVV(lhs), AstOp::BVV(rhs)) => ctx.boolv(lhs < rhs)?,
-//                 _ => ctx.ult(&lhs, &rhs)?,
-//             }
-//         }
-//         AstOp::ULE(lhs, rhs) => {
-//             simplify!(lhs, rhs);
-//             match (lhs.op(), rhs.op()) {
-//                 (AstOp::BVV(lhs), AstOp::BVV(rhs)) => ctx.boolv(lhs <= rhs)?,
-//                 _ => ctx.ule(&lhs, &rhs)?,
-//             }
-//         }
-//         AstOp::UGT(lhs, rhs) => {
-//             simplify!(lhs, rhs);
-//             match (lhs.op(), rhs.op()) {
-//                 (AstOp::BVV(lhs), AstOp::BVV(rhs)) => ctx.boolv(lhs > rhs)?,
-//                 _ => ctx.ugt(&lhs, &rhs)?,
-//             }
-//         }
-//         AstOp::UGE(lhs, rhs) => {
-//             simplify!(lhs, rhs);
-//             match (lhs.op(), rhs.op()) {
-//                 (AstOp::BVV(lhs), AstOp::BVV(rhs)) => ctx.boolv(lhs >= rhs)?,
-//                 _ => ctx.uge(&lhs, &rhs)?,
-//             }
-//         }
-//         AstOp::SLT(lhs, rhs) => {
-//             simplify!(lhs, rhs);
-//             match (lhs.op(), rhs.op()) {
-//                 (AstOp::BVV(lhs), AstOp::BVV(rhs)) => ctx.boolv(lhs < rhs)?,
-//                 _ => ctx.slt(&lhs, &rhs)?,
-//             }
-//         }
-//         AstOp::SLE(lhs, rhs) => {
-//             simplify!(lhs, rhs);
-//             match (lhs.op(), rhs.op()) {
-//                 (AstOp::BVV(lhs), AstOp::BVV(rhs)) => ctx.boolv(lhs <= rhs)?,
-//                 _ => ctx.sle(&lhs, &rhs)?,
-//             }
-//         }
-//         AstOp::SGT(lhs, rhs) => {
-//             simplify!(lhs, rhs);
-//             match (lhs.op(), rhs.op()) {
-//                 (AstOp::BVV(lhs), AstOp::BVV(rhs)) => ctx.boolv(lhs > rhs)?,
-//                 _ => ctx.sgt(&lhs, &rhs)?,
-//             }
-//         }
-//         AstOp::SGE(lhs, rhs) => {
-//             simplify!(lhs, rhs);
-//             match (lhs.op(), rhs.op()) {
-//                 (AstOp::BVV(lhs), AstOp::BVV(rhs)) => ctx.boolv(lhs >= rhs)?,
-//                 _ => ctx.sge(&lhs, &rhs)?,
-//             }
-//         }
-//         AstOp::FpToFp(_, _, _) => todo!(),
-//         AstOp::BvToFpUnsigned(_, _, _) => todo!(),
-//         AstOp::FpToIEEEBV(_) => todo!(),
-//         AstOp::FpToUBV(_, _, _) => todo!(),
-//         AstOp::FpToSBV(_, _, _) => todo!(),
-//         AstOp::FpNeg(_, _) => todo!(),
-//         AstOp::FpAbs(_, _) => todo!(),
-//         AstOp::FpAdd(_, _, _) => todo!(),
-//         AstOp::FpSub(_, _, _) => todo!(),
-//         AstOp::FpMul(_, _, _) => todo!(),
-//         AstOp::FpDiv(_, _, _) => todo!(),
-//         AstOp::FpSqrt(_, _) => todo!(),
-//         AstOp::FpEq(lhs, rhs) => {
-//             simplify!(lhs, rhs);
-//             match (lhs.op(), rhs.op()) {
-//                 (AstOp::FPV(lhs), AstOp::FPV(rhs)) => ctx.boolv(lhs == rhs)?,
-//                 _ => ctx.fp_eq(&lhs, &rhs)?,
-//             }
-//         }
-//         AstOp::FpNeq(lhs, rhs) => {
-//             simplify!(lhs, rhs);
-//             match (lhs.op(), rhs.op()) {
-//                 (AstOp::FPV(lhs), AstOp::FPV(rhs)) => ctx.boolv(lhs != rhs)?,
-//                 _ => ctx.fp_neq(&lhs, &rhs)?,
-//             }
-//         }
-//         AstOp::FpLt(_, _) => todo!(),
-//         AstOp::FpLeq(_, _) => todo!(),
-//         AstOp::FpGt(_, _) => todo!(),
-//         AstOp::FpGeq(_, _) => todo!(),
-//         AstOp::FpIsNan(_) => todo!(),
-//         AstOp::FpIsInf(_) => todo!(),
-//         AstOp::StrLen(_) => todo!(),
-//         AstOp::StrConcat(_, _) => todo!(),
-//         AstOp::StrSubstr(_, _, _) => todo!(),
-//         AstOp::StrContains(_, _) => todo!(),
-//         AstOp::StrIndexOf(_, _, _) => todo!(),
-//         AstOp::StrReplace(_, _, _) => todo!(),
-//         AstOp::StrPrefixOf(_, _) => todo!(),
-//         AstOp::StrSuffixOf(_, _) => todo!(),
-//         AstOp::StrToBV(_) => todo!(),
-//         AstOp::BVToStr(_) => todo!(),
-//         AstOp::StrIsDigit(_) => todo!(),
-//         AstOp::StrEq(lhs, rhs) => {
-//             simplify!(lhs, rhs);
-//             match (lhs.op(), rhs.op()) {
-//                 (AstOp::StringV(lhs), AstOp::StringV(rhs)) => ctx.boolv(lhs == rhs)?,
-//                 _ => ctx.streq(&lhs, &rhs)?,
-//             }
-//         }
-//         AstOp::StrNeq(lhs, rhs) => {
-//             simplify!(lhs, rhs);
-//             match (lhs.op(), rhs.op()) {
-//                 (AstOp::StringV(lhs), AstOp::StringV(rhs)) => ctx.boolv(lhs != rhs)?,
-//                 _ => ctx.strneq(&lhs, &rhs)?,
-//             }
-//         }
-//         AstOp::If(cond, then, else_) => {
-//             simplify!(cond, then, else_);
-//             match &cond.op() {
-//                 AstOp::BoolV(true) => then.clone(),
-//                 AstOp::BoolV(false) => else_.clone(),
-//                 _ => ctx.if_(&cond, &then, &else_)?,
-//             }
-//         }
-//         AstOp::Annotated(ast, anno) => {
-//             simplify!(ast);
-//             if anno.eliminatable() {
-//                 ast.clone()
-//             } else {
-//                 ctx.annotated(&ast, anno.clone())?
-//             }
-//         }
-//     };
-
-//     ctx.simplification_cache
-//         .write()?
-//         .insert(ast.hash(), Arc::downgrade(&ast));
-//     Ok(ast)
-// }
