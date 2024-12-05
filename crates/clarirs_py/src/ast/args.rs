@@ -128,7 +128,7 @@ impl ExtractPyArgs for FloatOp<'static> {
                 name.to_object(py),
                 Py::new(py, PyFSort::from(fsort))?.into_any(),
             ],
-            FloatOp::FPV(value) => vec![value.as_f64().to_object(py)],
+            FloatOp::FPV(value) => vec![value.to_f64().to_object(py)],
             FloatOp::FpNeg(expr, rm) | FloatOp::FpAbs(expr, rm) => vec![
                 FP::new(py, expr)?.into_any(),
                 Py::new(py, PyRM::from(rm))?.into_any(),
