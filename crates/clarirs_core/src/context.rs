@@ -36,9 +36,10 @@ impl<'c> AstFactory<'c> for Context<'c> {
         op.hash(&mut hasher);
         let hash = hasher.finish();
 
-        Ok(self
+        let arc = self
             .ast_cache
-            .get_or_insert_with_bool(hash, || Arc::new(AstNode::new(self, op, hash))))
+            .get_or_insert_with_bool(hash, || Ok(Arc::new(AstNode::new(self, op, hash))))?;
+        Ok(arc)
     }
 
     fn make_bitvec(&'c self, op: BitVecOp<'c>) -> std::result::Result<BitVecAst<'c>, ClarirsError> {
@@ -46,9 +47,10 @@ impl<'c> AstFactory<'c> for Context<'c> {
         op.hash(&mut hasher);
         let hash = hasher.finish();
 
-        Ok(self
+        let arc = self
             .ast_cache
-            .get_or_insert_with_bv(hash, || Arc::new(AstNode::new(self, op, hash))))
+            .get_or_insert_with_bv(hash, || Ok(Arc::new(AstNode::new(self, op, hash))))?;
+        Ok(arc)
     }
 
     fn make_float(&'c self, op: FloatOp<'c>) -> std::result::Result<FloatAst<'c>, ClarirsError> {
@@ -56,9 +58,10 @@ impl<'c> AstFactory<'c> for Context<'c> {
         op.hash(&mut hasher);
         let hash = hasher.finish();
 
-        Ok(self
+        let arc = self
             .ast_cache
-            .get_or_insert_with_float(hash, || Arc::new(AstNode::new(self, op, hash))))
+            .get_or_insert_with_float(hash, || Ok(Arc::new(AstNode::new(self, op, hash))))?;
+        Ok(arc)
     }
 
     fn make_string(&'c self, op: StringOp<'c>) -> std::result::Result<StringAst<'c>, ClarirsError> {
@@ -66,21 +69,22 @@ impl<'c> AstFactory<'c> for Context<'c> {
         op.hash(&mut hasher);
         let hash = hasher.finish();
 
-        Ok(self
+        let arc = self
             .ast_cache
-            .get_or_insert_with_string(hash, || Arc::new(AstNode::new(self, op, hash))))
+            .get_or_insert_with_string(hash, || Ok(Arc::new(AstNode::new(self, op, hash))))?;
+        Ok(arc)
     }
 }
 
 pub trait HasContext<'c> {
-    fn context(&self) -> &Context<'c>;
+    fn context(&self) -> &'c Context<'c>;
 }
 
 impl<'c, T> HasContext<'c> for Arc<T>
 where
     T: HasContext<'c>,
 {
-    fn context(&self) -> &Context<'c> {
+    fn context(&self) -> &'c Context<'c> {
         self.as_ref().context()
     }
 }

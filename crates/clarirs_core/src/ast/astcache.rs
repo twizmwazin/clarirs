@@ -1,4 +1,4 @@
-use std::sync::{RwLock, Weak};
+use std::sync::{Arc, RwLock, Weak};
 
 use ahash::HashMap;
 
@@ -72,67 +72,212 @@ pub struct AstCache<'c> {
 }
 
 impl<'c> AstCache<'c> {
-    pub fn get_or_insert_with_bool<F: FnOnce() -> BoolAst<'c>>(
-        &self,
-        hash: u64,
-        f: F,
-    ) -> BoolAst<'c> {
-        let mut inner = self.inner.write().unwrap();
-        match inner.get(&hash).and_then(|v| v.as_bool()) {
-            Some(value) => value,
-            None => {
-                let this = f();
-                inner.insert(hash, this.clone().into());
-                this
+    pub fn print_cache(&self) {
+        let inner = self.inner.read().unwrap();
+
+        for (hash, value) in inner.iter() {
+            match value {
+                AstCacheValue::Boolean(weak) => {
+                    if let Some(strong) = weak.upgrade() {
+                        println!("Hash: {:?}, Type: Boolean, Value: {:?}", hash, strong);
+                    } else {
+                        println!("Hash: {:?}, Type: Boolean, Value: <dropped>", hash);
+                    }
+                }
+                AstCacheValue::BitVec(weak) => {
+                    if let Some(strong) = weak.upgrade() {
+                        println!("Hash: {:?}, Type: BitVec, Value: {:?}", hash, strong);
+                    } else {
+                        println!("Hash: {:?}, Type: BitVec, Value: <dropped>", hash);
+                    }
+                }
+                AstCacheValue::Float(weak) => {
+                    if let Some(strong) = weak.upgrade() {
+                        println!("Hash: {:?}, Type: Float, Value: {:?}", hash, strong);
+                    } else {
+                        println!("Hash: {:?}, Type: Float, Value: <dropped>", hash);
+                    }
+                }
+                AstCacheValue::String(weak) => {
+                    if let Some(strong) = weak.upgrade() {
+                        println!("Hash: {:?}, Type: String, Value: {:?}", hash, strong);
+                    } else {
+                        println!("Hash: {:?}, Type: String, Value: <dropped>", hash);
+                    }
+                }
             }
         }
     }
 
-    pub fn get_or_insert_with_bv<F: FnOnce() -> BitVecAst<'c>>(
-        &self,
-        hash: u64,
-        f: F,
-    ) -> BitVecAst<'c> {
-        let mut inner = self.inner.write().unwrap();
-        match inner.get(&hash).and_then(|v| v.as_bv()) {
-            Some(value) => value,
-            None => {
-                let this = f();
-                inner.insert(hash, this.clone().into());
-                this
+    pub fn get_or_insert_with_bool<F>(&self, hash: u64, f: F) -> Result<BoolAst<'c>, ClarirsError>
+    where
+        F: FnOnce() -> Result<BoolAst<'c>, ClarirsError>,
+    {
+        // Step 1: Try to get a read lock and check if the value is already in the cache
+        {
+            let inner = self.inner.read().unwrap();
+            if let Some(entry) = inner.get(&hash) {
+                if let AstCacheValue::Boolean(weak) = entry {
+                    if let Some(arc) = weak.upgrade() {
+                        return Ok(arc);
+                    }
+                }
             }
+            // Value not found or expired; we'll compute it next
+        } // Read lock is dropped here
+
+        // Step 2: Compute the value without holding any lock
+        let arc = f()?; // This may call `simplify()` and recurse
+
+        // Step 3: Acquire a write lock to insert the new value
+        let mut inner = self.inner.write().unwrap();
+
+        // Step 4: Check again if the value was inserted while we were computing
+        let entry = inner
+            .entry(hash)
+            .or_insert_with(|| AstCacheValue::Boolean(Weak::new()));
+
+        match entry {
+            AstCacheValue::Boolean(weak) => {
+                if let Some(existing_arc) = weak.upgrade() {
+                    Ok(existing_arc)
+                } else {
+                    // Step 5: Insert the new value into the cache
+                    *entry = AstCacheValue::Boolean(Arc::downgrade(&arc));
+                    Ok(arc)
+                }
+            }
+            _ => unreachable!(),
         }
     }
 
-    pub fn get_or_insert_with_float<F: FnOnce() -> FloatAst<'c>>(
-        &self,
-        hash: u64,
-        f: F,
-    ) -> FloatAst<'c> {
-        let mut inner = self.inner.write().unwrap();
-        match inner.get(&hash).and_then(|v| v.as_float()) {
-            Some(value) => value,
-            None => {
-                let this = f();
-                inner.insert(hash, this.clone().into());
-                this
+    pub fn get_or_insert_with_bv<F>(&self, hash: u64, f: F) -> Result<BitVecAst<'c>, ClarirsError>
+    where
+        F: FnOnce() -> Result<BitVecAst<'c>, ClarirsError>,
+    {
+        // Step 1: Try to get a read lock and check if the value is already in the cache
+        {
+            let inner = self.inner.read().unwrap();
+            if let Some(entry) = inner.get(&hash) {
+                if let AstCacheValue::BitVec(weak) = entry {
+                    if let Some(arc) = weak.upgrade() {
+                        return Ok(arc);
+                    }
+                }
             }
+            // Value not found or expired; we'll compute it next
+        } // Read lock is dropped here
+
+        // Step 2: Compute the value without holding any lock
+        let arc = f()?; // This may call `simplify()` and recurse
+
+        // Step 3: Acquire a write lock to insert the new value
+        let mut inner = self.inner.write().unwrap();
+
+        // Step 4: Check again if the value was inserted while we were computing
+        let entry = inner.entry(hash).or_insert_with(|| {
+            AstCacheValue::BitVec(Weak::new())
+        });
+
+        match entry {
+            AstCacheValue::BitVec(weak) => {
+                if let Some(existing_arc) = weak.upgrade() {
+                    Ok(existing_arc)
+                } else {
+                    // Step 5: Insert the new value into the cache
+                    *entry = AstCacheValue::BitVec(Arc::downgrade(&arc));
+                    Ok(arc)
+                }
+            }
+            _ => unreachable!(),
         }
     }
 
-    pub fn get_or_insert_with_string<F: FnOnce() -> StringAst<'c>>(
+    pub fn get_or_insert_with_float<F>(&self, hash: u64, f: F) -> Result<FloatAst<'c>, ClarirsError>
+    where
+        F: FnOnce() -> Result<FloatAst<'c>, ClarirsError>,
+    {
+        // Step 1: Try to get a read lock and check if the value is already in the cache
+        {
+            let inner = self.inner.read().unwrap();
+            if let Some(entry) = inner.get(&hash) {
+                if let AstCacheValue::Float(weak) = entry {
+                    if let Some(arc) = weak.upgrade() {
+                        return Ok(arc);
+                    }
+                }
+            }
+            // Value not found or expired; we'll compute it next
+        } // Read lock is dropped here
+
+        // Step 2: Compute the value without holding any lock
+        let arc = f()?; // This may call `simplify()` and recurse
+
+        // Step 3: Acquire a write lock to insert the new value
+        let mut inner = self.inner.write().unwrap();
+
+        // Step 4: Check again if the value was inserted while we were computing
+        let entry = inner
+            .entry(hash)
+            .or_insert_with(|| AstCacheValue::Float(Weak::new()));
+
+        match entry {
+            AstCacheValue::Float(weak) => {
+                if let Some(existing_arc) = weak.upgrade() {
+                    Ok(existing_arc)
+                } else {
+                    // Step 5: Insert the new value into the cache
+                    *entry = AstCacheValue::Float(Arc::downgrade(&arc));
+                    Ok(arc)
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn get_or_insert_with_string<F>(
         &self,
         hash: u64,
         f: F,
-    ) -> StringAst<'c> {
-        let mut inner = self.inner.write().unwrap();
-        match inner.get(&hash).and_then(|v| v.as_string()) {
-            Some(value) => value,
-            None => {
-                let this = f();
-                inner.insert(hash, this.clone().into());
-                this
+    ) -> Result<StringAst<'c>, ClarirsError>
+    where
+        F: FnOnce() -> Result<StringAst<'c>, ClarirsError>,
+    {
+        // Step 1: Try to get a read lock and check if the value is already in the cache
+        {
+            let inner = self.inner.read().unwrap();
+            if let Some(entry) = inner.get(&hash) {
+                if let AstCacheValue::String(weak) = entry {
+                    if let Some(arc) = weak.upgrade() {
+                        return Ok(arc);
+                    }
+                }
             }
+            // Value not found or expired; we'll compute it next
+        } // Read lock is dropped here
+
+        // Step 2: Compute the value without holding any lock
+        let arc = f()?; // This may call `simplify()` and recurse
+
+        // Step 3: Acquire a write lock to insert the new value
+        let mut inner = self.inner.write().unwrap();
+
+        // Step 4: Check again if the value was inserted while we were computing
+        let entry = inner
+            .entry(hash)
+            .or_insert_with(|| AstCacheValue::String(Weak::new()));
+
+        match entry {
+            AstCacheValue::String(weak) => {
+                if let Some(existing_arc) = weak.upgrade() {
+                    Ok(existing_arc)
+                } else {
+                    // Step 5: Insert the new value into the cache
+                    *entry = AstCacheValue::String(Arc::downgrade(&arc));
+                    Ok(arc)
+                }
+            }
+            _ => unreachable!(),
         }
     }
 }
