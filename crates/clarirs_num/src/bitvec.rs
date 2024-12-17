@@ -219,11 +219,6 @@ impl Add for BitVec {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
-        // Debug: Start of the add function
-        println!("Starting addition between two BitVecs");
-        println!("Left operand (self): {:?}", self);
-        println!("Right operand (rhs): {:?}", rhs);
-
         let mut new_bv = self
             .words
             .iter()
@@ -231,37 +226,21 @@ impl Add for BitVec {
             .fold(
                 (SmallVec::with_capacity(self.words.len()), 0),
                 |(mut result, carry), (l, r)| {
-                    // Debug: Print values being added
-                    println!("Adding: l = {}, r = {}, carry = {}", l, r, carry);
-
                     let (sum1, carry1) = l.overflowing_add(*r);
-                    println!("Intermediate sum1: {}, carry1: {}", sum1, carry1);
-
                     let (sum2, carry2) = sum1.overflowing_add(carry);
-                    println!("Final sum2: {}, carry2: {}", sum2, carry2);
-
                     let new_carry = carry1 as u64 + carry2 as u64;
-                    println!("New carry: {}", new_carry);
-
                     result.push(sum2);
-                    println!("Current result: {:?}", result);
-
                     (result, new_carry)
                 },
             )
             .0;
 
-        // Debug: Mask the final word if necessary
+        // Mask the final word if necessary
         if let Some(w) = new_bv.get_mut(self.len() - 1) {
-            println!("Applying final word mask: {:b}", self.final_word_mask);
             *w &= self.final_word_mask;
         }
 
-        // Debug: Resulting BitVec
-        let result = BitVec::new(new_bv, self.length);
-        println!("Resulting BitVec: {:?}", result);
-
-        result
+        BitVec::new(new_bv, self.length)
     }
 }
 

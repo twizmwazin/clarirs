@@ -289,7 +289,6 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
             match &self.op() {
                 BitVecOp::BVS(name, width) => ctx.bvs(name.clone(), *width),
                 BitVecOp::BVV(_) => {
-                    println!("Simplify called on BVV. Returning self.");
                     Ok(self.clone())
                 }
                 BitVecOp::SI(..) => todo!(),

@@ -544,7 +544,6 @@ fn test_sext() -> Result<()> {
     ];
 
     for (a, b, expected) in table {
-        println!("{:?}", a);
         assert_eq!(ctx.sign_ext(&a, b)?.simplify()?, expected);
     }
 

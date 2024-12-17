@@ -73,9 +73,7 @@ pub struct AstCache<'c> {
 
 impl<'c> AstCache<'c> {
     pub fn print_cache(&self) {
-        println!("AstCache Debug Info: {:#?}", self);
         let inner = self.inner.read().unwrap();
-        println!("Cache contains {} entries.", inner.len());
 
         for (hash, value) in inner.iter() {
             match value {
@@ -157,15 +155,12 @@ impl<'c> AstCache<'c> {
     where
         F: FnOnce() -> Result<BitVecAst<'c>, ClarirsError>,
     {
-        println!("get_or_insert_with_bv: hash = {}", hash);
-
         // Step 1: Try to get a read lock and check if the value is already in the cache
         {
             let inner = self.inner.read().unwrap();
             if let Some(entry) = inner.get(&hash) {
                 if let AstCacheValue::BitVec(weak) = entry {
                     if let Some(arc) = weak.upgrade() {
-                        println!("Cache hit for hash {}", hash);
                         return Ok(arc);
                     }
                 }
@@ -174,7 +169,6 @@ impl<'c> AstCache<'c> {
         } // Read lock is dropped here
 
         // Step 2: Compute the value without holding any lock
-        println!("Cache miss for hash {}, computing value", hash);
         let arc = f()?; // This may call `simplify()` and recurse
 
         // Step 3: Acquire a write lock to insert the new value
@@ -182,19 +176,16 @@ impl<'c> AstCache<'c> {
 
         // Step 4: Check again if the value was inserted while we were computing
         let entry = inner.entry(hash).or_insert_with(|| {
-            println!("Inserting new entry for hash {}", hash);
             AstCacheValue::BitVec(Weak::new())
         });
 
         match entry {
             AstCacheValue::BitVec(weak) => {
                 if let Some(existing_arc) = weak.upgrade() {
-                    println!("Value was inserted by another thread for hash {}", hash);
                     Ok(existing_arc)
                 } else {
                     // Step 5: Insert the new value into the cache
                     *entry = AstCacheValue::BitVec(Arc::downgrade(&arc));
-                    println!("Inserted new value into cache for hash {}", hash);
                     Ok(arc)
                 }
             }
