@@ -45,7 +45,7 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
                         }
                         (BooleanOp::BoolV(false), _) | (_, BooleanOp::BoolV(false)) => ctx.false_(),
                         (BooleanOp::Not(lhs), BooleanOp::Not(rhs)) => ctx.not(&ctx.or(lhs, rhs)?),
-                        // (AstOp::BVV(lhs), AstOp::BVV(rhs)) => ctx.bvv(lhs.clone() & rhs.clone())?,
+                        _ if arc == arc1 => Ok(arc),
                         _ => ctx.and(&arc, &arc1),
                     }
                 }
@@ -58,7 +58,7 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
                             ctx.make_bool(v.clone())
                         }
                         (BooleanOp::Not(lhs), BooleanOp::Not(rhs)) => ctx.not(&ctx.and(lhs, rhs)?),
-                        // (AstOp::BVV(lhs), AstOp::BVV(rhs)) => ctx.bvv(lhs.clone() || rhs.clone())?,
+                        _ if arc == arc1 => Ok(arc),
                         _ => ctx.and(&arc, &arc1),
                     }
                 }
@@ -66,12 +66,14 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
                         (BooleanOp::BoolV(lhs), BooleanOp::BoolV(rhs)) => ctx.boolv(*lhs ^ *rhs),
-                        // (BooleanOp::BoolV(true), v) | (v, BooleanOp::BoolV(true)) => ctx.make_bool(ctx.not(&v.clone())?),
+                        (BooleanOp::BoolV(true), v) | (v, BooleanOp::BoolV(true)) => {
+                            ctx.not(&ctx.make_bool(v.clone())?)
+                        }
                         (BooleanOp::BoolV(false), v) | (v, BooleanOp::BoolV(false)) => {
                             ctx.make_bool(v.clone())
                         }
                         (BooleanOp::Not(lhs), BooleanOp::Not(rhs)) => ctx.not(&ctx.and(lhs, rhs)?),
-                        // (AstOp::BVV(lhs), AstOp::BVV(rhs)) => ctx.bvv(lhs.clone() || rhs.clone())?,
+                        _ if arc == arc1 => ctx.false_(),
                         _ => ctx.and(&arc, &arc1),
                     }
                 }
@@ -79,6 +81,13 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
                         (BooleanOp::BoolV(arc), BooleanOp::BoolV(arc1)) => ctx.boolv(arc == arc1),
+                        (BooleanOp::BoolV(true), v) | (v, BooleanOp::BoolV(true)) => {
+                            ctx.make_bool(v.clone())
+                        }
+                        (BooleanOp::BoolV(false), v) | (v, BooleanOp::BoolV(false)) => {
+                            ctx.not(&ctx.make_bool(v.clone())?)
+                        }
+                        _ if arc == arc1 => ctx.true_(),
                         _ => ctx.eq_(&arc, &arc1),
                     }
                 }
@@ -273,7 +282,39 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
                     }
                 }
 
-                BooleanOp::If(arc, arc1, arc2) => todo!(),
+                BooleanOp::If(cond, then_, else_) => {
+                    simplify!(cond, then_, else_);
+
+                    match (cond.op(), then_.op(), else_.op()) {
+                        // Concrete condition cases
+                        (BooleanOp::BoolV(true), _, _) => Ok(then_.clone()),
+                        (BooleanOp::BoolV(false), _, _) => Ok(else_.clone()),
+
+                        // Same branch cases
+                        (_, _, _) if then_ == else_ => Ok(then_.clone()),
+
+                        // Known then/else cases
+                        (_, BooleanOp::BoolV(true), BooleanOp::BoolV(false)) => Ok(cond.clone()),
+                        (_, BooleanOp::BoolV(false), BooleanOp::BoolV(true)) => ctx.not(&cond),
+
+                        // When condition equals one branch with concrete other branch
+                        (cond_op, BooleanOp::BoolV(true), else_op) if else_op == cond_op => {
+                            Ok(cond.clone())
+                        }
+                        (cond_op, BooleanOp::BoolV(false), else_op) if else_op == cond_op => {
+                            ctx.false_()
+                        }
+                        (cond_op, then_op, BooleanOp::BoolV(true)) if then_op == cond_op => {
+                            ctx.true_()
+                        }
+                        (cond_op, then_op, BooleanOp::BoolV(false)) if then_op == cond_op => {
+                            Ok(cond.clone())
+                        }
+
+                        // Default case
+                        _ => ctx.if_(&cond, &then_, &else_),
+                    }
+                }
                 BooleanOp::Annotated(arc, annotation) => todo!(),
             }
         })
