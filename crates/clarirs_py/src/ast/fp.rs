@@ -26,6 +26,15 @@ pub enum PyRM {
     RM_TowardsNegativeInf,
 }
 
+#[pymethods]
+impl PyRM {
+    #[staticmethod]
+    #[allow(clippy::should_implement_trait)]
+    pub fn default() -> PyRM {
+        <PyRM as Default>::default()
+    }
+}
+
 impl From<PyRM> for FPRM {
     fn from(rm: PyRM) -> FPRM {
         match rm {
