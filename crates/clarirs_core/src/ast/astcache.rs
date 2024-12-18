@@ -175,9 +175,9 @@ impl<'c> AstCache<'c> {
         let mut inner = self.inner.write().unwrap();
 
         // Step 4: Check again if the value was inserted while we were computing
-        let entry = inner.entry(hash).or_insert_with(|| {
-            AstCacheValue::BitVec(Weak::new())
-        });
+        let entry = inner
+            .entry(hash)
+            .or_insert_with(|| AstCacheValue::BitVec(Weak::new()));
 
         match entry {
             AstCacheValue::BitVec(weak) => {

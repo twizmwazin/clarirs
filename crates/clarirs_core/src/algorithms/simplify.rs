@@ -288,9 +288,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
         ctx.simplification_cache.get_or_insert_with_bv(hash, || {
             match &self.op() {
                 BitVecOp::BVS(name, width) => ctx.bvs(name.clone(), *width),
-                BitVecOp::BVV(_) => {
-                    Ok(self.clone())
-                }
+                BitVecOp::BVV(_) => Ok(self.clone()),
                 BitVecOp::SI(..) => todo!(),
                 BitVecOp::Not(ast) => {
                     simplify!(ast);
@@ -352,14 +350,14 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                     }
                 }
                 BitVecOp::Sub(arc, arc1) => {
-                    simplify!(arc, arc1);                
+                    simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
                         (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
-                            ctx.bvv(value1.clone() - value2.clone())        
-                        },
+                            ctx.bvv(value1.clone() - value2.clone())
+                        }
                         _ => ctx.sub(&arc, &arc1),
                     }
-                }                
+                }
                 BitVecOp::Mul(arc, arc1) => {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
