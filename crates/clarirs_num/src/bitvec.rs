@@ -248,7 +248,33 @@ impl Sub for BitVec {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        BitVec::from_biguint_trunc(&(BigUint::from(&self) - BigUint::from(&rhs)), self.length)
+        
+        // Ensure both BitVecs have the same length
+        assert_eq!(self.length, rhs.length, "BitVec lengths must match for subtraction");
+
+        // Perform word-wise subtraction with wrapping
+        let mut new_words = self
+            .words
+            .iter()
+            .zip(rhs.words.iter())
+            .fold(
+                (SmallVec::with_capacity(self.words.len()), 0),
+                |(mut result, borrow), (l, r)| {
+                    let (diff1, borrow1) = l.overflowing_sub(*r);
+                    let (diff2, borrow2) = diff1.overflowing_sub(borrow);
+                    let new_borrow = borrow1 as u64 + borrow2 as u64;
+                    result.push(diff2);
+                    (result, new_borrow)
+                },
+            )
+            .0;
+
+        // Mask the final word if necessary
+        if let Some(w) = new_words.get_mut(self.len() - 1) {
+            *w &= self.final_word_mask;
+        }
+
+        BitVec::new(new_words, self.length)
     }
 }
 
