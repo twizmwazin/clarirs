@@ -47,6 +47,14 @@ fn test_sub() -> Result<()> {
         (2, 3, u64::MAX),
         (3, 2, 1),
         (3, 3, 0),
+        (123, 45, 78),
+        (u64::MAX, 1, u64::MAX - 1),
+        (u64::MAX, u64::MAX, 0),
+        (u64::MAX, 0, u64::MAX),
+        (0, u64::MAX, 1),
+        (1, u64::MAX, 2),
+        (u64::MAX - 1, u64::MAX, u64::MAX),
+        (45, 123, u64::MAX - 77),
     ];
 
     for (a, b, expected) in table {
