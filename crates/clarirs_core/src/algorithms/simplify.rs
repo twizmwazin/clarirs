@@ -66,7 +66,9 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
                         (BooleanOp::BoolV(lhs), BooleanOp::BoolV(rhs)) => ctx.boolv(*lhs ^ *rhs),
-                        (BooleanOp::BoolV(true), v) | (v, BooleanOp::BoolV(true)) => ctx.not(&ctx.make_bool(v.clone())?),
+                        (BooleanOp::BoolV(true), v) | (v, BooleanOp::BoolV(true)) => {
+                            ctx.not(&ctx.make_bool(v.clone())?)
+                        }
                         (BooleanOp::BoolV(false), v) | (v, BooleanOp::BoolV(false)) => {
                             ctx.make_bool(v.clone())
                         }
@@ -296,10 +298,18 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
                         (_, BooleanOp::BoolV(false), BooleanOp::BoolV(true)) => ctx.not(&cond),
 
                         // When condition equals one branch with concrete other branch
-                        (cond_op, BooleanOp::BoolV(true), else_op) if else_op == cond_op => Ok(cond.clone()),
-                        (cond_op, BooleanOp::BoolV(false), else_op) if else_op == cond_op => ctx.false_(),
-                        (cond_op, then_op, BooleanOp::BoolV(true)) if then_op == cond_op => ctx.true_(),
-                        (cond_op, then_op, BooleanOp::BoolV(false)) if then_op == cond_op => Ok(cond.clone()),
+                        (cond_op, BooleanOp::BoolV(true), else_op) if else_op == cond_op => {
+                            Ok(cond.clone())
+                        }
+                        (cond_op, BooleanOp::BoolV(false), else_op) if else_op == cond_op => {
+                            ctx.false_()
+                        }
+                        (cond_op, then_op, BooleanOp::BoolV(true)) if then_op == cond_op => {
+                            ctx.true_()
+                        }
+                        (cond_op, then_op, BooleanOp::BoolV(false)) if then_op == cond_op => {
+                            Ok(cond.clone())
+                        }
 
                         // Default case
                         _ => ctx.if_(&cond, &then_, &else_),
