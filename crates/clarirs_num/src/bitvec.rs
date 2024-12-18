@@ -247,8 +247,7 @@ impl Add for BitVec {
 impl Sub for BitVec {
     type Output = Self;
 
-    fn sub(self, rhs: Self) -> Self::Output {
-        
+    fn sub(self, rhs: Self) -> Self::Output {        
         // Ensure both BitVecs have the same length
         assert_eq!(self.length, rhs.length, "BitVec lengths must match for subtraction");
 

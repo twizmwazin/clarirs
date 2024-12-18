@@ -352,21 +352,11 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                     }
                 }
                 BitVecOp::Sub(arc, arc1) => {
-                    simplify!(arc, arc1);
-                
+                    simplify!(arc, arc1);                
                     match (arc.op(), arc1.op()) {
                         (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
-                            // Both sides are concrete bitvector values.
-                            // let val1_64 = value1.to_usize().unwrap(); 
-                            // let val2_64 = value2.to_usize().unwrap();
-                
-                            // let result = val1_64.wrapping_sub(val2_64);
-                            // ctx.bvv(BitVec::from_prim(result as u64));
-
-                            ctx.bvv(value1.clone() - value2.clone())
-                
+                            ctx.bvv(value1.clone() - value2.clone())        
                         },
-                        // Fall back to a general ctx.sub operation.
                         _ => ctx.sub(&arc, &arc1),
                     }
                 }                
