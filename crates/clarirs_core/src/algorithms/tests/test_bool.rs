@@ -191,39 +191,39 @@ fn test_if() -> Result<()> {
     Ok(())
 }
 
-// #[test]
-// fn test_eq() -> Result<()> {
-//     let ctx = Context::new();
+#[test]
+fn test_eq() -> Result<()> {
+    let ctx = Context::new();
 
-//     let true_ast = ctx.true_()?;
-//     let false_ast = ctx.false_()?;
-//     let sym_ast = ctx.bools("test")?;
-//     let not_sym_ast = ctx.not(&sym_ast)?;
+    let true_ast = ctx.true_()?;
+    let false_ast = ctx.false_()?;
+    let sym_ast = ctx.bools("test")?;
+    let not_sym_ast = ctx.not(&sym_ast)?;
 
-//     let table = vec![
-//         (&true_ast, &true_ast, &true_ast),
-//         (&true_ast, &false_ast, &false_ast),
-//         (&true_ast, &sym_ast, &sym_ast),
-//         (&false_ast, &true_ast, &false_ast),
-//         (&false_ast, &false_ast, &true_ast),
-//         (&false_ast, &sym_ast, &not_sym_ast),
-//         (&sym_ast, &true_ast, &sym_ast),
-//         (&sym_ast, &false_ast, &not_sym_ast),
-//         (&sym_ast, &sym_ast, &true_ast),
-//     ];
+    let table = vec![
+        (&true_ast, &true_ast, &true_ast),
+        (&true_ast, &false_ast, &false_ast),
+        (&true_ast, &sym_ast, &sym_ast),
+        (&false_ast, &true_ast, &false_ast),
+        (&false_ast, &false_ast, &true_ast),
+        (&false_ast, &sym_ast, &not_sym_ast),
+        (&sym_ast, &true_ast, &sym_ast),
+        (&sym_ast, &false_ast, &not_sym_ast),
+        (&sym_ast, &sym_ast, &true_ast),
+    ];
 
-//     for (lhs, rhs, expected) in table {
-//         assert_eq!(
-//             &ctx.eq_(lhs, rhs)?.simplify()?,
-//             expected,
-//             "lhs: {:?}, rhs: {:?}",
-//             lhs,
-//             rhs
-//         );
-//     }
+    for (lhs, rhs, expected) in table {
+        assert_eq!(
+            &ctx.eq_(lhs, rhs)?.simplify()?,
+            expected,
+            "lhs: {:?}, rhs: {:?}",
+            lhs,
+            rhs
+        );
+    }
 
-//     Ok(())
-// }
+    Ok(())
+}
 
 #[test]
 fn test_ult() -> Result<()> {
