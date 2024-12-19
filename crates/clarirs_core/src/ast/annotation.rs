@@ -8,7 +8,7 @@ pub struct Annotation {
     relocatable: bool,
 }
 
-impl<'c> Annotation {
+impl Annotation {
     pub fn new(name: String, value: Vec<u8>, eliminatable: bool, relocatable: bool) -> Self {
         Self {
             name,
@@ -22,7 +22,7 @@ impl<'c> Annotation {
         &self.name
     }
 
-    pub fn value(&'c self) -> &Vec<u8> {
+    pub fn value(&self) -> &Vec<u8> {
         &self.value
     }
 

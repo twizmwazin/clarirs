@@ -13,18 +13,18 @@ pub struct Context<'c> {
     pub(crate) simplification_cache: AstCache<'c>,
 }
 
-impl<'c> PartialEq for Context<'c> {
+impl PartialEq for Context<'_> {
     fn eq(&self, other: &Self) -> bool {
         std::ptr::eq(self, other)
     }
 }
 
-impl<'c> Eq for Context<'c> {}
+impl Eq for Context<'_> {}
 
 unsafe impl Send for Context<'_> {}
 unsafe impl Sync for Context<'_> {}
 
-impl<'c> Context<'c> {
+impl Context<'_> {
     pub fn new() -> Self {
         Self::default()
     }

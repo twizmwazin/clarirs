@@ -18,7 +18,7 @@ impl Base {
     pub fn new_with_name(py: Python, name: Option<String>) -> Self {
         let encoded_name = name.as_ref().map(|name| name.as_bytes().to_vec());
         Self {
-            errored: PySet::empty_bound(py)
+            errored: PySet::empty(py)
                 .expect("Failed to create PySet")
                 .unbind(),
             name,

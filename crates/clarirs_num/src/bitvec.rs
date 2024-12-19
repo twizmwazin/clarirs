@@ -417,8 +417,6 @@ impl Shr<usize> for BitVec {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_bv_to_u64() {
         todo!()

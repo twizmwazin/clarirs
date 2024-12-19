@@ -7,7 +7,7 @@ use std::sync::{
 
 use clarirs_core::ast::float::FloatExt;
 use dashmap::DashMap;
-use pyo3::types::{PyBytes, PyFrozenSet, PyWeakrefReference};
+use pyo3::{types::{PyBytes, PyFrozenSet, PyWeakrefReference}, IntoPyObjectExt};
 
 use crate::prelude::*;
 
@@ -138,7 +138,7 @@ impl FP {
                         inner: inner.clone(),
                     }),
             )?;
-            let weakref = PyWeakrefReference::new_bound(this.bind(py))?;
+            let weakref = PyWeakrefReference::new(this.bind(py))?;
             PY_FP_CACHE.insert(inner.hash(), weakref.unbind());
 
             Ok(this)
@@ -160,13 +160,13 @@ impl FP {
 
     #[getter]
     pub fn variables(&self, py: Python) -> Result<Py<PyFrozenSet>, ClaripyError> {
-        Ok(PyFrozenSet::new_bound(
+        Ok(PyFrozenSet::new(
             py,
             self.inner
                 .variables()
                 .iter()
-                .map(|v| v.to_object(py))
-                .collect::<Vec<_>>()
+                .map(|v| v.into_py_any(py))
+                .collect::<Result<Vec<_>, _>>()
                 .iter(),
         )?
         .unbind())
@@ -179,11 +179,11 @@ impl FP {
 
     #[getter]
     pub fn annotations(&self, py: Python) -> PyResult<Vec<PyObject>> {
-        let pickle_loads = py.import_bound("pickle")?.getattr("loads")?;
+        let pickle_loads = py.import("pickle")?.getattr("loads")?;
         self.inner
             .get_annotations()
             .iter()
-            .map(|a| pickle_loads.call1((PyBytes::new_bound(py, a.value()),)))
+            .map(|a| pickle_loads.call1((PyBytes::new(py, a.value()),)))
             .map(|a| a.map(|a| a.unbind()))
             .collect()
     }
@@ -214,7 +214,7 @@ impl FP {
     }
 
     pub fn annotate(&self, py: Python, annotation: Bound<PyAny>) -> Result<Py<FP>, ClaripyError> {
-        let pickle_dumps = py.import_bound("pickle")?.getattr("dumps")?;
+        let pickle_dumps = py.import("pickle")?.getattr("dumps")?;
         let annotation_bytes = pickle_dumps
             .call1((&annotation,))?
             .downcast::<PyBytes>()?

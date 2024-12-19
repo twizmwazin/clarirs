@@ -16,9 +16,8 @@ use super::import_submodule;
 
 pub static GLOBAL_CONTEXT: LazyLock<Context<'static>> = LazyLock::new(Context::new);
 
-#[pyfunction]
-#[allow(non_snake_case)]
-pub fn Not(py: Python, b: Bound<Base>) -> Result<Py<Base>, ClaripyError> {
+#[pyfunction(name = "Not")]
+pub fn not(py: Python, b: Bound<Base>) -> Result<Py<Base>, ClaripyError> {
     if let Ok(b_bool) = b.clone().into_any().downcast::<Bool>() {
         return Bool::new(py, &GLOBAL_CONTEXT.not(&b_bool.get().inner)?).map(|b| {
             b.into_any()
@@ -95,8 +94,8 @@ define_binop!(Xor, xor);
 
 // The following ops are reducable and support a variable number of arguments
 
-#[pyfunction(signature = (*args))]
-pub fn And(py: Python, args: Vec<Bound<PyAny>>) -> Result<Py<Base>, ClaripyError> {
+#[pyfunction(name = "And", signature = (*args))]
+pub fn and(py: Python, args: Vec<Bound<PyAny>>) -> Result<Py<Base>, ClaripyError> {
     let mut args = args.into_iter();
     let first = args.next().ok_or(ClaripyError::MissingArgIndex(0))?;
     Ok(args
@@ -107,8 +106,8 @@ pub fn And(py: Python, args: Vec<Bound<PyAny>>) -> Result<Py<Base>, ClaripyError
         .unbind())
 }
 
-#[pyfunction(signature = (*args))]
-pub fn Or(py: Python, args: Vec<Bound<PyAny>>) -> Result<Py<Base>, ClaripyError> {
+#[pyfunction(name = "Or", signature = (*args))]
+pub fn or(py: Python, args: Vec<Bound<PyAny>>) -> Result<Py<Base>, ClaripyError> {
     let mut args = args.into_iter();
     let first = args.next().ok_or(ClaripyError::MissingArgIndex(0))?;
     Ok(args
@@ -119,9 +118,8 @@ pub fn Or(py: Python, args: Vec<Bound<PyAny>>) -> Result<Py<Base>, ClaripyError>
         .unbind())
 }
 
-#[pyfunction]
-#[allow(non_snake_case)]
-pub fn If(
+#[pyfunction(name = "If")]
+pub fn r#if(
     py: Python,
     cond: Bound<Bool>,
     then_: Bound<PyAny>,

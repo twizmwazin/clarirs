@@ -18,7 +18,7 @@ fn import_submodule<'py>(
     name: &str,
     import_func: fn(Python<'py>, &Bound<'py, PyModule>) -> PyResult<()>,
 ) -> PyResult<()> {
-    let submodule = PyModule::new_bound(py, name)?;
+    let submodule = PyModule::new(py, name)?;
     import_func(py, &submodule)?;
     pyo3::py_run!(
         py,
@@ -158,10 +158,10 @@ pub fn clarirs(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
         ast::string::StrEq,
         ast::string::StrNeq,
         // Shared
-        ast::If,
-        ast::Not,
-        ast::And,
-        ast::Or,
+        ast::r#if,
+        ast::not,
+        ast::and,
+        ast::or,
         ast::Xor,
     );
 
@@ -190,7 +190,7 @@ pub fn clarirs(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Compat
 
     // fp
-    let fp = PyModule::new_bound(py, "clarirs.fp")?;
+    let fp = PyModule::new(py, "clarirs.fp")?;
     fp.add_class::<ast::fp::PyRM>()?;
     fp.add_class::<ast::fp::PyFSort>()?;
     fp.add("FSORT_FLOAT", ast::fp::fsort_float())?;

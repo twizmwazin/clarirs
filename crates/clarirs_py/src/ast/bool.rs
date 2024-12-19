@@ -11,7 +11,7 @@ use pyo3::types::PyFrozenSet;
 use pyo3::types::PyWeakrefMethods;
 use pyo3::types::PyWeakrefReference;
 
-use crate::ast::{And, Not, Or, Xor};
+use crate::ast::{and, not, or, Xor};
 use crate::prelude::*;
 
 static BOOLS_COUNTER: AtomicUsize = AtomicUsize::new(0);
@@ -46,7 +46,7 @@ impl Bool {
                     inner: inner.clone(),
                 }),
             )?;
-            let weakref = PyWeakrefReference::new_bound(this.bind(py))?;
+            let weakref = PyWeakrefReference::new(this.bind(py))?;
             PY_BOOL_CACHE.insert(inner.hash(), weakref.unbind());
 
             Ok(this)
@@ -210,13 +210,13 @@ impl Bool {
 
     #[getter]
     pub fn variables(&self, py: Python) -> Result<Py<PyFrozenSet>, ClaripyError> {
-        Ok(PyFrozenSet::new_bound(
+        Ok(PyFrozenSet::new(
             py,
             self.inner
                 .variables()
                 .iter()
-                .map(|v| v.to_object(py))
-                .collect::<Vec<_>>()
+                .map(|v| v.into_py_any(py))
+                .collect::<Result<Vec<_>, _>>()
                 .iter(),
         )?
         .unbind())
@@ -229,11 +229,11 @@ impl Bool {
 
     #[getter]
     pub fn annotations(&self, py: Python) -> PyResult<Vec<PyObject>> {
-        let pickle_loads = py.import_bound("pickle")?.getattr("loads")?;
+        let pickle_loads = py.import("pickle")?.getattr("loads")?;
         self.inner
             .get_annotations()
             .iter()
-            .map(|a| pickle_loads.call1((PyBytes::new_bound(py, a.value()),)))
+            .map(|a| pickle_loads.call1((PyBytes::new(py, a.value()),)))
             .map(|a| a.map(|a| a.unbind()))
             .collect()
     }
@@ -264,7 +264,7 @@ impl Bool {
     }
 
     pub fn annotate(&self, py: Python, annotation: Bound<PyAny>) -> Result<Py<Bool>, ClaripyError> {
-        let pickle_dumps = py.import_bound("pickle")?.getattr("dumps")?;
+        let pickle_dumps = py.import("pickle")?.getattr("dumps")?;
         let annotation_bytes = pickle_dumps
             .call1((&annotation,))?
             .downcast::<PyBytes>()?
@@ -362,12 +362,12 @@ pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
         m,
         BoolS,
         BoolV,
-        Not,
-        And,
-        Or,
+        not,
+        and,
+        or,
         Xor,
         Eq_,
-        super::If,
+        super::r#if,
         true_op,
         false_op,
     );
