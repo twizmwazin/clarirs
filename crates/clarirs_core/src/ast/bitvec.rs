@@ -11,7 +11,6 @@ use super::float::FloatExt;
 pub enum BitVecOp<'c> {
     BVS(String, u32),
     BVV(BitVec),
-    SI(String, BitVec, BitVec, BitVec, u32),
     Not(BitVecAst<'c>),
     And(BitVecAst<'c>, BitVecAst<'c>),
     Or(BitVecAst<'c>, BitVecAst<'c>),
@@ -50,7 +49,7 @@ pub type BitVecAst<'c> = AstRef<'c, BitVecOp<'c>>;
 impl<'c> Op<'c> for BitVecOp<'c> {
     fn child_iter(&self) -> IntoIter<VarAst<'c>> {
         match self {
-            BitVecOp::BVS(..) | BitVecOp::BVV(..) | BitVecOp::SI(..) => vec![],
+            BitVecOp::BVS(..) | BitVecOp::BVV(..) => vec![],
 
             BitVecOp::Not(a)
             | BitVecOp::Abs(a)
@@ -120,10 +119,9 @@ pub trait BitVecExt<'c> {
 impl<'c> BitVecExt<'c> for BitVecAst<'c> {
     fn size(&self) -> u32 {
         match self.op() {
-            BitVecOp::BVS(_, size)
-            | BitVecOp::SI(_, _, _, _, size)
-            | BitVecOp::ZeroExt(_, size)
-            | BitVecOp::SignExt(_, size) => *size,
+            BitVecOp::BVS(_, size) | BitVecOp::ZeroExt(_, size) | BitVecOp::SignExt(_, size) => {
+                *size
+            }
             BitVecOp::BVV(bv) => bv.len() as u32,
             BitVecOp::Not(a)
             | BitVecOp::Abs(a)

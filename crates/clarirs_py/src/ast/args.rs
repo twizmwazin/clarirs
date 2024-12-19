@@ -73,7 +73,6 @@ impl ExtractPyArgs for BitVecOp<'static> {
                 bit_vec.as_biguint().into_py_any(py)?,
                 bit_vec.len().into_py_any(py)?,
             ],
-            BitVecOp::SI(_, bit_vec, bit_vec1, bit_vec2, _) => todo!(),
             BitVecOp::Not(expr) | BitVecOp::Abs(expr) => vec![BV::new(py, expr)?.into_any()],
             BitVecOp::And(lhs, rhs)
             | BitVecOp::Or(lhs, rhs)

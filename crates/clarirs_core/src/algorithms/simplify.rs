@@ -330,7 +330,6 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
             match &self.op() {
                 BitVecOp::BVS(name, width) => ctx.bvs(name.clone(), *width),
                 BitVecOp::BVV(_) => Ok(self.clone()),
-                BitVecOp::SI(..) => todo!(),
                 BitVecOp::Not(ast) => {
                     simplify!(ast);
                     match ast.op() {
