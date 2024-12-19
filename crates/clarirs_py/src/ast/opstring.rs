@@ -50,7 +50,6 @@ impl ToOpString for BitVecOp<'static> {
         match self {
             BitVecOp::BVS(..) => "BVS".to_string(),
             BitVecOp::BVV(..) => "BVV".to_string(),
-            BitVecOp::SI(..) => todo!(),
             BitVecOp::Not(..) => "__neg__".to_string(),
             BitVecOp::And(..) => "__and__".to_string(),
             BitVecOp::Or(..) => "__or__".to_string(),
