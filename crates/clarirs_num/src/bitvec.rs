@@ -65,12 +65,20 @@ impl BitVec {
 
     pub fn from_biguint_trunc(value: &BigUint, length: usize) -> BitVec {
         if value == &BigUint::ZERO {
-            return BitVec::new(SmallVec::new(), length);
+            // Represent zero as a single zero-filled word,
+            let mut words = SmallVec::new();
+            // Determine number of  64-bit words are needed for the given length
+            let num_words = (length + 63) / 64;
+            // If there's at least one word in the length, ensure we have that word
+            if num_words > 0 {
+                words.push(0);
+            }
+            return BitVec::new(words, length);
         }
-        BitVec::new(
-            value.iter_u64_digits().take((length / 64) + 1).collect(),
-            length,
-        )
+
+        let num_words = (length + 63) / 64;
+
+        BitVec::new(value.iter_u64_digits().take(num_words).collect(), length)
     }
 
     pub fn as_biguint(&self) -> BigUint {
