@@ -92,11 +92,10 @@ impl BitVec {
     }
 
     pub fn sign(&self) -> bool {
-        return self
-            .words
+        self.words
             .last()
             .map(|w| w & (1 << (self.length % 64)) != 0)
-            .unwrap_or(false);
+            .unwrap_or(false)
     }
 
     pub fn reverse(&self) -> Self {

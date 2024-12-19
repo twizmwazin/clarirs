@@ -7,7 +7,7 @@ use std::sync::{
 
 use clarirs_core::ast::float::FloatExt;
 use dashmap::DashMap;
-use pyo3::{types::{PyBytes, PyFrozenSet, PyWeakrefReference}, IntoPyObjectExt};
+use pyo3::types::{PyBytes, PyFrozenSet, PyWeakrefReference};
 
 use crate::prelude::*;
 

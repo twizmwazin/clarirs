@@ -990,8 +990,7 @@ impl<'c> Simplify<'c> for StringAst<'c> {
                             ) => {
                                 // Convert start and length to isize, then handle them as usize if they are non-negative
                                 let start = start.to_usize().unwrap_or(0).max(0);
-                                let length =
-                                    length.to_usize().unwrap_or(str.len()).max(0);
+                                let length = length.to_usize().unwrap_or(str.len()).max(0);
                                 let end = start.saturating_add(length).min(str.len());
 
                                 // Extract the substring safely within bounds
