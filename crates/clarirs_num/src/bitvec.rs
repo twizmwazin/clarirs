@@ -345,10 +345,6 @@ impl Mul for BitVec {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        println!(
-            "Multiplying bit vectors: self = {:?}, rhs = {:?}",
-            self, rhs
-        );
         BitVec::from_biguint_trunc(&(BigUint::from(&self) * BigUint::from(&rhs)), self.length)
     }
 }
