@@ -100,6 +100,7 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
                 BooleanOp::Eq(arc, arc1) => {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
+                        (lhs, rhs) if lhs == rhs => ctx.true_(),
                         (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => ctx.boolv(arc == arc1),
                         _ => ctx.eq_(&arc, &arc1),
                     }
@@ -114,6 +115,7 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
                 BooleanOp::ULT(arc, arc1) => {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
+                        (lhs, rhs) if lhs == rhs => ctx.false_(),
                         (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => ctx.boolv(arc < arc1),
                         _ => ctx.ult(&arc, &arc1),
                     }
@@ -121,6 +123,7 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
                 BooleanOp::ULE(arc, arc1) => {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
+                        (lhs, rhs) if lhs == rhs => ctx.true_(),
                         (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => ctx.boolv(arc <= arc1),
                         _ => ctx.ule(&arc, &arc1),
                     }
@@ -128,6 +131,7 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
                 BooleanOp::UGT(arc, arc1) => {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
+                        (lhs, rhs) if lhs == rhs => ctx.false_(),
                         (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => ctx.boolv(arc > arc1),
                         _ => ctx.ule(&arc, &arc1),
                     }
@@ -135,6 +139,7 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
                 BooleanOp::UGE(arc, arc1) => {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
+                        (lhs, rhs) if lhs == rhs => ctx.true_(),
                         (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => ctx.boolv(arc >= arc1),
                         _ => ctx.ule(&arc, &arc1),
                     }
@@ -142,28 +147,32 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
                 BooleanOp::SLT(arc, arc1) => {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
-                        (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => ctx.boolv(arc < arc1),
+                        (lhs, rhs) if lhs == rhs => ctx.false_(),
+                        (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => ctx.boolv(arc.signed_lt(arc1)),
                         _ => ctx.ule(&arc, &arc1),
                     }
                 }
                 BooleanOp::SLE(arc, arc1) => {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
-                        (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => ctx.boolv(arc <= arc1),
+                        (lhs, rhs) if lhs == rhs => ctx.true_(),
+                        (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => ctx.boolv(arc.signed_le(arc1)),
                         _ => ctx.ule(&arc, &arc1),
                     }
                 }
                 BooleanOp::SGT(arc, arc1) => {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
-                        (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => ctx.boolv(arc > arc1),
+                        (lhs, rhs) if lhs == rhs => ctx.false_(),
+                        (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => ctx.boolv(arc.signed_gt(arc1)),
                         _ => ctx.ule(&arc, &arc1),
                     }
                 }
                 BooleanOp::SGE(arc, arc1) => {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
-                        (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => ctx.boolv(arc >= arc1),
+                        (lhs, rhs) if lhs == rhs => ctx.true_(),
+                        (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => ctx.boolv(arc.signed_ge(arc1)),
                         _ => ctx.ule(&arc, &arc1),
                     }
                 }
