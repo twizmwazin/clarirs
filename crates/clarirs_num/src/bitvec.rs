@@ -25,10 +25,18 @@ pub struct BitVec {
 
 impl BitVec {
     pub fn new(words: SmallVec<[u64; 1]>, length: usize) -> Self {
+        // Calculate mask for the final word - keep all valid bits
+        let bits_in_last_word = length % 64;
+        let final_word_mask = if bits_in_last_word == 0 {
+            u64::MAX
+        } else {
+            (1u64 << bits_in_last_word) - 1
+        };
+
         Self {
             words: SmallVec::from_iter(words.iter().copied()),
             length,
-            final_word_mask: !(1 << (length % 64)) - 1,
+            final_word_mask,
         }
     }
 
@@ -92,10 +100,18 @@ impl BitVec {
     }
 
     pub fn sign(&self) -> bool {
-        self.words
-            .last()
-            .map(|w| w & (1 << (self.length % 64)) != 0)
-            .unwrap_or(false)
+        if self.length == 0 {
+            return false;
+        }
+
+        let last_word_index = (self.length - 1) / 64;
+        let bit_index = (self.length - 1) % 64;
+
+        if let Some(word) = self.words.get(last_word_index) {
+            (word & (1u64 << bit_index)) != 0
+        } else {
+            false
+        }
     }
 
     pub fn reverse(&self) -> Self {
@@ -123,11 +139,6 @@ impl BitVec {
         true
     }
 
-    // Check if all bits are 1
-    // pub fn is_all_ones(&self) -> bool {
-    //     self.words.iter().all(|&word| word == !0) // !0 is all bits set to 1
-    // }
-
     // Check if all bits in the BitVec are 0
     pub fn is_zero(&self) -> bool {
         // Check each word to see if all bits are 0
@@ -143,10 +154,6 @@ impl BitVec {
             Some(self.to_biguint().to_usize().unwrap_or(0))
         }
     }
-
-    // pub fn to_biguint(&self) -> num_bigint::BigUint {
-    //     num_bigint::BigUint::from_bytes_le(&self.words.iter().flat_map(|w| w.to_le_bytes()).collect::<Vec<u8>>())
-    // }
 
     // Converts the BitVec to BigUint
     pub fn to_biguint(&self) -> BigUint {
@@ -172,6 +179,41 @@ impl BitVec {
             }
         }
         count.min(self.length) // Ensure count does not exceed the BitVec length
+    }
+
+    pub fn signed_lt(&self, other: &Self) -> bool {
+        assert_eq!(
+            self.length, other.length,
+            "BitVec lengths must match for comparison"
+        );
+
+        // Different signs
+        match (self.sign(), other.sign()) {
+            (true, false) => true,  // Negative < Positive
+            (false, true) => false, // Positive > Negative
+            _ => {
+                // Same sign - compare magnitudes
+                for (a, b) in self.words.iter().zip(other.words.iter()).rev() {
+                    if a != b {
+                        // If negative, reverse the comparison
+                        return (a < b) ^ self.sign();
+                    }
+                }
+                false // Equal numbers
+            }
+        }
+    }
+
+    pub fn signed_le(&self, other: &Self) -> bool {
+        self.signed_lt(other) || self == other
+    }
+
+    pub fn signed_gt(&self, other: &Self) -> bool {
+        !self.signed_le(other)
+    }
+
+    pub fn signed_ge(&self, other: &Self) -> bool {
+        !self.signed_lt(other)
     }
 }
 
