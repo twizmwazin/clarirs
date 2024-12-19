@@ -13,6 +13,10 @@ keywords = ["clarirs", "smt", "z3", "solver"]
 categories = ["science", "math", "security"]
 repository = "https://github.com/twizmwazin/clarirs.git"
 
+[workspace.dependencies]
+anyhow = "1"
+thiserror = "2"
+
 [workspace.lints.clippy]
 all = "warn"
 cargo = "warn"
