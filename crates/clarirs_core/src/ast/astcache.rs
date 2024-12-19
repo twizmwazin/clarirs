@@ -12,6 +12,7 @@ enum AstCacheValue<'c> {
     String(Weak<AstNode<'c, StringOp<'c>>>),
 }
 
+#[allow(dead_code)]
 impl<'c> AstCacheValue<'c> {
     fn as_bool(&self) -> Option<BoolAst<'c>> {
         match self {
@@ -116,11 +117,9 @@ impl<'c> AstCache<'c> {
         // Step 1: Try to get a read lock and check if the value is already in the cache
         {
             let inner = self.inner.read().unwrap();
-            if let Some(entry) = inner.get(&hash) {
-                if let AstCacheValue::Boolean(weak) = entry {
-                    if let Some(arc) = weak.upgrade() {
-                        return Ok(arc);
-                    }
+            if let Some(AstCacheValue::Boolean(weak)) = inner.get(&hash) {
+                if let Some(arc) = weak.upgrade() {
+                    return Ok(arc);
                 }
             }
             // Value not found or expired; we'll compute it next
@@ -158,11 +157,9 @@ impl<'c> AstCache<'c> {
         // Step 1: Try to get a read lock and check if the value is already in the cache
         {
             let inner = self.inner.read().unwrap();
-            if let Some(entry) = inner.get(&hash) {
-                if let AstCacheValue::BitVec(weak) = entry {
-                    if let Some(arc) = weak.upgrade() {
-                        return Ok(arc);
-                    }
+            if let Some(AstCacheValue::BitVec(weak)) = inner.get(&hash) {
+                if let Some(arc) = weak.upgrade() {
+                    return Ok(arc);
                 }
             }
             // Value not found or expired; we'll compute it next
@@ -200,11 +197,9 @@ impl<'c> AstCache<'c> {
         // Step 1: Try to get a read lock and check if the value is already in the cache
         {
             let inner = self.inner.read().unwrap();
-            if let Some(entry) = inner.get(&hash) {
-                if let AstCacheValue::Float(weak) = entry {
-                    if let Some(arc) = weak.upgrade() {
-                        return Ok(arc);
-                    }
+            if let Some(AstCacheValue::Float(weak)) = inner.get(&hash) {
+                if let Some(arc) = weak.upgrade() {
+                    return Ok(arc);
                 }
             }
             // Value not found or expired; we'll compute it next
@@ -246,11 +241,9 @@ impl<'c> AstCache<'c> {
         // Step 1: Try to get a read lock and check if the value is already in the cache
         {
             let inner = self.inner.read().unwrap();
-            if let Some(entry) = inner.get(&hash) {
-                if let AstCacheValue::String(weak) = entry {
-                    if let Some(arc) = weak.upgrade() {
-                        return Ok(arc);
-                    }
+            if let Some(AstCacheValue::String(weak)) = inner.get(&hash) {
+                if let Some(arc) = weak.upgrade() {
+                    return Ok(arc);
                 }
             }
             // Value not found or expired; we'll compute it next

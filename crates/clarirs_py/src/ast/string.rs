@@ -43,7 +43,7 @@ impl PyAstString {
                     inner: inner.clone(),
                 }),
             )?;
-            let weakref = PyWeakrefReference::new_bound(this.bind(py))?;
+            let weakref = PyWeakrefReference::new(this.bind(py))?;
             PY_STRING_CACHE.insert(inner.hash(), weakref.unbind());
 
             Ok(this)
@@ -103,13 +103,13 @@ impl PyAstString {
 
     #[getter]
     pub fn variables(&self, py: Python) -> Result<Py<PyFrozenSet>, ClaripyError> {
-        Ok(PyFrozenSet::new_bound(
+        Ok(PyFrozenSet::new(
             py,
             self.inner
                 .variables()
                 .iter()
-                .map(|v| v.to_object(py))
-                .collect::<Vec<_>>()
+                .map(|v| v.into_py_any(py))
+                .collect::<Result<Vec<_>, _>>()
                 .iter(),
         )?
         .unbind())
@@ -122,11 +122,11 @@ impl PyAstString {
 
     #[getter]
     pub fn annotations(&self, py: Python) -> PyResult<Vec<PyObject>> {
-        let pickle_loads = py.import_bound("pickle")?.getattr("loads")?;
+        let pickle_loads = py.import("pickle")?.getattr("loads")?;
         self.inner
             .get_annotations()
             .iter()
-            .map(|a| pickle_loads.call1((PyBytes::new_bound(py, a.value()),)))
+            .map(|a| pickle_loads.call1((PyBytes::new(py, a.value()),)))
             .map(|a| a.map(|a| a.unbind()))
             .collect()
     }
@@ -153,7 +153,7 @@ impl PyAstString {
         py: Python,
         annotation: Bound<PyAny>,
     ) -> Result<Py<PyAstString>, ClaripyError> {
-        let pickle_dumps = py.import_bound("pickle")?.getattr("dumps")?;
+        let pickle_dumps = py.import("pickle")?.getattr("dumps")?;
         let annotation_bytes = pickle_dumps
             .call1((&annotation,))?
             .downcast::<PyBytes>()?

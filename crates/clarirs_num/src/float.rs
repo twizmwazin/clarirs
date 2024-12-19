@@ -265,7 +265,7 @@ impl Float {
 
         // Convert the exponent and mantissa from BitVec to integer values
         let exponent = self.exponent.to_biguint().to_u64()? as i64;
-        let mantissa = self.mantissa.to_biguint().to_u64()? as u64;
+        let mantissa = self.mantissa.to_biguint().to_u64()?;
 
         // Bias adjustment for IEEE 754 format (for `f64`, the bias is 1023)
         let bias = 1023;
@@ -311,7 +311,7 @@ impl Add for Float {
         };
 
         // Align mantissas by shifting the smaller mantissa
-        let exponent_diff = larger.exponent.len() as usize - smaller.exponent.len() as usize;
+        let exponent_diff = larger.exponent.len() - smaller.exponent.len();
         let aligned_smaller_mantissa = smaller.mantissa.clone() >> exponent_diff;
 
         // Add or subtract mantissas based on the signs
@@ -407,7 +407,7 @@ impl Div for Float {
 // Helper function to normalize the mantissa and adjust the exponent
 fn normalize(mantissa: BitVec, exponent: BitVec) -> (BitVec, BitVec) {
     // Calculate the amount of shift required to normalize mantissa
-    let shift_amount = mantissa.leading_zeros() as usize;
+    let shift_amount = mantissa.leading_zeros();
 
     // Shift mantissa and adjust exponent, using cloned values
     let normalized_mantissa = mantissa << shift_amount;

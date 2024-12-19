@@ -9,7 +9,7 @@ use num_bigint::{BigInt, BigUint};
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::types::{PyBytes, PyFrozenSet, PyWeakrefReference};
 
-use crate::ast::{And, Not, Or, Xor};
+use crate::ast::{and, not, or, Xor};
 use crate::prelude::*;
 
 static BVS_COUNTER: AtomicUsize = AtomicUsize::new(0);
@@ -46,7 +46,7 @@ impl BV {
                         inner: inner.clone(),
                     }),
             )?;
-            let weakref = PyWeakrefReference::new_bound(this.bind(py))?;
+            let weakref = PyWeakrefReference::new(this.bind(py))?;
             PY_BV_CACHE.insert(inner.hash(), weakref.unbind());
 
             Ok(this)
@@ -192,13 +192,13 @@ impl BV {
 
     #[getter]
     pub fn variables(&self, py: Python) -> Result<Py<PyFrozenSet>, ClaripyError> {
-        Ok(PyFrozenSet::new_bound(
+        Ok(PyFrozenSet::new(
             py,
             self.inner
                 .variables()
                 .iter()
-                .map(|v| v.to_object(py))
-                .collect::<Vec<_>>()
+                .map(|v| v.into_py_any(py))
+                .collect::<Result<Vec<_>, _>>()
                 .iter(),
         )?
         .unbind())
@@ -211,11 +211,11 @@ impl BV {
 
     #[getter]
     pub fn annotations(&self, py: Python) -> PyResult<Vec<PyObject>> {
-        let pickle_loads = py.import_bound("pickle")?.getattr("loads")?;
+        let pickle_loads = py.import("pickle")?.getattr("loads")?;
         self.inner
             .get_annotations()
             .iter()
-            .map(|a| pickle_loads.call1((PyBytes::new_bound(py, a.value()),)))
+            .map(|a| pickle_loads.call1((PyBytes::new(py, a.value()),)))
             .map(|a| a.map(|a| a.unbind()))
             .collect()
     }
@@ -246,7 +246,7 @@ impl BV {
     }
 
     pub fn annotate(&self, py: Python, annotation: Bound<PyAny>) -> Result<Py<BV>, ClaripyError> {
-        let pickle_dumps = py.import_bound("pickle")?.getattr("dumps")?;
+        let pickle_dumps = py.import("pickle")?.getattr("dumps")?;
         let annotation_bytes = pickle_dumps
             .call1((&annotation,))?
             .downcast::<PyBytes>()?
@@ -727,9 +727,9 @@ pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
         m,
         BVS,
         BVV,
-        Not,
-        And,
-        Or,
+        not,
+        and,
+        or,
         Xor,
         Add,
         Sub,
@@ -758,7 +758,7 @@ pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
         SGT,
         SGE,
         Eq_,
-        super::If,
+        super::r#if,
     );
 
     Ok(())

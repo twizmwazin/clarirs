@@ -9,8 +9,8 @@ pub trait ExtractPyArgs {
 impl ExtractPyArgs for BooleanOp<'static> {
     fn extract_py_args(&self, py: Python) -> Result<Vec<PyObject>, ClaripyError> {
         Ok(match self {
-            BooleanOp::BoolS(name) => vec![name.to_object(py)],
-            BooleanOp::BoolV(val) => vec![val.to_object(py)],
+            BooleanOp::BoolS(name) => vec![name.into_py_any(py)?],
+            BooleanOp::BoolV(val) => vec![val.into_py_any(py)?],
             BooleanOp::Not(expr) => vec![Bool::new(py, expr)?.into_any()],
             BooleanOp::And(lhs, rhs)
             | BooleanOp::Or(lhs, rhs)
@@ -65,10 +65,13 @@ impl ExtractPyArgs for BooleanOp<'static> {
 impl ExtractPyArgs for BitVecOp<'static> {
     fn extract_py_args(&self, py: Python) -> Result<Vec<PyObject>, ClaripyError> {
         Ok(match self {
-            BitVecOp::BVS(name, size) => vec![name.to_object(py), size.to_object(py)],
+            BitVecOp::BVS(name, size) => vec![
+                name.into_pyobject(py)?.into_any().unbind(),
+                size.into_py_any(py)?,
+            ],
             BitVecOp::BVV(bit_vec) => vec![
-                bit_vec.as_biguint().to_object(py),
-                bit_vec.len().to_object(py),
+                bit_vec.as_biguint().into_py_any(py)?,
+                bit_vec.len().into_py_any(py)?,
             ],
             BitVecOp::SI(_, bit_vec, bit_vec1, bit_vec2, _) => todo!(),
             BitVecOp::Not(expr) | BitVecOp::Abs(expr) => vec![BV::new(py, expr)?.into_any()],
@@ -92,11 +95,11 @@ impl ExtractPyArgs for BitVecOp<'static> {
                 vec![BV::new(py, lhs)?.into_any(), BV::new(py, rhs)?.into_any()]
             }
             BitVecOp::ZeroExt(expr, amount) | BitVecOp::SignExt(expr, amount) => {
-                vec![BV::new(py, expr)?.into_any(), amount.to_object(py)]
+                vec![BV::new(py, expr)?.into_any(), amount.into_py_any(py)?]
             }
             BitVecOp::Extract(expr, end, start) => vec![
-                end.to_object(py),
-                start.to_object(py),
+                end.into_py_any(py)?,
+                start.into_py_any(py)?,
                 BV::new(py, expr)?.into_any(),
             ],
             BitVecOp::Reverse(expr) => vec![BV::new(py, expr)?.into_any()],
@@ -125,10 +128,10 @@ impl ExtractPyArgs for FloatOp<'static> {
     fn extract_py_args(&self, py: Python) -> Result<Vec<PyObject>, ClaripyError> {
         Ok(match self {
             FloatOp::FPS(name, fsort) => vec![
-                name.to_object(py),
+                name.into_py_any(py)?,
                 Py::new(py, PyFSort::from(fsort))?.into_any(),
             ],
-            FloatOp::FPV(value) => vec![value.to_f64().to_object(py)],
+            FloatOp::FPV(value) => vec![value.to_f64().into_py_any(py)?],
             FloatOp::FpNeg(expr, rm) | FloatOp::FpAbs(expr, rm) => vec![
                 FP::new(py, expr)?.into_any(),
                 Py::new(py, PyRM::from(rm))?.into_any(),
@@ -160,8 +163,8 @@ impl ExtractPyArgs for FloatOp<'static> {
 impl ExtractPyArgs for StringOp<'static> {
     fn extract_py_args(&self, py: Python) -> Result<Vec<PyObject>, ClaripyError> {
         Ok(match self {
-            StringOp::StringS(name) => vec![name.to_object(py)],
-            StringOp::StringV(value) => vec![value.to_object(py)],
+            StringOp::StringS(name) => vec![name.into_py_any(py)?],
+            StringOp::StringV(value) => vec![value.into_py_any(py)?],
             StringOp::StrConcat(lhs, rhs) => vec![
                 PyAstString::new(py, lhs)?.into_any(),
                 PyAstString::new(py, rhs)?.into_any(),

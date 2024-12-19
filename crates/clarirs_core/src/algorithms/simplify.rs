@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::prelude::*;
 use clarirs_num::*;
 use num_bigint::{BigInt, BigUint};
@@ -18,6 +16,7 @@ pub trait Simplify<'c>: Sized {
     fn simplify(&self) -> Result<Self, ClarirsError>;
 }
 
+#[allow(unused_variables)]
 impl<'c> Simplify<'c> for BoolAst<'c> {
     fn simplify(&self) -> Result<Self, ClarirsError> {
         let ctx = self.context();
@@ -185,28 +184,28 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
                 BooleanOp::FpLt(arc, arc1) => {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
-                        (FloatOp::FPV(arc), FloatOp::FPV(arc1)) => ctx.boolv(arc.lt(&arc1)),
+                        (FloatOp::FPV(arc), FloatOp::FPV(arc1)) => ctx.boolv(arc.lt(arc1)),
                         _ => ctx.fp_lt(&arc, &arc1),
                     }
                 }
                 BooleanOp::FpLeq(arc, arc1) => {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
-                        (FloatOp::FPV(arc), FloatOp::FPV(arc1)) => ctx.boolv(arc.leq(&arc1)),
+                        (FloatOp::FPV(arc), FloatOp::FPV(arc1)) => ctx.boolv(arc.leq(arc1)),
                         _ => ctx.fp_leq(&arc, &arc1),
                     }
                 }
                 BooleanOp::FpGt(arc, arc1) => {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
-                        (FloatOp::FPV(arc), FloatOp::FPV(arc1)) => ctx.boolv(arc.gt(&arc1)),
+                        (FloatOp::FPV(arc), FloatOp::FPV(arc1)) => ctx.boolv(arc.gt(arc1)),
                         _ => ctx.fp_gt(&arc, &arc1),
                     }
                 }
                 BooleanOp::FpGeq(arc, arc1) => {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
-                        (FloatOp::FPV(arc), FloatOp::FPV(arc1)) => ctx.boolv(arc.geq(&arc1)),
+                        (FloatOp::FPV(arc), FloatOp::FPV(arc1)) => ctx.boolv(arc.geq(arc1)),
                         _ => ctx.fp_geq(&arc, &arc1),
                     }
                 }
@@ -258,7 +257,7 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
                     simplify!(arc);
                     match arc.op() {
                         StringOp::StringV(input_string) => {
-                            ctx.boolv(input_string.chars().all(|c| c.is_digit(10)))
+                            ctx.boolv(input_string.chars().all(|c| c.is_ascii_digit()))
                         }
                         _ => ctx.strisdigit(&arc),
                     }
@@ -321,6 +320,7 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
     }
 }
 
+#[allow(unused_variables)]
 impl<'c> Simplify<'c> for BitVecAst<'c> {
     fn simplify(&self) -> Result<Self, ClarirsError> {
         let ctx = self.context();
@@ -807,9 +807,9 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                     match arc.op() {
                         StringOp::StringV(string) => {
                             // Attempt to parse the string as a decimal integer
-                            let value = BigUint::from_str_radix(&string, 10)
-                                .or_else(|_| BigUint::from_str_radix(&string, 16)) // Try hexadecimal if decimal fails
-                                .or_else(|_| BigUint::from_str_radix(&string, 2)) // Try binary if hexadecimal fails
+                            let value = BigUint::from_str_radix(string, 10)
+                                .or_else(|_| BigUint::from_str_radix(string, 16)) // Try hexadecimal if decimal fails
+                                .or_else(|_| BigUint::from_str_radix(string, 2)) // Try binary if hexadecimal fails
                                 .map_err(|_| ClarirsError::InvalidArguments)?; // Error if parsing fails
 
                             // Determine the bit length required to represent the number
@@ -830,6 +830,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
     }
 }
 
+#[allow(unused_variables)]
 impl<'c> Simplify<'c> for FloatAst<'c> {
     fn simplify(&self) -> Result<Self, ClarirsError> {
         let ctx = self.context();
@@ -958,6 +959,7 @@ impl<'c> Simplify<'c> for FloatAst<'c> {
     }
 }
 
+#[allow(unused_variables)]
 impl<'c> Simplify<'c> for StringAst<'c> {
     fn simplify(&self) -> Result<Self, ClarirsError> {
         let ctx = self.context();
@@ -987,9 +989,8 @@ impl<'c> Simplify<'c> for StringAst<'c> {
                                 BitVecOp::BVV(length),
                             ) => {
                                 // Convert start and length to isize, then handle them as usize if they are non-negative
-                                let start = start.to_usize().unwrap_or(0).max(0) as usize;
-                                let length =
-                                    length.to_usize().unwrap_or(str.len() as usize).max(0) as usize;
+                                let start = start.to_usize().unwrap_or(0).max(0);
+                                let length = length.to_usize().unwrap_or(str.len()).max(0);
                                 let end = start.saturating_add(length).min(str.len());
 
                                 // Extract the substring safely within bounds

@@ -1,3 +1,5 @@
+use std::convert::Infallible;
+
 use crate::prelude::*;
 use pyo3::{exceptions::PyRuntimeError, DowncastError, DowncastIntoError, PyErr, PyObject};
 use thiserror::Error;
@@ -20,6 +22,8 @@ pub enum ClaripyError {
     InvalidArgumentType(String),
     #[error("Invalid Operation: {0}")]
     InvalidOp(String),
+    #[error("Infallible")]
+    Infallible,
 }
 
 impl From<ClarirsError> for ClaripyError {
@@ -55,5 +59,11 @@ impl From<DowncastError<'_, '_>> for ClaripyError {
 impl From<DowncastIntoError<'_>> for ClaripyError {
     fn from(e: DowncastIntoError) -> Self {
         ClaripyError::CastingError(format!("{}", e))
+    }
+}
+
+impl From<Infallible> for ClaripyError {
+    fn from(_: Infallible) -> Self {
+        ClaripyError::Infallible
     }
 }
