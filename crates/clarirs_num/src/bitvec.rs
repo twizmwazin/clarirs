@@ -75,9 +75,6 @@ impl BitVec {
             }
             return BitVec::new(words, length);
         }
-        print!("outside if");
-        println!("value: {:?}", value);
-        println!("length: {:?}", length);
 
         let num_words = (length + 63) / 64;
 
