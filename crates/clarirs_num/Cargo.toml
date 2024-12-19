@@ -10,12 +10,12 @@ categories = { workspace = true }
 repository = { workspace = true }
 
 [dependencies]
-anyhow = "1.0.86"
+anyhow = { workspace = true }
 num-bigint = "0.4.6"
+num-traits = "0.2"
 serde = "1.0.209"
 smallvec = "1.13.2"
-thiserror = "1.0.63"
-num-traits = "0.2"
+thiserror = { workspace = true }
 
 [lints]
 workspace = true
