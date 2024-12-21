@@ -68,6 +68,17 @@ impl BitVec {
                 length,
             });
         }
+    
+        if value == &BigUint::ZERO {
+            let mut words = SmallVec::new();
+            let num_words = (length + 63) / 64; // Number of 64-bit words
+            if num_words > 0 {
+                words.push(0); 
+            }
+            return Ok(BitVec::new(words, length));
+        }
+    
+        // Convert the BigUint to a BitVec
         Ok(BitVec::new(value.iter_u64_digits().collect(), length))
     }
 
@@ -164,6 +175,20 @@ impl BitVec {
                 .flat_map(|w| w.to_le_bytes())
                 .collect::<Vec<u8>>(),
         )
+    }
+
+    pub fn to_u64(&self) -> Option<u64> {
+        if self.len() > 64 {
+            // The BitVec is too large to fit in a u64
+            return None;
+        }
+
+        // Combine all words into a single u64
+        let mut value: u64 = 0;
+        for (i, &word) in self.words.iter().enumerate() {
+            value |= (word as u64) << (i * 64);
+        }
+        Some(value)
     }
 
     /// Counts the number of leading zeros in the BitVec.
