@@ -68,16 +68,16 @@ impl BitVec {
                 length,
             });
         }
-    
+
         if value == &BigUint::ZERO {
             let mut words = SmallVec::new();
             let num_words = (length + 63) / 64; // Number of 64-bit words
             if num_words > 0 {
-                words.push(0); 
+                words.push(0);
             }
             return Ok(BitVec::new(words, length));
         }
-    
+
         // Convert the BigUint to a BitVec
         Ok(BitVec::new(value.iter_u64_digits().collect(), length))
     }

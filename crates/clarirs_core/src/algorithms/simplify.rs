@@ -497,24 +497,24 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                     match (arc.op(), arc1.op()) {
                         (BitVecOp::BVV(base), BitVecOp::BVV(exp)) => {
                             let exponent = exp.to_u64().unwrap_or(0);
-                
+
                             let mut result = BigUint::from(1u64);
                             let mut base_value = base.to_biguint();
                             let mut exp_value = exponent;
-                
+
                             while exp_value > 0 {
                                 if exp_value & 1 == 1 {
                                     let temp = base_value.clone();
                                     result *= &temp;
                                 }
                                 // Use references to avoid moving out of `base_value`
-                                base_value = &base_value * &base_value; 
+                                base_value = &base_value * &base_value;
                                 exp_value >>= 1;
                             }
-                
+
                             let result_bitvec = BitVec::from_biguint(&result, base.len())
                                 .expect("Failed to create BitVec from BigUint");
-                
+
                             ctx.bvv(result_bitvec)
                         }
                         _ => ctx.pow(&arc, &arc1),
