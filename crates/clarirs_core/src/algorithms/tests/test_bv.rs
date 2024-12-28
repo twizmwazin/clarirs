@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::{ast::bitvec::BitVecExt, prelude::*};
 use anyhow::Result;
 
 #[test]
@@ -648,6 +648,32 @@ fn test_rotate_right() -> Result<()> {
         let result = context.rotate_right(&a, &b)?.simplify()?;
         assert_eq!(result, expected);
     }
+
+    Ok(())
+}
+
+#[test]
+fn test_extract_concat() -> Result<()> {
+    let ctx = Context::new();
+
+    // Symbolic test cases
+    let x = ctx.bvs("x", 16)?;
+    let y = ctx.bvs("y", 16)?;
+    let concat = ctx.concat(&x, &y)?;
+
+    // Extract exactly one side of symbolic values
+    let extract_left = ctx.extract(&concat, 0, 16)?.simplify()?;
+    assert_eq!(extract_left, x);
+
+    let extract_right = ctx.extract(&concat, 16, 32)?.simplify()?;
+    assert_eq!(extract_right, y);
+
+    // Extract middle bits crossing the symbolic boundary
+    let middle = ctx.extract(&concat, 8, 24)?.simplify()?;
+
+    // Verify properties of the middle extraction
+    let size = middle.size();
+    assert_eq!(size, 16); // Should be 16 bits
 
     Ok(())
 }
