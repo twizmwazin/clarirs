@@ -5,6 +5,7 @@ build-backend = "maturin"
 [project]
 name = "clarirs"
 requires-python = ">=3.10"
+dynamic = ["version"]
 
 [tool.maturin]
 manifest-path = "crates/clarirs_py/Cargo.toml"
