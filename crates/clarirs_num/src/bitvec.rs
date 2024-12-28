@@ -215,6 +215,46 @@ impl BitVec {
     pub fn signed_ge(&self, other: &Self) -> bool {
         !self.signed_lt(other)
     }
+
+    pub fn extract(&self, from: usize, to: usize) -> Result<Self, BitVecError> {
+        if from > to || to >= self.len() {
+            return Err(BitVecError::BitVectorTooShort {
+                value: self.to_biguint(),
+                length: self.len(),
+            });
+        }
+
+        let mut new_bv = SmallVec::new();
+        let mut word_index = from / 64;
+        let mut bit_index = from % 64;
+        let mut current_word = 0;
+        let mut current_word_bits = 0;
+
+        while bit_index <= to {
+            let bits_to_copy = (to + 1 - bit_index).min(64 - current_word_bits);
+            let mask = (1u64 << bits_to_copy) - 1;
+            let bits = (self.words[word_index] >> bit_index) & mask;
+            current_word |= bits << current_word_bits;
+            current_word_bits += bits_to_copy;
+            bit_index += bits_to_copy;
+
+            if current_word_bits == 64 {
+                new_bv.push(current_word);
+                current_word = 0;
+                current_word_bits = 0;
+            }
+
+            if bit_index % 64 == 0 {
+                word_index += 1;
+            }
+        }
+
+        if current_word_bits > 0 {
+            new_bv.push(current_word);
+        }
+
+        Ok(BitVec::new(new_bv, to - from + 1))
+    }
 }
 
 impl Debug for BitVec {
@@ -458,6 +498,8 @@ impl Shr<usize> for BitVec {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
     fn test_bv_to_u64() {
         todo!()
@@ -465,5 +507,35 @@ mod tests {
         // assert_eq!(bv_to_usize(&vec![true, false, false, false]), 1);
         // assert_eq!(bv_to_usize(&vec![false, false, false, true]), 8);
         // assert_eq!(bv_to_usize(&vec![true, true, true, true]), 15);
+    }
+
+    #[test]
+    fn test_extract() {
+        // Test case 1: Extract middle bits (inclusive bounds)
+        let bv = BitVec::from_prim_with_size(0b11110000u8, 8);
+        let extracted = bv.extract(2, 5).unwrap();  // Was (2, 6)
+        assert_eq!(extracted.to_biguint(), BigUint::from(0b1100u8));
+        assert_eq!(extracted.len(), 4);
+
+        // Test case 2: Extract spanning multiple words
+        let bv = BitVec::from_prim_with_size(0xFFFFFFFFFFFFFFFFu64, 64);
+        let extracted = bv.extract(56, 63).unwrap();  // Was (56, 64)
+        assert_eq!(extracted.to_biguint(), BigUint::from(0xFFu8));
+        assert_eq!(extracted.len(), 8);
+
+        // Test case 3: Extract single bit
+        let bv = BitVec::from_prim_with_size(0b10101010u8, 8);
+        let extracted = bv.extract(3, 3).unwrap();  // Was (3, 4)
+        assert_eq!(extracted.to_biguint(), BigUint::from(1u8));
+        assert_eq!(extracted.len(), 1);
+
+        // Test case 4: Extract at bounds
+        let bv = BitVec::from_prim_with_size(0xFFu8, 8);
+        let extracted = bv.extract(0, 7).unwrap();  // Full extraction
+        assert_eq!(extracted.to_biguint(), BigUint::from(0xFFu8));
+        assert_eq!(extracted.len(), 8);
+
+        // Additional test case for bounds checking
+        assert!(bv.extract(7, 8).is_err(), "Should fail on out-of-bounds extraction");
     }
 }
