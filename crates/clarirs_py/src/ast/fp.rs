@@ -166,7 +166,7 @@ impl FP {
                 .variables()
                 .iter()
                 .map(|v| v.into_py_any(py))
-                .collect::<Result<Vec<_>, _>>()
+                .collect::<Result<Vec<_>, _>>()?
                 .iter(),
         )?
         .unbind())

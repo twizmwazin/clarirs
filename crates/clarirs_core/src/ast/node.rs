@@ -64,10 +64,7 @@ where
 impl<'c, O: Op<'c> + Serialize> AstNode<'c, O> {
     pub(crate) fn new(ctx: &'c Context<'c>, op: O, hash: u64) -> Self {
         let symbolic = op.child_iter().any(|child| child.symbolic());
-        let variables = op
-            .child_iter()
-            .flat_map(|child| child.variables().clone().into_iter())
-            .collect::<HashSet<String>>();
+        let variables = op.variables();
         let depth = op.depth();
 
         Self {
