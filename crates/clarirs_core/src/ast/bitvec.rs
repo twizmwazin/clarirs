@@ -144,7 +144,7 @@ impl<'c> BitVecExt<'c> for BitVecAst<'c> {
             | BitVecOp::AShR(a, _)
             | BitVecOp::RotateLeft(a, _)
             | BitVecOp::RotateRight(a, _) => a.size(),
-            BitVecOp::Extract(_, high, low) => high - low + 1,
+            BitVecOp::Extract(_, low, high) => high - low,
             BitVecOp::Concat(a, b) => a.size() + b.size(),
             BitVecOp::FpToIEEEBV(fp) => fp.size(),
             BitVecOp::FpToUBV(_, _, _) | BitVecOp::FpToSBV(_, _, _) => 64,
