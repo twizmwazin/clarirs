@@ -7,7 +7,8 @@ use clarirs_core::ast::bitvec::BitVecExt;
 use dashmap::DashMap;
 use num_bigint::{BigInt, BigUint};
 use pyo3::exceptions::{PyTypeError, PyValueError};
-use pyo3::types::{PyBytes, PyFrozenSet, PyWeakrefReference};
+use pyo3::types::PySliceMethods;
+use pyo3::types::{PyBytes, PyFrozenSet, PySlice, PyWeakrefReference};
 
 use crate::ast::{and, not, or, Xor};
 use crate::prelude::*;
@@ -247,6 +248,25 @@ impl BV {
 
     pub fn __len__(&self) -> usize {
         self.size()
+    }
+
+    pub fn __getitem__(self_: Bound<BV>, range: Bound<PyAny>) -> Result<Py<BV>, ClaripyError> {
+        if let Ok(slice) = range.downcast::<PySlice>() {
+            let indicies = slice.indices(self_.get().size() as isize)?;
+            Extract(
+                self_.py(),
+                indicies.start as u32,
+                indicies.stop as u32,
+                self_,
+            )
+        } else {
+            Extract(
+                self_.py(),
+                range.extract::<u32>()?,
+                range.extract::<u32>()?,
+                self_,
+            )
+        }
     }
 
     pub fn annotate(&self, py: Python, annotation: Bound<PyAny>) -> Result<Py<BV>, ClaripyError> {
@@ -574,6 +594,36 @@ impl BV {
     #[getter]
     pub fn reversed(&self, py: Python) -> Result<Py<BV>, ClaripyError> {
         BV::new(py, &GLOBAL_CONTEXT.reverse(&self.inner)?)
+    }
+
+    pub fn get_bytes(
+        self_: Bound<BV>,
+        py: Python,
+        index: u32,
+        size: u32,
+    ) -> Result<Py<BV>, ClaripyError> {
+        Extract(py, (index + size) * 8, index * 8, self_)
+    }
+
+    pub fn get_byte(self_: Bound<BV>, py: Python, index: u32) -> Result<Py<BV>, ClaripyError> {
+        BV::get_bytes(self_, py, index, 1)
+    }
+
+    pub fn chop(self_: Bound<BV>, py: Python, bits: u32) -> Result<Vec<Py<BV>>, ClaripyError> {
+        let s = self_.get().size() as u32;
+        if s % bits != 0 {
+            return Err(ClaripyError::InvalidArgument(
+                "expression length should be a multiple of 'bits'".to_string(),
+            ));
+        }
+        if s == bits {
+            return Ok(vec![self_.unbind()]);
+        }
+        let mut result = Vec::with_capacity((s / bits) as usize);
+        for n in 0..(s / bits) {
+            result.push(BV::get_bytes(self_.clone(), py, n * bits, bits)?);
+        }
+        Ok(result)
     }
 }
 
