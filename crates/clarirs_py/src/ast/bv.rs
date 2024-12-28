@@ -12,6 +12,7 @@ use pyo3::types::{PyBytes, PyFrozenSet, PySlice, PyWeakrefReference};
 
 use crate::ast::{and, not, or, Xor};
 use crate::prelude::*;
+use crate::pyslicemethodsext::PySliceMethodsExt;
 
 static BVS_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static PY_BV_CACHE: LazyLock<DashMap<u64, Py<PyWeakrefReference>>> = LazyLock::new(DashMap::new);
@@ -252,20 +253,43 @@ impl BV {
 
     pub fn __getitem__(self_: Bound<BV>, range: Bound<PyAny>) -> Result<Py<BV>, ClaripyError> {
         if let Ok(slice) = range.downcast::<PySlice>() {
-            let indicies = slice.indices(self_.get().size() as isize)?;
+            if slice.step()?.is_some() {
+                return Err(ClaripyError::InvalidOperation(
+                    "slicing with step is not supported".to_string(),
+                ));
+            }
+
+            let py = self_.py();
+            let size = self_.get().size() as isize;
+
+            // We use weird backwards SMTLIB indexing rules that are not python
+            // rules. These conditions should fix it up to make the default
+            // values correct
+            let mut start = slice.start()?.unwrap_or(size - 1);
+            let mut stop = slice.stop()?.unwrap_or(0);
+
+            if start < 0 {
+                start += size;
+            }
+            if stop < 0 {
+                stop += size;
+            }
+
             Extract(
                 self_.py(),
-                indicies.start as u32,
-                indicies.stop as u32,
+                start as u32,
+                stop as u32,
+                self_,
+            )?.bind(py).get().simplify(py)
+        } else if let Ok(int_val) = range.extract::<u32>() {
+            Extract(
+                self_.py(),
+                int_val,
+                int_val,
                 self_,
             )
         } else {
-            Extract(
-                self_.py(),
-                range.extract::<u32>()?,
-                range.extract::<u32>()?,
-                self_,
-            )
+            Err(ClaripyError::FailedToExtractArg(range.unbind()))
         }
     }
 
@@ -602,7 +626,7 @@ impl BV {
         index: u32,
         size: u32,
     ) -> Result<Py<BV>, ClaripyError> {
-        Extract(py, (index + size) * 8, index * 8, self_)
+        Extract(py, (index + size) * 8 - 1, index * 8, self_)?.get().simplify(py)
     }
 
     pub fn get_byte(self_: Bound<BV>, py: Python, index: u32) -> Result<Py<BV>, ClaripyError> {
@@ -686,12 +710,11 @@ pub fn BVV(py: Python, value: Bound<PyAny>, size: Option<u32>) -> Result<Py<BV>,
         )?);
     }
     if let Ok(str_val) = value.extract::<String>() {
-        log::warn!("string value passed to BVV, assuming utf-8");
+        log::warn!("string value passed to BVV, assuming utf-8/big-endian");
         let bytes_val = str_val.as_bytes();
         let int_val = BigUint::from_bytes_le(bytes_val);
-        log::warn!("bytes value passed to BVV, assuming little-endian");
         if size.is_some() {
-            log::warn!("BVV size specified with bytes, value will be ignored");
+            log::warn!("BVV size specified with string, value will be ignored");
         }
         return Ok(BV::new(
             py,
