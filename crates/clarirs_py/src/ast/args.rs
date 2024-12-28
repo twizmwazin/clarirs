@@ -96,7 +96,7 @@ impl ExtractPyArgs for BitVecOp<'static> {
             BitVecOp::ZeroExt(expr, amount) | BitVecOp::SignExt(expr, amount) => {
                 vec![BV::new(py, expr)?.into_any(), amount.into_py_any(py)?]
             }
-            BitVecOp::Extract(expr, end, start) => vec![
+            BitVecOp::Extract(expr, start, end) => vec![
                 end.into_py_any(py)?,
                 start.into_py_any(py)?,
                 BV::new(py, expr)?.into_any(),
