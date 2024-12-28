@@ -205,6 +205,10 @@ impl FP {
         self.inner.depth() == 1
     }
 
+    pub fn simplify(&self, py: Python) -> Result<Py<FP>, ClaripyError> {
+        FP::new(py, &self.inner.simplify()?)
+    }
+
     pub fn size(&self) -> usize {
         self.inner.size() as usize
     }
