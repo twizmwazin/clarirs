@@ -513,29 +513,32 @@ mod tests {
     fn test_extract() {
         // Test case 1: Extract middle bits (inclusive bounds)
         let bv = BitVec::from_prim_with_size(0b11110000u8, 8);
-        let extracted = bv.extract(2, 5).unwrap();  // Was (2, 6)
+        let extracted = bv.extract(2, 5).unwrap();
         assert_eq!(extracted.to_biguint(), BigUint::from(0b1100u8));
         assert_eq!(extracted.len(), 4);
 
         // Test case 2: Extract spanning multiple words
         let bv = BitVec::from_prim_with_size(0xFFFFFFFFFFFFFFFFu64, 64);
-        let extracted = bv.extract(56, 63).unwrap();  // Was (56, 64)
+        let extracted = bv.extract(56, 63).unwrap();
         assert_eq!(extracted.to_biguint(), BigUint::from(0xFFu8));
         assert_eq!(extracted.len(), 8);
 
         // Test case 3: Extract single bit
         let bv = BitVec::from_prim_with_size(0b10101010u8, 8);
-        let extracted = bv.extract(3, 3).unwrap();  // Was (3, 4)
+        let extracted = bv.extract(3, 3).unwrap();
         assert_eq!(extracted.to_biguint(), BigUint::from(1u8));
         assert_eq!(extracted.len(), 1);
 
         // Test case 4: Extract at bounds
         let bv = BitVec::from_prim_with_size(0xFFu8, 8);
-        let extracted = bv.extract(0, 7).unwrap();  // Full extraction
+        let extracted = bv.extract(0, 7).unwrap();
         assert_eq!(extracted.to_biguint(), BigUint::from(0xFFu8));
         assert_eq!(extracted.len(), 8);
 
         // Additional test case for bounds checking
-        assert!(bv.extract(7, 8).is_err(), "Should fail on out-of-bounds extraction");
+        assert!(
+            bv.extract(7, 8).is_err(),
+            "Should fail on out-of-bounds extraction"
+        );
     }
 }
