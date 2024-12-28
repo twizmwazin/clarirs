@@ -24,6 +24,8 @@ pub enum ClaripyError {
     InvalidOp(String),
     #[error("Infallible")]
     Infallible,
+    #[error("Invalid argument: {0}")]
+    InvalidArgument(String),
 }
 
 impl From<ClarirsError> for ClaripyError {
