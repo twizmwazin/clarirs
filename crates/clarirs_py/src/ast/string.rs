@@ -148,6 +148,10 @@ impl PyAstString {
         self.inner.depth() == 1
     }
 
+    pub fn simplify(&self, py: Python) -> Result<Py<PyAstString>, ClaripyError> {
+        PyAstString::new(py, &self.inner.simplify()?)
+    }
+
     pub fn annotate(
         &self,
         py: Python,

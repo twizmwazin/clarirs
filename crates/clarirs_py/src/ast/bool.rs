@@ -255,12 +255,16 @@ impl Bool {
         self.inner.depth() == 1
     }
 
-    pub fn is_true(&self) -> bool {
-        self.inner.is_true()
+    pub fn simplify(&self, py: Python) -> Result<Py<Bool>, ClaripyError> {
+        Bool::new(py, &self.inner.simplify()?)
     }
 
-    pub fn is_false(&self) -> bool {
-        self.inner.is_false()
+    pub fn is_true(&self) -> Result<bool, ClaripyError> {
+        Ok(self.inner.simplify()?.is_true())
+    }
+
+    pub fn is_false(&self) -> Result<bool, ClaripyError> {
+        Ok(self.inner.simplify()?.is_false())
     }
 
     pub fn annotate(&self, py: Python, annotation: Bound<PyAny>) -> Result<Py<Bool>, ClaripyError> {
