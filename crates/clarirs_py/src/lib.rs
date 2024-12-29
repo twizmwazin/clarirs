@@ -7,6 +7,7 @@ pub mod ast;
 pub mod error;
 pub mod prelude;
 pub mod py_err;
+pub mod pyslicemethodsext;
 pub mod solver;
 
 use prelude::*;
