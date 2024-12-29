@@ -3,6 +3,7 @@ use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Not, Rem, Shl, Shr, Su
 
 use num_bigint::BigUint;
 use num_traits::cast::ToPrimitive;
+use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use thiserror::Error;
@@ -68,6 +69,17 @@ impl BitVec {
                 length,
             });
         }
+
+        if value == &BigUint::ZERO {
+            let mut words = SmallVec::new();
+            let num_words = (length + 63) / 64; // Number of 64-bit words
+            if num_words > 0 {
+                words.push(0);
+            }
+            return Ok(BitVec::new(words, length));
+        }
+
+        // Convert the BigUint to a BitVec
         Ok(BitVec::new(value.iter_u64_digits().collect(), length))
     }
 
@@ -166,6 +178,20 @@ impl BitVec {
         )
     }
 
+    pub fn to_u64(&self) -> Option<u64> {
+        if self.len() > 64 {
+            // The BitVec is too large to fit in a u64
+            return None;
+        }
+
+        // Combine all words into a single u64
+        let mut value: u64 = 0;
+        for (i, &word) in self.words.iter().enumerate() {
+            value |= word << (i * 64);
+        }
+        Some(value)
+    }
+
     /// Counts the number of leading zeros in the BitVec.
     pub fn leading_zeros(&self) -> usize {
         let mut count = 0;
@@ -254,6 +280,24 @@ impl BitVec {
         }
 
         Ok(BitVec::new(new_bv, to - from + 1))
+    }
+
+    // Power function for BitVec
+    pub fn pow(&self, exponent: &BitVec) -> Result<BitVec, BitVecError> {
+        let exp_value = exponent.to_biguint();
+        let mut result = BigUint::from(1u64);
+        let mut base_value = self.to_biguint();
+        let mut exp_value = exp_value.clone();
+
+        while !exp_value.is_zero() {
+            if &exp_value & BigUint::from(1u64) == BigUint::from(1u64) {
+                result *= &base_value;
+            }
+            base_value = &base_value * &base_value;
+            exp_value >>= 1;
+        }
+
+        BitVec::from_biguint(&result, self.len())
     }
 }
 

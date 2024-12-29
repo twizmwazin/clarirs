@@ -494,24 +494,12 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                 }
                 BitVecOp::Pow(arc, arc1) => {
                     simplify!(arc, arc1);
-
                     match (arc.op(), arc1.op()) {
-                        (BitVecOp::BVV(base), BitVecOp::BVV(exp)) => {
-                            let exponent = exp.to_usize().unwrap_or(0); // Convert exponent to usize
-
-                            // Perform exponentiation using BigUint's pow method
-                            let powered_value = base.to_biguint().pow(exponent.to_u32().unwrap());
-
-                            // Convert the full result back to a BitVec with its original bit length
-                            let result_bitvec =
-                                BitVec::from_biguint(&powered_value, powered_value.bits() as usize)
-                                    .expect("Failed to create BitVec from BigUint");
-
-                            ctx.bvv(result_bitvec)
-                        }
-                        _ => ctx.pow(&arc, &arc1), // Fallback for non-concrete values
+                        (BitVecOp::BVV(base), BitVecOp::BVV(exp)) => ctx.bvv(base.pow(exp)?),
+                        _ => ctx.pow(&arc, &arc1),
                     }
                 }
+
                 BitVecOp::ShL(arc, arc1) => {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
