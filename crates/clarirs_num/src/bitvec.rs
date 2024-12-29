@@ -187,7 +187,7 @@ impl BitVec {
         // Combine all words into a single u64
         let mut value: u64 = 0;
         for (i, &word) in self.words.iter().enumerate() {
-            value |= (word as u64) << (i * 64);
+            value |= word << (i * 64);
         }
         Some(value)
     }

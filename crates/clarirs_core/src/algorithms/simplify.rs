@@ -1,7 +1,6 @@
 use crate::ast::bitvec::BitVecExt;
 use crate::prelude::*;
 use clarirs_num::*;
-use clarirs_num::*;
 use num_bigint::{BigInt, BigUint};
 use num_traits::Num;
 use num_traits::One;
@@ -496,10 +495,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                 BitVecOp::Pow(arc, arc1) => {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
-                        (BitVecOp::BVV(base), BitVecOp::BVV(exp)) => base.pow(exp).map_or_else(
-                            |err| Err(ClarirsError::from(err)),
-                            |result_bitvec| ctx.bvv(result_bitvec),
-                        ),
+                        (BitVecOp::BVV(base), BitVecOp::BVV(exp)) => ctx.bvv(base.pow(exp)?),
                         _ => ctx.pow(&arc, &arc1),
                     }
                 }
