@@ -503,6 +503,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                         _ => ctx.pow(&arc, &arc1),
                     }
                 }
+
                 BitVecOp::ShL(arc, arc1) => {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
