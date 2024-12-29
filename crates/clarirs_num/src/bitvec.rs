@@ -3,6 +3,7 @@ use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Not, Rem, Shl, Shr, Su
 
 use num_bigint::BigUint;
 use num_traits::cast::ToPrimitive;
+use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use thiserror::Error;
@@ -279,6 +280,24 @@ impl BitVec {
         }
 
         Ok(BitVec::new(new_bv, to - from + 1))
+    }
+
+    // Power function for BitVec
+    pub fn pow(&self, exponent: &BitVec) -> Result<BitVec, BitVecError> {
+        let exp_value = exponent.to_biguint();
+        let mut result = BigUint::from(1u64);
+        let mut base_value = self.to_biguint();
+        let mut exp_value = exp_value.clone();
+
+        while !exp_value.is_zero() {
+            if &exp_value & BigUint::from(1u64) == BigUint::from(1u64) {
+                result *= &base_value;
+            }
+            base_value = &base_value * &base_value;
+            exp_value >>= 1;
+        }
+
+        BitVec::from_biguint(&result, self.len())
     }
 }
 
