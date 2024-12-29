@@ -275,19 +275,12 @@ impl BV {
                 stop += size;
             }
 
-            Extract(
-                self_.py(),
-                start as u32,
-                stop as u32,
-                self_,
-            )?.bind(py).get().simplify(py)
+            Extract(self_.py(), start as u32, stop as u32, self_)?
+                .bind(py)
+                .get()
+                .simplify(py)
         } else if let Ok(int_val) = range.extract::<u32>() {
-            Extract(
-                self_.py(),
-                int_val,
-                int_val,
-                self_,
-            )
+            Extract(self_.py(), int_val, int_val, self_)
         } else {
             Err(ClaripyError::FailedToExtractArg(range.unbind()))
         }
@@ -626,7 +619,9 @@ impl BV {
         index: u32,
         size: u32,
     ) -> Result<Py<BV>, ClaripyError> {
-        Extract(py, (index + size) * 8 - 1, index * 8, self_)?.get().simplify(py)
+        Extract(py, (index + size) * 8 - 1, index * 8, self_)?
+            .get()
+            .simplify(py)
     }
 
     pub fn get_byte(self_: Bound<BV>, py: Python, index: u32) -> Result<Py<BV>, ClaripyError> {
