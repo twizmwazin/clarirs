@@ -282,6 +282,44 @@ impl BitVec {
         Ok(BitVec::new(new_bv, to - from + 1))
     }
 
+    pub fn concat(&self, other: &Self) -> Self {
+        let mut new_bv = other.words.clone();
+        let shift = other.length % 64;
+
+        if shift == 0 {
+            // Words are perfectly aligned, just extend
+            new_bv.extend(self.words.iter().copied());
+        } else {
+            // Handle unaligned case
+
+            // Combine the words with appropriate shifting
+            for (i, &word) in self.words.iter().enumerate() {
+                if i == 0 {
+                    // First word needs to be merged with the last word of self
+                    if let Some(last) = new_bv.last_mut() {
+                        *last |= word << shift;
+                    }
+                    // Push the remaining bits to the next word
+                    new_bv.push(word >> (64 - shift));
+                } else {
+                    // Subsequent words need to be split across two words
+                    if let Some(last) = new_bv.last_mut() {
+                        *last |= word << shift;
+                        new_bv.push(word >> (64 - shift));
+                    }
+                }
+            }
+
+            // Check if we have an extra word
+            let expected_words = (self.len() + other.len() + 63) / 64;
+            if new_bv.len() > expected_words {
+                new_bv.pop();
+            }
+        }
+
+        BitVec::new(new_bv, self.length + other.length)
+    }
+
     // Power function for BitVec
     pub fn pow(&self, exponent: &BitVec) -> Result<BitVec, BitVecError> {
         let exp_value = exponent.to_biguint();
@@ -584,5 +622,30 @@ mod tests {
             bv.extract(7, 8).is_err(),
             "Should fail on out-of-bounds extraction"
         );
+    }
+
+    #[test]
+    fn test_concat() {
+        // Zero BitVecs
+        assert_eq!(
+            BitVec::from_prim(0u8).concat(&BitVec::from_prim(0u8)),
+            BitVec::from_prim(0u16)
+        );
+
+        // Test concatenating with unaligned bits
+        let bv1 = BitVec::from_prim_with_size(0b111u8, 3);
+        let bv2 = BitVec::from_prim_with_size(0b101u8, 3);
+        let result = bv1.concat(&bv2);
+        assert_eq!(result.words.len(), 1);
+        assert_eq!(result.length, 6);
+        assert_eq!(result.to_biguint(), BigUint::from(0b111101u8));
+
+        // Test multi-word
+        let bv1 = BitVec::from_prim_with_size(0xFFFFFFFFFFFFFFFFu64, 64);
+        let bv2 = BitVec::from_prim_with_size(0x0u64, 64);
+        let result = bv1.concat(&bv2);
+        assert_eq!(result.words.len(), 2);
+        assert_eq!(result.length, 128);
+        assert_eq!(result.to_biguint(), BigUint::from(0xFFFFFFFFFFFFFFFF0u128));
     }
 }

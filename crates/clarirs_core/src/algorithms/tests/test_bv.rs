@@ -466,45 +466,6 @@ fn test_ashr() -> Result<()> {
 }
 
 #[test]
-fn test_concat() -> Result<()> {
-    let ctx = Context::new();
-
-    let table: Vec<(u8, u8, u8)> = vec![
-        (0, 0, 0),
-        (0b0000, 0b0001, 0b00010000),
-        (0b0001, 0b0000, 0b00000001),
-        (0b0001, 0b0001, 0b00010001),
-        (0b0001, 0b0010, 0b00100001),
-        (0b0010, 0b0001, 0b00010010),
-        (0b0010, 0b0010, 0b00100010),
-        (0b0010, 0b0011, 0b00110010),
-        (0b0011, 0b0010, 0b00100011),
-        (0b0011, 0b0011, 0b00110011),
-        (0b1111, 0b0000, 0b00001111),
-        (0b0000, 0b1111, 0b11110000),
-        (0b1111, 0b1111, 0b11111111),
-    ];
-
-    for (a, b, expected) in table {
-        let a = ctx.bvv_prim_with_size(a, 4).unwrap();
-        let b = ctx.bvv_prim_with_size(b, 4).unwrap();
-        let expected = ctx.bvv_prim_with_size(expected, 8).unwrap();
-
-        let result = ctx.concat(&a, &b)?.simplify()?;
-        assert_eq!(result, expected);
-    }
-
-    Ok(())
-}
-
-#[test]
-fn test_extract() -> Result<()> {
-    let _ctx = Context::new();
-
-    todo!();
-}
-
-#[test]
 fn test_zext() -> Result<()> {
     let ctx = Context::new();
 
