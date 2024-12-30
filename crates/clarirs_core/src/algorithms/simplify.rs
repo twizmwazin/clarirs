@@ -598,18 +598,14 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                     simplify!(arc);
 
                     match arc.op() {
-                        BitVecOp::BVV(value) => {
-                            ctx.bvv(value.zero_extend(*num_bits as usize))
-                        }
+                        BitVecOp::BVV(value) => ctx.bvv(value.zero_extend(*num_bits as usize)),
                         _ => ctx.zero_ext(&arc, *num_bits),
                     }
                 }
                 BitVecOp::SignExt(arc, num_bits) => {
                     simplify!(arc);
                     match arc.op() {
-                        BitVecOp::BVV(value) => {
-                            ctx.bvv(value.sign_extend(*num_bits as usize))
-                        }
+                        BitVecOp::BVV(value) => ctx.bvv(value.sign_extend(*num_bits as usize)),
                         _ => ctx.sign_ext(&arc, *num_bits),
                     }
                 }
