@@ -337,6 +337,44 @@ impl BitVec {
 
         BitVec::from_biguint(&result, self.len())
     }
+
+    pub fn zero_extend(&self, additional_bits: usize) -> Self {
+        if additional_bits == 0 {
+            return self.clone();
+        }
+
+        let new_length = self.length + additional_bits;
+        let new_num_words = (new_length + 63) / 64;
+        let mut new_words = self.words.clone();
+
+        // Add new zero words if needed
+        while new_words.len() < new_num_words {
+            new_words.push(0);
+        }
+
+        BitVec::new(new_words, new_length)
+    }
+
+    pub fn sign_extend(&self, additional_bits: usize) -> Self {
+        if additional_bits == 0 {
+            return self.clone();
+        }
+
+        let new_length = self.length + additional_bits;
+        let new_num_words = (new_length + 63) / 64;
+        let mut new_words = self.words.clone();
+
+        // Get the sign bit (most significant bit)
+        let sign_bit = self.sign();
+
+        // Fill new words with either all 0s or all 1s based on sign bit
+        let fill_word = if sign_bit { u64::MAX } else { 0 };
+        while new_words.len() < new_num_words {
+            new_words.push(fill_word);
+        }
+
+        BitVec::new(new_words, new_length)
+    }
 }
 
 impl Debug for BitVec {
@@ -647,5 +685,57 @@ mod tests {
         assert_eq!(result.words.len(), 2);
         assert_eq!(result.length, 128);
         assert_eq!(result.to_biguint(), BigUint::from(0xFFFFFFFFFFFFFFFF0u128));
+    }
+
+    #[test]
+    fn test_zero_extend() {
+        // Test extending by 0 bits
+        let bv = BitVec::from_prim_with_size(0b1111u8, 4);
+        let extended = bv.zero_extend(0);
+        assert_eq!(extended.len(), 4);
+        assert_eq!(extended.to_biguint(), BigUint::from(0b1111u8));
+
+        // Test extending by a few bits
+        let bv = BitVec::from_prim_with_size(0b1111u8, 4);
+        let extended = bv.zero_extend(4);
+        assert_eq!(extended.len(), 8);
+        assert_eq!(extended.to_biguint(), BigUint::from(0b00001111u8));
+
+        // Test extending across word boundary
+        let bv = BitVec::from_prim_with_size(0xFFFFFFFFFFFFFFFFu64, 64);
+        let extended = bv.zero_extend(64);
+        assert_eq!(extended.len(), 128);
+        assert_eq!(extended.words.len(), 2);
+        assert_eq!(extended.words[0], 0xFFFFFFFFFFFFFFFF);
+        assert_eq!(extended.words[1], 0);
+    }
+
+    #[test]
+    fn test_sign_extend() {
+        // Test extending positive number
+        let bv = BitVec::from_prim_with_size(0b0111u8, 4);
+        let extended = bv.sign_extend(4);
+        assert_eq!(extended.len(), 8);
+        assert_eq!(extended.to_biguint(), BigUint::from(0b00000111u8));
+
+        // Test extending negative number
+        let bv = BitVec::from_prim_with_size(0b1111u8, 4);
+        let extended = bv.sign_extend(4);
+        assert_eq!(extended.len(), 8);
+        assert_eq!(extended.to_biguint(), BigUint::from(0b11111111u8));
+
+        // Test extending across word boundary
+        let bv = BitVec::from_prim_with_size(0x8000000000000000u64, 64);
+        let extended = bv.sign_extend(64);
+        assert_eq!(extended.len(), 128);
+        assert_eq!(extended.words.len(), 2);
+        assert_eq!(extended.words[0], 0x8000000000000000);
+        assert_eq!(extended.words[1], 0xFFFFFFFFFFFFFFFF);
+
+        // Test zero extension (no change)
+        let bv = BitVec::from_prim_with_size(0b1111u8, 4);
+        let extended = bv.sign_extend(0);
+        assert_eq!(extended.len(), 4);
+        assert_eq!(extended.to_biguint(), BigUint::from(0b1111u8));
     }
 }

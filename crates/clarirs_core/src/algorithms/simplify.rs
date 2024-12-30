@@ -4,7 +4,6 @@ use clarirs_num::*;
 use num_bigint::{BigInt, BigUint};
 use num_traits::Num;
 use num_traits::One;
-use num_traits::ToPrimitive;
 use num_traits::Zero;
 
 macro_rules! simplify {
@@ -599,45 +598,14 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                     simplify!(arc);
 
                     match arc.op() {
-                        BitVecOp::BVV(value) => {
-                            let extended_value = (value.clone()) << (*num_bits as usize); // Shift left by `num_bits`
-                            let extended_length = value.len() + *num_bits as usize; // New length includes additional bits
-
-                            // Create a new BitVec with the extended value and length
-                            ctx.bvv(BitVec::from_biguint(
-                                &extended_value.to_biguint(),
-                                extended_length,
-                            )?)
-                        }
+                        BitVecOp::BVV(value) => ctx.bvv(value.zero_extend(*num_bits as usize)),
                         _ => ctx.zero_ext(&arc, *num_bits),
                     }
                 }
                 BitVecOp::SignExt(arc, num_bits) => {
                     simplify!(arc);
                     match arc.op() {
-                        BitVecOp::BVV(value) => {
-                            // Calculate the extended length
-                            let extended_length = value.len() + *num_bits as usize;
-
-                            // Determine the sign bit of the original value
-                            let sign_bit = value.sign();
-
-                            // Extend the value based on the sign bit
-                            let extended_value = if sign_bit {
-                                // If the sign bit is 1 (negative), extend with 1s
-                                let mask = (!0 >> (64 - *num_bits) << value.len()) as u64;
-                                value.clone() | BitVec::from_prim_with_size(mask, extended_length)
-                            } else {
-                                // If the sign bit is 0 (positive), extend with 0s (just as ZeroExt)
-                                value.clone() << *num_bits as usize
-                            };
-
-                            // Create a new BitVec with the extended value and length
-                            ctx.bvv(BitVec::from_biguint(
-                                &extended_value.to_biguint(),
-                                extended_length,
-                            )?)
-                        }
+                        BitVecOp::BVV(value) => ctx.bvv(value.sign_extend(*num_bits as usize)),
                         _ => ctx.sign_ext(&arc, *num_bits),
                     }
                 }
