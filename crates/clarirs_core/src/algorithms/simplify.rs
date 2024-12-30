@@ -4,7 +4,6 @@ use clarirs_num::*;
 use num_bigint::{BigInt, BigUint};
 use num_traits::Num;
 use num_traits::One;
-use num_traits::ToPrimitive;
 use num_traits::Zero;
 
 macro_rules! simplify {

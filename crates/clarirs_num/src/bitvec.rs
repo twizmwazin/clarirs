@@ -339,7 +339,7 @@ impl BitVec {
     }
 
     pub fn zero_extend(&self, additional_bits: usize) -> Self {
-        if (additional_bits == 0) {
+        if additional_bits == 0 {
             return self.clone();
         }
 
