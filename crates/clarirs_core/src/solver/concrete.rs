@@ -6,18 +6,30 @@ pub struct ConcreteModel;
 
 impl<'c> Model<'c> for ConcreteModel {
     fn eval_bool(&self, expr: &BoolAst<'c>) -> Result<BoolAst<'c>, ClarirsError> {
+        if expr.symbolic() {
+            return Err(ClarirsError::UnsupportedOperation);
+        }
         expr.simplify()
     }
 
     fn eval_bitvec(&self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        if expr.symbolic() {
+            return Err(ClarirsError::UnsupportedOperation);
+        }
         expr.simplify()
     }
 
     fn eval_float(&self, expr: &FloatAst<'c>) -> Result<FloatAst<'c>, ClarirsError> {
+        if expr.symbolic() {
+            return Err(ClarirsError::UnsupportedOperation);
+        }
         expr.simplify()
     }
 
     fn eval_string(&self, expr: &StringAst<'c>) -> Result<StringAst<'c>, ClarirsError> {
+        if expr.symbolic() {
+            return Err(ClarirsError::UnsupportedOperation);
+        }
         expr.simplify()
     }
 }

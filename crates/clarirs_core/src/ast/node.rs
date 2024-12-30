@@ -18,8 +18,6 @@ pub struct AstNode<'c, O: Op<'c>> {
     #[serde(skip)]
     hash: u64,
     #[serde(skip)]
-    symbolic: bool,
-    #[serde(skip)]
     variables: HashSet<String>,
     #[serde(skip)]
     depth: u32,
@@ -63,7 +61,6 @@ where
 
 impl<'c, O: Op<'c> + Serialize> AstNode<'c, O> {
     pub(crate) fn new(ctx: &'c Context<'c>, op: O, hash: u64) -> Self {
-        let symbolic = op.child_iter().any(|child| child.symbolic());
         let variables = op.variables();
         let depth = op.depth();
 
@@ -71,7 +68,6 @@ impl<'c, O: Op<'c> + Serialize> AstNode<'c, O> {
             op,
             ctx,
             hash,
-            symbolic,
             variables,
             depth,
         }
@@ -86,7 +82,7 @@ impl<'c, O: Op<'c> + Serialize> AstNode<'c, O> {
     }
 
     pub fn symbolic(&self) -> bool {
-        self.symbolic
+        !self.variables.is_empty()
     }
 
     pub fn variables(&self) -> &HashSet<String> {
