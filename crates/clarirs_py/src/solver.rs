@@ -97,14 +97,17 @@ impl PyConcreteSolver {
         exprs.into_iter().map(|expr| self.eval(py, expr)).collect()
     }
 
-    // TODO: See corresponding function in clarirs_core/src/solver/solver.rs
-    // fn is_solution(
-    //     &mut self,
-    //     expr: Bound<Base>,
-    //     value: Bound<Base>,
-    // ) -> Result<bool, ClaripyError> {
-    //     Ok(self.solver.is_solution(&expr.get().ast, &value.get().ast)?)
-    // }
+    fn is_solution(
+        &mut self,
+        py: Python,
+        variable_values: HashMap<String, Bound<Base>>,
+    ) -> Result<bool, ClaripyError> {
+        let mut rust_variable_values = HashMap::new();
+        for (var, value) in variable_values {
+            rust_variable_values.insert(var, value.get().inner.clone());
+        }
+        Ok(self.inner.is_solution(&rust_variable_values)?)
+    }
 
     fn is_true(&mut self, expr: Bound<Bool>) -> Result<bool, ClaripyError> {
         Ok(self.inner.is_true(&expr.get().inner).unwrap())

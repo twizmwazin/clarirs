@@ -1,4 +1,5 @@
 use anyhow::Result;
+use std::collections::HashMap;
 
 use crate::prelude::*;
 
@@ -71,6 +72,18 @@ impl<'c> Solver<'c> for ConcreteSolver<'c> {
 
     fn model(&mut self) -> Result<Self::Model, ClarirsError> {
         Ok(ConcreteModel)
+    }
+
+    fn is_solution(
+        &mut self,
+        variable_values: &HashMap<String, AstRef<'c>>,
+    ) -> Result<bool, ClarirsError> {
+        for (var, value) in variable_values {
+            let var_ast = self.context().bvs(var, value.size())?;
+            let eq_constraint = self.context().eq_(&var_ast, value)?;
+            self.add(&eq_constraint)?;
+        }
+        self.satisfiable()
     }
 }
 
