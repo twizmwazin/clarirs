@@ -3,11 +3,10 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::LazyLock;
 
-use clarirs_core::ast::bitvec::{BitVecExt, BitVecOp};
+use clarirs_core::ast::bitvec::BitVecExt;
 use dashmap::DashMap;
 use num_bigint::{BigInt, BigUint};
 use pyo3::exceptions::{PyTypeError, PyValueError};
-use pyo3::types::PySliceMethods;
 use pyo3::types::{PyBytes, PyFrozenSet, PySlice, PyWeakrefReference};
 
 use crate::ast::{and, not, or, Xor};
