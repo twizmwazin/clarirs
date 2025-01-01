@@ -7,7 +7,6 @@ use clarirs_core::ast::bitvec::BitVecExt;
 use dashmap::DashMap;
 use num_bigint::{BigInt, BigUint};
 use pyo3::exceptions::{PyTypeError, PyValueError};
-use pyo3::types::PySliceMethods;
 use pyo3::types::{PyBytes, PyFrozenSet, PySlice, PyWeakrefReference};
 
 use crate::ast::{and, not, or, Xor};
@@ -254,6 +253,14 @@ impl BV {
     #[getter]
     pub fn length(&self) -> usize {
         self.size()
+    }
+
+    #[getter]
+    pub fn concrete_value(&self) -> Result<Option<BigUint>, ClaripyError> {
+        Ok(match self.inner.simplify()?.op() {
+            BitVecOp::BVV(ref bv) => Some(bv.as_biguint()),
+            _ => None,
+        })
     }
 
     pub fn __getitem__(self_: Bound<BV>, range: Bound<PyAny>) -> Result<Py<BV>, ClaripyError> {

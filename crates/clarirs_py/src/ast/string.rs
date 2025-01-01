@@ -152,6 +152,14 @@ impl PyAstString {
         PyAstString::new(py, &self.inner.simplify()?)
     }
 
+    #[getter]
+    pub fn concrete_value(&self) -> Result<Option<String>, ClaripyError> {
+        Ok(match self.inner.simplify()?.op() {
+            StringOp::StringV(value) => Some(value.clone()),
+            _ => None,
+        })
+    }
+
     pub fn annotate(
         &self,
         py: Python,

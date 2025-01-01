@@ -144,6 +144,13 @@ impl FP {
             Ok(this)
         }
     }
+
+    pub fn concrete_value(&self) -> Result<Option<f64>, ClaripyError> {
+        Ok(match self.inner.simplify()?.op() {
+            FloatOp::FPV(value) => value.to_f64(),
+            _ => None,
+        })
+    }
 }
 
 #[pymethods]
