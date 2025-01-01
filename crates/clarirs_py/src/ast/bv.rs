@@ -3,7 +3,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::LazyLock;
 
-use clarirs_core::ast::bitvec::BitVecExt;
+use clarirs_core::ast::bitvec::{BitVecExt, BitVecOp};
 use dashmap::DashMap;
 use num_bigint::{BigInt, BigUint};
 use pyo3::exceptions::{PyTypeError, PyValueError};
@@ -254,6 +254,14 @@ impl BV {
     #[getter]
     pub fn length(&self) -> usize {
         self.size()
+    }
+
+    #[getter]
+    pub fn concrete_value(&self) -> Result<Option<BigUint>, ClaripyError> {
+        Ok(match self.inner.simplify()?.op() {
+            BitVecOp::BVV(ref bv) => Some(bv.as_biguint()),
+            _ => None,
+        })
     }
 
     pub fn __getitem__(self_: Bound<BV>, range: Bound<PyAny>) -> Result<Py<BV>, ClaripyError> {

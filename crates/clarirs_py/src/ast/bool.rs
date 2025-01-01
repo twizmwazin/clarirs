@@ -267,6 +267,14 @@ impl Bool {
         Ok(self.inner.simplify()?.is_false())
     }
 
+    #[getter]
+    pub fn concrete_value(&self) -> Result<Option<bool>, ClaripyError> {
+        Ok(match self.inner.simplify()?.op() {
+            BooleanOp::BoolV(value) => Some(*value),
+            _ => None,
+        })
+    }
+
     pub fn annotate(&self, py: Python, annotation: Bound<PyAny>) -> Result<Py<Bool>, ClaripyError> {
         let pickle_dumps = py.import("pickle")?.getattr("dumps")?;
         let annotation_bytes = pickle_dumps
