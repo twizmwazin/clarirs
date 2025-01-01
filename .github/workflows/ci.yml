@@ -32,7 +32,7 @@ jobs:
           rustflags: ""
 
       - name: Clippy Check
-        run: cargo clippy --all-features
+        run: cargo clippy --all-features -- -D warnings
 
   test:
     name: Test on ${{ matrix.os }}

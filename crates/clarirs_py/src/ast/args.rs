@@ -103,8 +103,8 @@ impl ExtractPyArgs for BitVecOp<'static> {
             ],
             BitVecOp::Reverse(expr) => vec![BV::new(py, expr)?.into_any()],
             BitVecOp::FpToIEEEBV(expr) => vec![FP::new(py, expr)?.into_any()],
-            BitVecOp::FpToUBV(arc, _, fprm) => todo!(),
-            BitVecOp::FpToSBV(arc, _, fprm) => todo!(),
+            BitVecOp::FpToUBV(arc, _, _) => vec![FP::new(py, arc)?.into_any()],
+            BitVecOp::FpToSBV(arc, _, _) => vec![FP::new(py, arc)?.into_any()],
             BitVecOp::StrLen(expr) | BitVecOp::StrToBV(expr) => {
                 vec![PyAstString::new(py, expr)?.into_any()]
             }
@@ -147,8 +147,8 @@ impl ExtractPyArgs for FloatOp<'static> {
                 FP::new(py, expr)?.into_any(),
                 Py::new(py, PyRM::from(rm))?.into_any(),
             ],
-            FloatOp::FpToFp(arc, fsort, fprm) => todo!(),
-            FloatOp::BvToFpUnsigned(arc, fsort, fprm) => todo!(),
+            FloatOp::FpToFp(arc, _, _) => vec![FP::new(py, arc)?.into_any()],
+            FloatOp::BvToFpUnsigned(arc, _, _) => vec![BV::new(py, arc)?.into_any()],
             FloatOp::If(cond, then_, else_) => vec![
                 Bool::new(py, cond)?.into_any(),
                 FP::new(py, then_)?.into_any(),

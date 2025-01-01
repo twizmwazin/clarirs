@@ -9,7 +9,7 @@ use num_bigint::{BigInt, BigUint};
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::types::{PyBytes, PyFrozenSet, PySlice, PyWeakrefReference};
 
-use crate::ast::{and, not, or, Xor};
+use crate::ast::{and, not, or, xor};
 use crate::prelude::*;
 use crate::pyslicemethodsext::PySliceMethodsExt;
 
@@ -814,7 +814,7 @@ pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
         not,
         and,
         or,
-        Xor,
+        xor,
         Add,
         Sub,
         Mul,

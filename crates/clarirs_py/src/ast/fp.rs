@@ -269,10 +269,10 @@ pub fn FPV(py: Python, value: f64, sort: PyFSort) -> Result<Py<FP>, ClaripyError
 
 #[pyfunction]
 pub fn fpFP(
-    py: Python,
-    sign: Bound<BV>,
-    exponent: Bound<BV>,
-    significand: Bound<BV>,
+    _py: Python,
+    _sign: Bound<BV>,
+    _exponent: Bound<BV>,
+    _significand: Bound<BV>,
 ) -> Result<Py<FP>, ClaripyError> {
     todo!()
 }
