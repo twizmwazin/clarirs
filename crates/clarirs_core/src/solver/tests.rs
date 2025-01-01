@@ -8,7 +8,6 @@ fn test_min() -> Result<(), ClarirsError> {
 
     let a = ctx.bvv_prim(5u64)?;
     let b = ctx.bvv_prim(3u64)?;
-    let c = ctx.bvv_prim(7u64)?;
 
     let add_expr = ctx.add(&a, &b)?;
     let sub_expr = ctx.sub(&a, &b)?;
@@ -32,7 +31,6 @@ fn test_max() -> Result<(), ClarirsError> {
 
     let a = ctx.bvv_prim(5u64)?;
     let b = ctx.bvv_prim(3u64)?;
-    let c = ctx.bvv_prim(7u64)?;
 
     let add_expr = ctx.add(&a, &b)?;
     let sub_expr = ctx.sub(&a, &b)?;

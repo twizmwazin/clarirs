@@ -1,4 +1,6 @@
 pub mod concrete;
+#[cfg(test)]
+mod tests;
 
 use anyhow::Result;
 
@@ -111,9 +113,9 @@ pub trait Solver<'c>: Clone + HasContext<'c> {
     // performance reasons, though a decent solver should efficiently handle
     // this case.
 
-    /// Check if an expression is a solution to the current set of constraints.
-    /// Implementors may want override this method for performance reasons.
-    /// If the constraints are unsatisfiable, an error is returned.
+    // /// Check if an expression is a solution to the current set of constraints.
+    // /// Implementors may want override this method for performance reasons.
+    // /// If the constraints are unsatisfiable, an error is returned.
     // fn is_solution(
     //     &mut self,
     //     expr: &AstRef<'c>,
