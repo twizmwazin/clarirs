@@ -251,6 +251,11 @@ impl BV {
         self.size()
     }
 
+    #[getter]
+    pub fn length(&self) -> usize {
+        self.size()
+    }
+
     pub fn __getitem__(self_: Bound<BV>, range: Bound<PyAny>) -> Result<Py<BV>, ClaripyError> {
         if let Ok(slice) = range.downcast::<PySlice>() {
             if slice.step()?.is_some() {
