@@ -32,6 +32,14 @@ impl<'c> Model<'c> for ConcreteModel {
         }
         expr.simplify()
     }
+
+    fn min(&self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        expr.simplify()
+    }
+
+    fn max(&self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        expr.simplify()
+    }
 }
 
 /// A concrete solver. This solver is used to evaluate expressions in a concrete

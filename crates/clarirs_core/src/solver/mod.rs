@@ -1,4 +1,6 @@
 pub mod concrete;
+#[cfg(test)]
+mod tests;
 
 use anyhow::Result;
 
@@ -29,13 +31,43 @@ pub trait Model<'c> {
     /// Get the minimum value of an expression in the current model. If the constraints are
     /// unsatisfiable, an error is returned.
     fn min(&self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        todo!()
+        let mut current_expr = expr.clone();
+        let mut min_value = None;
+
+        loop {
+            match self.eval_bitvec(&current_expr) {
+                Ok(value) => {
+                    min_value = Some(value.clone());
+                    let constraint = expr.context().ult(&value, expr)?;
+                    current_expr = expr.context().if_(&constraint, &value, expr)?;
+                }
+                Err(ClarirsError::UnsatisfiableConstraints) => break,
+                Err(e) => return Err(e),
+            }
+        }
+
+        min_value.ok_or(ClarirsError::UnsatisfiableConstraints)
     }
 
     /// Get the maximum value of an expression in the current model. If the constraints are
     /// unsatisfiable, an error is returned.
     fn max(&self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        todo!()
+        let mut current_expr = expr.clone();
+        let mut max_value = None;
+
+        loop {
+            match self.eval_bitvec(&current_expr) {
+                Ok(value) => {
+                    max_value = Some(value.clone());
+                    let constraint = expr.context().ugt(&value, expr)?;
+                    current_expr = expr.context().if_(&constraint, &value, expr)?;
+                }
+                Err(ClarirsError::UnsatisfiableConstraints) => break,
+                Err(e) => return Err(e),
+            }
+        }
+
+        max_value.ok_or(ClarirsError::UnsatisfiableConstraints)
     }
 }
 
@@ -81,9 +113,9 @@ pub trait Solver<'c>: Clone + HasContext<'c> {
     // performance reasons, though a decent solver should efficiently handle
     // this case.
 
-    /// Check if an expression is a solution to the current set of constraints.
-    /// Implementors may want override this method for performance reasons.
-    /// If the constraints are unsatisfiable, an error is returned.
+    // /// Check if an expression is a solution to the current set of constraints.
+    // /// Implementors may want override this method for performance reasons.
+    // /// If the constraints are unsatisfiable, an error is returned.
     // fn is_solution(
     //     &mut self,
     //     expr: &AstRef<'c>,
