@@ -29,13 +29,43 @@ pub trait Model<'c> {
     /// Get the minimum value of an expression in the current model. If the constraints are
     /// unsatisfiable, an error is returned.
     fn min(&self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        todo!()
+        let mut current_expr = expr.clone();
+        let mut min_value = None;
+
+        loop {
+            match self.eval_bitvec(&current_expr) {
+                Ok(value) => {
+                    min_value = Some(value.clone());
+                    let constraint = expr.context().ult(&value, expr)?;
+                    current_expr = expr.context().if_(&constraint, &value, expr)?;
+                }
+                Err(ClarirsError::UnsatisfiableConstraints) => break,
+                Err(e) => return Err(e),
+            }
+        }
+
+        min_value.ok_or(ClarirsError::UnsatisfiableConstraints)
     }
 
     /// Get the maximum value of an expression in the current model. If the constraints are
     /// unsatisfiable, an error is returned.
     fn max(&self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        todo!()
+        let mut current_expr = expr.clone();
+        let mut max_value = None;
+
+        loop {
+            match self.eval_bitvec(&current_expr) {
+                Ok(value) => {
+                    max_value = Some(value.clone());
+                    let constraint = expr.context().ugt(&value, expr)?;
+                    current_expr = expr.context().if_(&constraint, &value, expr)?;
+                }
+                Err(ClarirsError::UnsatisfiableConstraints) => break,
+                Err(e) => return Err(e),
+            }
+        }
+
+        max_value.ok_or(ClarirsError::UnsatisfiableConstraints)
     }
 }
 
