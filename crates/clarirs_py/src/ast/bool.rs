@@ -11,7 +11,7 @@ use pyo3::types::PyFrozenSet;
 use pyo3::types::PyWeakrefMethods;
 use pyo3::types::PyWeakrefReference;
 
-use crate::ast::{and, not, or, Xor};
+use crate::ast::{and, not, or, xor};
 use crate::prelude::*;
 
 static BOOLS_COUNTER: AtomicUsize = AtomicUsize::new(0);
@@ -377,7 +377,7 @@ pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
         not,
         and,
         or,
-        Xor,
+        xor,
         Eq_,
         super::r#if,
         true_op,

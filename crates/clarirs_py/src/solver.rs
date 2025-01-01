@@ -92,7 +92,7 @@ impl PyConcreteSolver {
         &mut self,
         py: Python,
         exprs: Vec<Bound<Base>>,
-        max_solutions: u32,
+        _max_solutions: u32, // Concrete solver does not support multiple solutions
     ) -> Result<Vec<Py<Base>>, ClaripyError> {
         exprs.into_iter().map(|expr| self.eval(py, expr)).collect()
     }

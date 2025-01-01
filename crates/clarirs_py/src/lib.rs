@@ -163,7 +163,7 @@ pub fn clarirs(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
         ast::not,
         ast::and,
         ast::or,
-        ast::Xor,
+        ast::xor,
     );
 
     m.add_class::<ast::base::Base>()?;
