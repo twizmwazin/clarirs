@@ -207,6 +207,16 @@ impl BitVec {
         count.min(self.length) // Ensure count does not exceed the BitVec length
     }
 
+    // Creates and returns a BitVec with these zero-filled words.
+    pub fn zeros(length: usize) -> BitVec {
+        let mut words = SmallVec::new();
+        let num_words = (length + 63) / 64; // Number of 64-bit words
+        for _ in 0..num_words {
+            words.push(0);
+        }
+        BitVec::new(words, length)
+    }
+
     pub fn signed_lt(&self, other: &Self) -> bool {
         assert_eq!(
             self.length, other.length,

@@ -274,6 +274,10 @@ fn test_and() -> Result<()> {
         (2, 3, 2),
         (3, 2, 2),
         (3, 3, 3),
+        (u64::MAX, 0, 0),
+        (u64::MAX, u64::MAX, u64::MAX),
+        (u64::MAX, 1, 1),
+        (1, u64::MAX, 1),
     ];
 
     for (a, b, expected) in table {
@@ -303,6 +307,10 @@ fn test_or() -> Result<()> {
         (2, 3, 3),
         (3, 2, 3),
         (3, 3, 3),
+        (u64::MAX, 0, u64::MAX),
+        (u64::MAX, u64::MAX, u64::MAX),
+        (u64::MAX, 1, u64::MAX),
+        (1, u64::MAX, u64::MAX),
     ];
 
     for (a, b, expected) in table {
@@ -332,6 +340,10 @@ fn test_xor() -> Result<()> {
         (2, 3, 1),
         (3, 2, 1),
         (3, 3, 0),
+        (u64::MAX, 0, u64::MAX),
+        (u64::MAX, u64::MAX, 0),
+        (u64::MAX, 1, u64::MAX - 1),
+        (1, u64::MAX, u64::MAX - 1),
     ];
 
     for (a, b, expected) in table {
@@ -361,6 +373,9 @@ fn test_not() -> Result<()> {
         (7, u64::MAX - 7),
         (8, u64::MAX - 8),
         (9, u64::MAX - 9),
+        (u64::MAX, 0),
+        (u64::MAX - 1, 1),
+        (u64::MAX - 2, 2),
     ];
 
     for (a, expected) in table {
@@ -420,6 +435,22 @@ fn test_lshr() -> Result<()> {
         (2, 3, 0),
         (3, 2, 0),
         (3, 3, 0),
+        (0, 64, 0),
+        (0, 63, 0),
+        (64, 2, 16),
+        (64, 3, 8),
+        (64, 4, 4),
+        (64, 5, 2),
+        (64, 6, 1),
+        (64, 7, 0),
+        (0x8000000000000000, 0, 0x8000000000000000),
+        (0x8000000000000000, 1, 0x4000000000000000),
+        (0x8000000000000000, 63, 1),
+        (0x8000000000000000, 64, 0),
+        (u64::MAX, 0, u64::MAX),
+        (u64::MAX, 1, u64::MAX >> 1),
+        (u64::MAX, 63, 1),
+        (u64::MAX, 64, 0),
     ];
 
     for (a, b, expected) in table {
@@ -449,8 +480,22 @@ fn test_ashr() -> Result<()> {
         (2, 3, 0),
         (3, 2, 0),
         (3, 3, 0),
+        (64, 2, 16),
+        (64, 3, 8),
+        (64, 6, 1),
+        (64, 7, 0),
+        // Edge cases for signed numbers
         (u64::MAX, 1, u64::MAX),
         (u64::MAX, 2, u64::MAX),
+        (u64::MAX, 64, u64::MAX),
+        (0x8000000000000000, 0, 0x8000000000000000),
+        (0x8000000000000000, 1, 0xC000000000000000),
+        (0x8000000000000000, 63, 0xFFFFFFFFFFFFFFFF),
+        (0x8000000000000000, 64, 0xFFFFFFFFFFFFFFFF),
+        (0xFFFFFFFFFFFFFFFF, 0, 0xFFFFFFFFFFFFFFFF),
+        (0xFFFFFFFFFFFFFFFF, 1, 0xFFFFFFFFFFFFFFFF),
+        (0xFFFFFFFFFFFFFFFF, 63, 0xFFFFFFFFFFFFFFFF),
+        (0xFFFFFFFFFFFFFFFF, 64, 0xFFFFFFFFFFFFFFFF),
     ];
 
     for (a, b, expected) in table {
