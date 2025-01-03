@@ -175,6 +175,8 @@ pub fn clarirs(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     m.add_class::<annotation::PyAnnotation>()?;
     m.add_class::<annotation::SimplificationAvoidanceAnnotation>()?;
+    m.add_class::<annotation::RegionAnnotation>()?;
+    m.add_class::<annotation::UninitializedAnnotation>()?;
 
     m.add_class::<py_err::PyClaripyError>()?;
     m.add_class::<py_err::UnsatError>()?;
