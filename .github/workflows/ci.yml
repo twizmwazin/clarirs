@@ -53,5 +53,5 @@ jobs:
         run: cargo build --all-features
 
       - name: Run tests
-        run: cargo test --all-features
+        run: cargo test --all-features --no-fail-fast
         continue-on-error: true # FIXME: tests should be passing
