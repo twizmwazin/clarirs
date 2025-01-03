@@ -514,13 +514,22 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
                         (BitVecOp::BVV(value), BitVecOp::BVV(shift_amount)) => {
+                            let bit_width = value.len();
                             let shift_amount_usize = shift_amount.to_usize().unwrap_or(0);
-                            let result = value.clone() >> shift_amount_usize;
+
+                            let result = if shift_amount_usize >= bit_width {
+                                BitVec::zeros(bit_width)
+                            } else if shift_amount_usize == 0 {
+                                value.clone()
+                            } else {
+                                value.clone() >> shift_amount_usize
+                            };
                             ctx.bvv(result)
                         }
                         _ => ctx.lshr(&arc, &arc1),
                     }
                 }
+
                 BitVecOp::AShR(arc, arc1) => {
                     simplify!(arc, arc1);
 
@@ -529,35 +538,46 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                             let shift_amount_usize = shift_amount.to_usize().unwrap_or(0);
                             let bit_length = value.len();
 
-                            // Convert `BitVec` to `BigUint`
+                            // Convert value to BigUint
                             let unsigned_value = value.to_biguint();
 
-                            // Check the sign bit by determining if the original value is negative
+                            // Check sign bit
                             let sign_bit_set = (unsigned_value.clone() >> (bit_length - 1))
                                 & BigUint::one()
                                 != BigUint::zero();
 
-                            // Perform the arithmetic shift right
+                            // If shifting >= bit_length, return all-ones (if negative) or all-zeros (if positive)
+                            if shift_amount_usize >= bit_length {
+                                return if sign_bit_set {
+                                    ctx.bvv(BitVec::from_biguint_trunc(
+                                        &((BigUint::one() << bit_length) - BigUint::one()),
+                                        bit_length,
+                                    ))
+                                } else {
+                                    ctx.bvv(BitVec::zeros(bit_length))
+                                };
+                            }
+
+                            // Perform the shift
                             let unsigned_shifted = unsigned_value.clone() >> shift_amount_usize;
 
-                            // If the sign bit is set, extend the shifted result with ones in the higher bits
+                            // Extend the sign bit if needed
                             let result = if sign_bit_set {
-                                // Create a mask to fill higher bits with ones for negative values
-                                let mask = (BigUint::one() << (bit_length - shift_amount_usize))
-                                    - BigUint::one();
-                                unsigned_shifted | (mask << (bit_length - shift_amount_usize))
+                                // Create a mask to extend the sign bit
+                                let mask = ((BigUint::one() << shift_amount_usize)
+                                    - BigUint::one())
+                                    << (bit_length - shift_amount_usize);
+                                unsigned_shifted | mask
                             } else {
                                 unsigned_shifted
                             };
 
-                            // Convert the result back to `BitVec` and ensure it fits within the original bit length
-                            let result_bitvec = BitVec::from_biguint_trunc(&result, bit_length);
-
-                            ctx.bvv(result_bitvec)
+                            ctx.bvv(BitVec::from_biguint_trunc(&result, bit_length))
                         }
                         _ => ctx.ashr(&arc, &arc1),
                     }
                 }
+
                 BitVecOp::RotateLeft(arc, arc1) => {
                     simplify!(arc, arc1);
 
