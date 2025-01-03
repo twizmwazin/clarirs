@@ -689,12 +689,15 @@ mod tests {
         assert_eq!(result.to_biguint(), BigUint::from(0b111101u8));
 
         // Test multi-word
-        let bv1 = BitVec::from_prim_with_size(0xFFFFFFFFFFFFFFFFu64, 64);
+        let bv1 = BitVec::from_prim_with_size(0xFFFF_FFFF_FFFF_FFFF_u64, 64);
         let bv2 = BitVec::from_prim_with_size(0x0u64, 64);
         let result = bv1.concat(&bv2);
         assert_eq!(result.words.len(), 2);
         assert_eq!(result.length, 128);
-        assert_eq!(result.to_biguint(), BigUint::from(0xFFFFFFFFFFFFFFFF0u128));
+        assert_eq!(
+            result.to_biguint(),
+            BigUint::from(0xFFFF_FFFF_FFFF_FFFF_0000_0000_0000_0000_u128)
+        );
     }
 
     #[test]
