@@ -698,6 +698,20 @@ mod tests {
             result.to_biguint(),
             BigUint::from(0xFFFF_FFFF_FFFF_FFFF_0000_0000_0000_0000_u128)
         );
+
+        // Test concatenating two 40-bit values
+        let bv1 = BitVec::from_prim_with_size(0xFFFF_FFFFFFu64, 40);
+        let bv2 = BitVec::from_prim_with_size(0xAAAA_AAAAAAu64, 40);
+        let result = bv1.concat(&bv2);
+        assert_eq!(result.words.len(), 2);
+        assert_eq!(result.length, 80);
+        assert_eq!(
+            result.to_biguint(),
+            BigUint::from_bytes_be(&[
+                0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                0xAA, 0xAA, 0xAA, 0xAA, 0xAA
+            ])
+        );
     }
 
     #[test]
