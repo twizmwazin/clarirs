@@ -354,7 +354,10 @@ impl BitVec {
 
     pub fn sign_extend(&self, additional_bits: usize) -> Self {
         let extension = if self.sign() {
-            BitVec::from_biguint_trunc(&((BigUint::from(1u8) << additional_bits) - 1u8), additional_bits)
+            BitVec::from_biguint_trunc(
+                &((BigUint::from(1u8) << additional_bits) - 1u8),
+                additional_bits,
+            )
         } else {
             BitVec::from_biguint_trunc(&BigUint::zero(), additional_bits)
         };
