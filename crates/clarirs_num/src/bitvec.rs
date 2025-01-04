@@ -3,6 +3,7 @@ use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Not, Rem, Shl, Shr, Su
 
 use num_bigint::BigUint;
 use num_traits::cast::ToPrimitive;
+use num_traits::ops::bytes;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -126,9 +127,25 @@ impl BitVec {
         }
     }
 
-    pub fn reverse(&self) -> Self {
-        let mut new_bv = self.words.clone();
-        new_bv.reverse();
+    pub fn reverse_bytes(&self) -> Self {
+        let mut bytes = self
+            .words
+            .iter()
+            .flat_map(|w| w.to_be_bytes())
+            .collect::<Vec<u8>>();
+        if self.len() % 64 != 0 {
+            bytes.truncate((self.len() + 7) / 8);
+        }
+        bytes.reverse();
+        let mut new_bv = SmallVec::new();
+        for chunk in bytes.chunks(8) {
+            let mut word = 0u64;
+            for (i, &byte) in chunk.iter().enumerate() {
+                word |= (byte as u64) << (i * 8);
+            }
+            new_bv.push(word);
+        }
+
         BitVec::new(new_bv, self.length)
     }
 
