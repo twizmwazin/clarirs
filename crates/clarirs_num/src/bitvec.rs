@@ -349,41 +349,16 @@ impl BitVec {
     }
 
     pub fn zero_extend(&self, additional_bits: usize) -> Self {
-        if additional_bits == 0 {
-            return self.clone();
-        }
-
-        let new_length = self.length + additional_bits;
-        let new_num_words = (new_length + 63) / 64;
-        let mut new_words = self.words.clone();
-
-        // Add new zero words if needed
-        while new_words.len() < new_num_words {
-            new_words.push(0);
-        }
-
-        BitVec::new(new_words, new_length)
+        BitVec::from_prim_with_size(0u8, additional_bits).concat(self)
     }
 
     pub fn sign_extend(&self, additional_bits: usize) -> Self {
-        if additional_bits == 0 {
-            return self.clone();
-        }
-
-        let new_length = self.length + additional_bits;
-        let new_num_words = (new_length + 63) / 64;
-        let mut new_words = self.words.clone();
-
-        // Get the sign bit (most significant bit)
-        let sign_bit = self.sign();
-
-        // Fill new words with either all 0s or all 1s based on sign bit
-        let fill_word = if sign_bit { u64::MAX } else { 0 };
-        while new_words.len() < new_num_words {
-            new_words.push(fill_word);
-        }
-
-        BitVec::new(new_words, new_length)
+        let extension = if self.sign() {
+            BitVec::from_biguint_trunc(&((BigUint::from(1u8) << additional_bits) - 1u8), additional_bits)
+        } else {
+            BitVec::from_biguint_trunc(&BigUint::zero(), additional_bits)
+        };
+        extension.concat(self)
     }
 }
 
