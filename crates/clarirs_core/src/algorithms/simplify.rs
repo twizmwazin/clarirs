@@ -700,7 +700,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                     match arc.op() {
                         BitVecOp::BVV(value) => {
                             // Reverse the bits in each word
-                            let reversed_bits = value.reverse();
+                            let reversed_bits = value.reverse_bytes();
 
                             // Return the reversed BitVec
                             ctx.bvv(reversed_bits)
