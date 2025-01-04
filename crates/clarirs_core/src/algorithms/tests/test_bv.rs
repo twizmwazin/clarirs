@@ -577,7 +577,7 @@ fn test_sext() -> Result<()> {
         (
             ctx.bvv_prim_with_size(15u8, 4)?,
             1,
-            ctx.bvv_prim_with_size(15u8, 5)?,
+            ctx.bvv_prim_with_size(31u8, 5)?,
         ),
     ];
 
