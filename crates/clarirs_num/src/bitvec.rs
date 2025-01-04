@@ -631,15 +631,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_bv_to_u64() {
-        todo!()
-        // assert_eq!(bv_to_usize(&vec![false, false, false, false]), 0);
-        // assert_eq!(bv_to_usize(&vec![true, false, false, false]), 1);
-        // assert_eq!(bv_to_usize(&vec![false, false, false, true]), 8);
-        // assert_eq!(bv_to_usize(&vec![true, true, true, true]), 15);
-    }
-
-    #[test]
     fn test_extract() {
         // Test case 1: Extract middle bits (inclusive bounds)
         let bv = BitVec::from_prim_with_size(0b11110000u8, 8);
