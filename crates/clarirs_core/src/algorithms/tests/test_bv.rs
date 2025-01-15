@@ -579,6 +579,41 @@ fn test_sext() -> Result<()> {
             1,
             ctx.bvv_prim_with_size(31u8, 5)?,
         ),
+        (
+            ctx.bvv_prim_with_size(0u8, 1)?,
+            1,
+            ctx.bvv_prim_with_size(0u8, 2)?,
+        ),
+        (
+            ctx.bvv_prim_with_size(1u8, 1)?,
+            1,
+            ctx.bvv_prim_with_size(1u8, 2)?,
+        ),
+        (
+            ctx.bvv_prim_with_size(5u8, 1)?,
+            1,
+            ctx.bvv_prim_with_size(5u8, 2)?,
+        ),
+        (
+            ctx.bvv_prim_with_size(8u8, 4)?,
+            4,
+            ctx.bvv_prim_with_size(8u8, 8)?,
+        ),
+        (
+            ctx.bvv_prim_with_size(128u8, 8)?,
+            8,
+            ctx.bvv_prim_with_size(128u16, 16)?,
+        ),
+        (
+            ctx.bvv_prim_with_size(5u8, 4)?,
+            4,
+            ctx.bvv_prim_with_size(5u8, 8)?,
+        ),
+        (
+            ctx.bvv_prim_with_size(251u8, 8)?,
+            4,
+            ctx.bvv_prim_with_size(251u8, 12)?,
+        ),
     ];
 
     for (a, b, expected) in table {
@@ -603,6 +638,10 @@ fn test_reverse() -> Result<()> {
         (7, 1 << 61 | 1 << 62 | 1 << 63),
         (8, 1 << 60),
         (9, 1 << 60 | 1 << 63),
+        (1 << 63, 1),
+        (1 << 62, 2),
+        (128, 1 << 56),
+        (255, 0xFF00000000000000),
     ];
 
     for (a, expected) in table {

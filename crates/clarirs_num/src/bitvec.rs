@@ -127,9 +127,17 @@ impl BitVec {
     }
 
     pub fn reverse(&self) -> Self {
-        let mut new_bv = self.words.clone();
-        new_bv.reverse();
-        BitVec::new(new_bv, self.length)
+        let mut new_words = SmallVec::<[u64; 1]>::with_capacity(self.words.len());
+
+        for &word in &self.words {
+            // Reverse the bits within each word
+            let reversed_word = word.reverse_bits(); // Built-in method for bitwise reversal
+            new_words.push(reversed_word);
+        }
+
+        // Reverse the order of words in the SmallVec
+        new_words.reverse();
+        BitVec::new(new_words, self.length)
     }
 
     // Check if all bits in the BitVec are 1
