@@ -131,7 +131,7 @@ impl BitVec {
 
         for &word in &self.words {
             // Reverse the bits within each word
-            let reversed_word = word.reverse_bits(); // Built-in method for bitwise reversal
+            let reversed_word = word.reverse_bits();
             new_words.push(reversed_word);
         }
 
