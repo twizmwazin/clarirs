@@ -16,6 +16,11 @@ fn test_add() -> Result<()> {
         (2, 3, 5),
         (3, 2, 5),
         (3, 3, 6),
+        (u64::MAX, 0, u64::MAX),
+        (0, u64::MAX, u64::MAX),
+        (u64::MAX, 1, 0),
+        (1, u64::MAX, 0),
+        (u64::MAX, u64::MAX, u64::MAX - 1),
     ];
 
     for (a, b, expected) in table {
