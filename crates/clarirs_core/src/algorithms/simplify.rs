@@ -422,7 +422,6 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
 
                     match (arc.op(), arc1.op()) {
                         (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
-                            // Perform unsigned division
                             let quotient = BitVec::from_biguint_trunc(
                                 &(value1.to_biguint() / value2.to_biguint()),
                                 value1.len(),
@@ -432,34 +431,40 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                         _ => ctx.udiv(&arc, &arc1),
                     }
                 }
-                BitVecOp::SDiv(arc, arc1) => {
-                    simplify!(arc, arc1);
+                BitVecOp::SDiv(dividend_ast, divisor_ast) => {
+                    simplify!(dividend_ast, divisor_ast);
 
-                    match (arc.op(), arc1.op()) {
-                        (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
-                            // Convert `value1` and `value2` to `BigInt` to handle signed division
-                            let signed_value1 = BigInt::from(value1.to_biguint());
-                            let signed_value2 = BigInt::from(value2.to_biguint());
+                    match (dividend_ast.op(), divisor_ast.op()) {
+                        (BitVecOp::BVV(dividend_val), BitVecOp::BVV(divisor_val)) => {
+                            let bitwidth = dividend_val.len();
+                            let result_neg = dividend_val.sign() ^ divisor_val.sign();
 
-                            // Perform signed division
-                            let signed_quotient = signed_value1 / signed_value2;
+                            let abs_dividend = dividend_val.to_biguint_abs();
+                            let abs_divisor = divisor_val.to_biguint_abs();
 
-                            // Convert the result back to `BitVec` and ensure it fits within the original bit length
-                            let result_bitvec = BitVec::from_biguint_trunc(
-                                &signed_quotient.to_biguint().unwrap(),
-                                value1.len(),
-                            );
-                            ctx.bvv(result_bitvec)
+                            if abs_divisor.is_zero() {
+                                panic!("Division by zero");
+                            }
+
+                            let abs_quotient = &abs_dividend / &abs_divisor;
+                            let mut quotient_bv =
+                                BitVec::from_biguint_trunc(&abs_quotient, bitwidth);
+
+                            if result_neg {
+                                quotient_bv = (!quotient_bv).add_one_in_same_bitwidth(bitwidth);
+                            }
+
+                            ctx.bvv(quotient_bv)
                         }
-                        _ => ctx.sdiv(&arc, &arc1),
+                        _ => ctx.sdiv(&dividend_ast, &divisor_ast),
                     }
                 }
+
                 BitVecOp::URem(arc, arc1) => {
                     simplify!(arc, arc1);
 
                     match (arc.op(), arc1.op()) {
                         (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
-                            // Perform unsigned remainder
                             let remainder = BitVec::from_biguint_trunc(
                                 &(value1.to_biguint() % value2.to_biguint()),
                                 value1.len(),
