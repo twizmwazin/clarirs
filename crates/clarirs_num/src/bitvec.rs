@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use thiserror::Error;
 
+use num_traits::One;
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Error)]
 pub enum BitVecError {
     #[error("BitVector too short: {value:?} is too short for length {length}")]
@@ -205,6 +207,37 @@ impl BitVec {
             }
         }
         count.min(self.length) // Ensure count does not exceed the BitVec length
+    }
+
+    // Adds 1 to the current `BitVec` while ensuring the result is truncated to the given `bitwidth`.
+    pub fn add_one_in_same_bitwidth(&self, bitwidth: usize) -> Self {
+        // Create a BitVec for the constant 1 of the same bitwidth.
+        let one = BitVec::from_prim_with_size(1u64, bitwidth);
+        // .expect("Could not create 1 as a bitvec");
+
+        let self_big = self.to_biguint();
+        let one_big = one.to_biguint();
+
+        // Add them in BigUint space.
+        let sum_big = self_big + one_big;
+
+        // Convert back to a BitVec, truncating to `bitwidth`
+        let sum_bv = BitVec::from_biguint_trunc(&sum_big, bitwidth);
+
+        sum_bv
+    }
+
+    pub fn to_biguint_abs(&self) -> BigUint {
+        let n = self.to_biguint();
+        if !self.sign() {
+            // Non-negative
+            n
+        } else {
+            // Negative: 2^bitwidth - n
+            let bitwidth = self.len();
+            let two_pow_bw = BigUint::one() << bitwidth;
+            &two_pow_bw - &n
+        }
     }
 
     // Creates and returns a BitVec with these zero-filled words.

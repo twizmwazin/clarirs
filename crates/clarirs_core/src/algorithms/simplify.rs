@@ -5,6 +5,7 @@ use num_bigint::{BigInt, BigUint};
 use num_traits::Num;
 use num_traits::One;
 use num_traits::Zero;
+use serde::de::value;
 
 macro_rules! simplify {
     ($($var:ident),*) => {
@@ -468,29 +469,39 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                         _ => ctx.urem(&arc, &arc1),
                     }
                 }
-                BitVecOp::SRem(arc, arc1) => {
-                    simplify!(arc, arc1);
+                BitVecOp::SRem(dividend_ast, divisor_ast) => {
+                    simplify!(dividend_ast, divisor_ast);
 
-                    match (arc.op(), arc1.op()) {
-                        (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
-                            let unsigned_remainder = value1.to_biguint() % value2.to_biguint();
+                    match (dividend_ast.op(), divisor_ast.op()) {
+                        (BitVecOp::BVV(dividend_val), BitVecOp::BVV(divisor_val)) => {
+                            let bitwidth = dividend_val.len();
 
-                            // Check the sign of the dividend (value1)
-                            let is_negative = value1.sign();
+                            // Convert each operand to its absolute BigUint value
+                            let abs_dividend = dividend_val.to_biguint_abs();
+                            let abs_divisor = divisor_val.to_biguint_abs();
 
-                            // Convert unsigned remainder to signed form if dividend is negative
-                            let remainder = if is_negative {
-                                // Negate the remainder
-                                -BitVec::from_biguint_trunc(&unsigned_remainder, value1.len())
+                            // Compute the remainder of these absolute values
+                            if abs_divisor.is_zero() {
+                                panic!("Division by zero");
+                            }
+                            let unsigned_remainder = abs_dividend % abs_divisor;
+
+                            let raw_rem = BitVec::from_biguint_trunc(&unsigned_remainder, bitwidth);
+
+                            // If the original dividend is negative, do two’s complement negation: (NOT + 1)
+                            let final_rem = if dividend_val.sign() {
+                                let inverted = !raw_rem;
+                                inverted.add_one_in_same_bitwidth(bitwidth)
                             } else {
-                                BitVec::from_biguint_trunc(&unsigned_remainder, value1.len())
+                                raw_rem
                             };
 
-                            ctx.bvv(remainder)
+                            ctx.bvv(final_rem)
                         }
-                        _ => ctx.srem(&arc, &arc1),
+                        _ => ctx.srem(&dividend_ast, &divisor_ast),
                     }
                 }
+
                 BitVecOp::Pow(arc, arc1) => {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
