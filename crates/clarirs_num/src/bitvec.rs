@@ -222,9 +222,7 @@ impl BitVec {
         let sum_big = self_big + one_big;
 
         // Convert back to a BitVec, truncating to `bitwidth`
-        let sum_bv = BitVec::from_biguint_trunc(&sum_big, bitwidth);
-
-        sum_bv
+        BitVec::from_biguint_trunc(&sum_big, bitwidth)
     }
 
     pub fn to_biguint_abs(&self) -> BigUint {
