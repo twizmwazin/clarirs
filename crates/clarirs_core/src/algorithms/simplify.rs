@@ -436,25 +436,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
 
                     match (dividend_ast.op(), divisor_ast.op()) {
                         (BitVecOp::BVV(dividend_val), BitVecOp::BVV(divisor_val)) => {
-                            let bitwidth = dividend_val.len();
-                            let result_neg = dividend_val.sign() ^ divisor_val.sign();
-
-                            let abs_dividend = dividend_val.to_biguint_abs();
-                            let abs_divisor = divisor_val.to_biguint_abs();
-
-                            if abs_divisor.is_zero() {
-                                panic!("Division by zero");
-                            }
-
-                            let abs_quotient = &abs_dividend / &abs_divisor;
-                            let mut quotient_bv =
-                                BitVec::from_biguint_trunc(&abs_quotient, bitwidth);
-
-                            if result_neg {
-                                quotient_bv = (!quotient_bv).add_one_in_same_bitwidth(bitwidth);
-                            }
-
-                            ctx.bvv(quotient_bv)
+                            ctx.bvv(dividend_val.sdiv(&divisor_val))
                         }
                         _ => ctx.sdiv(&dividend_ast, &divisor_ast),
                     }
@@ -465,11 +447,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
 
                     match (arc.op(), arc1.op()) {
                         (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
-                            let remainder = BitVec::from_biguint_trunc(
-                                &(value1.to_biguint() % value2.to_biguint()),
-                                value1.len(),
-                            );
-                            ctx.bvv(remainder)
+                            ctx.bvv(value1.urem(&value2))
                         }
                         _ => ctx.urem(&arc, &arc1),
                     }
@@ -479,29 +457,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
 
                     match (dividend_ast.op(), divisor_ast.op()) {
                         (BitVecOp::BVV(dividend_val), BitVecOp::BVV(divisor_val)) => {
-                            let bitwidth = dividend_val.len();
-
-                            // Convert each operand to its absolute BigUint value
-                            let abs_dividend = dividend_val.to_biguint_abs();
-                            let abs_divisor = divisor_val.to_biguint_abs();
-
-                            // Compute the remainder of these absolute values
-                            if abs_divisor.is_zero() {
-                                panic!("Division by zero");
-                            }
-                            let unsigned_remainder = abs_dividend % abs_divisor;
-
-                            let raw_rem = BitVec::from_biguint_trunc(&unsigned_remainder, bitwidth);
-
-                            // If the original dividend is negative, do two’s complement negation: (NOT + 1)
-                            let final_rem = if dividend_val.sign() {
-                                let inverted = !raw_rem;
-                                inverted.add_one_in_same_bitwidth(bitwidth)
-                            } else {
-                                raw_rem
-                            };
-
-                            ctx.bvv(final_rem)
+                            ctx.bvv(dividend_val.srem(&divisor_val))
                         }
                         _ => ctx.srem(&dividend_ast, &divisor_ast),
                     }

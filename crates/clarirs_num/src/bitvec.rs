@@ -248,6 +248,56 @@ impl BitVec {
         BitVec::new(words, length)
     }
 
+    pub fn urem(&self, other: &Self) -> Self {
+        if other.is_zero() {
+            return self.clone();
+        }
+        let bitwidth = self.len();
+        let remainder = self.to_biguint() % other.to_biguint();
+        BitVec::from_biguint_trunc(&remainder, bitwidth)
+    }
+
+    pub fn srem(&self, other: &Self) -> Self {
+        if other.is_zero() {
+            return self.clone();
+        }
+        let bitwidth = self.len();
+
+        // Compute absolute values in BigUint space
+        let abs_dividend = self.to_biguint_abs();
+        let abs_divisor = other.to_biguint_abs();
+        let unsigned_remainder = abs_dividend % abs_divisor;
+        let raw_rem = BitVec::from_biguint_trunc(&unsigned_remainder, bitwidth);
+
+        // If the original dividend is negative, apply two’s complement (NOT + 1)
+        if self.sign() {
+            (!raw_rem).add_one_in_same_bitwidth(bitwidth)
+        } else {
+            raw_rem
+        }
+    }
+
+    pub fn sdiv(&self, other: &Self) -> Self {
+        let bitwidth = self.len();
+        let result_neg = self.sign() ^ other.sign();
+
+        let abs_dividend = self.to_biguint_abs();
+        let abs_divisor = other.to_biguint_abs();
+        if abs_divisor.is_zero() {
+            // Return self if divisor is zero
+            return self.clone();
+        }
+
+        let abs_quotient = &abs_dividend / &abs_divisor;
+        let mut quotient_bv = BitVec::from_biguint_trunc(&abs_quotient, bitwidth);
+
+        if result_neg {
+            quotient_bv = (!quotient_bv).add_one_in_same_bitwidth(bitwidth);
+        }
+
+        quotient_bv
+    }
+
     pub fn signed_lt(&self, other: &Self) -> bool {
         assert_eq!(
             self.length, other.length,

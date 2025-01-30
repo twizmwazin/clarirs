@@ -146,33 +146,6 @@ fn test_udiv() -> Result<()> {
     Ok(())
 }
 
-// #[test]
-// fn test_sdiv() -> Result<()> {
-//     let ctx = Context::new();
-
-//     let table: Vec<(u64, u64, u64)> = vec![
-//         (0, 1, 0),
-//         (1, 1, 1),
-//         (1, 2, 0),
-//         (2, 1, 2),
-//         (2, 2, 1),
-//         (2, 3, 0),
-//         (3, 2, 1),
-//         (3, 3, 1),
-//     ];
-
-//     for (a, b, expected) in table {
-//         let a = ctx.bvv_prim(a).unwrap();
-//         let b = ctx.bvv_prim(b).unwrap();
-//         let expected = ctx.bvv_prim(expected).unwrap();
-
-//         let result = ctx.sdiv(&a, &b)?.simplify()?;
-//         assert_eq!(result, expected);
-//     }
-
-//     Ok(())
-// }
-
 #[test]
 fn test_sdiv() -> Result<()> {
     let ctx = Context::new();
@@ -186,6 +159,7 @@ fn test_sdiv() -> Result<()> {
         (2, 3, 0),
         (3, 2, 1),
         (3, 3, 1),
+        (3, 0, 3),
         (-1, 1, -1),
         (-2, 3, 0),
         (-3, 2, -1),
@@ -247,6 +221,7 @@ fn test_urem() -> Result<()> {
         (4, 2, 0),
         (5, 2, 1),
         (5, 5, 0),
+        (5, 0, 5),
         (10, 3, 1),
         (10, 5, 0),
         (15, 4, 3),
@@ -280,7 +255,7 @@ fn test_srem() -> Result<()> {
     let table: Vec<(i64, i64, i64)> = vec![
         (0, 1, 0),
         (1, 1, 0),
-        (1, 0, 2),
+        (1, 0, 1),
         (1, 2, 1),
         (2, 1, 0),
         (2, 2, 0),
