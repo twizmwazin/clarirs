@@ -578,30 +578,42 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                     }
                 }
 
+                // BitVecOp::RotateLeft(arc, arc1) => {
+                //     simplify!(arc, arc1);
+
+                //     match (arc.op(), arc1.op()) {
+                //         (BitVecOp::BVV(value_bv), BitVecOp::BVV(rotate_amount_bv)) => {
+                //             let rotate_amount_usize =
+                //                 rotate_amount_bv.to_usize().unwrap_or(0) % value_bv.len();
+                //             let bit_length = value_bv.len();
+
+                //             let value_biguint = value_bv.to_biguint();
+
+                //             use num_bigint::BigUint;
+                //             use num_traits::One;
+
+                //             let mask = (BigUint::one() << bit_length) - BigUint::one();
+
+                //             let left_shifted = (&value_biguint << rotate_amount_usize) & &mask;
+                //             let right_shifted =
+                //                 &value_biguint >> (bit_length - rotate_amount_usize);
+                //             let rotated_biguint = left_shifted | right_shifted;
+
+                //             let rotated_bv = BitVec::from_biguint(&rotated_biguint, bit_length);
+
+                //             ctx.bvv(rotated_bv?)
+                //         }
+                //         _ => ctx.rotate_left(&arc, &arc1),
+                //     }
+                // }
                 BitVecOp::RotateLeft(arc, arc1) => {
                     simplify!(arc, arc1);
 
                     match (arc.op(), arc1.op()) {
-                        (BitVecOp::BVV(value_bv), BitVecOp::BVV(rotate_amount_bv)) => {
-                            let rotate_amount_usize =
-                                rotate_amount_bv.to_usize().unwrap_or(0) % value_bv.len();
-                            let bit_length = value_bv.len();
-
-                            let value_biguint = value_bv.to_biguint();
-
-                            use num_bigint::BigUint;
-                            use num_traits::One;
-
-                            let mask = (BigUint::one() << bit_length) - BigUint::one();
-
-                            let left_shifted = (&value_biguint << rotate_amount_usize) & &mask;
-                            let right_shifted =
-                                &value_biguint >> (bit_length - rotate_amount_usize);
-                            let rotated_biguint = left_shifted | right_shifted;
-
-                            let rotated_bv = BitVec::from_biguint(&rotated_biguint, bit_length);
-
-                            ctx.bvv(rotated_bv?)
+                        (BitVecOp::BVV(value_bv), BitVecOp::BVV(rotate_bv)) => {
+                            let rotate_usize = rotate_bv.to_usize().unwrap_or(0);
+                            let rotated_bv = value_bv.rotate_left(rotate_usize)?;
+                            ctx.bvv(rotated_bv)
                         }
                         _ => ctx.rotate_left(&arc, &arc1),
                     }
@@ -611,26 +623,9 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
 
                     match (arc.op(), arc1.op()) {
                         (BitVecOp::BVV(value_bv), BitVecOp::BVV(rotate_amount_bv)) => {
-                            let rotate_amount_usize =
-                                rotate_amount_bv.to_usize().unwrap_or(0) % value_bv.len();
-                            let bit_length = value_bv.len();
-
-                            let value_biguint = value_bv.to_biguint();
-
-                            use num_bigint::BigUint;
-                            use num_traits::One;
-
-                            let mask = (BigUint::one() << bit_length) - BigUint::one();
-
-                            let right_shifted = &value_biguint >> rotate_amount_usize;
-                            let left_shifted =
-                                (&value_biguint << (bit_length - rotate_amount_usize)) & &mask;
-
-                            let rotated_biguint = (right_shifted | left_shifted) & &mask;
-
-                            let rotated_bv = BitVec::from_biguint(&rotated_biguint, bit_length);
-
-                            ctx.bvv(rotated_bv?)
+                            let rotate_usize = rotate_amount_bv.to_usize().unwrap_or(0);
+                            let rotated_bv = value_bv.rotate_right(rotate_usize)?;
+                            ctx.bvv(rotated_bv)
                         }
                         _ => ctx.rotate_right(&arc, &arc1),
                     }
