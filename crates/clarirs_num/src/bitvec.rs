@@ -14,7 +14,6 @@ pub enum BitVecError {
     BitVectorTooShort { value: BigUint, length: usize },
 }
 
-
 /// BitVec are represented as a SmallVec of usize, where each usize is a word of
 /// the bitvector.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
