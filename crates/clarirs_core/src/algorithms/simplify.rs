@@ -699,7 +699,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
 
                     match arc.op() {
                         BitVecOp::BVV(value) => {
-                            let reversed_bits = value.reverse();
+                            let reversed_bits = value.reverse_bytes();
                             ctx.bvv(reversed_bits)
                         }
                         _ => ctx.reverse(&arc),

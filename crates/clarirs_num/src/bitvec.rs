@@ -14,6 +14,8 @@ pub enum BitVecError {
     BitVectorTooShort { value: BigUint, length: usize },
 }
 
+const WORD_SIZE_BITS: usize = 64;
+
 /// BitVec are represented as a SmallVec of usize, where each usize is a word of
 /// the bitvector.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -126,18 +128,50 @@ impl BitVec {
         }
     }
 
-    pub fn reverse(&self) -> Self {
-        let mut new_words = SmallVec::<[u64; 1]>::with_capacity(self.words.len());
+    pub fn reverse_bytes(&self) -> Self {
+        // Calculate total number of bytes the bit–vector occupies.
+        // (Even if self.length is not a multiple of 8, we round up.)
+        let total_bytes = (self.length + 7) / 8;
 
-        for &word in &self.words {
-            // Reverse the bits within each word
-            let reversed_word = word.reverse_bits();
-            new_words.push(reversed_word);
+        // 1. Extract the bytes of the bit–vector in little–endian order.
+        // (Words store the low–order bytes first.)
+        let mut bytes_le = Vec::with_capacity(total_bytes);
+        for i in 0..total_bytes {
+            let word_index = i / 8;
+            let byte_index = i % 8;
+            let byte = (self.words[word_index] >> (8 * byte_index)) as u8;
+            bytes_le.push(byte);
         }
 
-        // Reverse the order of words in the SmallVec
-        new_words.reverse();
-        BitVec::new(new_words, self.length)
+        // Now, bytes_le[0] is the least significant byte,
+        // and bytes_le[total_bytes - 1] is the most significant.
+
+        // 2. Reverse the bytes.
+        bytes_le.reverse();
+
+        // 3. Pack the reversed bytes into 64–bit words.
+        // (The first 8 bytes become the first word, the next 8 bytes the second word, and so on.)
+        let num_words = self.words.len();
+        let mut new_words = SmallVec::<[u64; 1]>::with_capacity(num_words);
+
+        // Initialize with zeros.
+        new_words.resize(num_words, 0);
+        for (i, &byte) in bytes_le.iter().enumerate() {
+            let word_index = i / 8;
+            let byte_index = i % 8;
+            new_words[word_index] |= (byte as u64) << (8 * byte_index);
+        }
+
+        // Clear out any bits beyond the bit–vector’s length in the last word.
+        let bits_in_last_word = self.length % 64;
+        if bits_in_last_word != 0 {
+            // Create a mask for the used bits.
+            let mask = (1u64 << bits_in_last_word) - 1;
+            let last_index = new_words.len() - 1;
+            new_words[last_index] &= mask;
+        }
+
+        Self::new(new_words, self.length)
     }
 
     // Check if all bits in the BitVec are 1
