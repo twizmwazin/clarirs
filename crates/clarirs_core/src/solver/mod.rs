@@ -3,6 +3,7 @@ pub mod concrete;
 mod tests;
 
 use anyhow::Result;
+use std::collections::HashMap;
 
 use crate::prelude::*;
 
@@ -104,25 +105,20 @@ pub trait Solver<'c>: Clone + HasContext<'c> {
         self.model()?.eval_string(expr)
     }
 
-    // TODO: This was implemented incorrectly. This method needs to take a map
-    // of variables to values, and return a boolean indicating if the values
-    // are a solution to the current set of constraints.
-    //
-    // A lazy implementation would be to add the constraints to the solver
-    // and check if the constraints are satisfiable. This is not ideal for
-    // performance reasons, though a decent solver should efficiently handle
-    // this case.
-
-    // /// Check if an expression is a solution to the current set of constraints.
-    // /// Implementors may want override this method for performance reasons.
-    // /// If the constraints are unsatisfiable, an error is returned.
-    // fn is_solution(
-    //     &mut self,
-    //     expr: &AstRef<'c>,
-    //     value: &AstRef<'c>,
-    // ) -> Result<bool, ClarirsError> {
-    //     todo!()
-    // }
+    /// Check if an expression is a solution to the current set of constraints.
+    /// Implementors may want override this method for performance reasons.
+    /// If the constraints are unsatisfiable, an error is returned.
+    fn is_solution(
+        &mut self,
+        variable_values: &HashMap<String, AstRef<'c>>,
+    ) -> Result<bool, ClarirsError> {
+        for (var, value) in variable_values {
+            let var_ast = self.context().bvs(var, value.size())?;
+            let eq_constraint = self.context().eq_(&var_ast, value)?;
+            self.add(&eq_constraint)?;
+        }
+        self.satisfiable()
+    }
 
     /// Check if an expression is true in the current model. If the constraints are unsatisfiable, an
     /// error is returned. Equivalent to `eval(expr) == ctx.true_()`
