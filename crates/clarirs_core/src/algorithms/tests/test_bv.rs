@@ -1,5 +1,6 @@
 use crate::{ast::bitvec::BitVecExt, prelude::*};
 use anyhow::Result;
+use smallvec::SmallVec;
 
 #[test]
 fn test_add() -> Result<()> {
@@ -657,6 +658,41 @@ fn test_sext() -> Result<()> {
             1,
             ctx.bvv_prim_with_size(31u8, 5)?,
         ),
+        (
+            ctx.bvv_prim_with_size(0u8, 1)?,
+            1,
+            ctx.bvv_prim_with_size(0u8, 2)?,
+        ),
+        (
+            ctx.bvv_prim_with_size(1u8, 1)?,
+            1,
+            ctx.bvv_prim_with_size(1u8, 2)?,
+        ),
+        (
+            ctx.bvv_prim_with_size(5u8, 1)?,
+            1,
+            ctx.bvv_prim_with_size(5u8, 2)?,
+        ),
+        (
+            ctx.bvv_prim_with_size(8u8, 4)?,
+            4,
+            ctx.bvv_prim_with_size(8u8, 8)?,
+        ),
+        (
+            ctx.bvv_prim_with_size(128u8, 8)?,
+            8,
+            ctx.bvv_prim_with_size(128u16, 16)?,
+        ),
+        (
+            ctx.bvv_prim_with_size(5u8, 4)?,
+            4,
+            ctx.bvv_prim_with_size(5u8, 8)?,
+        ),
+        (
+            ctx.bvv_prim_with_size(251u8, 8)?,
+            4,
+            ctx.bvv_prim_with_size(251u8, 12)?,
+        ),
     ];
 
     for (a, b, expected) in table {
@@ -672,15 +708,14 @@ fn test_reverse() -> Result<()> {
 
     let table: Vec<(u64, u64)> = vec![
         (0, 0),
-        (1, 1 << 63),
-        (2, 1 << 62),
-        (3, 1 << 62 | 1 << 63),
-        (4, 1 << 61),
-        (5, 1 << 61 | 1 << 63),
-        (6, 1 << 61 | 1 << 62),
-        (7, 1 << 61 | 1 << 62 | 1 << 63),
-        (8, 1 << 60),
-        (9, 1 << 60 | 1 << 63),
+        (1, 0x0100000000000000),
+        (4, 0x0400000000000000),
+        (5, 0x0500000000000000),
+        (1 << 63, 128),
+        (1 << 62, 64),
+        (128, 1 << 63),
+        (255, 0xFF00000000000000),
+        (0xFF00FF00AB000012, 0x120000AB00FF00FF),
     ];
 
     for (a, expected) in table {
@@ -690,6 +725,34 @@ fn test_reverse() -> Result<()> {
         let result = context.reverse(&a)?.simplify()?;
         assert_eq!(result, expected);
     }
+
+    // Testing multi-word bitvector
+    // Input: 0xEEFFFFFFFFFFFFFFFF.
+    // Internal representation (little-endian), it is stored as:
+    //   word[0] = 0xFFFFFFFFFFFFFFFF
+    //   word[1] = 0x00000000000000EE   (only 8 bits used)
+    let mut words: SmallVec<[u64; 1]> = SmallVec::new();
+    words.push(0xFFFFFFFFFFFFFFFF);
+    words.push(0xEE);
+    let original = BitVec::new(words, 72);
+
+    // Input: [EE, FF, FF, FF, FF, FF, FF, FF, FF].
+    // After byte reversal: [FF, FF, FF, FF, FF, FF, FF, FF, EE].
+    // When repacked in little-endian order, the new words should be:
+    //   new_words[0] = 0xFFFFFFFFFFFFFFEE
+    //   new_words[1] = 0x00000000000000FF
+    let reversed = original.reverse_bytes();
+
+    // Expected words after byte reversal
+    let mut expected_words: SmallVec<[u64; 1]> = SmallVec::new();
+    expected_words.push(0xFFFFFFFFFFFFFFEE);
+    expected_words.push(0x00000000000000FF);
+    let expected = BitVec::new(expected_words, 72);
+
+    assert_eq!(
+        reversed, expected,
+        "Multi-word bitvector byte reversal failed"
+    );
 
     Ok(())
 }
