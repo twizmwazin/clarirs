@@ -1,5 +1,6 @@
 use crate::{ast::bitvec::BitVecExt, prelude::*};
 use anyhow::Result;
+use smallvec::SmallVec;
 
 #[test]
 fn test_add() -> Result<()> {
@@ -16,6 +17,11 @@ fn test_add() -> Result<()> {
         (2, 3, 5),
         (3, 2, 5),
         (3, 3, 6),
+        (u64::MAX, 0, u64::MAX),
+        (0, u64::MAX, u64::MAX),
+        (u64::MAX, 1, 0),
+        (1, u64::MAX, 0),
+        (u64::MAX, u64::MAX, u64::MAX - 1),
     ];
 
     for (a, b, expected) in table {
@@ -145,7 +151,7 @@ fn test_udiv() -> Result<()> {
 fn test_sdiv() -> Result<()> {
     let ctx = Context::new();
 
-    let table: Vec<(u64, u64, u64)> = vec![
+    let table: Vec<(i64, i64, i64)> = vec![
         (0, 1, 0),
         (1, 1, 1),
         (1, 2, 0),
@@ -154,15 +160,47 @@ fn test_sdiv() -> Result<()> {
         (2, 3, 0),
         (3, 2, 1),
         (3, 3, 1),
+        (3, 0, 3),
+        (-1, 1, -1),
+        (-2, 3, 0),
+        (-3, 2, -1),
+        (-4, 3, -1),
+        (1, -1, -1),
+        (2, -3, 0),
+        (3, -2, -1),
+        (4, -3, -1),
+        (-1, -1, 1),
+        (-2, -3, 0),
+        (-3, -2, 1),
+        (-4, -3, 1),
+        (0, 2, 0),
+        (0, -2, 0),
+        (14, 7, 2),
+        (14, -7, -2),
+        (-14, 7, -2),
+        (-14, -7, 2),
+        (15, 4, 3),
+        (15, -4, -3),
+        (-15, 4, -3),
+        (-15, -4, 3),
+        (1, i64::MAX, 0),
+        (-1, i64::MAX, 0),
+        (i64::MAX, 2, 4611686018427387903),
+        (i64::MIN, 2, -4611686018427387904),
+        (i64::MIN, 3, -3074457345618258602),
     ];
 
-    for (a, b, expected) in table {
-        let a = ctx.bvv_prim(a).unwrap();
-        let b = ctx.bvv_prim(b).unwrap();
-        let expected = ctx.bvv_prim(expected).unwrap();
+    for (a_i64, b_i64, expected_i64) in table {
+        let a_bits = a_i64 as u64;
+        let b_bits = b_i64 as u64;
+        let expected_bits = expected_i64 as u64;
+
+        let a = ctx.bvv_prim(a_bits)?;
+        let b = ctx.bvv_prim(b_bits)?;
+        let expected = ctx.bvv_prim(expected_bits)?;
 
         let result = ctx.sdiv(&a, &b)?.simplify()?;
-        assert_eq!(result, expected);
+        assert_eq!(result, expected, "Failed for a={}, b={}", a_i64, b_i64);
     }
 
     Ok(())
@@ -181,6 +219,22 @@ fn test_urem() -> Result<()> {
         (2, 3, 2),
         (3, 2, 1),
         (3, 3, 0),
+        (4, 2, 0),
+        (5, 2, 1),
+        (5, 5, 0),
+        (5, 0, 5),
+        (10, 3, 1),
+        (10, 5, 0),
+        (15, 4, 3),
+        (16, 8, 0),
+        (u64::MAX, 1, 0),
+        (u64::MAX, 2, 1),
+        (u64::MAX, u64::MAX, 0),
+        (u64::MAX - 1, u64::MAX, u64::MAX - 1),
+        (0, u64::MAX, 0),
+        (1, u64::MAX, 1),
+        (1 << 63, 1 << 32, (1 << 63) % (1 << 32)),
+        (98765432123456789, 123456789, 98765432123456789 % 123456789),
     ];
 
     for (a, b, expected) in table {
@@ -199,21 +253,46 @@ fn test_urem() -> Result<()> {
 fn test_srem() -> Result<()> {
     let ctx = Context::new();
 
-    let table: Vec<(u64, u64, u64)> = vec![
+    let table: Vec<(i64, i64, i64)> = vec![
         (0, 1, 0),
         (1, 1, 0),
+        (1, 0, 1),
         (1, 2, 1),
         (2, 1, 0),
         (2, 2, 0),
         (2, 3, 2),
         (3, 2, 1),
         (3, 3, 0),
+        (-1, 2, -1),
+        (-2, 3, -2),
+        (-3, 2, -1),
+        (-4, 3, -1),
+        (1, -2, 1),
+        (2, -3, 2),
+        (3, -2, 1),
+        (4, -3, 1),
+        (-1, -2, -1),
+        (-2, -3, -2),
+        (-3, -2, -1),
+        (-4, -3, -1),
+        (0, 2, 0),
+        (0, -2, 0),
+        (1, i64::MAX, 1),
+        (-1, i64::MAX, -1),
+        (i64::MAX, 2, 1),
+        (i64::MIN, 2, 0),
+        (i64::MIN, 3, -2),
     ];
 
-    for (a, b, expected) in table {
-        let a = ctx.bvv_prim(a).unwrap();
-        let b = ctx.bvv_prim(b).unwrap();
-        let expected = ctx.bvv_prim(expected).unwrap();
+    for (a_i64, b_i64, expected_i64) in table {
+        // Cast to u64 to interpret bits in two's complement form
+        let a_bits = a_i64 as u64;
+        let b_bits = b_i64 as u64;
+        let expected_bits = expected_i64 as u64;
+
+        let a = ctx.bvv_prim(a_bits)?;
+        let b = ctx.bvv_prim(b_bits)?;
+        let expected = ctx.bvv_prim(expected_bits)?;
 
         let result = ctx.srem(&a, &b)?.simplify()?;
         assert_eq!(result, expected);
@@ -579,6 +658,41 @@ fn test_sext() -> Result<()> {
             1,
             ctx.bvv_prim_with_size(31u8, 5)?,
         ),
+        (
+            ctx.bvv_prim_with_size(0u8, 1)?,
+            1,
+            ctx.bvv_prim_with_size(0u8, 2)?,
+        ),
+        (
+            ctx.bvv_prim_with_size(1u8, 1)?,
+            1,
+            ctx.bvv_prim_with_size(1u8, 2)?,
+        ),
+        (
+            ctx.bvv_prim_with_size(5u8, 1)?,
+            1,
+            ctx.bvv_prim_with_size(5u8, 2)?,
+        ),
+        (
+            ctx.bvv_prim_with_size(8u8, 4)?,
+            4,
+            ctx.bvv_prim_with_size(8u8, 8)?,
+        ),
+        (
+            ctx.bvv_prim_with_size(128u8, 8)?,
+            8,
+            ctx.bvv_prim_with_size(128u16, 16)?,
+        ),
+        (
+            ctx.bvv_prim_with_size(5u8, 4)?,
+            4,
+            ctx.bvv_prim_with_size(5u8, 8)?,
+        ),
+        (
+            ctx.bvv_prim_with_size(251u8, 8)?,
+            4,
+            ctx.bvv_prim_with_size(251u8, 12)?,
+        ),
     ];
 
     for (a, b, expected) in table {
@@ -594,15 +708,14 @@ fn test_reverse() -> Result<()> {
 
     let table: Vec<(u64, u64)> = vec![
         (0, 0),
-        (1, 1 << 63),
-        (2, 1 << 62),
-        (3, 1 << 62 | 1 << 63),
-        (4, 1 << 61),
-        (5, 1 << 61 | 1 << 63),
-        (6, 1 << 61 | 1 << 62),
-        (7, 1 << 61 | 1 << 62 | 1 << 63),
-        (8, 1 << 60),
-        (9, 1 << 60 | 1 << 63),
+        (1, 0x0100000000000000),
+        (4, 0x0400000000000000),
+        (5, 0x0500000000000000),
+        (1 << 63, 128),
+        (1 << 62, 64),
+        (128, 1 << 63),
+        (255, 0xFF00000000000000),
+        (0xFF00FF00AB000012, 0x120000AB00FF00FF),
     ];
 
     for (a, expected) in table {
@@ -612,6 +725,34 @@ fn test_reverse() -> Result<()> {
         let result = context.reverse(&a)?.simplify()?;
         assert_eq!(result, expected);
     }
+
+    // Testing multi-word bitvector
+    // Input: 0xEEFFFFFFFFFFFFFFFF.
+    // Internal representation (little-endian), it is stored as:
+    //   word[0] = 0xFFFFFFFFFFFFFFFF
+    //   word[1] = 0x00000000000000EE   (only 8 bits used)
+    let mut words: SmallVec<[u64; 1]> = SmallVec::new();
+    words.push(0xFFFFFFFFFFFFFFFF);
+    words.push(0xEE);
+    let original = BitVec::new(words, 72);
+
+    // Input: [EE, FF, FF, FF, FF, FF, FF, FF, FF].
+    // After byte reversal: [FF, FF, FF, FF, FF, FF, FF, FF, EE].
+    // When repacked in little-endian order, the new words should be:
+    //   new_words[0] = 0xFFFFFFFFFFFFFFEE
+    //   new_words[1] = 0x00000000000000FF
+    let reversed = original.reverse_bytes();
+
+    // Expected words after byte reversal
+    let mut expected_words: SmallVec<[u64; 1]> = SmallVec::new();
+    expected_words.push(0xFFFFFFFFFFFFFFEE);
+    expected_words.push(0x00000000000000FF);
+    let expected = BitVec::new(expected_words, 72);
+
+    assert_eq!(
+        reversed, expected,
+        "Multi-word bitvector byte reversal failed"
+    );
 
     Ok(())
 }

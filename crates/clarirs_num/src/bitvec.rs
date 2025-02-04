@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use thiserror::Error;
 
+use num_traits::One;
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Error)]
 pub enum BitVecError {
     #[error("BitVector too short: {value:?} is too short for length {length}")]
@@ -126,10 +128,50 @@ impl BitVec {
         }
     }
 
-    pub fn reverse(&self) -> Self {
-        let mut new_bv = self.words.clone();
-        new_bv.reverse();
-        BitVec::new(new_bv, self.length)
+    pub fn reverse_bytes(&self) -> Self {
+        // Calculate total number of bytes the bit–vector occupies.
+        // (Even if self.length is not a multiple of 8, we round up.)
+        let total_bytes = (self.length + 7) / 8;
+
+        // 1. Extract the bytes of the bit–vector in little–endian order.
+        // (Words store the low–order bytes first.)
+        let mut bytes_le = Vec::with_capacity(total_bytes);
+        for i in 0..total_bytes {
+            let word_index = i / 8;
+            let byte_index = i % 8;
+            let byte = (self.words[word_index] >> (8 * byte_index)) as u8;
+            bytes_le.push(byte);
+        }
+
+        // Now, bytes_le[0] is the least significant byte,
+        // and bytes_le[total_bytes - 1] is the most significant.
+
+        // 2. Reverse the bytes.
+        bytes_le.reverse();
+
+        // 3. Pack the reversed bytes into 64–bit words.
+        // (The first 8 bytes become the first word, the next 8 bytes the second word, and so on.)
+        let num_words = self.words.len();
+        let mut new_words = SmallVec::<[u64; 1]>::with_capacity(num_words);
+
+        // Initialize with zeros.
+        new_words.resize(num_words, 0);
+        for (i, &byte) in bytes_le.iter().enumerate() {
+            let word_index = i / 8;
+            let byte_index = i % 8;
+            new_words[word_index] |= (byte as u64) << (8 * byte_index);
+        }
+
+        // Clear out any bits beyond the bit–vector’s length in the last word.
+        let bits_in_last_word = self.length % 64;
+        if bits_in_last_word != 0 {
+            // Create a mask for the used bits.
+            let mask = (1u64 << bits_in_last_word) - 1;
+            let last_index = new_words.len() - 1;
+            new_words[last_index] &= mask;
+        }
+
+        Self::new(new_words, self.length)
     }
 
     // Check if all bits in the BitVec are 1
@@ -207,6 +249,35 @@ impl BitVec {
         count.min(self.length) // Ensure count does not exceed the BitVec length
     }
 
+    // Adds 1 to the current `BitVec` while ensuring the result is truncated to the given `bitwidth`.
+    pub fn add_one_in_same_bitwidth(&self, bitwidth: usize) -> Self {
+        // Create a BitVec for the constant 1 of the same bitwidth.
+        let one = BitVec::from_prim_with_size(1u64, bitwidth);
+        // .expect("Could not create 1 as a bitvec");
+
+        let self_big = self.to_biguint();
+        let one_big = one.to_biguint();
+
+        // Add them in BigUint space.
+        let sum_big = self_big + one_big;
+
+        // Convert back to a BitVec, truncating to `bitwidth`
+        BitVec::from_biguint_trunc(&sum_big, bitwidth)
+    }
+
+    pub fn to_biguint_abs(&self) -> BigUint {
+        let n = self.to_biguint();
+        if !self.sign() {
+            // Non-negative
+            n
+        } else {
+            // Negative: 2^bitwidth - n
+            let bitwidth = self.len();
+            let two_pow_bw = BigUint::one() << bitwidth;
+            &two_pow_bw - &n
+        }
+    }
+
     // Creates and returns a BitVec with these zero-filled words.
     pub fn zeros(length: usize) -> BitVec {
         let mut words = SmallVec::new();
@@ -247,6 +318,56 @@ impl BitVec {
         let rotated_biguint = (right_shifted | left_shifted) & &mask;
 
         BitVec::from_biguint(&rotated_biguint, bit_length)
+    }
+
+    pub fn urem(&self, other: &Self) -> Self {
+        if other.is_zero() {
+            return self.clone();
+        }
+        let bitwidth = self.len();
+        let remainder = self.to_biguint() % other.to_biguint();
+        BitVec::from_biguint_trunc(&remainder, bitwidth)
+    }
+
+    pub fn srem(&self, other: &Self) -> Self {
+        if other.is_zero() {
+            return self.clone();
+        }
+        let bitwidth = self.len();
+
+        // Compute absolute values in BigUint space
+        let abs_dividend = self.to_biguint_abs();
+        let abs_divisor = other.to_biguint_abs();
+        let unsigned_remainder = abs_dividend % abs_divisor;
+        let raw_rem = BitVec::from_biguint_trunc(&unsigned_remainder, bitwidth);
+
+        // If the original dividend is negative, apply two’s complement (NOT + 1)
+        if self.sign() {
+            (!raw_rem).add_one_in_same_bitwidth(bitwidth)
+        } else {
+            raw_rem
+        }
+    }
+
+    pub fn sdiv(&self, other: &Self) -> Self {
+        let bitwidth = self.len();
+        let result_neg = self.sign() ^ other.sign();
+
+        let abs_dividend = self.to_biguint_abs();
+        let abs_divisor = other.to_biguint_abs();
+        if abs_divisor.is_zero() {
+            // Return self if divisor is zero
+            return self.clone();
+        }
+
+        let abs_quotient = &abs_dividend / &abs_divisor;
+        let mut quotient_bv = BitVec::from_biguint_trunc(&abs_quotient, bitwidth);
+
+        if result_neg {
+            quotient_bv = (!quotient_bv).add_one_in_same_bitwidth(bitwidth);
+        }
+
+        quotient_bv
     }
 
     pub fn signed_lt(&self, other: &Self) -> bool {
