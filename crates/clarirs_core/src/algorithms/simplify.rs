@@ -548,21 +548,14 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                         _ => ctx.ashr(&arc, &arc1),
                     }
                 }
-
                 BitVecOp::RotateLeft(arc, arc1) => {
                     simplify!(arc, arc1);
 
                     match (arc.op(), arc1.op()) {
-                        (BitVecOp::BVV(value), BitVecOp::BVV(rotate_amount)) => {
-                            let rotate_amount_usize =
-                                rotate_amount.to_usize().unwrap_or(0) % value.len();
-                            let bit_length = value.len();
-
-                            // Rotate left by shifting left and filling in from the right
-                            let rotated_value = (value.clone() << rotate_amount_usize)
-                                | (value.clone() >> (bit_length - rotate_amount_usize));
-
-                            ctx.bvv(rotated_value)
+                        (BitVecOp::BVV(value_bv), BitVecOp::BVV(rotate_bv)) => {
+                            let rotate_usize = rotate_bv.to_usize().unwrap_or(0);
+                            let rotated_bv = value_bv.rotate_left(rotate_usize)?;
+                            ctx.bvv(rotated_bv)
                         }
                         _ => ctx.rotate_left(&arc, &arc1),
                     }
@@ -571,16 +564,10 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                     simplify!(arc, arc1);
 
                     match (arc.op(), arc1.op()) {
-                        (BitVecOp::BVV(value), BitVecOp::BVV(rotate_amount)) => {
-                            let rotate_amount_usize =
-                                rotate_amount.to_usize().unwrap_or(0) % value.len();
-                            let bit_length = value.len();
-
-                            // Rotate right by shifting right and filling in from the left
-                            let rotated_value = (value.clone() >> rotate_amount_usize)
-                                | (value.clone() << (bit_length - rotate_amount_usize));
-
-                            ctx.bvv(rotated_value)
+                        (BitVecOp::BVV(value_bv), BitVecOp::BVV(rotate_amount_bv)) => {
+                            let rotate_usize = rotate_amount_bv.to_usize().unwrap_or(0);
+                            let rotated_bv = value_bv.rotate_right(rotate_usize)?;
+                            ctx.bvv(rotated_bv)
                         }
                         _ => ctx.rotate_right(&arc, &arc1),
                     }
