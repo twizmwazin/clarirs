@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use thiserror::Error;
 
+use num_traits::One;
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Error)]
 pub enum BitVecError {
     #[error("BitVector too short: {value:?} is too short for length {length}")]
@@ -207,6 +209,35 @@ impl BitVec {
         count.min(self.length) // Ensure count does not exceed the BitVec length
     }
 
+    // Adds 1 to the current `BitVec` while ensuring the result is truncated to the given `bitwidth`.
+    pub fn add_one_in_same_bitwidth(&self, bitwidth: usize) -> Self {
+        // Create a BitVec for the constant 1 of the same bitwidth.
+        let one = BitVec::from_prim_with_size(1u64, bitwidth);
+        // .expect("Could not create 1 as a bitvec");
+
+        let self_big = self.to_biguint();
+        let one_big = one.to_biguint();
+
+        // Add them in BigUint space.
+        let sum_big = self_big + one_big;
+
+        // Convert back to a BitVec, truncating to `bitwidth`
+        BitVec::from_biguint_trunc(&sum_big, bitwidth)
+    }
+
+    pub fn to_biguint_abs(&self) -> BigUint {
+        let n = self.to_biguint();
+        if !self.sign() {
+            // Non-negative
+            n
+        } else {
+            // Negative: 2^bitwidth - n
+            let bitwidth = self.len();
+            let two_pow_bw = BigUint::one() << bitwidth;
+            &two_pow_bw - &n
+        }
+    }
+
     // Creates and returns a BitVec with these zero-filled words.
     pub fn zeros(length: usize) -> BitVec {
         let mut words = SmallVec::new();
@@ -215,6 +246,56 @@ impl BitVec {
             words.push(0);
         }
         BitVec::new(words, length)
+    }
+
+    pub fn urem(&self, other: &Self) -> Self {
+        if other.is_zero() {
+            return self.clone();
+        }
+        let bitwidth = self.len();
+        let remainder = self.to_biguint() % other.to_biguint();
+        BitVec::from_biguint_trunc(&remainder, bitwidth)
+    }
+
+    pub fn srem(&self, other: &Self) -> Self {
+        if other.is_zero() {
+            return self.clone();
+        }
+        let bitwidth = self.len();
+
+        // Compute absolute values in BigUint space
+        let abs_dividend = self.to_biguint_abs();
+        let abs_divisor = other.to_biguint_abs();
+        let unsigned_remainder = abs_dividend % abs_divisor;
+        let raw_rem = BitVec::from_biguint_trunc(&unsigned_remainder, bitwidth);
+
+        // If the original dividend is negative, apply two’s complement (NOT + 1)
+        if self.sign() {
+            (!raw_rem).add_one_in_same_bitwidth(bitwidth)
+        } else {
+            raw_rem
+        }
+    }
+
+    pub fn sdiv(&self, other: &Self) -> Self {
+        let bitwidth = self.len();
+        let result_neg = self.sign() ^ other.sign();
+
+        let abs_dividend = self.to_biguint_abs();
+        let abs_divisor = other.to_biguint_abs();
+        if abs_divisor.is_zero() {
+            // Return self if divisor is zero
+            return self.clone();
+        }
+
+        let abs_quotient = &abs_dividend / &abs_divisor;
+        let mut quotient_bv = BitVec::from_biguint_trunc(&abs_quotient, bitwidth);
+
+        if result_neg {
+            quotient_bv = (!quotient_bv).add_one_in_same_bitwidth(bitwidth);
+        }
+
+        quotient_bv
     }
 
     pub fn signed_lt(&self, other: &Self) -> bool {

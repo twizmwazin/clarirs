@@ -16,6 +16,11 @@ fn test_add() -> Result<()> {
         (2, 3, 5),
         (3, 2, 5),
         (3, 3, 6),
+        (u64::MAX, 0, u64::MAX),
+        (0, u64::MAX, u64::MAX),
+        (u64::MAX, 1, 0),
+        (1, u64::MAX, 0),
+        (u64::MAX, u64::MAX, u64::MAX - 1),
     ];
 
     for (a, b, expected) in table {
@@ -145,7 +150,7 @@ fn test_udiv() -> Result<()> {
 fn test_sdiv() -> Result<()> {
     let ctx = Context::new();
 
-    let table: Vec<(u64, u64, u64)> = vec![
+    let table: Vec<(i64, i64, i64)> = vec![
         (0, 1, 0),
         (1, 1, 1),
         (1, 2, 0),
@@ -154,15 +159,47 @@ fn test_sdiv() -> Result<()> {
         (2, 3, 0),
         (3, 2, 1),
         (3, 3, 1),
+        (3, 0, 3),
+        (-1, 1, -1),
+        (-2, 3, 0),
+        (-3, 2, -1),
+        (-4, 3, -1),
+        (1, -1, -1),
+        (2, -3, 0),
+        (3, -2, -1),
+        (4, -3, -1),
+        (-1, -1, 1),
+        (-2, -3, 0),
+        (-3, -2, 1),
+        (-4, -3, 1),
+        (0, 2, 0),
+        (0, -2, 0),
+        (14, 7, 2),
+        (14, -7, -2),
+        (-14, 7, -2),
+        (-14, -7, 2),
+        (15, 4, 3),
+        (15, -4, -3),
+        (-15, 4, -3),
+        (-15, -4, 3),
+        (1, i64::MAX, 0),
+        (-1, i64::MAX, 0),
+        (i64::MAX, 2, 4611686018427387903),
+        (i64::MIN, 2, -4611686018427387904),
+        (i64::MIN, 3, -3074457345618258602),
     ];
 
-    for (a, b, expected) in table {
-        let a = ctx.bvv_prim(a).unwrap();
-        let b = ctx.bvv_prim(b).unwrap();
-        let expected = ctx.bvv_prim(expected).unwrap();
+    for (a_i64, b_i64, expected_i64) in table {
+        let a_bits = a_i64 as u64;
+        let b_bits = b_i64 as u64;
+        let expected_bits = expected_i64 as u64;
+
+        let a = ctx.bvv_prim(a_bits)?;
+        let b = ctx.bvv_prim(b_bits)?;
+        let expected = ctx.bvv_prim(expected_bits)?;
 
         let result = ctx.sdiv(&a, &b)?.simplify()?;
-        assert_eq!(result, expected);
+        assert_eq!(result, expected, "Failed for a={}, b={}", a_i64, b_i64);
     }
 
     Ok(())
@@ -181,6 +218,22 @@ fn test_urem() -> Result<()> {
         (2, 3, 2),
         (3, 2, 1),
         (3, 3, 0),
+        (4, 2, 0),
+        (5, 2, 1),
+        (5, 5, 0),
+        (5, 0, 5),
+        (10, 3, 1),
+        (10, 5, 0),
+        (15, 4, 3),
+        (16, 8, 0),
+        (u64::MAX, 1, 0),
+        (u64::MAX, 2, 1),
+        (u64::MAX, u64::MAX, 0),
+        (u64::MAX - 1, u64::MAX, u64::MAX - 1),
+        (0, u64::MAX, 0),
+        (1, u64::MAX, 1),
+        (1 << 63, 1 << 32, (1 << 63) % (1 << 32)),
+        (98765432123456789, 123456789, 98765432123456789 % 123456789),
     ];
 
     for (a, b, expected) in table {
@@ -199,21 +252,46 @@ fn test_urem() -> Result<()> {
 fn test_srem() -> Result<()> {
     let ctx = Context::new();
 
-    let table: Vec<(u64, u64, u64)> = vec![
+    let table: Vec<(i64, i64, i64)> = vec![
         (0, 1, 0),
         (1, 1, 0),
+        (1, 0, 1),
         (1, 2, 1),
         (2, 1, 0),
         (2, 2, 0),
         (2, 3, 2),
         (3, 2, 1),
         (3, 3, 0),
+        (-1, 2, -1),
+        (-2, 3, -2),
+        (-3, 2, -1),
+        (-4, 3, -1),
+        (1, -2, 1),
+        (2, -3, 2),
+        (3, -2, 1),
+        (4, -3, 1),
+        (-1, -2, -1),
+        (-2, -3, -2),
+        (-3, -2, -1),
+        (-4, -3, -1),
+        (0, 2, 0),
+        (0, -2, 0),
+        (1, i64::MAX, 1),
+        (-1, i64::MAX, -1),
+        (i64::MAX, 2, 1),
+        (i64::MIN, 2, 0),
+        (i64::MIN, 3, -2),
     ];
 
-    for (a, b, expected) in table {
-        let a = ctx.bvv_prim(a).unwrap();
-        let b = ctx.bvv_prim(b).unwrap();
-        let expected = ctx.bvv_prim(expected).unwrap();
+    for (a_i64, b_i64, expected_i64) in table {
+        // Cast to u64 to interpret bits in two's complement form
+        let a_bits = a_i64 as u64;
+        let b_bits = b_i64 as u64;
+        let expected_bits = expected_i64 as u64;
+
+        let a = ctx.bvv_prim(a_bits)?;
+        let b = ctx.bvv_prim(b_bits)?;
+        let expected = ctx.bvv_prim(expected_bits)?;
 
         let result = ctx.srem(&a, &b)?.simplify()?;
         assert_eq!(result, expected);
