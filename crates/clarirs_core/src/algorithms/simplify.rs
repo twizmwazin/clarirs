@@ -421,7 +421,6 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
 
                     match (arc.op(), arc1.op()) {
                         (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
-                            // Perform unsigned division
                             let quotient = BitVec::from_biguint_trunc(
                                 &(value1.to_biguint() / value2.to_biguint()),
                                 value1.len(),
@@ -431,66 +430,38 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                         _ => ctx.udiv(&arc, &arc1),
                     }
                 }
-                BitVecOp::SDiv(arc, arc1) => {
-                    simplify!(arc, arc1);
+                BitVecOp::SDiv(dividend_ast, divisor_ast) => {
+                    simplify!(dividend_ast, divisor_ast);
 
-                    match (arc.op(), arc1.op()) {
-                        (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
-                            // Convert `value1` and `value2` to `BigInt` to handle signed division
-                            let signed_value1 = BigInt::from(value1.to_biguint());
-                            let signed_value2 = BigInt::from(value2.to_biguint());
-
-                            // Perform signed division
-                            let signed_quotient = signed_value1 / signed_value2;
-
-                            // Convert the result back to `BitVec` and ensure it fits within the original bit length
-                            let result_bitvec = BitVec::from_biguint_trunc(
-                                &signed_quotient.to_biguint().unwrap(),
-                                value1.len(),
-                            );
-                            ctx.bvv(result_bitvec)
+                    match (dividend_ast.op(), divisor_ast.op()) {
+                        (BitVecOp::BVV(dividend_val), BitVecOp::BVV(divisor_val)) => {
+                            ctx.bvv(dividend_val.sdiv(divisor_val))
                         }
-                        _ => ctx.sdiv(&arc, &arc1),
+                        _ => ctx.sdiv(&dividend_ast, &divisor_ast),
                     }
                 }
+
                 BitVecOp::URem(arc, arc1) => {
                     simplify!(arc, arc1);
 
                     match (arc.op(), arc1.op()) {
                         (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
-                            // Perform unsigned remainder
-                            let remainder = BitVec::from_biguint_trunc(
-                                &(value1.to_biguint() % value2.to_biguint()),
-                                value1.len(),
-                            );
-                            ctx.bvv(remainder)
+                            ctx.bvv(value1.urem(value2))
                         }
                         _ => ctx.urem(&arc, &arc1),
                     }
                 }
-                BitVecOp::SRem(arc, arc1) => {
-                    simplify!(arc, arc1);
+                BitVecOp::SRem(dividend_ast, divisor_ast) => {
+                    simplify!(dividend_ast, divisor_ast);
 
-                    match (arc.op(), arc1.op()) {
-                        (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
-                            let unsigned_remainder = value1.to_biguint() % value2.to_biguint();
-
-                            // Check the sign of the dividend (value1)
-                            let is_negative = value1.sign();
-
-                            // Convert unsigned remainder to signed form if dividend is negative
-                            let remainder = if is_negative {
-                                // Negate the remainder
-                                -BitVec::from_biguint_trunc(&unsigned_remainder, value1.len())
-                            } else {
-                                BitVec::from_biguint_trunc(&unsigned_remainder, value1.len())
-                            };
-
-                            ctx.bvv(remainder)
+                    match (dividend_ast.op(), divisor_ast.op()) {
+                        (BitVecOp::BVV(dividend_val), BitVecOp::BVV(divisor_val)) => {
+                            ctx.bvv(dividend_val.srem(divisor_val))
                         }
-                        _ => ctx.srem(&arc, &arc1),
+                        _ => ctx.srem(&dividend_ast, &divisor_ast),
                     }
                 }
+
                 BitVecOp::Pow(arc, arc1) => {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
@@ -577,21 +548,14 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                         _ => ctx.ashr(&arc, &arc1),
                     }
                 }
-
                 BitVecOp::RotateLeft(arc, arc1) => {
                     simplify!(arc, arc1);
 
                     match (arc.op(), arc1.op()) {
-                        (BitVecOp::BVV(value), BitVecOp::BVV(rotate_amount)) => {
-                            let rotate_amount_usize =
-                                rotate_amount.to_usize().unwrap_or(0) % value.len();
-                            let bit_length = value.len();
-
-                            // Rotate left by shifting left and filling in from the right
-                            let rotated_value = (value.clone() << rotate_amount_usize)
-                                | (value.clone() >> (bit_length - rotate_amount_usize));
-
-                            ctx.bvv(rotated_value)
+                        (BitVecOp::BVV(value_bv), BitVecOp::BVV(rotate_bv)) => {
+                            let rotate_usize = rotate_bv.to_usize().unwrap_or(0);
+                            let rotated_bv = value_bv.rotate_left(rotate_usize)?;
+                            ctx.bvv(rotated_bv)
                         }
                         _ => ctx.rotate_left(&arc, &arc1),
                     }
@@ -600,16 +564,10 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                     simplify!(arc, arc1);
 
                     match (arc.op(), arc1.op()) {
-                        (BitVecOp::BVV(value), BitVecOp::BVV(rotate_amount)) => {
-                            let rotate_amount_usize =
-                                rotate_amount.to_usize().unwrap_or(0) % value.len();
-                            let bit_length = value.len();
-
-                            // Rotate right by shifting right and filling in from the left
-                            let rotated_value = (value.clone() >> rotate_amount_usize)
-                                | (value.clone() << (bit_length - rotate_amount_usize));
-
-                            ctx.bvv(rotated_value)
+                        (BitVecOp::BVV(value_bv), BitVecOp::BVV(rotate_amount_bv)) => {
+                            let rotate_usize = rotate_amount_bv.to_usize().unwrap_or(0);
+                            let rotated_bv = value_bv.rotate_right(rotate_usize)?;
+                            ctx.bvv(rotated_bv)
                         }
                         _ => ctx.rotate_right(&arc, &arc1),
                     }
@@ -699,10 +657,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
 
                     match arc.op() {
                         BitVecOp::BVV(value) => {
-                            // Reverse the bits in each word
-                            let reversed_bits = value.reverse();
-
-                            // Return the reversed BitVec
+                            let reversed_bits = value.reverse_bytes()?;
                             ctx.bvv(reversed_bits)
                         }
                         _ => ctx.reverse(&arc),
