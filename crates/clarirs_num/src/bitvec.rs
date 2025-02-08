@@ -5,17 +5,7 @@ mod conversion;
 mod extension;
 
 #[cfg(test)]
-mod test_arithmetic;
-#[cfg(test)]
-mod test_bitwise;
-#[cfg(test)]
-mod test_comparison;
-#[cfg(test)]
-mod test_conversion;
-#[cfg(test)]
-mod test_extension;
-#[cfg(test)]
-mod test_utility;
+mod tests;
 
 use std::fmt::Debug;
 
