@@ -91,7 +91,19 @@ impl BitVec {
     }
 
     pub fn sign_extend(&self, additional_bits: usize) -> Self {
-        let extension = if self.sign() {
+        // Normalize self so that only valid bits remain.
+        let normalized_self = {
+            let mut s = self.clone();
+            if let Some(last) = s.words.last_mut() {
+                *last &= s.final_word_mask;
+            }
+            s
+        };
+
+        // Create the extension bits:
+        // If the sign bit of the normalized value is set, we extend with ones,
+        // otherwise extend with zeros.
+        let extension = if normalized_self.sign() {
             BitVec::from_biguint_trunc(
                 &((BigUint::from(1u8) << additional_bits) - 1u8),
                 additional_bits,
@@ -99,7 +111,10 @@ impl BitVec {
         } else {
             BitVec::from_biguint_trunc(&BigUint::zero(), additional_bits)
         };
-        extension.concat(self)
+
+        // Concatenate with the extension on the left and the original value on the right.
+        // This means the extension bits become the new high-order bits.
+        extension.concat(&normalized_self)
     }
 }
 

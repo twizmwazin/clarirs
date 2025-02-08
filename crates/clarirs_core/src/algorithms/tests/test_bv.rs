@@ -666,22 +666,22 @@ fn test_sext() -> Result<()> {
         (
             ctx.bvv_prim_with_size(1u8, 1)?,
             1,
-            ctx.bvv_prim_with_size(1u8, 2)?,
+            ctx.bvv_prim_with_size(3u8, 2)?,
         ),
         (
-            ctx.bvv_prim_with_size(5u8, 1)?,
+            ctx.bvv_prim_with_size(3u8, 2)?,
             1,
-            ctx.bvv_prim_with_size(5u8, 2)?,
+            ctx.bvv_prim_with_size(7u8, 3)?,
         ),
         (
             ctx.bvv_prim_with_size(8u8, 4)?,
             4,
-            ctx.bvv_prim_with_size(8u8, 8)?,
+            ctx.bvv_prim_with_size(248u8, 8)?,
         ),
         (
             ctx.bvv_prim_with_size(128u8, 8)?,
             8,
-            ctx.bvv_prim_with_size(128u16, 16)?,
+            ctx.bvv_prim_with_size(65408u16, 16)?,
         ),
         (
             ctx.bvv_prim_with_size(5u8, 4)?,
@@ -691,7 +691,23 @@ fn test_sext() -> Result<()> {
         (
             ctx.bvv_prim_with_size(251u8, 8)?,
             4,
-            ctx.bvv_prim_with_size(251u8, 12)?,
+            ctx.bvv_prim_with_size(4091u16, 12)?,
+        ),
+        // Additional test cases
+        (
+            ctx.bvv_prim_with_size(5u8, 1)?,
+            1,
+            ctx.bvv_prim_with_size(3u8, 2)?,
+        ),
+        (
+            ctx.bvv_prim_with_size(1u8, 1)?,
+            1,
+            ctx.bvv_prim_with_size(3u8, 2)?,
+        ),
+        (
+            ctx.bvv_prim_with_size(1u8, 2)?,
+            1,
+            ctx.bvv_prim_with_size(1u8, 3)?,
         ),
     ];
 
