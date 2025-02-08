@@ -24,6 +24,8 @@ pub enum ClarirsError {
     UnsatisfiableConstraints,
     #[error("Type error: {:?}", .0)]
     TypeError(String),
+    #[error("BitVector not bite-sized: {length:?} is not a multiple of 8")]
+    BitVectorNotByteSized { length: usize },
 }
 
 impl<T> From<PoisonError<T>> for ClarirsError {
@@ -37,6 +39,9 @@ impl From<BitVecError> for ClarirsError {
         match e {
             BitVecError::BitVectorTooShort { value, length } => {
                 ClarirsError::BitVectorTooShort { value, length }
+            }
+            BitVecError::BitVectorNotByteSized { length } => {
+                ClarirsError::BitVectorNotByteSized { length }
             }
         }
     }
