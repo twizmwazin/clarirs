@@ -741,7 +741,7 @@ fn test_reverse() -> Result<()> {
     // When repacked in little-endian order, the new words should be:
     //   new_words[0] = 0xFFFFFFFFFFFFFFEE
     //   new_words[1] = 0x00000000000000FF
-    let reversed = original.reverse_bytes();
+    let reversed = original.reverse_bytes()?;
 
     // Expected words after byte reversal
     let mut expected_words: SmallVec<[u64; 1]> = SmallVec::new();
