@@ -5,7 +5,7 @@ use serde::Serialize;
 
 use crate::prelude::*;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub enum FloatOp<'c> {
     FPS(String, FSort),
     FPV(Float),
@@ -23,6 +23,85 @@ pub enum FloatOp<'c> {
 }
 
 pub type FloatAst<'c> = AstRef<'c, FloatOp<'c>>;
+
+impl std::hash::Hash for FloatOp<'_> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        "float".hash(state);
+        match self {
+            FloatOp::FPS(s, sort) => {
+                0.hash(state);
+                s.hash(state);
+                sort.hash(state);
+            }
+            FloatOp::FPV(f) => {
+                1.hash(state);
+                f.hash(state);
+            }
+            FloatOp::FpNeg(a, rm) => {
+                2.hash(state);
+                a.hash(state);
+                rm.hash(state);
+            }
+            FloatOp::FpAbs(a, rm) => {
+                3.hash(state);
+                a.hash(state);
+                rm.hash(state);
+            }
+            FloatOp::FpAdd(a, b, rm) => {
+                4.hash(state);
+                a.hash(state);
+                b.hash(state);
+                rm.hash(state);
+            }
+            FloatOp::FpSub(a, b, rm) => {
+                5.hash(state);
+                a.hash(state);
+                b.hash(state);
+                rm.hash(state);
+            }
+            FloatOp::FpMul(a, b, rm) => {
+                6.hash(state);
+                a.hash(state);
+                b.hash(state);
+                rm.hash(state);
+            }
+            FloatOp::FpDiv(a, b, rm) => {
+                7.hash(state);
+                a.hash(state);
+                b.hash(state);
+                rm.hash(state);
+            }
+            FloatOp::FpSqrt(a, rm) => {
+                8.hash(state);
+                a.hash(state);
+                rm.hash(state);
+            }
+            FloatOp::FpToFp(a, sort, rm) => {
+                9.hash(state);
+                a.hash(state);
+                sort.hash(state);
+                rm.hash(state);
+            }
+            FloatOp::BvToFpUnsigned(a, sort, rm) => {
+                10.hash(state);
+                a.hash(state);
+                sort.hash(state);
+                rm.hash(state);
+            }
+            FloatOp::If(a, b, c) => {
+                11.hash(state);
+                a.hash(state);
+                b.hash(state);
+                c.hash(state);
+            }
+            FloatOp::Annotated(a, anno) => {
+                12.hash(state);
+                a.hash(state);
+                anno.hash(state);
+            }
+        }
+    }
+}
 
 impl<'c> Op<'c> for FloatOp<'c> {
     fn child_iter(&self) -> IntoIter<VarAst<'c>> {

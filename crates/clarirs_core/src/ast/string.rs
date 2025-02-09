@@ -5,7 +5,7 @@ use serde::Serialize;
 
 use crate::prelude::*;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub enum StringOp<'c> {
     StringS(String),
     StringV(String),
@@ -18,6 +18,53 @@ pub enum StringOp<'c> {
 }
 
 pub type StringAst<'c> = AstRef<'c, StringOp<'c>>;
+
+impl std::hash::Hash for StringOp<'_> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        "string".hash(state);
+        match self {
+            StringOp::StringS(s) => {
+                0.hash(state);
+                s.hash(state);
+            }
+            StringOp::StringV(s) => {
+                1.hash(state);
+                s.hash(state);
+            }
+            StringOp::StrConcat(a, b) => {
+                2.hash(state);
+                a.hash(state);
+                b.hash(state);
+            }
+            StringOp::StrSubstr(a, b, c) => {
+                3.hash(state);
+                a.hash(state);
+                b.hash(state);
+                c.hash(state);
+            }
+            StringOp::StrReplace(a, b, c) => {
+                4.hash(state);
+                a.hash(state);
+                b.hash(state);
+                c.hash(state);
+            }
+            StringOp::BVToStr(a) => {
+                5.hash(state);
+                a.hash(state);
+            }
+            StringOp::If(a, b, c) => {
+                6.hash(state);
+                a.hash(state);
+                b.hash(state);
+                c.hash(state);
+            }
+            StringOp::Annotated(a, _) => {
+                7.hash(state);
+                a.hash(state);
+            }
+        }
+    }
+}
 
 impl<'c> Op<'c> for StringOp<'c> {
     fn child_iter(&self) -> IntoIter<VarAst<'c>> {
