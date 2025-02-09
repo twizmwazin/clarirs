@@ -105,15 +105,15 @@ impl Float {
         // TODO: This implementation only currently works for the same fsort
 
         let exponent = match fsort.exponent().cmp(&(self.exponent.len() as u32)) {
-            std::cmp::Ordering::Less => todo!(),
+            std::cmp::Ordering::Less => todo!("to_fsort for smaller exponent"),
             std::cmp::Ordering::Equal => self.exponent.clone(),
-            std::cmp::Ordering::Greater => todo!(),
+            std::cmp::Ordering::Greater => todo!("to_fsort for larger exponent"),
         };
 
         let mantissa = match fsort.mantissa().cmp(&(self.mantissa.len() as u32)) {
-            std::cmp::Ordering::Less => todo!(),
+            std::cmp::Ordering::Less => todo!("to_fsort for smaller mantissa"),
             std::cmp::Ordering::Equal => self.mantissa.clone(),
-            std::cmp::Ordering::Greater => todo!(),
+            std::cmp::Ordering::Greater => todo!("to_fsort for larger mantissa"),
         };
 
         Self::new(self.sign, exponent, mantissa)
