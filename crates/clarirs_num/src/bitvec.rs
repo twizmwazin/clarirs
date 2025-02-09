@@ -277,6 +277,11 @@ impl BitVec {
         BitVec::new(words, length)
     }
 
+    // Creates and returns a BitVec with these one-filled words.
+    pub fn ones(length: usize) -> BitVec {
+        BitVec::from_biguint_trunc(&((BigUint::from(2u32) << length) - 1u32), length)
+    }
+
     // Power function for BitVec
     pub fn pow(&self, exponent: &BitVec) -> Result<BitVec, BitVecError> {
         let exp_value = exponent.to_biguint();

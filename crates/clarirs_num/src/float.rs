@@ -7,21 +7,22 @@ use num_traits::{ToPrimitive, Zero};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct FSort {
-    exponent: u32,
-    mantissa: u32,
+    pub exponent: u32,
+    pub mantissa: u32,
 }
+
+pub const F32_SORT: FSort = FSort {
+    exponent: 8,
+    mantissa: 23,
+};
+pub const F64_SORT: FSort = FSort {
+    exponent: 11,
+    mantissa: 52,
+};
 
 impl FSort {
     pub fn new(exponent: u32, mantissa: u32) -> Self {
         Self { exponent, mantissa }
-    }
-
-    pub fn exponent(&self) -> u32 {
-        self.exponent
-    }
-
-    pub fn mantissa(&self) -> u32 {
-        self.mantissa
     }
 
     pub fn size(&self) -> u32 {
@@ -29,11 +30,11 @@ impl FSort {
     }
 
     pub fn f32() -> Self {
-        Self::new(8, 23)
+        F32_SORT
     }
 
     pub fn f64() -> Self {
-        Self::new(11, 52)
+        F64_SORT
     }
 }
 
@@ -81,42 +82,165 @@ impl Float {
         FSort::new(self.exponent.len() as u32, self.mantissa.len() as u32)
     }
 
-    /// Constructs a `Float` from an `f64` with rounding and format adjustments
-    pub fn from_f64_with_rounding(value: f64, _fprm: FPRM, fsort: FSort) -> Self {
-        let sign = value.is_sign_negative();
-        let abs_value = value.abs();
-
-        let exp = abs_value.log2().floor() as u32;
-        let mantissa_val = abs_value / 2f64.powf(exp as f64) - 1.0;
-
-        let exponent = BitVec::from_prim_with_size(
-            exp + ((1 << (fsort.exponent() - 1)) - 1),
-            fsort.exponent() as usize,
-        );
-        let mantissa = BitVec::from_prim_with_size(
-            (mantissa_val * (1 << fsort.mantissa()) as f64) as u64,
-            fsort.mantissa() as usize,
-        );
-
-        Self::new(sign, exponent, mantissa)
+    pub fn is_zero(&self) -> bool {
+        self.exponent.is_zero() && self.mantissa.is_zero()
     }
 
-    pub fn to_fsort(&self, fsort: FSort, _rm: FPRM) -> Self {
-        // TODO: This implementation only currently works for the same fsort
+    pub fn is_subnormal(&self) -> bool {
+        self.exponent.is_zero() && !self.mantissa.is_zero()
+    }
 
-        let exponent = match fsort.exponent().cmp(&(self.exponent.len() as u32)) {
-            std::cmp::Ordering::Less => todo!("to_fsort for smaller exponent"),
-            std::cmp::Ordering::Equal => self.exponent.clone(),
-            std::cmp::Ordering::Greater => todo!("to_fsort for larger exponent"),
-        };
+    /// Constructs a `Float` from an `f64` with rounding and format adjustments
+    pub fn from_f64_with_rounding(value: f64, rm: FPRM, fsort: FSort) -> Self {
+        let (sign, exponent, mantissa) = decompose_f64(value);
+        Self {
+            sign: sign == 1,
+            exponent: BitVec::from_prim_with_size(exponent, fsort.exponent as usize),
+            mantissa: BitVec::from_prim_with_size(mantissa, fsort.mantissa as usize),
+        }
+        .to_fsort(fsort, rm)
+    }
 
-        let mantissa = match fsort.mantissa().cmp(&(self.mantissa.len() as u32)) {
-            std::cmp::Ordering::Less => todo!("to_fsort for smaller mantissa"),
-            std::cmp::Ordering::Equal => self.mantissa.clone(),
-            std::cmp::Ordering::Greater => todo!("to_fsort for larger mantissa"),
-        };
+    pub fn to_fsort(&self, fsort: FSort, rm: FPRM) -> Self {
+        const BIAS_32: u32 = 127;
+        const BIAS_64: u32 = 1023;
 
-        Self::new(self.sign, exponent, mantissa)
+        match (self.fsort(), fsort) {
+            (current, target) if current == target => self.clone(),
+            (F32_SORT, F64_SORT) => {
+                // Check for special values first
+                if self.is_nan() {
+                    return Self::new(
+                        self.sign,
+                        BitVec::ones(F64_SORT.exponent as usize),
+                        BitVec::ones(F64_SORT.mantissa as usize),
+                    );
+                } else if self.is_infinity() {
+                    return Self::new(
+                        self.sign,
+                        BitVec::ones(F64_SORT.exponent as usize),
+                        BitVec::zeros(F64_SORT.mantissa as usize),
+                    );
+                } else if self.is_zero() || self.is_subnormal() {
+                    return Self::new(
+                        self.sign,
+                        BitVec::zeros(F64_SORT.exponent as usize),
+                        BitVec::zeros(F64_SORT.mantissa as usize),
+                    );
+                }
+
+                // For normal numbers:
+                // 1. Keep the sign bit
+                // 2. Adjust exponent: Remove f32 bias (127) and add f64 bias (1023)
+                let f32_exp = self
+                    .exponent
+                    .to_biguint()
+                    .to_u32()
+                    .expect("exponent too big");
+                let unbiased_exp = f32_exp.wrapping_sub(BIAS_32);
+                let f64_exp = unbiased_exp.wrapping_add(BIAS_64);
+
+                // 3. Extend mantissa from 23 to 52 bits by padding with zeros
+                let extended_mantissa = BitVec::from_prim_with_size(
+                    self.mantissa.to_u64().expect("mantissa too big")
+                        << (F64_SORT.mantissa - F32_SORT.mantissa),
+                    F64_SORT.mantissa as usize,
+                );
+
+                Self::new(
+                    self.sign,
+                    BitVec::from_prim_with_size(f64_exp, F64_SORT.exponent as usize),
+                    extended_mantissa,
+                )
+            }
+            (F64_SORT, F32_SORT) => {
+                // Check for special values first
+                if self.is_nan() {
+                    return Self::new(
+                        self.sign,
+                        BitVec::ones(F32_SORT.exponent as usize),
+                        BitVec::ones(F32_SORT.mantissa as usize),
+                    );
+                } else if self.is_infinity() {
+                    return Self::new(
+                        self.sign,
+                        BitVec::ones(F32_SORT.exponent as usize),
+                        BitVec::zeros(F32_SORT.mantissa as usize),
+                    );
+                } else if self.is_zero() || self.is_subnormal() {
+                    return Self::new(
+                        self.sign,
+                        BitVec::zeros(F32_SORT.exponent as usize),
+                        BitVec::zeros(F32_SORT.mantissa as usize),
+                    );
+                }
+
+                // For normal numbers:
+                // 1. Keep the sign bit
+                // 2. Adjust exponent: Remove f64 bias (1023) and add f32 bias (127)
+                let f64_exp = self
+                    .exponent
+                    .to_biguint()
+                    .to_u32()
+                    .expect("exponent too big");
+                let unbiased_exp = f64_exp.wrapping_sub(BIAS_64);
+                let f32_exp = unbiased_exp.wrapping_add(BIAS_32);
+
+                // 3. Truncate mantissa from 52 to 23 bits with rounding
+                let mantissa_shift = F64_SORT.mantissa - F32_SORT.mantissa;
+                let mantissa_value = self.mantissa.to_u64().expect("mantissa too big");
+                let truncated_mantissa = match rm {
+                    FPRM::NearestTiesToEven => {
+                        let round_bit = (mantissa_value >> (mantissa_shift - 1)) & 1;
+                        let truncated = mantissa_value >> mantissa_shift;
+                        if round_bit == 1 {
+                            // If exactly halfway, round to even
+                            if mantissa_value & ((1 << (mantissa_shift - 1)) - 1) == 0 {
+                                if truncated & 1 == 1 {
+                                    truncated + 1
+                                } else {
+                                    truncated
+                                }
+                            } else {
+                                truncated + 1
+                            }
+                        } else {
+                            truncated
+                        }
+                    }
+                    FPRM::TowardPositive => {
+                        if !self.sign && (mantissa_value & ((1 << mantissa_shift) - 1)) != 0 {
+                            (mantissa_value >> mantissa_shift) + 1
+                        } else {
+                            mantissa_value >> mantissa_shift
+                        }
+                    }
+                    FPRM::TowardNegative => {
+                        if self.sign && (mantissa_value & ((1 << mantissa_shift) - 1)) != 0 {
+                            (mantissa_value >> mantissa_shift) + 1
+                        } else {
+                            mantissa_value >> mantissa_shift
+                        }
+                    }
+                    FPRM::TowardZero => mantissa_value >> mantissa_shift,
+                    FPRM::NearestTiesToAway => {
+                        let round_bit = (mantissa_value >> (mantissa_shift - 1)) & 1;
+                        if round_bit == 1 {
+                            (mantissa_value >> mantissa_shift) + 1
+                        } else {
+                            mantissa_value >> mantissa_shift
+                        }
+                    }
+                };
+
+                Self::new(
+                    self.sign,
+                    BitVec::from_prim_with_size(f32_exp, F32_SORT.exponent as usize),
+                    BitVec::from_prim_with_size(truncated_mantissa, F32_SORT.mantissa as usize),
+                )
+            }
+            _ => todo!("to_fsort for other cases"),
+        }
     }
 
     pub fn compare_fp(&self, other: &Self) -> bool {
@@ -256,34 +380,36 @@ impl Float {
         self.to_f64().map(|value| BigInt::from(value as i64))
     }
 
+    /// Converts the float to an `f32` representation, if possible
+    pub fn to_f32(&self) -> Option<f32> {
+        let self_f32 = self.to_fsort(F32_SORT, FPRM::NearestTiesToEven);
+        Some(recompose_f32(
+            self.sign as u8,
+            self_f32
+                .exponent
+                .as_biguint()
+                .to_u8()
+                .expect("exponent too big"),
+            self_f32
+                .mantissa
+                .as_biguint()
+                .to_u32()
+                .expect("mantissa too big"),
+        ))
+    }
+
     /// Converts the float to an `f64` representation, if possible
     pub fn to_f64(&self) -> Option<f64> {
-        // Check if the exponent or mantissa is too large to fit in `f64`
-        if self.exponent.len() > 11 || self.mantissa.len() > 52 {
-            return None; // Return None if it exceeds `f64` range
-        }
-
-        // Convert the exponent and mantissa from BitVec to integer values
-        let exponent = self.exponent.to_biguint().to_u64()? as i64;
-        let mantissa = self.mantissa.to_biguint().to_u64()?;
-
-        // Bias adjustment for IEEE 754 format (for `f64`, the bias is 1023)
-        let bias = 1023;
-        let adjusted_exponent = (exponent - bias) as i32;
-
-        // Reconstruct the `f64` value based on IEEE 754
-        let mut value = (mantissa as f64) / (1u64 << 52) as f64; // Normalize mantissa
-        value += 1.0; // Add the implicit leading 1 in IEEE 754
-
-        // Apply the exponent by scaling the value
-        value *= 2f64.powi(adjusted_exponent);
-
-        // Apply the sign
-        if self.sign {
-            value = -value;
-        }
-
-        Some(value)
+        let self_f64 = self.to_fsort(F64_SORT, FPRM::NearestTiesToEven);
+        Some(recompose_f64(
+            self.sign as u8,
+            self_f64
+                .exponent
+                .as_biguint()
+                .to_u16()
+                .expect("exponent too big"),
+            self_f64.mantissa.to_u64().expect("mantissa too big"),
+        ))
     }
 
     pub fn convert_to_format(&self, fsort: FSort, fprm: FPRM) -> Self {
@@ -409,7 +535,12 @@ fn normalize(mantissa: BitVec, exponent: BitVec) -> (BitVec, BitVec) {
     // Calculate the amount of shift required to normalize mantissa
     let shift_amount = mantissa.leading_zeros();
 
-    // Shift mantissa and adjust exponent, using cloned values
+    // Clamp shift_amount so it never exceeds the mantissa length
+    if shift_amount >= mantissa.len() {
+        return (exponent, mantissa);
+    }
+
+    // Otherwise, shift mantissa and adjust exponent
     let normalized_mantissa = mantissa << shift_amount;
     let normalized_exponent =
         exponent.clone() - BitVec::from_prim_with_size(shift_amount as u32, exponent.len());
@@ -533,6 +664,134 @@ mod tests {
                 assert!(recomposed_be.is_nan());
             } else {
                 assert_eq!(value, recomposed_be);
+            }
+        }
+    }
+
+    #[test]
+    fn test_float_construct_round_trip() {
+        // Test cases for conversion to and from Float
+        let values = [
+            0.0,
+            -0.0,
+            1.0,
+            -1.0,
+            42.0,
+            -42.0,
+            1.5,
+            -1.5,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::NAN,
+        ];
+
+        for &value in &values {
+            let start = Float::from(value);
+            let recomposed = start.to_f64();
+
+            // Check for NaN explicitly as NaN != NaN
+            if value.is_nan() {
+                assert!(recomposed.unwrap().is_nan());
+            } else {
+                assert_eq!(value, recomposed.unwrap());
+            }
+        }
+    }
+
+    #[test]
+    fn test_to_fp_round_trip() {
+        // Test cases for conversion to and from Float
+        let values = [
+            0.0,
+            -0.0,
+            1.0,
+            -1.0,
+            42.0,
+            -42.0,
+            1.5,
+            -1.5,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::NAN,
+        ];
+
+        for &value in &values {
+            let start = Float::from(value);
+            let middle = start.to_fsort(F32_SORT, FPRM::NearestTiesToEven);
+            let end = middle.to_fsort(F64_SORT, FPRM::NearestTiesToEven);
+            let recomposed = end.to_f64();
+
+            // Check for NaN explicitly as NaN != NaN
+            if value.is_nan() {
+                assert!(recomposed.unwrap().is_nan());
+            } else {
+                assert_eq!(value, recomposed.unwrap());
+            }
+        }
+    }
+
+    #[test]
+    fn test_float_construct_f32_to_f64() {
+        let test_values: &[f32] = &[
+            0.0,
+            -0.0,
+            1.0,
+            -1.0,
+            42.0,
+            -42.0,
+            1.5,
+            -1.5,
+            f32::INFINITY,
+            f32::NEG_INFINITY,
+            f32::NAN,
+            f32::MAX,
+            f32::MIN,
+            f32::MIN_POSITIVE,
+        ];
+
+        for &value in test_values {
+            let float = Float::from(value);
+            let converted = float.to_fsort(F64_SORT, FPRM::NearestTiesToEven);
+            let result = converted.to_f64().unwrap();
+
+            if value.is_nan() {
+                assert!(result.is_nan());
+            } else {
+                assert_eq!(value as f64, result);
+            }
+        }
+    }
+
+    #[test]
+    #[allow(clippy::excessive_precision)]
+    fn test_float_construct_f64_to_f32() {
+        let test_values: &[f64] = &[
+            0.0,
+            -0.0,
+            1.0,
+            -1.0,
+            42.0,
+            -42.0,
+            1.5,
+            -1.5,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::NAN,
+            3.4028234663852886e+38,
+            -3.4028234663852886e+38,
+            f32::MIN_POSITIVE as f64,
+        ];
+
+        for &value in test_values {
+            let float = Float::from(value);
+            let converted = float.to_fsort(F32_SORT, FPRM::NearestTiesToEven);
+            let result = converted.to_f32().unwrap();
+
+            if value.is_nan() {
+                assert!(result.is_nan());
+            } else {
+                // Compare with value converted to f32 to account for precision loss
+                assert_eq!(value as f32, result);
             }
         }
     }
