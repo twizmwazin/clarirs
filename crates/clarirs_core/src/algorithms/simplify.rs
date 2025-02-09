@@ -323,7 +323,7 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
                         _ => ctx.if_(&cond, &then_, &else_),
                     }
                 }
-                BooleanOp::Annotated(arc, annotation) => todo!(),
+                BooleanOp::Annotated(arc, annotation) => todo!("bool annotation simplification"),
             }
         })
     }
@@ -784,8 +784,8 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                     }
                 }
 
-                BitVecOp::If(arc, arc1, arc2) => todo!(),
-                BitVecOp::Annotated(arc, annotation) => todo!(),
+                BitVecOp::If(arc, arc1, arc2) => todo!("bv if simplification"),
+                BitVecOp::Annotated(arc, annotation) => todo!("bv annotation simplification"),
             }
         })
     }
@@ -913,8 +913,8 @@ impl<'c> Simplify<'c> for FloatAst<'c> {
                         _ => ctx.bv_to_fp_unsigned(&arc, fsort.clone(), fprm.clone()),
                     }
                 }
-                FloatOp::If(arc, arc1, arc2) => todo!(),
-                FloatOp::Annotated(arc, annotation) => todo!(),
+                FloatOp::If(arc, arc1, arc2) => todo!("fp if simplification"),
+                FloatOp::Annotated(arc, annotation) => todo!("fp annotation simplification"),
             }
         })
     }
@@ -992,8 +992,10 @@ impl<'c> Simplify<'c> for StringAst<'c> {
                             _ => ctx.bvtostr(&arc),
                         }
                     }
-                    StringOp::If(arc, arc1, arc2) => todo!(),
-                    StringOp::Annotated(arc, annotation) => todo!(),
+                    StringOp::If(arc, arc1, arc2) => todo!("string if simplification"),
+                    StringOp::Annotated(arc, annotation) => {
+                        todo!("string annotation simplification")
+                    }
                 }
             })
     }
