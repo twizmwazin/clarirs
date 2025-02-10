@@ -1,100 +1,96 @@
-use std::{cell::OnceCell, rc::Rc};
+mod convert;
 
 use clarirs_core::prelude::*;
 
-struct Z3Model<'c, 's> {
+pub struct Z3Model<'c, 'z> {
     ctx: &'c Context<'c>,
-    z3_ctx: &'s z3::Context,
-    model: z3::Model<'s>,
+    z3_ctx: &'z z3::Context,
+    model: z3::Model<'z>,
 }
 
-impl<'c, 's> HasContext<'c> for Z3Model<'c, 's> {
-    fn context(&self) -> &'c Context<'c> {
-        self.ctx
+impl<'c> Model<'c> for Z3Model<'c, '_> {
+    fn eval_bool(&self, expr: &BoolAst<'c>) -> Result<BoolAst<'c>, ClarirsError> {
+        convert::convert_bool_from_z3(
+            self.ctx,
+            &self
+                .model
+                .get_const_interp(&convert::convert_bool_to_z3(self.z3_ctx, expr)?)
+                .ok_or(ClarirsError::AstNotInModel)?,
+        )
     }
-}
 
-impl<'c, 's> Model<'c> for Z3Model<'c, 's> {
-    fn batch_eval<I>(&self, exprs: I, max_solutions: u32) -> Result<Vec<AstRef<'c>>, ClarirsError>
-    where
-        I: IntoIterator<Item = AstRef<'c>>,
-    {
-        todo!()
+    fn eval_bitvec(&self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        convert::convert_bv_from_z3(
+            self.ctx,
+            &self
+                .model
+                .get_const_interp(&convert::convert_bv_to_z3(self.z3_ctx, expr)?)
+                .ok_or(ClarirsError::AstNotInModel)?,
+        )
+    }
+
+    fn eval_float(&self, expr: &FloatAst<'c>) -> Result<FloatAst<'c>, ClarirsError> {
+        convert::convert_float_from_z3(
+            self.ctx,
+            &self
+                .model
+                .get_const_interp(&convert::convert_float_to_z3(self.z3_ctx, expr)?)
+                .ok_or(ClarirsError::AstNotInModel)?,
+        )
+    }
+
+    fn eval_string(&self, expr: &StringAst<'c>) -> Result<StringAst<'c>, ClarirsError> {
+        convert::convert_string_from_z3(
+            self.ctx,
+            &self
+                .model
+                .get_const_interp(&convert::convert_string_to_z3(self.z3_ctx, expr)?)
+                .ok_or(ClarirsError::AstNotInModel)?,
+        )
     }
 }
 
 #[derive(Clone)]
-struct Z3Solver<'c, 's> {
+pub struct Z3Solver<'c, 'z> {
     ctx: &'c Context<'c>,
-    z3_cfg: Rc<z3::Config>,
-    z3_ctx: Rc<z3::Context>,
-    solver: OnceCell<z3::Solver<'s>>,
+    solver: z3::Solver<'z>,
 }
 
-impl<'c, 's> Z3Solver<'c, 's> {
-    fn new(ctx: &'c Context<'c>) -> Self {
-        let z3_cfg = Rc::new(z3::Config::new());
-        let z3_ctx = Rc::new(z3::Context::new(&z3_cfg));
-
+impl<'c, 'z> Z3Solver<'c, 'z> {
+    pub fn new(ctx: &'c Context<'c>, z3_ctx: &'z z3::Context) -> Self {
         Self {
             ctx,
-            z3_cfg,
-            z3_ctx,
-            solver: OnceCell::new(),
+            solver: z3::Solver::new(z3_ctx),
         }
     }
 }
 
-impl<'c, 's> HasContext<'c> for Z3Solver<'c, 's> {
+impl<'c> HasContext<'c> for Z3Solver<'c, '_> {
     fn context(&self) -> &'c Context<'c> {
         self.ctx
     }
 }
 
-impl<'c, 's> Solver<'c, 's> for Z3Solver<'c, 's>
-where
-    'c: 's,
-{
-    type Model = Z3Model<'c, 's>;
+impl<'c, 'z> Solver<'c> for Z3Solver<'c, 'z> {
+    type Model = Z3Model<'c, 'z>;
 
-    fn add(&'s mut self, constraint: &AstRef<'c>) -> Result<(), ClarirsError> {
-        self.solver.get_or_init(|| z3::Solver::new(&self.z3_ctx));
-        self.solver.get().unwrap().assert(
-            &convert_astref_to_z3(constraint, &self.z3_ctx)?
-                .as_bool()
-                .ok_or(ClarirsError::TypeError(
-                    "You can only add bools as solver constraints.".into(),
-                ))?,
-        );
+    fn add(&mut self, constraint: &BoolAst<'c>) -> Result<(), ClarirsError> {
+        let z3_constraint = convert::convert_bool_to_z3(self.solver.get_context(), constraint)?;
+        self.solver.assert(&z3_constraint);
         Ok(())
     }
 
-    fn model(&'s mut self) -> Result<Self::Model, ClarirsError> {
-        self.solver.get_or_init(|| z3::Solver::new(&self.z3_ctx));
+    fn model(&mut self) -> Result<Self::Model, ClarirsError> {
+        if self.solver.check() != z3::SatResult::Sat {
+            return Err(ClarirsError::Unsat);
+        }
+
+        let model = self.solver.get_model().unwrap();
+
         Ok(Z3Model {
             ctx: self.ctx,
-            z3_ctx: &self.z3_ctx,
-            model: self.solver.get().unwrap().get_model().unwrap(),
+            z3_ctx: self.solver.get_context(),
+            model,
         })
-    }
-}
-
-fn convert_astref_to_z3<'z>(
-    ast: &AstRef,
-    ctx: &'z z3::Context,
-) -> Result<z3::ast::Dynamic<'z>, ClarirsError> {
-    todo!()
-}
-
-fn convert_z3_to_astref<'c>(
-    ast: z3::ast::Dynamic,
-    ctx: &'c Context<'c>,
-) -> Result<AstRef<'c>, ClarirsError> {
-    match ast.sort_kind() {
-        z3::SortKind::Bool => {
-            let ast = ast.as_bool().unwrap();
-            todo!()
-        }
-        _ => todo!(),
     }
 }

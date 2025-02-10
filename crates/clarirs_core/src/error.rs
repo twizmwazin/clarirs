@@ -26,6 +26,12 @@ pub enum ClarirsError {
     TypeError(String),
     #[error("BitVector not bite-sized: {length:?} is not a multiple of 8")]
     BitVectorNotByteSized { length: usize },
+    #[error("AST not represented in model")]
+    AstNotInModel,
+    #[error("Conversion error: {:?}", .0)]
+    ConversionError(String),
+    #[error("UNSAT")]
+    Unsat,
 }
 
 impl<T> From<PoisonError<T>> for ClarirsError {
