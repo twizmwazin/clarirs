@@ -18,5 +18,10 @@ z3 = { git = "https://github.com/twizmwazin/z3.rs.git", branch = "feat/add-float
 # dependency conflict unless this is specified here.
 cc = "~1.1"
 
+[features]
+default = []
+z3-bundled = ["z3/bundled"]
+z3-vcpkg = ["z3/vcpkg"]
+
 [lints]
 workspace = true
