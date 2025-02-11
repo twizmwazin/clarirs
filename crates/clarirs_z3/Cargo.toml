@@ -11,17 +11,15 @@ repository = { workspace = true }
 
 [dependencies]
 clarirs_core = { path = "../clarirs_core" }
-z3 = { git = "https://github.com/twizmwazin/z3.rs.git", branch = "feat/add-float-unary" }
+z3 = { git = "https://github.com/twizmwazin/z3.rs.git", ref = "3400ce1efd07ddd98eec80445b5709a9fa8d0ef7", features = [
+    "bundled",
+] }
 
-[build-dependencies]
-# Z3 is currently locked to an older version of the `cc` crate, there is a
-# dependency conflict unless this is specified here.
-cc = "~1.1"
 
-[features]
-default = []
-z3-bundled = ["z3/bundled"]
-z3-vcpkg = ["z3/vcpkg"]
+# [build-dependencies]
+# # Z3 is currently locked to an older version of the `cc` crate, there is a
+# # dependency conflict unless this is specified here.
+# cc = "~1.1"
 
 [lints]
 workspace = true

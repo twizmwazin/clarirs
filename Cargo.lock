@@ -138,7 +138,6 @@ dependencies = [
 name = "clarirs_z3"
 version = "0.1.0"
 dependencies = [
- "cc",
  "clarirs_core",
  "z3",
 ]
@@ -613,12 +612,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c7de7d73e1754487cb58364ee906a499937a0dfabd86bcb980fa99ec8c8fa2ce"
 
 [[package]]
-name = "vcpkg"
-version = "0.2.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
-
-[[package]]
 name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -697,7 +690,7 @@ checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
 [[package]]
 name = "z3"
 version = "0.12.1"
-source = "git+https://github.com/twizmwazin/z3.rs.git?branch=feat%2Fadd-float-unary#3400ce1efd07ddd98eec80445b5709a9fa8d0ef7"
+source = "git+https://github.com/twizmwazin/z3.rs.git#4f9fcfe43ff2c78aadfaf57c4fab1f7cbe4aa8a8"
 dependencies = [
  "log",
  "num",
@@ -707,13 +700,12 @@ dependencies = [
 [[package]]
 name = "z3-sys"
 version = "0.8.1"
-source = "git+https://github.com/twizmwazin/z3.rs.git?branch=feat%2Fadd-float-unary#3400ce1efd07ddd98eec80445b5709a9fa8d0ef7"
+source = "git+https://github.com/twizmwazin/z3.rs.git#4f9fcfe43ff2c78aadfaf57c4fab1f7cbe4aa8a8"
 dependencies = [
  "bindgen",
  "cc",
  "cmake",
  "pkg-config",
- "vcpkg",
 ]
 
 [[package]]
