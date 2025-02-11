@@ -127,6 +127,7 @@ name = "clarirs_py"
 version = "0.1.0"
 dependencies = [
  "clarirs_core",
+ "clarirs_z3",
  "dashmap",
  "log",
  "num-bigint",
