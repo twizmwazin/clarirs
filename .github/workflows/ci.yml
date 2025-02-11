@@ -32,7 +32,7 @@ jobs:
           rustflags: ""
 
       - name: Clippy Check
-        run: cargo clippy --all-features -- -D warnings
+        run: cargo clippy -- -D warnings
 
   test:
     name: Test on ${{ matrix.os }}
@@ -50,10 +50,10 @@ jobs:
           rustflags: ""
 
       - name: Build
-        run: cargo build --all-features --features clarirs_z3/z3-vcpkg
+        run: cargo build --features clarirs_z3/bundled
 
       - name: Run tests
-        run: cargo test --all-features --features clarirs_z3/z3-vcpkg --no-fail-fast
+        run: cargo test --features clarirs_z3/bundled --no-fail-fast
 
   python-bindings:
     name: Python Bindings on ${{ matrix.os }}
