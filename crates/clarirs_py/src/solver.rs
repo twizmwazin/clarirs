@@ -24,9 +24,7 @@ impl PyConcreteSolver {
                 py,
                 &self
                     .inner
-                    .model()?
-                    .eval_bitvec(&bv_value.get().inner)
-                    .unwrap(),
+                    .eval_bitvec(&bv_value.get().inner)?,
             )
             .map(|b| {
                 b.into_any()
@@ -40,7 +38,6 @@ impl PyConcreteSolver {
                 py,
                 &self
                     .inner
-                    .model()?
                     .eval_bool(&bool_value.get().inner)
                     .unwrap(),
             )
@@ -56,9 +53,7 @@ impl PyConcreteSolver {
                 py,
                 &self
                     .inner
-                    .model()?
-                    .eval_float(&fp_value.get().inner)
-                    .unwrap(),
+                    .eval_float(&fp_value.get().inner)?,
             )
             .map(|b| {
                 b.into_any()
@@ -72,9 +67,7 @@ impl PyConcreteSolver {
                 py,
                 &self
                     .inner
-                    .model()?
-                    .eval_string(&string_value.get().inner)
-                    .unwrap(),
+                    .eval_string(&string_value.get().inner)?,
             )
             .map(|b| {
                 b.into_any()
@@ -96,15 +89,6 @@ impl PyConcreteSolver {
     ) -> Result<Vec<Py<Base>>, ClaripyError> {
         exprs.into_iter().map(|expr| self.eval(py, expr)).collect()
     }
-
-    // TODO: See corresponding function in clarirs_core/src/solver/solver.rs
-    // fn is_solution(
-    //     &mut self,
-    //     expr: Bound<Base>,
-    //     value: Bound<Base>,
-    // ) -> Result<bool, ClaripyError> {
-    //     Ok(self.solver.is_solution(&expr.get().ast, &value.get().ast)?)
-    // }
 
     fn is_true(&mut self, expr: Bound<Bool>) -> Result<bool, ClaripyError> {
         Ok(self.inner.is_true(&expr.get().inner).unwrap())
