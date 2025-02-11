@@ -16,7 +16,10 @@ pub struct Z3Solver<'c> {
 
 impl<'c> Z3Solver<'c> {
     pub fn new(ctx: &'c Context<'c>) -> Self {
-        Self { ctx, assertions: vec![] }
+        Self {
+            ctx,
+            assertions: vec![],
+        }
     }
 }
 
