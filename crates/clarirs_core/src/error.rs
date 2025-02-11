@@ -32,6 +32,8 @@ pub enum ClarirsError {
     ConversionError(String),
     #[error("UNSAT")]
     Unsat,
+    #[error("Unknown error: {:?}", .0)]
+    UnknownError(String),
 }
 
 impl<T> From<PoisonError<T>> for ClarirsError {

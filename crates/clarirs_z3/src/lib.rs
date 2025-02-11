@@ -1,3 +1,4 @@
+mod astext;
 mod convert;
 
 use clarirs_core::prelude::*;
@@ -145,5 +146,76 @@ impl<'c> Solver<'c> for Z3Solver<'c, '_> {
                 .get_const_interp(&z3_expr)
                 .ok_or(ClarirsError::AstNotInModel)?,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn setup<'c>() -> (Context<'c>, z3::Context) {
+        let ctx = Context::new();
+        let z3_cfg = z3::Config::new();
+        let z3_ctx = z3::Context::new(&z3_cfg);
+
+        (ctx, z3_ctx)
+    }
+
+    #[test]
+    fn test_solver() -> Result<(), ClarirsError> {
+        let (ctx, z3_ctx) = setup();
+
+        let mut solver = Z3Solver::new(&ctx, &z3_ctx);
+
+        let x = ctx.bools("x")?;
+        let y = ctx.bools("y")?;
+
+        solver.add(&ctx.not(&ctx.eq_(&x, &y)?)?).unwrap();
+
+        let x_val = solver.eval_bool(&x).unwrap();
+        let y_val = solver.eval_bool(&y).unwrap();
+
+        assert_ne!(x_val, y_val);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_solver_unsat() -> Result<(), ClarirsError> {
+        let (ctx, z3_ctx) = setup();
+
+        let mut solver = Z3Solver::new(&ctx, &z3_ctx);
+
+        let x = ctx.bools("x")?;
+        let y = ctx.bools("y")?;
+
+        solver.add(&ctx.eq_(&x, &y)?)?;
+        solver.add(&ctx.neq(&x, &y)?)?;
+
+        assert!(!solver.satisfiable()?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_solver_bool() -> Result<(), ClarirsError> {
+        let (ctx, z3_ctx) = setup();
+
+        let mut solver = Z3Solver::new(&ctx, &z3_ctx);
+
+        let x = ctx.bools("x")?;
+        let y = ctx.bools("y")?;
+
+        solver.add(&ctx.not(&ctx.eq_(&x, &y)?)?).unwrap();
+        solver.add(&ctx.eq_(&x, &ctx.true_()?)?).unwrap();
+
+        let x_val = solver.eval_bool(&x).unwrap();
+        let y_val = solver.eval_bool(&y).unwrap();
+
+        assert_ne!(x_val, y_val);
+        assert!(x_val.is_true());
+        assert!(y_val.is_false());
+
+        Ok(())
     }
 }
