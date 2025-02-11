@@ -3,54 +3,6 @@ mod convert;
 
 use clarirs_core::prelude::*;
 
-pub struct Z3Model<'c, 'z> {
-    ctx: &'c Context<'c>,
-    z3_ctx: &'z z3::Context,
-    model: z3::Model<'z>,
-}
-
-impl<'c> Model<'c> for Z3Model<'c, '_> {
-    fn eval_bool(&self, expr: &BoolAst<'c>) -> Result<BoolAst<'c>, ClarirsError> {
-        convert::convert_bool_from_z3(
-            self.ctx,
-            &self
-                .model
-                .get_const_interp(&convert::convert_bool_to_z3(self.z3_ctx, expr)?)
-                .ok_or(ClarirsError::AstNotInModel)?,
-        )
-    }
-
-    fn eval_bitvec(&self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        convert::convert_bv_from_z3(
-            self.ctx,
-            &self
-                .model
-                .get_const_interp(&convert::convert_bv_to_z3(self.z3_ctx, expr)?)
-                .ok_or(ClarirsError::AstNotInModel)?,
-        )
-    }
-
-    fn eval_float(&self, expr: &FloatAst<'c>) -> Result<FloatAst<'c>, ClarirsError> {
-        convert::convert_float_from_z3(
-            self.ctx,
-            &self
-                .model
-                .get_const_interp(&convert::convert_float_to_z3(self.z3_ctx, expr)?)
-                .ok_or(ClarirsError::AstNotInModel)?,
-        )
-    }
-
-    fn eval_string(&self, expr: &StringAst<'c>) -> Result<StringAst<'c>, ClarirsError> {
-        convert::convert_string_from_z3(
-            self.ctx,
-            &self
-                .model
-                .get_const_interp(&convert::convert_string_to_z3(self.z3_ctx, expr)?)
-                .ok_or(ClarirsError::AstNotInModel)?,
-        )
-    }
-}
-
 #[derive(Clone)]
 pub struct Z3Solver<'c, 'z> {
     ctx: &'c Context<'c>,
@@ -73,26 +25,133 @@ impl<'c> HasContext<'c> for Z3Solver<'c, '_> {
 }
 
 impl<'c, 'z> Solver<'c> for Z3Solver<'c, 'z> {
-    type Model = Z3Model<'c, 'z>;
-
     fn add(&mut self, constraint: &BoolAst<'c>) -> Result<(), ClarirsError> {
         let z3_constraint = convert::convert_bool_to_z3(self.solver.get_context(), constraint)?;
         self.solver.assert(&z3_constraint);
         Ok(())
     }
 
-    fn model(&mut self) -> Result<Self::Model, ClarirsError> {
+    fn satisfiable(&mut self) -> Result<bool, ClarirsError> {
+        Ok(self.solver.check() == z3::SatResult::Sat)
+    }
+
+    fn eval_bool(&mut self, expr: &BoolAst<'c>) -> Result<BoolAst<'c>, ClarirsError> {
         if self.solver.check() != z3::SatResult::Sat {
             return Err(ClarirsError::Unsat);
         }
+        convert::convert_bool_from_z3(
+            self.ctx,
+            &self
+                .solver
+                .get_model()
+                .ok_or(ClarirsError::Unsat)?
+                .get_const_interp(&convert::convert_bool_to_z3(
+                    self.solver.get_context(),
+                    expr,
+                )?)
+                .ok_or(ClarirsError::AstNotInModel)?,
+        )
+    }
 
-        let model = self.solver.get_model().unwrap();
+    fn eval_bitvec(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        if self.solver.check() != z3::SatResult::Sat {
+            return Err(ClarirsError::Unsat);
+        }
+        convert::convert_bv_from_z3(
+            self.ctx,
+            &self
+                .solver
+                .get_model()
+                .ok_or(ClarirsError::Unsat)?
+                .get_const_interp(&convert::convert_bv_to_z3(
+                    self.solver.get_context(),
+                    expr,
+                )?)
+                .ok_or(ClarirsError::AstNotInModel)?,
+        )
+    }
 
-        Ok(Z3Model {
-            ctx: self.ctx,
-            z3_ctx: self.solver.get_context(),
-            model,
-        })
+    fn eval_float(&mut self, expr: &FloatAst<'c>) -> Result<FloatAst<'c>, ClarirsError> {
+        if self.solver.check() != z3::SatResult::Sat {
+            return Err(ClarirsError::Unsat);
+        }
+        convert::convert_float_from_z3(
+            self.ctx,
+            &self
+                .solver
+                .get_model()
+                .ok_or(ClarirsError::Unsat)?
+                .get_const_interp(&convert::convert_float_to_z3(
+                    self.solver.get_context(),
+                    expr,
+                )?)
+                .ok_or(ClarirsError::AstNotInModel)?,
+        )
+    }
+
+    fn eval_string(&mut self, expr: &StringAst<'c>) -> Result<StringAst<'c>, ClarirsError> {
+        if self.solver.check() != z3::SatResult::Sat {
+            return Err(ClarirsError::Unsat);
+        }
+        convert::convert_string_from_z3(
+            self.ctx,
+            &self
+                .solver
+                .get_model()
+                .ok_or(ClarirsError::Unsat)?
+                .get_const_interp(&convert::convert_string_to_z3(
+                    self.solver.get_context(),
+                    expr,
+                )?)
+                .ok_or(ClarirsError::AstNotInModel)?,
+        )
+    }
+
+    fn is_true(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+        let z3_expr = convert::convert_bool_to_z3(self.solver.get_context(), expr)?;
+        Ok(self.solver.check_assumptions(&[z3_expr]) == z3::SatResult::Sat)
+    }
+
+    fn is_false(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+        let z3_expr = convert::convert_bool_to_z3(self.solver.get_context(), expr)?;
+        Ok(self.solver.check_assumptions(&[z3_expr]) == z3::SatResult::Unsat)
+    }
+
+    fn min(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        let optimize = z3::Optimize::new(self.solver.get_context());
+        for assertion in self.solver.get_assertions() {
+            optimize.assert(&assertion);
+        }
+        let z3_expr = convert::convert_bv_to_z3(self.solver.get_context(), expr)?;
+        optimize.minimize(&z3_expr);
+
+        let model = optimize.get_model().ok_or(ClarirsError::Unsat)?;
+        convert::convert_bv_from_z3
+            (
+                self.ctx,
+                &model
+                    .get_const_interp(&z3_expr)
+                    .ok_or(ClarirsError::AstNotInModel)?,
+            )
+
+    }
+
+    fn max(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        let optimize = z3::Optimize::new(self.solver.get_context());
+        for assertion in self.solver.get_assertions() {
+            optimize.assert(&assertion);
+        }
+        let z3_expr = convert::convert_bv_to_z3(self.solver.get_context(), expr)?;
+        optimize.maximize(&z3_expr);
+
+        let model = optimize.get_model().ok_or(ClarirsError::Unsat)?;
+        convert::convert_bv_from_z3
+            (
+                self.ctx,
+                &model
+                    .get_const_interp(&z3_expr)
+                    .ok_or(ClarirsError::AstNotInModel)?,
+            )
     }
 }
 
@@ -119,10 +178,8 @@ mod tests {
 
         solver.add(&ctx.not(&ctx.eq_(&x, &y)?)?).unwrap();
 
-        let model = solver.model().unwrap();
-
-        let x_val = model.eval_bool(&x).unwrap();
-        let y_val = model.eval_bool(&y).unwrap();
+        let x_val = solver.eval_bool(&x).unwrap();
+        let y_val = solver.eval_bool(&y).unwrap();
 
         assert_ne!(x_val, y_val);
 
@@ -139,9 +196,9 @@ mod tests {
         let y = ctx.bools("y")?;
 
         solver.add(&ctx.eq_(&x, &y)?)?;
+        solver.add(&ctx.neq(&x, &y)?)?;
 
-        let model = solver.model();
-        assert!(model.is_err());
+        assert!(!solver.satisfiable()?);
 
         Ok(())
     }
@@ -158,10 +215,8 @@ mod tests {
         solver.add(&ctx.not(&ctx.eq_(&x, &y)?)?).unwrap();
         solver.add(&ctx.eq_(&x, &ctx.true_()?)?).unwrap();
 
-        let model = solver.model().unwrap();
-
-        let x_val = model.eval_bool(&x).unwrap();
-        let y_val = model.eval_bool(&y).unwrap();
+        let x_val = solver.eval_bool(&x).unwrap();
+        let y_val = solver.eval_bool(&y).unwrap();
 
         assert_ne!(x_val, y_val);
         assert!(x_val.is_true());
