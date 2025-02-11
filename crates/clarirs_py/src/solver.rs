@@ -20,13 +20,7 @@ impl PyConcreteSolver {
 
     fn eval(&mut self, py: Python, expr: Bound<Base>) -> Result<Py<Base>, ClaripyError> {
         if let Ok(bv_value) = expr.clone().into_any().downcast::<BV>() {
-            BV::new(
-                py,
-                &self
-                    .inner
-                    .eval_bitvec(&bv_value.get().inner)?,
-            )
-            .map(|b| {
+            BV::new(py, &self.inner.eval_bitvec(&bv_value.get().inner)?).map(|b| {
                 b.into_any()
                     .downcast_bound::<Base>(py)
                     .unwrap()
@@ -34,14 +28,7 @@ impl PyConcreteSolver {
                     .unbind()
             })
         } else if let Ok(bool_value) = expr.clone().into_any().downcast::<Bool>() {
-            Bool::new(
-                py,
-                &self
-                    .inner
-                    .eval_bool(&bool_value.get().inner)
-                    .unwrap(),
-            )
-            .map(|b| {
+            Bool::new(py, &self.inner.eval_bool(&bool_value.get().inner).unwrap()).map(|b| {
                 b.into_any()
                     .downcast_bound::<Base>(py)
                     .unwrap()
@@ -49,13 +36,7 @@ impl PyConcreteSolver {
                     .unbind()
             })
         } else if let Ok(fp_value) = expr.clone().into_any().downcast::<FP>() {
-            FP::new(
-                py,
-                &self
-                    .inner
-                    .eval_float(&fp_value.get().inner)?,
-            )
-            .map(|b| {
+            FP::new(py, &self.inner.eval_float(&fp_value.get().inner)?).map(|b| {
                 b.into_any()
                     .downcast_bound::<Base>(py)
                     .unwrap()
@@ -63,13 +44,7 @@ impl PyConcreteSolver {
                     .unbind()
             })
         } else if let Ok(string_value) = expr.clone().into_any().downcast::<PyAstString>() {
-            PyAstString::new(
-                py,
-                &self
-                    .inner
-                    .eval_string(&string_value.get().inner)?,
-            )
-            .map(|b| {
+            PyAstString::new(py, &self.inner.eval_string(&string_value.get().inner)?).map(|b| {
                 b.into_any()
                     .downcast_bound::<Base>(py)
                     .unwrap()

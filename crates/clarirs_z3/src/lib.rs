@@ -23,7 +23,7 @@ impl<'c> HasContext<'c> for Z3Solver<'c, '_> {
     }
 }
 
-impl<'c, 'z> Solver<'c> for Z3Solver<'c, 'z> {
+impl<'c> Solver<'c> for Z3Solver<'c, '_> {
     fn add(&mut self, constraint: &BoolAst<'c>) -> Result<(), ClarirsError> {
         let z3_constraint = convert::convert_bool_to_z3(self.solver.get_context(), constraint)?;
         self.solver.assert(&z3_constraint);
@@ -62,10 +62,7 @@ impl<'c, 'z> Solver<'c> for Z3Solver<'c, 'z> {
                 .solver
                 .get_model()
                 .ok_or(ClarirsError::Unsat)?
-                .get_const_interp(&convert::convert_bv_to_z3(
-                    self.solver.get_context(),
-                    expr,
-                )?)
+                .get_const_interp(&convert::convert_bv_to_z3(self.solver.get_context(), expr)?)
                 .ok_or(ClarirsError::AstNotInModel)?,
         )
     }
@@ -125,14 +122,12 @@ impl<'c, 'z> Solver<'c> for Z3Solver<'c, 'z> {
         optimize.minimize(&z3_expr);
 
         let model = optimize.get_model().ok_or(ClarirsError::Unsat)?;
-        convert::convert_bv_from_z3
-            (
-                self.ctx,
-                &model
-                    .get_const_interp(&z3_expr)
-                    .ok_or(ClarirsError::AstNotInModel)?,
-            )
-
+        convert::convert_bv_from_z3(
+            self.ctx,
+            &model
+                .get_const_interp(&z3_expr)
+                .ok_or(ClarirsError::AstNotInModel)?,
+        )
     }
 
     fn max(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
@@ -144,12 +139,11 @@ impl<'c, 'z> Solver<'c> for Z3Solver<'c, 'z> {
         optimize.maximize(&z3_expr);
 
         let model = optimize.get_model().ok_or(ClarirsError::Unsat)?;
-        convert::convert_bv_from_z3
-            (
-                self.ctx,
-                &model
-                    .get_const_interp(&z3_expr)
-                    .ok_or(ClarirsError::AstNotInModel)?,
-            )
+        convert::convert_bv_from_z3(
+            self.ctx,
+            &model
+                .get_const_interp(&z3_expr)
+                .ok_or(ClarirsError::AstNotInModel)?,
+        )
     }
 }
