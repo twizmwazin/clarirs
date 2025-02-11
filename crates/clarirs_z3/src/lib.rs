@@ -172,10 +172,8 @@ mod tests {
 
         solver.add(&ctx.not(&ctx.eq_(&x, &y)?)?).unwrap();
 
-        let model = solver.model().unwrap();
-
-        let x_val = model.eval_bool(&x).unwrap();
-        let y_val = model.eval_bool(&y).unwrap();
+        let x_val = solver.eval_bool(&x).unwrap();
+        let y_val = solver.eval_bool(&y).unwrap();
 
         assert_ne!(x_val, y_val);
 
@@ -192,9 +190,9 @@ mod tests {
         let y = ctx.bools("y")?;
 
         solver.add(&ctx.eq_(&x, &y)?)?;
+        solver.add(&ctx.neq(&x, &y)?)?;
 
-        let model = solver.model();
-        assert!(model.is_err());
+        assert!(!solver.satisfiable()?);
 
         Ok(())
     }
@@ -211,10 +209,8 @@ mod tests {
         solver.add(&ctx.not(&ctx.eq_(&x, &y)?)?).unwrap();
         solver.add(&ctx.eq_(&x, &ctx.true_()?)?).unwrap();
 
-        let model = solver.model().unwrap();
-
-        let x_val = model.eval_bool(&x).unwrap();
-        let y_val = model.eval_bool(&y).unwrap();
+        let x_val = solver.eval_bool(&x).unwrap();
+        let y_val = solver.eval_bool(&y).unwrap();
 
         assert_ne!(x_val, y_val);
         assert!(x_val.is_true());
