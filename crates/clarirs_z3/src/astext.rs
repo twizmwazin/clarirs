@@ -25,6 +25,7 @@ pub(crate) trait AstExt<'ctx>: z3::ast::Ast<'ctx> {
             })
     }
 
+    #[allow(dead_code)] // FIXME: just until conversion is implemented
     fn arg_float(&'ctx self, idx: usize) -> Result<z3::ast::Float<'ctx>, ClarirsError> {
         self.nth_child(idx)
             .ok_or(ClarirsError::UnknownError(
@@ -37,6 +38,7 @@ pub(crate) trait AstExt<'ctx>: z3::ast::Ast<'ctx> {
             })
     }
 
+    #[allow(dead_code)] // FIXME: just until conversion is implemented
     fn arg_string(&'ctx self, idx: usize) -> Result<z3::ast::String<'ctx>, ClarirsError> {
         self.nth_child(idx)
             .ok_or(ClarirsError::UnknownError(
