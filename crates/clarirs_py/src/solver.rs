@@ -20,15 +20,7 @@ impl PyConcreteSolver {
 
     fn eval(&mut self, py: Python, expr: Bound<Base>) -> Result<Py<Base>, ClaripyError> {
         if let Ok(bv_value) = expr.clone().into_any().downcast::<BV>() {
-            BV::new(
-                py,
-                &self
-                    .inner
-                    .model()?
-                    .eval_bitvec(&bv_value.get().inner)
-                    .unwrap(),
-            )
-            .map(|b| {
+            BV::new(py, &self.inner.eval_bitvec(&bv_value.get().inner)?).map(|b| {
                 b.into_any()
                     .downcast_bound::<Base>(py)
                     .unwrap()
@@ -36,15 +28,7 @@ impl PyConcreteSolver {
                     .unbind()
             })
         } else if let Ok(bool_value) = expr.clone().into_any().downcast::<Bool>() {
-            Bool::new(
-                py,
-                &self
-                    .inner
-                    .model()?
-                    .eval_bool(&bool_value.get().inner)
-                    .unwrap(),
-            )
-            .map(|b| {
+            Bool::new(py, &self.inner.eval_bool(&bool_value.get().inner).unwrap()).map(|b| {
                 b.into_any()
                     .downcast_bound::<Base>(py)
                     .unwrap()
@@ -52,15 +36,7 @@ impl PyConcreteSolver {
                     .unbind()
             })
         } else if let Ok(fp_value) = expr.clone().into_any().downcast::<FP>() {
-            FP::new(
-                py,
-                &self
-                    .inner
-                    .model()?
-                    .eval_float(&fp_value.get().inner)
-                    .unwrap(),
-            )
-            .map(|b| {
+            FP::new(py, &self.inner.eval_float(&fp_value.get().inner)?).map(|b| {
                 b.into_any()
                     .downcast_bound::<Base>(py)
                     .unwrap()
@@ -68,15 +44,7 @@ impl PyConcreteSolver {
                     .unbind()
             })
         } else if let Ok(string_value) = expr.clone().into_any().downcast::<PyAstString>() {
-            PyAstString::new(
-                py,
-                &self
-                    .inner
-                    .model()?
-                    .eval_string(&string_value.get().inner)
-                    .unwrap(),
-            )
-            .map(|b| {
+            PyAstString::new(py, &self.inner.eval_string(&string_value.get().inner)?).map(|b| {
                 b.into_any()
                     .downcast_bound::<Base>(py)
                     .unwrap()
@@ -96,15 +64,6 @@ impl PyConcreteSolver {
     ) -> Result<Vec<Py<Base>>, ClaripyError> {
         exprs.into_iter().map(|expr| self.eval(py, expr)).collect()
     }
-
-    // TODO: See corresponding function in clarirs_core/src/solver/solver.rs
-    // fn is_solution(
-    //     &mut self,
-    //     expr: Bound<Base>,
-    //     value: Bound<Base>,
-    // ) -> Result<bool, ClaripyError> {
-    //     Ok(self.solver.is_solution(&expr.get().ast, &value.get().ast)?)
-    // }
 
     fn is_true(&mut self, expr: Bound<Bool>) -> Result<bool, ClaripyError> {
         Ok(self.inner.is_true(&expr.get().inner).unwrap())
