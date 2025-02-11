@@ -1,4 +1,7 @@
-use crate::{astext::AstExt, convert::{convert_bv_to_z3, convert_float_to_z3, convert_string_to_z3}};
+use crate::{
+    astext::AstExt,
+    convert::{convert_bv_to_z3, convert_float_to_z3, convert_string_to_z3},
+};
 use clarirs_core::prelude::*;
 use z3::{ast::Ast, DeclKind};
 
@@ -233,7 +236,8 @@ pub fn convert_bool_from_z3<'c>(
         }
 
         _ => Err(ClarirsError::ConversionError(format!(
-            "Unsupported Z3 AST kind: {:?}", ast
+            "Unsupported Z3 AST kind: {:?}",
+            ast
         ))),
     }
 }
