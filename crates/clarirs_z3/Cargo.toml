@@ -15,11 +15,5 @@ z3 = { git = "https://github.com/twizmwazin/z3.rs.git", branch = "feat/add-float
     "bundled",
 ] }
 
-
-# [build-dependencies]
-# # Z3 is currently locked to an older version of the `cc` crate, there is a
-# # dependency conflict unless this is specified here.
-# cc = "~1.1"
-
 [lints]
 workspace = true
