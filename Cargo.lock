@@ -691,7 +691,7 @@ checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
 [[package]]
 name = "z3"
 version = "0.12.1"
-source = "git+https://github.com/twizmwazin/z3.rs.git?branch=feat%2Fadd-float-unary#3400ce1efd07ddd98eec80445b5709a9fa8d0ef7"
+source = "git+https://github.com/twizmwazin/z3.rs.git?branch=feat%2Fadd-float-unary#86ae768672e05192de6bdac6019c21aec3664516"
 dependencies = [
  "log",
  "num",
@@ -701,7 +701,7 @@ dependencies = [
 [[package]]
 name = "z3-sys"
 version = "0.8.1"
-source = "git+https://github.com/twizmwazin/z3.rs.git?branch=feat%2Fadd-float-unary#3400ce1efd07ddd98eec80445b5709a9fa8d0ef7"
+source = "git+https://github.com/twizmwazin/z3.rs.git?branch=feat%2Fadd-float-unary#86ae768672e05192de6bdac6019c21aec3664516"
 dependencies = [
  "bindgen",
  "cc",
