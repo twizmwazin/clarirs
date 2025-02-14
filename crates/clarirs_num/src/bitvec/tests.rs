@@ -53,14 +53,6 @@ fn test_leading_zeros() -> Result<(), BitVecError> {
 }
 
 #[test]
-fn test_valid_from_prim_with_size() {
-    let bv = BitVec::from_prim_with_size(5u8, 8);
-    let bv = bv.unwrap();
-    assert_eq!(bv.length, 8);
-    assert_eq!(bv.words[0], 5);
-}
-
-#[test]
 fn test_valid_bv_from_length() {
     // Basic valid creation
     let bv = BitVec::from_prim_with_size(5u8, 8);
