@@ -53,7 +53,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
 
             let z3_solver = z3::mk_solver(z3_ctx);
             z3::solver_inc_ref(z3_ctx, z3_solver);
-            
+
             for assertion in &converted_assertions {
                 z3::solver_assert(z3_ctx, z3_solver, *assertion);
             }

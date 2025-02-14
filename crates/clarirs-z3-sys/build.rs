@@ -126,7 +126,10 @@ fn build_z3_from_source() -> (String, String) {
     let lib_dir = dst.join("lib");
     let include_dir = dst.join("include");
 
-    (lib_dir.display().to_string(), include_dir.display().to_string())
+    (
+        lib_dir.display().to_string(),
+        include_dir.display().to_string(),
+    )
 }
 
 fn main() {
