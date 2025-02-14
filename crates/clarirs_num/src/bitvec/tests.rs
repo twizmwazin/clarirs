@@ -214,7 +214,7 @@ fn test_reverse_bytes() -> Result<(), BitVecError> {
     assert_eq!(reversed.to_u64().unwrap(), 0x78563412); // Should be 0x78 0x56 0x34 0x12
 
     // Test with non-byte-aligned width
-    let bv = BitVec::from_prim_with_size(0b1010111100001111u16, 12)?; // Only use 12 bits
+    let bv = BitVec::from_prim_with_size(0b111100001111u16, 12)?; // Only use 12 bits
     assert!(bv.reverse_bytes().is_err()); // Should fail as width is not byte-aligned
 
     // Test zero-width vector
