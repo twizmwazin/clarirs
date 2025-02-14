@@ -96,8 +96,7 @@ fn build_z3_from_source() -> (String, String) {
         .define("Z3_BUILD_PYTHON_BINDINGS", "OFF")
         .define("Z3_BUILD_DOTNET_BINDINGS", "OFF")
         .define("Z3_BUILD_JAVA_BINDINGS", "OFF")
-        .define("Z3_BUILD_DOCUMENTATION", "OFF")
-        .define("Z3_INCLUDE_GIT_HASH", "ON");
+        .define("Z3_BUILD_DOCUMENTATION", "OFF");
 
     if profile == "debug" {
         // Optimize for speed in debug builds
