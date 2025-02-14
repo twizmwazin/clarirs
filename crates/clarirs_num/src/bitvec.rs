@@ -105,11 +105,11 @@ impl BitVec {
             if num_words > 0 {
                 words.push(0);
             }
-            return Ok(BitVec::new(words, length)?);
+            return BitVec::new(words, length);
         }
 
         // Convert the BigUint to a BitVec
-        Ok(BitVec::new(value.iter_u64_digits().collect(), length)?)
+        Self::new(value.iter_u64_digits().collect(), length)
     }
 
     pub fn from_biguint_trunc(value: &BigUint, length: usize) -> BitVec {
@@ -190,7 +190,7 @@ impl BitVec {
             new_words[last_index] &= mask;
         }
 
-        Ok(Self::new(new_words, self.length)?)
+        Self::new(new_words, self.length)
     }
 
     // Check if all bits in the BitVec are 1
