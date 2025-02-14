@@ -4,8 +4,7 @@ use num_bigint::BigUint;
 use num_traits::Zero;
 use smallvec::SmallVec;
 
-use super::BitVec;
-use crate::bitvec::BitVecError;
+use super::{BitVec, BitVecError};
 
 impl Add for BitVec {
     type Output = Result<Self, BitVecError>;

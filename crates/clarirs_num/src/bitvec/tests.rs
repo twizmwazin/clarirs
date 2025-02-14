@@ -1,5 +1,5 @@
-use crate::bitvec::BitVec;
-use crate::bitvec::BitVecError;
+use super::{BitVec, BitVecError};
+
 use anyhow::Result;
 use num_bigint::BigUint;
 use smallvec::SmallVec;

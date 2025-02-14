@@ -74,7 +74,7 @@ impl BitVec {
         let value_u64: u64 = value.into();
 
         // Ensure the value fits within the given length
-        if value_u64 >= (1u64 << length) {
+        if length < 64 && value_u64 >= (1u64 << length) {
             return Err(BitVecError::BitVectorTooShort {
                 value: BigUint::from(value_u64),
                 length,

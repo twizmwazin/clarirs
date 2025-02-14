@@ -1,8 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, Div, Mul, Sub};
 
-use super::BitVec;
-use crate::bitvec::BitVecError;
+use super::{BitVec, BitVecError};
 use num_bigint::{BigInt, BigUint};
 use num_traits::{ToPrimitive, Zero};
 

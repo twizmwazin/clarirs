@@ -143,8 +143,7 @@ impl BitVec {
 
 #[cfg(test)]
 mod tests {
-    use crate::bitvec::BitVec;
-    use crate::bitvec::BitVecError;
+    use super::{BitVec, BitVecError};
 
     #[test]
     fn test_not() -> Result<(), BitVecError> {

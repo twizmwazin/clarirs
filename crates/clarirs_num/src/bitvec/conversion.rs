@@ -113,7 +113,7 @@ mod tests {
     use super::*;
     use num_traits::Zero;
 
-    use crate::bitvec::BitVecError;
+    use super::{BitVec, BitVecError};
 
     #[test]
     fn test_to_biguint() -> Result<(), BitVecError> {
