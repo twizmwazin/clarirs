@@ -11,9 +11,7 @@ repository = { workspace = true }
 
 [dependencies]
 clarirs_core = { path = "../clarirs_core" }
-z3 = { git = "https://github.com/twizmwazin/z3.rs.git", branch = "feat/add-float-unary", features = [
-    "bundled",
-] }
+clarirs-z3-sys = { path = "../clarirs-z3-sys" }
 
 [lints]
 workspace = true
