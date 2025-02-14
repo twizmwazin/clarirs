@@ -109,7 +109,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
 
                     match (dividend_ast.op(), divisor_ast.op()) {
                         (BitVecOp::BVV(dividend_val), BitVecOp::BVV(divisor_val)) => {
-                            ctx.bvv((dividend_val.sdiv(&divisor_val))?)
+                            ctx.bvv((dividend_val.sdiv(divisor_val))?)
                         }
                         _ => ctx.sdiv(&dividend_ast, &divisor_ast),
                     }
