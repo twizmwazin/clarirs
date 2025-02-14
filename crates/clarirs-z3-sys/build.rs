@@ -107,17 +107,9 @@ fn build_z3_from_source() -> (String, String) {
         config.define("CMAKE_BUILD_TYPE", "Release");
     }
 
-    // Platform-specific configuration
-    #[cfg(target_os = "windows")]
-    {
-        config.define("CMAKE_MSVC_RUNTIME_LIBRARY", "MultiThreaded");
-    }
-
     #[cfg(target_os = "macos")]
     {
         config.define("CMAKE_OSX_DEPLOYMENT_TARGET", "10.15");
-        // Use libc++ as the C++ standard library
-        config.define("CMAKE_CXX_FLAGS", "-stdlib=libc++");
     }
 
     // Build Z3 and get output directory
