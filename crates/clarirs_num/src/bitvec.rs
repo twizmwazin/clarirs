@@ -14,6 +14,7 @@ use num_traits::cast::ToPrimitive;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
+use std::convert::Infallible;
 use thiserror::Error;
 
 use num_traits::One;
@@ -24,6 +25,12 @@ pub enum BitVecError {
     BitVectorTooShort { value: BigUint, length: usize },
     #[error("BitVector not bite-sized: {length:?} is not a multiple of 8")]
     BitVectorNotByteSized { length: usize },
+}
+
+impl From<Infallible> for BitVecError {
+    fn from(_: Infallible) -> Self {
+        unreachable!() // This will never happen.
+    }
 }
 
 /// BitVec are represented as a SmallVec of usize, where each usize is a word of
@@ -37,7 +44,7 @@ pub struct BitVec {
 }
 
 impl BitVec {
-    pub fn new(words: SmallVec<[u64; 1]>, length: usize) -> Self {
+    pub fn new(words: SmallVec<[u64; 1]>, length: usize) -> Result<Self, BitVecError> {
         // Calculate mask for the final word - keep all valid bits
         let bits_in_last_word = length % 64;
         let final_word_mask = if bits_in_last_word == 0 {
@@ -46,26 +53,36 @@ impl BitVec {
             (1u64 << bits_in_last_word) - 1
         };
 
-        Self {
+        Ok(Self {
             words: SmallVec::from_iter(words.iter().copied()),
             length,
             final_word_mask,
+        })
+    }
+
+    pub fn from_prim<T>(value: T) -> Result<Self, BitVecError>
+    where
+        T: Into<u64>,
+    {
+        Self::from_prim_with_size(value, size_of::<T>() * 8)
+    }
+
+    pub fn from_prim_with_size<T>(value: T, length: usize) -> Result<Self, BitVecError>
+    where
+        T: Into<u64>,
+    {
+        let value_u64: u64 = value.into();
+
+        // Ensure the value fits within the given length
+        if value_u64 >= (1u64 << length) {
+            return Err(BitVecError::BitVectorTooShort {
+                value: BigUint::from(value_u64),
+                length,
+            });
         }
-    }
 
-    pub fn from_prim<T>(value: T) -> Self
-    where
-        T: Into<u64>,
-    {
-        BitVec::from_prim_with_size(value, size_of::<T>() * 8)
-    }
-
-    pub fn from_prim_with_size<T>(value: T, length: usize) -> Self
-    where
-        T: Into<u64>,
-    {
         let mut words = SmallVec::new();
-        words.push(value.into());
+        words.push(value_u64);
         Self::new(words, length)
     }
 
@@ -88,11 +105,11 @@ impl BitVec {
             if num_words > 0 {
                 words.push(0);
             }
-            return Ok(BitVec::new(words, length));
+            return Ok(BitVec::new(words, length)?);
         }
 
         // Convert the BigUint to a BitVec
-        Ok(BitVec::new(value.iter_u64_digits().collect(), length))
+        Ok(BitVec::new(value.iter_u64_digits().collect(), length)?)
     }
 
     pub fn from_biguint_trunc(value: &BigUint, length: usize) -> BitVec {
@@ -173,7 +190,7 @@ impl BitVec {
             new_words[last_index] &= mask;
         }
 
-        Ok(Self::new(new_words, self.length))
+        Ok(Self::new(new_words, self.length)?)
     }
 
     // Check if all bits in the BitVec are 1
@@ -268,7 +285,7 @@ impl BitVec {
     }
 
     // Creates and returns a BitVec with these zero-filled words.
-    pub fn zeros(length: usize) -> BitVec {
+    pub fn zeros(length: usize) -> Result<BitVec, BitVecError> {
         let mut words = SmallVec::new();
         let num_words = (length + 63) / 64; // Number of 64-bit words
         for _ in 0..num_words {

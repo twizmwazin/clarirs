@@ -4,6 +4,8 @@ use super::factory_support::*;
 use crate::error::ClarirsError;
 use crate::prelude::*;
 
+use std::convert::TryFrom;
+
 pub trait AstFactory<'c>: Sized {
     // Required methods
     fn make_bool(&'c self, op: BooleanOp<'c>) -> Result<BoolAst<'c>, ClarirsError>;
@@ -586,7 +588,7 @@ pub trait AstFactory<'c>: Sized {
     }
 
     fn bvv_prim<T: Into<u64>>(&'c self, value: T) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.bvv(BitVec::from_prim(value))
+        self.bvv(BitVec::from_prim(value)?)
     }
 
     fn bvv_prim_with_size<T: Into<u64>>(
@@ -594,7 +596,7 @@ pub trait AstFactory<'c>: Sized {
         value: T,
         length: usize,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.bvv(BitVec::from_prim_with_size(value, length))
+        self.bvv(BitVec::from_prim_with_size(value, length)?)
     }
 
     fn bvv_from_biguint_with_size(
@@ -606,6 +608,6 @@ pub trait AstFactory<'c>: Sized {
     }
 
     fn fpv_from_f64(&'c self, value: f64) -> Result<FloatAst<'c>, ClarirsError> {
-        self.fpv(Float::from(value))
+        self.fpv(Float::try_from(value).map_err(|e| ClarirsError::ConversionError(e.to_string()))?)
     }
 }

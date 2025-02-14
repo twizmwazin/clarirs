@@ -16,6 +16,7 @@ pyo3 = { version = "0.23.3", features = [
     "num-bigint",
 ] }
 clarirs_core = { path = "../clarirs_core", features = ["runtime-checks"] }
+clarirs_num = { path = "../clarirs_num" }
 thiserror = { workspace = true }
 num-bigint = "0.4.6"
 log = "0.4.22"

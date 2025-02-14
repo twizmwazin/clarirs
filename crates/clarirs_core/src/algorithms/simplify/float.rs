@@ -45,7 +45,7 @@ impl<'c> Simplify<'c> for FloatAst<'c> {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
                         (FloatOp::FPV(float1), FloatOp::FPV(float2)) => {
-                            ctx.fpv(float1.clone() + float2.clone())
+                            ctx.fpv((float1.clone() + float2.clone())?)
                         }
                         _ => ctx.fp_add(&arc, &arc1, fprm.clone()),
                     }
@@ -54,7 +54,7 @@ impl<'c> Simplify<'c> for FloatAst<'c> {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
                         (FloatOp::FPV(float1), FloatOp::FPV(float2)) => {
-                            ctx.fpv(float1.clone() - float2.clone())
+                            ctx.fpv((float1.clone() - float2.clone())?)
                         }
                         _ => ctx.fp_sub(&arc, &arc1, fprm.clone()),
                     }
@@ -63,7 +63,7 @@ impl<'c> Simplify<'c> for FloatAst<'c> {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
                         (FloatOp::FPV(float1), FloatOp::FPV(float2)) => {
-                            ctx.fpv(float1.clone() * float2.clone())
+                            ctx.fpv((float1.clone() * float2.clone())?)
                         }
                         _ => ctx.fp_mul(&arc, &arc1, fprm.clone()),
                     }
@@ -72,7 +72,7 @@ impl<'c> Simplify<'c> for FloatAst<'c> {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
                         (FloatOp::FPV(float1), FloatOp::FPV(float2)) => {
-                            ctx.fpv(float1.clone() / float2.clone())
+                            ctx.fpv((float1.clone() / float2.clone())?)
                         }
                         _ => ctx.fp_div(&arc, &arc1, fprm.clone()),
                     }
@@ -88,7 +88,7 @@ impl<'c> Simplify<'c> for FloatAst<'c> {
                                     sqrt_value,
                                     fprm.clone(),
                                     float_val.fsort(),
-                                ))
+                                )?)
                             } else {
                                 Err(ClarirsError::InvalidArguments)
                             }
@@ -102,7 +102,7 @@ impl<'c> Simplify<'c> for FloatAst<'c> {
                         FloatOp::FPV(float_val) => {
                             let converted_value =
                                 float_val.convert_to_format(fsort.clone(), fprm.clone());
-                            ctx.fpv(converted_value)
+                            ctx.fpv(converted_value?)
                         }
                         _ => ctx.fp_to_fp(&arc, fsort.clone(), fprm.clone()),
                     }
@@ -117,7 +117,7 @@ impl<'c> Simplify<'c> for FloatAst<'c> {
                                 fsort.clone(),
                                 fprm.clone(),
                             );
-                            ctx.fpv(float_value)
+                            ctx.fpv(float_value?)
                         }
                         _ => ctx.bv_to_fp_unsigned(&arc, fsort.clone(), fprm.clone()),
                     }

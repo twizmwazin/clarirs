@@ -6,6 +6,24 @@ use crate::prelude::*;
 
 pub struct CoerceBool(pub Py<Bool>);
 
+use clarirs_num::bitvec::BitVecError;
+use pyo3::exceptions::PyValueError;
+use pyo3::PyErr;
+
+pub struct PyBitVecError(pub BitVecError);
+
+impl From<BitVecError> for PyBitVecError {
+    fn from(err: BitVecError) -> Self {
+        PyBitVecError(err)
+    }
+}
+
+impl From<PyBitVecError> for PyErr {
+    fn from(err: PyBitVecError) -> Self {
+        PyValueError::new_err(format!("{}", err.0))
+    }
+}
+
 impl FromPyObject<'_> for CoerceBool {
     fn extract_bound(val: &Bound<PyAny>) -> PyResult<Self> {
         if let Ok(bool_val) = val.downcast::<Bool>() {
@@ -134,7 +152,13 @@ impl FromPyObject<'_> for CoerceFP {
             Ok(CoerceFP(fp_val.clone().unbind()))
         } else if let Ok(fp_val) = val.extract::<f64>() {
             Ok(CoerceFP(
-                FP::new(val.py(), &GLOBAL_CONTEXT.fpv(fp_val).unwrap()).unwrap(),
+                FP::new(
+                    val.py(),
+                    &GLOBAL_CONTEXT
+                        .fpv(Float::try_from(fp_val).map_err(PyBitVecError::from)?)
+                        .unwrap(),
+                )
+                .unwrap(),
             ))
         } else {
             Err(ClaripyError::InvalidArgumentType("Expected FP".to_string()).into())
