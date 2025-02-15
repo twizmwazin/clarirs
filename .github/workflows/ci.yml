@@ -82,5 +82,7 @@ jobs:
       - name: Setup Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
-      - name: Build and install Python bindings
-        run: maturin build -vv
+      - uses: PyO3/maturin-action@v1
+        with:
+          command: build
+          args: -vv
