@@ -98,7 +98,7 @@ fn build_z3_from_source() -> (String, String) {
         .define("Z3_BUILD_JAVA_BINDINGS", "OFF")
         .define("Z3_BUILD_DOCUMENTATION", "OFF");
 
-    if profile == "debug" {
+    if profile == "debug" && cfg!(target_os = "macos") || cfg!(target_os = "linux") {
         // Optimize for speed in debug builds
         config
             .define("CMAKE_BUILD_TYPE", "Debug")
