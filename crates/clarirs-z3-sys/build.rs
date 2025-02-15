@@ -107,9 +107,10 @@ fn build_z3_from_source() -> (String, String) {
         config.define("CMAKE_BUILD_TYPE", "Release");
     }
 
-    #[cfg(target_os = "macos")]
-    {
-        config.define("CMAKE_OSX_DEPLOYMENT_TARGET", "10.15");
+    if cfg!(target_os = "windows") {
+        config.cxxflag("-DWIN32");
+        config.cxxflag("-D_WINDOWS");
+        config.define("CMAKE_MSVC_RUNTIME_LIBRARY", "MultiThreadedDLL");
     }
 
     // Build Z3 and get output directory
@@ -128,7 +129,11 @@ fn main() {
 
     // Configure static linking
     println!("cargo:rustc-link-search=native={}", lib_dir);
-    println!("cargo:rustc-link-lib=static=z3");
+    if cfg!(target_os = "windows") {
+        println!("cargo:rustc-link-lib=static=libz3");
+    } else {
+        println!("cargo:rustc-link-lib=static=z3");
+    }
 
     // Add system dependencies for static linking
     #[cfg(target_os = "linux")]
