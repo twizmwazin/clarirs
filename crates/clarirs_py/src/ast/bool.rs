@@ -259,6 +259,14 @@ impl Bool {
         Bool::new(py, &self.inner.simplify()?)
     }
 
+    pub fn size(&self) -> usize {
+        1
+    }
+
+    pub fn __len__(&self) -> usize {
+        self.size()
+    }
+
     pub fn is_true(&self) -> Result<bool, ClaripyError> {
         Ok(self.inner.simplify()?.is_true())
     }
