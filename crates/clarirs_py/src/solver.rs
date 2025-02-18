@@ -19,7 +19,12 @@ impl PyConcreteSolver {
         Ok(self.inner.add(&expr.get().inner)?)
     }
 
-    fn eval(&mut self, py: Python, expr: Bound<Base>) -> Result<Py<Base>, ClaripyError> {
+    fn eval(
+        &mut self,
+        py: Python,
+        expr: Bound<Base>,
+        _n: u32, // Concrete solver does not support multiple solutions
+    ) -> Result<Vec<Py<Base>>, ClaripyError> {
         if let Ok(bv_value) = expr.clone().into_any().downcast::<BV>() {
             BV::new(py, &self.inner.eval_bitvec(&bv_value.get().inner)?).map(|b| {
                 b.into_any()
@@ -55,15 +60,19 @@ impl PyConcreteSolver {
         } else {
             panic!("Unsupported type");
         }
+        .map(|b| vec![b])
     }
 
     fn batch_eval(
         &mut self,
         py: Python,
         exprs: Vec<Bound<Base>>,
-        _max_solutions: u32, // Concrete solver does not support multiple solutions
-    ) -> Result<Vec<Py<Base>>, ClaripyError> {
-        exprs.into_iter().map(|expr| self.eval(py, expr)).collect()
+        n: u32, // Concrete solver does not support multiple solutions
+    ) -> Result<Vec<Vec<Py<Base>>>, ClaripyError> {
+        exprs
+            .into_iter()
+            .map(|expr| self.eval(py, expr, n))
+            .collect()
     }
 
     fn is_true(&mut self, expr: Bound<Bool>) -> Result<bool, ClaripyError> {
@@ -101,7 +110,12 @@ impl PyZ3Solver {
         Ok(self.inner.add(&expr.get().inner)?)
     }
 
-    fn eval(&mut self, py: Python, expr: Bound<Base>) -> Result<Py<Base>, ClaripyError> {
+    fn eval(
+        &mut self,
+        py: Python,
+        expr: Bound<Base>,
+        _n: u32, // TODO: Support multiple solutions
+    ) -> Result<Vec<Py<Base>>, ClaripyError> {
         if let Ok(bv_value) = expr.clone().into_any().downcast::<BV>() {
             BV::new(py, &self.inner.eval_bitvec(&bv_value.get().inner)?).map(|b| {
                 b.into_any()
@@ -137,15 +151,19 @@ impl PyZ3Solver {
         } else {
             panic!("Unsupported type");
         }
+        .map(|b| vec![b])
     }
 
     fn batch_eval(
         &mut self,
         py: Python,
         exprs: Vec<Bound<Base>>,
-        _max_solutions: u32, // Z3 solver does not support multiple solutions
-    ) -> Result<Vec<Py<Base>>, ClaripyError> {
-        exprs.into_iter().map(|expr| self.eval(py, expr)).collect()
+        n: u32,
+    ) -> Result<Vec<Vec<Py<Base>>>, ClaripyError> {
+        exprs
+            .into_iter()
+            .map(|expr| self.eval(py, expr, n))
+            .collect()
     }
 
     fn is_true(&mut self, expr: Bound<Bool>) -> Result<bool, ClaripyError> {
