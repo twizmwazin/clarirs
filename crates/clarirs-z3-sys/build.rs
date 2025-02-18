@@ -111,7 +111,6 @@ fn build_z3_from_source() -> (String, String) {
         config.cxxflag("-DWIN32");
         config.cxxflag("-D_WINDOWS");
         config.define("CMAKE_MSVC_RUNTIME_LIBRARY", "MultiThreadedDLL");
-        config.define("NO_OMIT_FRAME_POINTER_MSVC_FLAG", "ON");
     }
 
     // Build Z3 and get output directory
