@@ -107,9 +107,8 @@ impl BitVec {
 
 #[cfg(test)]
 mod tests {
-    use std::result::Result;
-
-    use super::{BitVec, BitVecError};
+    use crate::bitvec::BitVec;
+    use crate::bitvec::BitVecError;
 
     #[test]
     fn test_concat() -> Result<(), BitVecError> {

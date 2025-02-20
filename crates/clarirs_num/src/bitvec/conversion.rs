@@ -11,7 +11,7 @@ impl TryFrom<i8> for BitVec {
         BitVec::new(SmallVec::from_slice(&[value as u64]), 8)
     }
 }
-
+    
 impl TryFrom<u8> for BitVec {
     type Error = BitVecError;
     fn try_from(value: u8) -> Result<BitVec, BitVecError> {

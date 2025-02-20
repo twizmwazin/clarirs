@@ -74,7 +74,7 @@ impl BitVec {
         let value_u64: u64 = value.into();
 
         // Ensure the value fits within the given length
-        if length < 64 && value_u64 >= (1u64 << length) {
+        if value_u64 >= (1u64 << length) {
             return Err(BitVecError::BitVectorTooShort {
                 value: BigUint::from(value_u64),
                 length,
@@ -105,11 +105,11 @@ impl BitVec {
             if num_words > 0 {
                 words.push(0);
             }
-            return BitVec::new(words, length);
+            return Ok(BitVec::new(words, length)?);
         }
 
         // Convert the BigUint to a BitVec
-        Self::new(value.iter_u64_digits().collect(), length)
+        Ok(BitVec::new(value.iter_u64_digits().collect(), length)?)
     }
 
     pub fn from_biguint_trunc(value: &BigUint, length: usize) -> BitVec {
@@ -190,7 +190,7 @@ impl BitVec {
             new_words[last_index] &= mask;
         }
 
-        Self::new(new_words, self.length)
+        Ok(Self::new(new_words, self.length)?)
     }
 
     // Check if all bits in the BitVec are 1
