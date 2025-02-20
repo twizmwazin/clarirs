@@ -92,7 +92,9 @@ pub unsafe fn convert_bool_to_z3(
     })
     .and_then(|ast| {
         if ast.is_null() {
-            Err(ClarirsError::ConversionError("failed to create Z3 AST, got null".to_string()))
+            Err(ClarirsError::ConversionError(
+                "failed to create Z3 AST, got null".to_string(),
+            ))
         } else {
             z3::inc_ref(z3_ctx, ast);
             Ok(ast)
