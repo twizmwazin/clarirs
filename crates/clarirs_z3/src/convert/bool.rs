@@ -6,61 +6,59 @@ pub unsafe fn convert_bool_to_z3(
     z3_ctx: z3::Context,
     ast: &BoolAst,
 ) -> Result<z3::Ast, ClarirsError> {
-    match &ast.op() {
+    Ok(match &ast.op() {
         BooleanOp::BoolS(s) => {
             let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
             let sym = z3::mk_string_symbol(z3_ctx, s_cstr.as_ptr());
             let sort = z3::mk_bool_sort(z3_ctx);
-            let decl = z3::mk_func_decl(z3_ctx, sym, 0, std::ptr::null(), sort);
-            let ast = z3::mk_app(z3_ctx, decl, 0, std::ptr::null());
-            Ok(ast)
+            z3::mk_const(z3_ctx, sym, sort)
         }
         BooleanOp::BoolV(b) => {
             if *b {
-                Ok(z3::mk_true(z3_ctx))
+                z3::mk_true(z3_ctx)
             } else {
-                Ok(z3::mk_false(z3_ctx))
+                z3::mk_false(z3_ctx)
             }
         }
         BooleanOp::Not(a) => {
             let a = convert_bool_to_z3(z3_ctx, a)?;
-            Ok(z3::mk_not(z3_ctx, a))
+            z3::mk_not(z3_ctx, a)
         }
         BooleanOp::And(a, b) => {
             let a = convert_bool_to_z3(z3_ctx, a)?;
             let b = convert_bool_to_z3(z3_ctx, b)?;
             let args = [a, b];
-            Ok(z3::mk_and(z3_ctx, 2, args.as_ptr()))
+            z3::mk_and(z3_ctx, 2, args.as_ptr())
         }
         BooleanOp::Or(a, b) => {
             let a = convert_bool_to_z3(z3_ctx, a)?;
             let b = convert_bool_to_z3(z3_ctx, b)?;
             let args = [a, b];
-            Ok(z3::mk_or(z3_ctx, 2, args.as_ptr()))
+            z3::mk_or(z3_ctx, 2, args.as_ptr())
         }
         BooleanOp::Xor(a, b) => {
             let a = convert_bool_to_z3(z3_ctx, a)?;
             let b = convert_bool_to_z3(z3_ctx, b)?;
-            Ok(z3::mk_xor(z3_ctx, a, b))
+            z3::mk_xor(z3_ctx, a, b)
         }
         BooleanOp::BoolEq(a, b) => {
             let a = convert_bool_to_z3(z3_ctx, a)?;
             let b = convert_bool_to_z3(z3_ctx, b)?;
-            Ok(z3::mk_eq(z3_ctx, a, b))
+            z3::mk_eq(z3_ctx, a, b)
         }
         BooleanOp::BoolNeq(a, b) => {
             let a = convert_bool_to_z3(z3_ctx, a)?;
             let b = convert_bool_to_z3(z3_ctx, b)?;
             let eq = z3::mk_eq(z3_ctx, a, b);
-            Ok(z3::mk_not(z3_ctx, eq))
+            z3::mk_not(z3_ctx, eq)
         }
         BooleanOp::If(cond, then, else_) => {
             let cond = convert_bool_to_z3(z3_ctx, cond)?;
             let then = convert_bool_to_z3(z3_ctx, then)?;
             let else_ = convert_bool_to_z3(z3_ctx, else_)?;
-            Ok(z3::mk_ite(z3_ctx, cond, then, else_))
+            z3::mk_ite(z3_ctx, cond, then, else_)
         }
-        BooleanOp::Annotated(inner, _) => convert_bool_to_z3(z3_ctx, inner),
+        BooleanOp::Annotated(inner, _) => convert_bool_to_z3(z3_ctx, inner)?,
 
         // BV operations
         BooleanOp::Eq(_, _) => todo!("Eq"),
@@ -91,9 +89,14 @@ pub unsafe fn convert_bool_to_z3(
         BooleanOp::StrIsDigit(_) => todo!("StrIsDigit"),
         BooleanOp::StrEq(_, _) => todo!("StrEq"),
         BooleanOp::StrNeq(_, _) => todo!("StrNeq"),
-    }
-    .inspect(|&ast| {
-        z3::inc_ref(z3_ctx, ast);
+    })
+    .and_then(|ast| {
+        if ast.is_null() {
+            Err(ClarirsError::ConversionError("failed to create Z3 AST, got null".to_string()))
+        } else {
+            z3::inc_ref(z3_ctx, ast);
+            Ok(ast)
+        }
     })
 }
 
