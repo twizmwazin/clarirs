@@ -14,7 +14,6 @@ use num_traits::cast::ToPrimitive;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
-use std::convert::Infallible;
 use thiserror::Error;
 
 use num_traits::One;
@@ -25,12 +24,6 @@ pub enum BitVecError {
     BitVectorTooShort { value: BigUint, length: usize },
     #[error("BitVector not bite-sized: {length:?} is not a multiple of 8")]
     BitVectorNotByteSized { length: usize },
-}
-
-impl From<Infallible> for BitVecError {
-    fn from(_: Infallible) -> Self {
-        unreachable!() // This will never happen.
-    }
 }
 
 /// BitVec are represented as a SmallVec of usize, where each usize is a word of
@@ -44,7 +37,7 @@ pub struct BitVec {
 }
 
 impl BitVec {
-    pub fn new(words: SmallVec<[u64; 1]>, length: usize) -> Result<Self, BitVecError> {
+    pub fn new(mut words: SmallVec<[u64; 1]>, length: usize) -> Result<Self, BitVecError> {
         // Calculate mask for the final word - keep all valid bits
         let bits_in_last_word = length % 64;
         let final_word_mask = if bits_in_last_word == 0 {
@@ -53,8 +46,13 @@ impl BitVec {
             (1u64 << bits_in_last_word) - 1
         };
 
+        if !words.is_empty() {
+            let last_idx = words.len() - 1;
+            words[last_idx] &= final_word_mask;
+        }
+
         Ok(Self {
-            words: SmallVec::from_iter(words.iter().copied()),
+            words,
             length,
             final_word_mask,
         })
@@ -285,13 +283,13 @@ impl BitVec {
     }
 
     // Creates and returns a BitVec with these zero-filled words.
-    pub fn zeros(length: usize) -> Result<BitVec, BitVecError> {
+    pub fn zeros(length: usize) -> BitVec {
         let mut words = SmallVec::new();
         let num_words = (length + 63) / 64; // Number of 64-bit words
         for _ in 0..num_words {
             words.push(0);
         }
-        BitVec::new(words, length)
+        BitVec::new(words, length).expect("BitVec::new should never fail in zeros()")
     }
 
     // Creates and returns a BitVec with these one-filled words.

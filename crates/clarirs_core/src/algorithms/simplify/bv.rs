@@ -165,11 +165,11 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                             let result = if shift_amount_usize >= bit_width {
                                 BitVec::zeros(bit_width)
                             } else if shift_amount_usize == 0 {
-                                Ok(value.clone())
+                                value.clone()
                             } else {
-                                value.clone() >> shift_amount_usize
+                                (value.clone() >> shift_amount_usize)?
                             };
-                            ctx.bvv(result?)
+                            ctx.bvv(result)
                         }
                         _ => ctx.lshr(&arc, &arc1),
                     }
@@ -199,7 +199,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                                         bit_length,
                                     ))
                                 } else {
-                                    ctx.bvv(BitVec::zeros(bit_length)?)
+                                    ctx.bvv(BitVec::zeros(bit_length))
                                 };
                             }
 

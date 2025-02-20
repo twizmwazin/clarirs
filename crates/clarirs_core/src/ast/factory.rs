@@ -4,8 +4,6 @@ use super::factory_support::*;
 use crate::error::ClarirsError;
 use crate::prelude::*;
 
-use std::convert::TryFrom;
-
 pub trait AstFactory<'c>: Sized {
     // Required methods
     fn make_bool(&'c self, op: BooleanOp<'c>) -> Result<BoolAst<'c>, ClarirsError>;
@@ -608,6 +606,6 @@ pub trait AstFactory<'c>: Sized {
     }
 
     fn fpv_from_f64(&'c self, value: f64) -> Result<FloatAst<'c>, ClarirsError> {
-        self.fpv(Float::try_from(value).map_err(|e| ClarirsError::ConversionError(e.to_string()))?)
+        self.fpv(Float::from(value))
     }
 }

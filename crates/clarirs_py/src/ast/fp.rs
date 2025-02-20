@@ -260,7 +260,7 @@ pub fn FPS(
 
 #[pyfunction]
 pub fn FPV(py: Python, value: f64, sort: PyFSort) -> Result<Py<FP>, ClaripyError> {
-    let float_value = Float::try_from(value)?;
+    let float_value = Float::from(value);
     FP::new(
         py,
         &GLOBAL_CONTEXT.fpv(float_value.to_fsort(sort.into(), FPRM::default())?)?,

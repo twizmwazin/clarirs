@@ -14,7 +14,7 @@ impl BitVec {
         }
 
         let extract_len = to - from + 1;
-        let mut result = BitVec::zeros(extract_len)?;
+        let mut result = BitVec::zeros(extract_len);
 
         let mut remaining_bits = extract_len;
         let mut src_word_idx = from / 64;

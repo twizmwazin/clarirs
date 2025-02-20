@@ -121,13 +121,13 @@ impl Float {
                     return Ok(Self::new(
                         self.sign,
                         BitVec::ones(F64_SORT.exponent as usize),
-                        BitVec::zeros(F64_SORT.mantissa as usize)?,
+                        BitVec::zeros(F64_SORT.mantissa as usize),
                     ));
                 } else if self.is_zero() || self.is_subnormal() {
                     return Ok(Self::new(
                         self.sign,
-                        BitVec::zeros(F64_SORT.exponent as usize)?,
-                        BitVec::zeros(F64_SORT.mantissa as usize)?,
+                        BitVec::zeros(F64_SORT.exponent as usize),
+                        BitVec::zeros(F64_SORT.mantissa as usize),
                     ));
                 }
 
@@ -167,13 +167,13 @@ impl Float {
                     return Ok(Self::new(
                         self.sign,
                         BitVec::ones(F32_SORT.exponent as usize),
-                        BitVec::zeros(F32_SORT.mantissa as usize)?,
+                        BitVec::zeros(F32_SORT.mantissa as usize),
                     ));
                 } else if self.is_zero() || self.is_subnormal() {
                     return Ok(Self::new(
                         self.sign,
-                        BitVec::zeros(F32_SORT.exponent as usize)?,
-                        BitVec::zeros(F32_SORT.mantissa as usize)?,
+                        BitVec::zeros(F32_SORT.exponent as usize),
+                        BitVec::zeros(F32_SORT.mantissa as usize),
                     ));
                 }
 
@@ -432,20 +432,18 @@ impl Add for Float {
 
         // Align mantissas by shifting the smaller mantissa
         let exponent_diff = larger.exponent.len() - smaller.exponent.len();
-        let aligned_smaller_mantissa = smaller.mantissa.clone() >> exponent_diff;
-
-        let aligned_smaller_mantissa_val = aligned_smaller_mantissa?;
+        let aligned_smaller_mantissa = (smaller.mantissa.clone() >> exponent_diff)?;
 
         // Add or subtract mantissas based on the signs
         let (new_sign, new_mantissa) = if larger.sign == smaller.sign {
             // Same sign, add mantissas
-            (larger.sign, larger.mantissa + aligned_smaller_mantissa_val)
+            (larger.sign, larger.mantissa + aligned_smaller_mantissa)
         } else {
             // Different signs, subtract mantissas
-            if larger.mantissa > aligned_smaller_mantissa_val {
-                (larger.sign, larger.mantissa - aligned_smaller_mantissa_val)
+            if larger.mantissa > aligned_smaller_mantissa {
+                (larger.sign, larger.mantissa - aligned_smaller_mantissa)
             } else {
-                (!larger.sign, aligned_smaller_mantissa_val - larger.mantissa)
+                (!larger.sign, aligned_smaller_mantissa - larger.mantissa)
             }
         };
 
@@ -544,29 +542,29 @@ fn normalize(mantissa: BitVec, exponent: BitVec) -> Result<(BitVec, BitVec), Bit
     Ok((normalized_exponent?, normalized_mantissa?))
 }
 
-impl TryFrom<f32> for Float {
-    type Error = BitVecError;
-
-    fn try_from(value: f32) -> Result<Self, Self::Error> {
+impl From<f32> for Float {
+    fn from(value: f32) -> Self {
         let (sign, exponent, mantissa) = decompose_f32(value);
-        Ok(Self {
+        Self {
             sign: sign == 1,
-            exponent: BitVec::from_prim_with_size(exponent, 8)?,
-            mantissa: BitVec::from_prim_with_size(mantissa, 23)?,
-        })
+            exponent: BitVec::from_prim_with_size(exponent, 8)
+                .expect("Failed to create BitVec from exponent"),
+            mantissa: BitVec::from_prim_with_size(mantissa, 23)
+                .expect("Failed to create BitVec from mantissa"),
+        }
     }
 }
 
-impl TryFrom<f64> for Float {
-    type Error = BitVecError;
-
-    fn try_from(value: f64) -> Result<Self, Self::Error> {
+impl From<f64> for Float {
+    fn from(value: f64) -> Self {
         let (sign, exponent, mantissa) = decompose_f64(value);
-        Ok(Self {
+        Self {
             sign: sign == 1,
-            exponent: BitVec::from_prim_with_size(exponent, 11)?,
-            mantissa: BitVec::from_prim_with_size(mantissa, 52)?,
-        })
+            exponent: BitVec::from_prim_with_size(exponent, 11)
+                .expect("Failed to create BitVec from exponent"),
+            mantissa: BitVec::from_prim_with_size(mantissa, 52)
+                .expect("Failed to create BitVec from mantissa"),
+        }
     }
 }
 
@@ -686,7 +684,7 @@ mod tests {
         ];
 
         for &value in &values {
-            let start = Float::try_from(value).expect("Failed to create Float from f64");
+            let start = Float::from(value);
             let recomposed = start.to_f64();
 
             // Check for NaN explicitly as NaN != NaN
@@ -716,7 +714,7 @@ mod tests {
         ];
 
         for &value in &values {
-            let start = Float::try_from(value)?;
+            let start = Float::from(value);
             let middle = start.to_fsort(F32_SORT, FPRM::NearestTiesToEven)?;
             let end = middle.to_fsort(F64_SORT, FPRM::NearestTiesToEven)?;
 
@@ -755,7 +753,7 @@ mod tests {
         ];
 
         for &value in test_values {
-            let float = Float::try_from(value)?;
+            let float = Float::from(value);
             let converted = float.to_fsort(F64_SORT, FPRM::NearestTiesToEven)?;
             let result = converted
                 .to_f64()
@@ -795,7 +793,7 @@ mod tests {
         ];
 
         for &value in test_values {
-            let float = Float::try_from(value)?;
+            let float = Float::from(value);
             let converted = float.to_fsort(F32_SORT, FPRM::NearestTiesToEven)?;
             let result = converted
                 .to_f32()

@@ -27,6 +27,8 @@ pub enum ClaripyError {
     Infallible,
     #[error("Invalid argument: {0}")]
     InvalidArgument(String),
+    #[error("BitVec error: {0}")]
+    BitVecError(#[from] BitVecError),
 }
 
 impl From<ClarirsError> for ClaripyError {
@@ -68,11 +70,5 @@ impl From<DowncastIntoError<'_>> for ClaripyError {
 impl From<Infallible> for ClaripyError {
     fn from(_: Infallible) -> Self {
         ClaripyError::Infallible
-    }
-}
-
-impl From<BitVecError> for ClaripyError {
-    fn from(err: BitVecError) -> Self {
-        ClaripyError::InvalidArgument(format!("BitVecError: {}", err))
     }
 }

@@ -7,7 +7,7 @@ use smallvec::SmallVec;
 #[test]
 fn test_leading_zeros() -> Result<(), BitVecError> {
     // Test all zeros
-    let bv = BitVec::zeros(64)?;
+    let bv = BitVec::zeros(64);
     assert_eq!(bv.leading_zeros(), 64);
 
     // Test all ones (no leading zeros)
@@ -29,7 +29,7 @@ fn test_leading_zeros() -> Result<(), BitVecError> {
     assert_eq!(bv.leading_zeros(), 4);
 
     // Test zero-width vector
-    let bv = BitVec::zeros(0)?;
+    let bv = BitVec::zeros(0);
     assert_eq!(bv.leading_zeros(), 0);
 
     // Test odd-sized vectors
@@ -91,7 +91,7 @@ fn test_invalid_bv_from_length() {
 #[test]
 fn test_is_zero() -> Result<(), BitVecError> {
     // Test true case (all bits zero)
-    let bv = BitVec::zeros(64)?;
+    let bv = BitVec::zeros(64);
     assert!(bv.is_zero());
 
     // Test false case (any bit one)
@@ -102,24 +102,24 @@ fn test_is_zero() -> Result<(), BitVecError> {
 
     // Test different widths
     for width in [8, 16, 32] {
-        let bv = BitVec::zeros(width)?;
+        let bv = BitVec::zeros(width);
         assert!(bv.is_zero());
         let bv = BitVec::from_prim_with_size(1u64, width)?;
         assert!(!bv.is_zero());
     }
 
     // Test zero-width vector
-    let bv = BitVec::zeros(0)?;
+    let bv = BitVec::zeros(0);
     assert!(bv.is_zero());
 
     // Test single-bit vector
-    let bv = BitVec::zeros(1)?;
+    let bv = BitVec::zeros(1);
     assert!(bv.is_zero());
     let bv = BitVec::from_prim_with_size(1u64, 1)?;
     assert!(!bv.is_zero());
 
     // Test odd-sized vectors
-    let bv = BitVec::zeros(3)?;
+    let bv = BitVec::zeros(3);
     assert!(bv.is_zero());
     let bv = BitVec::from_prim_with_size(0b101u64, 3)?;
     assert!(!bv.is_zero());
@@ -159,7 +159,7 @@ fn test_is_all_ones() -> Result<(), BitVecError> {
     }
 
     // Test zero-width vector
-    let bv = BitVec::zeros(0)?;
+    let bv = BitVec::zeros(0);
     assert!(bv.is_all_ones()); // Empty bitvector should return true as there are no zero bits
 
     // Test single-bit vector
@@ -210,7 +210,7 @@ fn test_reverse_bytes() -> Result<(), BitVecError> {
     assert!(bv.reverse_bytes().is_err()); // Should fail as width is not byte-aligned
 
     // Test zero-width vector
-    let bv = BitVec::zeros(0)?;
+    let bv = BitVec::zeros(0);
     let reversed = bv.reverse_bytes()?;
     assert_eq!(reversed.len(), 0);
     assert!(reversed.is_zero());
