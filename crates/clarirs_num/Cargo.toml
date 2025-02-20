@@ -13,7 +13,7 @@ repository = { workspace = true }
 anyhow = { workspace = true }
 num-bigint = { version = "0.4.6", features = ["serde"] }
 num-traits = "0.2"
-serde = { version = "1.0.217", features = ["derive"] }
+serde = { version = "1.0.218", features = ["derive"] }
 smallvec = { version = "1.14.0", features = ["serde"] }
 thiserror = { workspace = true }
 
