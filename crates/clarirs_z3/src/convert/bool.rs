@@ -2,111 +2,110 @@ use crate::Z3_CONTEXT;
 use clarirs_core::prelude::*;
 use clarirs_z3_sys as z3;
 
-pub unsafe fn convert_bool_to_z3(
-    z3_ctx: z3::Context,
-    ast: &BoolAst,
-) -> Result<z3::Ast, ClarirsError> {
-    Ok(match &ast.op() {
-        BooleanOp::BoolS(s) => {
-            let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
-            let sym = z3::mk_string_symbol(z3_ctx, s_cstr.as_ptr());
-            let sort = z3::mk_bool_sort(z3_ctx);
-            z3::mk_const(z3_ctx, sym, sort)
-        }
-        BooleanOp::BoolV(b) => {
-            if *b {
-                z3::mk_true(z3_ctx)
-            } else {
-                z3::mk_false(z3_ctx)
+pub fn convert_bool_to_z3(ast: &BoolAst) -> Result<z3::Ast, ClarirsError> {
+    Z3_CONTEXT.with(|&z3_ctx| unsafe {
+        Ok(match &ast.op() {
+            BooleanOp::BoolS(s) => {
+                let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
+                let sym = z3::mk_string_symbol(z3_ctx, s_cstr.as_ptr());
+                let sort = z3::mk_bool_sort(z3_ctx);
+                z3::mk_const(z3_ctx, sym, sort)
             }
-        }
-        BooleanOp::Not(a) => {
-            let a = convert_bool_to_z3(z3_ctx, a)?;
-            z3::mk_not(z3_ctx, a)
-        }
-        BooleanOp::And(a, b) => {
-            let a = convert_bool_to_z3(z3_ctx, a)?;
-            let b = convert_bool_to_z3(z3_ctx, b)?;
-            let args = [a, b];
-            z3::mk_and(z3_ctx, 2, args.as_ptr())
-        }
-        BooleanOp::Or(a, b) => {
-            let a = convert_bool_to_z3(z3_ctx, a)?;
-            let b = convert_bool_to_z3(z3_ctx, b)?;
-            let args = [a, b];
-            z3::mk_or(z3_ctx, 2, args.as_ptr())
-        }
-        BooleanOp::Xor(a, b) => {
-            let a = convert_bool_to_z3(z3_ctx, a)?;
-            let b = convert_bool_to_z3(z3_ctx, b)?;
-            z3::mk_xor(z3_ctx, a, b)
-        }
-        BooleanOp::BoolEq(a, b) => {
-            let a = convert_bool_to_z3(z3_ctx, a)?;
-            let b = convert_bool_to_z3(z3_ctx, b)?;
-            z3::mk_eq(z3_ctx, a, b)
-        }
-        BooleanOp::BoolNeq(a, b) => {
-            let a = convert_bool_to_z3(z3_ctx, a)?;
-            let b = convert_bool_to_z3(z3_ctx, b)?;
-            let eq = z3::mk_eq(z3_ctx, a, b);
-            z3::mk_not(z3_ctx, eq)
-        }
-        BooleanOp::If(cond, then, else_) => {
-            let cond = convert_bool_to_z3(z3_ctx, cond)?;
-            let then = convert_bool_to_z3(z3_ctx, then)?;
-            let else_ = convert_bool_to_z3(z3_ctx, else_)?;
-            z3::mk_ite(z3_ctx, cond, then, else_)
-        }
-        BooleanOp::Annotated(inner, _) => convert_bool_to_z3(z3_ctx, inner)?,
+            BooleanOp::BoolV(b) => {
+                if *b {
+                    z3::mk_true(z3_ctx)
+                } else {
+                    z3::mk_false(z3_ctx)
+                }
+            }
+            BooleanOp::Not(a) => {
+                let a = convert_bool_to_z3(a)?;
+                z3::mk_not(z3_ctx, a)
+            }
+            BooleanOp::And(a, b) => {
+                let a = convert_bool_to_z3(a)?;
+                let b = convert_bool_to_z3(b)?;
+                let args = [a, b];
+                z3::mk_and(z3_ctx, 2, args.as_ptr())
+            }
+            BooleanOp::Or(a, b) => {
+                let a = convert_bool_to_z3(a)?;
+                let b = convert_bool_to_z3(b)?;
+                let args = [a, b];
+                z3::mk_or(z3_ctx, 2, args.as_ptr())
+            }
+            BooleanOp::Xor(a, b) => {
+                let a = convert_bool_to_z3(a)?;
+                let b = convert_bool_to_z3(b)?;
+                z3::mk_xor(z3_ctx, a, b)
+            }
+            BooleanOp::BoolEq(a, b) => {
+                let a = convert_bool_to_z3(a)?;
+                let b = convert_bool_to_z3(b)?;
+                z3::mk_eq(z3_ctx, a, b)
+            }
+            BooleanOp::BoolNeq(a, b) => {
+                let a = convert_bool_to_z3(a)?;
+                let b = convert_bool_to_z3(b)?;
+                let eq = z3::mk_eq(z3_ctx, a, b);
+                z3::mk_not(z3_ctx, eq)
+            }
+            BooleanOp::If(cond, then, else_) => {
+                let cond = convert_bool_to_z3(cond)?;
+                let then = convert_bool_to_z3(then)?;
+                let else_ = convert_bool_to_z3(else_)?;
+                z3::mk_ite(z3_ctx, cond, then, else_)
+            }
+            BooleanOp::Annotated(inner, _) => convert_bool_to_z3(inner)?,
 
-        // BV operations
-        BooleanOp::Eq(_, _) => todo!("Eq"),
-        BooleanOp::Neq(_, _) => todo!("Neq"),
-        BooleanOp::ULT(_, _) => todo!("ULT"),
-        BooleanOp::ULE(_, _) => todo!("ULE"),
-        BooleanOp::UGT(_, _) => todo!("UGT"),
-        BooleanOp::UGE(_, _) => todo!("UGE"),
-        BooleanOp::SLT(_, _) => todo!("SLT"),
-        BooleanOp::SLE(_, _) => todo!("SLE"),
-        BooleanOp::SGT(_, _) => todo!("SGT"),
-        BooleanOp::SGE(_, _) => todo!("SGE"),
+            // BV operations
+            BooleanOp::Eq(_, _) => todo!("Eq"),
+            BooleanOp::Neq(_, _) => todo!("Neq"),
+            BooleanOp::ULT(_, _) => todo!("ULT"),
+            BooleanOp::ULE(_, _) => todo!("ULE"),
+            BooleanOp::UGT(_, _) => todo!("UGT"),
+            BooleanOp::UGE(_, _) => todo!("UGE"),
+            BooleanOp::SLT(_, _) => todo!("SLT"),
+            BooleanOp::SLE(_, _) => todo!("SLE"),
+            BooleanOp::SGT(_, _) => todo!("SGT"),
+            BooleanOp::SGE(_, _) => todo!("SGE"),
 
-        // FP operations
-        BooleanOp::FpEq(_, _) => todo!("FpEq"),
-        BooleanOp::FpNeq(_, _) => todo!("FpNeq"),
-        BooleanOp::FpLt(_, _) => todo!("FpLt"),
-        BooleanOp::FpLeq(_, _) => todo!("FpLeq"),
-        BooleanOp::FpGt(_, _) => todo!("FpGt"),
-        BooleanOp::FpGeq(_, _) => todo!("FpGeq"),
-        BooleanOp::FpIsNan(_) => todo!("FpIsNan"),
-        BooleanOp::FpIsInf(_) => todo!("FpIsInf"),
+            // FP operations
+            BooleanOp::FpEq(_, _) => todo!("FpEq"),
+            BooleanOp::FpNeq(_, _) => todo!("FpNeq"),
+            BooleanOp::FpLt(_, _) => todo!("FpLt"),
+            BooleanOp::FpLeq(_, _) => todo!("FpLeq"),
+            BooleanOp::FpGt(_, _) => todo!("FpGt"),
+            BooleanOp::FpGeq(_, _) => todo!("FpGeq"),
+            BooleanOp::FpIsNan(_) => todo!("FpIsNan"),
+            BooleanOp::FpIsInf(_) => todo!("FpIsInf"),
 
-        // String operations
-        BooleanOp::StrContains(_, _) => todo!("StrContains"),
-        BooleanOp::StrPrefixOf(_, _) => todo!("StrPrefixOf"),
-        BooleanOp::StrSuffixOf(_, _) => todo!("StrSuffixOf"),
-        BooleanOp::StrIsDigit(_) => todo!("StrIsDigit"),
-        BooleanOp::StrEq(_, _) => todo!("StrEq"),
-        BooleanOp::StrNeq(_, _) => todo!("StrNeq"),
-    })
-    .and_then(|ast| {
-        if ast.is_null() {
-            Err(ClarirsError::ConversionError(
-                "failed to create Z3 AST, got null".to_string(),
-            ))
-        } else {
-            z3::inc_ref(z3_ctx, ast);
-            Ok(ast)
-        }
+            // String operations
+            BooleanOp::StrContains(_, _) => todo!("StrContains"),
+            BooleanOp::StrPrefixOf(_, _) => todo!("StrPrefixOf"),
+            BooleanOp::StrSuffixOf(_, _) => todo!("StrSuffixOf"),
+            BooleanOp::StrIsDigit(_) => todo!("StrIsDigit"),
+            BooleanOp::StrEq(_, _) => todo!("StrEq"),
+            BooleanOp::StrNeq(_, _) => todo!("StrNeq"),
+        })
+        .and_then(|ast| {
+            if ast.is_null() {
+                Err(ClarirsError::ConversionError(
+                    "failed to create Z3 AST, got null".to_string(),
+                ))
+            } else {
+                z3::inc_ref(z3_ctx, ast);
+                Ok(ast)
+            }
+        })
     })
 }
 
-pub unsafe fn convert_bool_from_z3<'c>(
+pub fn convert_bool_from_z3<'c>(
     ctx: &'c Context<'c>,
     ast: z3::Ast,
 ) -> Result<BoolAst<'c>, ClarirsError> {
-    Z3_CONTEXT.with(|z3_ctx| {
+    Z3_CONTEXT.with(|z3_ctx| unsafe {
         let ast_kind = z3::get_ast_kind(*z3_ctx, ast);
         match ast_kind {
             z3::AstKind::App => {
@@ -251,10 +250,8 @@ mod tests {
         ctx: &'c Context<'c>,
         ast: &BoolAst<'c>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        Z3_CONTEXT.with(|z3_ctx| {
-            let z3_ast = convert_bool_to_z3(*z3_ctx, ast)?;
-            convert_bool_from_z3(ctx, z3_ast)
-        })
+        let z3_ast = convert_bool_to_z3(ast)?;
+        convert_bool_from_z3(ctx, z3_ast)
     }
 
     // One-way conversion tests
@@ -267,11 +264,9 @@ mod tests {
                 let ctx = Context::new();
                 let sym = ctx.bools("x").unwrap();
 
-                Z3_CONTEXT.with(|z3_ctx| {
-                    let z3_ast = convert_bool_to_z3(*z3_ctx, &sym).unwrap();
-                    assert!(verify_z3_ast_kind(z3_ast, z3::DeclKind::Uninterpreted));
-                    assert!(verify_z3_symbol_name(z3_ast, "x"));
-                });
+                let z3_ast = convert_bool_to_z3(&sym).unwrap();
+                assert!(verify_z3_ast_kind(z3_ast, z3::DeclKind::Uninterpreted));
+                assert!(verify_z3_symbol_name(z3_ast, "x"));
             }
         }
 
@@ -282,13 +277,11 @@ mod tests {
                 let t = ctx.true_().unwrap();
                 let f = ctx.false_().unwrap();
 
-                Z3_CONTEXT.with(|z3_ctx| {
-                    let t_z3 = convert_bool_to_z3(*z3_ctx, &t).unwrap();
-                    let f_z3 = convert_bool_to_z3(*z3_ctx, &f).unwrap();
+                let t_z3 = convert_bool_to_z3(&t).unwrap();
+                let f_z3 = convert_bool_to_z3(&f).unwrap();
 
-                    assert!(verify_z3_bool_value(t_z3, true));
-                    assert!(verify_z3_bool_value(f_z3, false));
-                });
+                assert!(verify_z3_bool_value(t_z3, true));
+                assert!(verify_z3_bool_value(f_z3, false));
             }
         }
 
@@ -299,17 +292,15 @@ mod tests {
                 let x = ctx.bools("x").unwrap();
                 let not_x = ctx.not(&x).unwrap();
 
-                Z3_CONTEXT.with(|z3_ctx| {
-                    let z3_ast = convert_bool_to_z3(*z3_ctx, &not_x).unwrap();
-                    assert!(verify_z3_ast_kind(z3_ast, z3::DeclKind::Not));
+                let z3_ast = convert_bool_to_z3(&not_x).unwrap();
+                assert!(verify_z3_ast_kind(z3_ast, z3::DeclKind::Not));
 
-                    // Verify the operand is the symbol "x"
-                    let arg = get_z3_app_arg(z3_ast, 0).expect("Failed to get NOT argument");
-                    assert!(
-                        verify_z3_symbol_name(arg, "x"),
-                        "NOT argument should be 'x'"
-                    );
-                });
+                // Verify the operand is the symbol "x"
+                let arg = get_z3_app_arg(z3_ast, 0).expect("Failed to get NOT argument");
+                assert!(
+                    verify_z3_symbol_name(arg, "x"),
+                    "NOT argument should be 'x'"
+                );
             }
         }
 
@@ -321,23 +312,20 @@ mod tests {
                 let y = ctx.bools("y").unwrap();
                 let and = ctx.and(&x, &y).unwrap();
 
-                Z3_CONTEXT.with(|z3_ctx| {
-                    let z3_ast = convert_bool_to_z3(*z3_ctx, &and).unwrap();
-                    assert!(verify_z3_ast_kind(z3_ast, z3::DeclKind::And));
+                let z3_ast = convert_bool_to_z3(&and).unwrap();
+                assert!(verify_z3_ast_kind(z3_ast, z3::DeclKind::And));
 
-                    // Verify operands
-                    let arg0 = get_z3_app_arg(z3_ast, 0).expect("Failed to get first AND argument");
-                    let arg1 =
-                        get_z3_app_arg(z3_ast, 1).expect("Failed to get second AND argument");
-                    assert!(
-                        verify_z3_symbol_name(arg0, "x"),
-                        "First AND argument should be 'x'"
-                    );
-                    assert!(
-                        verify_z3_symbol_name(arg1, "y"),
-                        "Second AND argument should be 'y'"
-                    );
-                });
+                // Verify operands
+                let arg0 = get_z3_app_arg(z3_ast, 0).expect("Failed to get first AND argument");
+                let arg1 = get_z3_app_arg(z3_ast, 1).expect("Failed to get second AND argument");
+                assert!(
+                    verify_z3_symbol_name(arg0, "x"),
+                    "First AND argument should be 'x'"
+                );
+                assert!(
+                    verify_z3_symbol_name(arg1, "y"),
+                    "Second AND argument should be 'y'"
+                );
             }
         }
 
@@ -349,22 +337,20 @@ mod tests {
                 let y = ctx.bools("y").unwrap();
                 let or = ctx.or(&x, &y).unwrap();
 
-                Z3_CONTEXT.with(|z3_ctx| {
-                    let z3_ast = convert_bool_to_z3(*z3_ctx, &or).unwrap();
-                    assert!(verify_z3_ast_kind(z3_ast, z3::DeclKind::Or));
+                let z3_ast = convert_bool_to_z3(&or).unwrap();
+                assert!(verify_z3_ast_kind(z3_ast, z3::DeclKind::Or));
 
-                    // Verify operands
-                    let arg0 = get_z3_app_arg(z3_ast, 0).expect("Failed to get first OR argument");
-                    let arg1 = get_z3_app_arg(z3_ast, 1).expect("Failed to get second OR argument");
-                    assert!(
-                        verify_z3_symbol_name(arg0, "x"),
-                        "First OR argument should be 'x'"
-                    );
-                    assert!(
-                        verify_z3_symbol_name(arg1, "y"),
-                        "Second OR argument should be 'y'"
-                    );
-                });
+                // Verify operands
+                let arg0 = get_z3_app_arg(z3_ast, 0).expect("Failed to get first OR argument");
+                let arg1 = get_z3_app_arg(z3_ast, 1).expect("Failed to get second OR argument");
+                assert!(
+                    verify_z3_symbol_name(arg0, "x"),
+                    "First OR argument should be 'x'"
+                );
+                assert!(
+                    verify_z3_symbol_name(arg1, "y"),
+                    "Second OR argument should be 'y'"
+                );
             }
         }
 
@@ -376,23 +362,20 @@ mod tests {
                 let y = ctx.bools("y").unwrap();
                 let xor = ctx.xor(&x, &y).unwrap();
 
-                Z3_CONTEXT.with(|z3_ctx| {
-                    let z3_ast = convert_bool_to_z3(*z3_ctx, &xor).unwrap();
-                    assert!(verify_z3_ast_kind(z3_ast, z3::DeclKind::Xor));
+                let z3_ast = convert_bool_to_z3(&xor).unwrap();
+                assert!(verify_z3_ast_kind(z3_ast, z3::DeclKind::Xor));
 
-                    // Verify operands
-                    let arg0 = get_z3_app_arg(z3_ast, 0).expect("Failed to get first XOR argument");
-                    let arg1 =
-                        get_z3_app_arg(z3_ast, 1).expect("Failed to get second XOR argument");
-                    assert!(
-                        verify_z3_symbol_name(arg0, "x"),
-                        "First XOR argument should be 'x'"
-                    );
-                    assert!(
-                        verify_z3_symbol_name(arg1, "y"),
-                        "Second XOR argument should be 'y'"
-                    );
-                });
+                // Verify operands
+                let arg0 = get_z3_app_arg(z3_ast, 0).expect("Failed to get first XOR argument");
+                let arg1 = get_z3_app_arg(z3_ast, 1).expect("Failed to get second XOR argument");
+                assert!(
+                    verify_z3_symbol_name(arg0, "x"),
+                    "First XOR argument should be 'x'"
+                );
+                assert!(
+                    verify_z3_symbol_name(arg1, "y"),
+                    "Second XOR argument should be 'y'"
+                );
             }
         }
 
@@ -404,22 +387,20 @@ mod tests {
                 let y = ctx.bools("y").unwrap();
                 let eq = ctx.eq_(&x, &y).unwrap();
 
-                Z3_CONTEXT.with(|z3_ctx| {
-                    let z3_ast = convert_bool_to_z3(*z3_ctx, &eq).unwrap();
-                    assert!(verify_z3_ast_kind(z3_ast, z3::DeclKind::Eq));
+                let z3_ast = convert_bool_to_z3(&eq).unwrap();
+                assert!(verify_z3_ast_kind(z3_ast, z3::DeclKind::Eq));
 
-                    // Verify operands
-                    let arg0 = get_z3_app_arg(z3_ast, 0).expect("Failed to get first EQ argument");
-                    let arg1 = get_z3_app_arg(z3_ast, 1).expect("Failed to get second EQ argument");
-                    assert!(
-                        verify_z3_symbol_name(arg0, "x"),
-                        "First EQ argument should be 'x'"
-                    );
-                    assert!(
-                        verify_z3_symbol_name(arg1, "y"),
-                        "Second EQ argument should be 'y'"
-                    );
-                });
+                // Verify operands
+                let arg0 = get_z3_app_arg(z3_ast, 0).expect("Failed to get first EQ argument");
+                let arg1 = get_z3_app_arg(z3_ast, 1).expect("Failed to get second EQ argument");
+                assert!(
+                    verify_z3_symbol_name(arg0, "x"),
+                    "First EQ argument should be 'x'"
+                );
+                assert!(
+                    verify_z3_symbol_name(arg1, "y"),
+                    "Second EQ argument should be 'y'"
+                );
             }
         }
 
@@ -431,29 +412,26 @@ mod tests {
                 let y = ctx.bools("y").unwrap();
                 let neq = ctx.neq(&x, &y).unwrap();
 
-                Z3_CONTEXT.with(|z3_ctx| {
-                    let z3_ast = convert_bool_to_z3(*z3_ctx, &neq).unwrap();
-                    // NEQ is implemented as NOT(EQ)
-                    assert!(verify_z3_ast_kind(z3_ast, z3::DeclKind::Not));
+                let z3_ast = convert_bool_to_z3(&neq).unwrap();
+                // NEQ is implemented as NOT(EQ)
+                assert!(verify_z3_ast_kind(z3_ast, z3::DeclKind::Not));
 
-                    // Verify the inner EQ and its operands
-                    let eq_ast = get_z3_app_arg(z3_ast, 0).expect("Failed to get NEQ inner EQ");
-                    assert!(
-                        verify_z3_ast_kind(eq_ast, z3::DeclKind::Eq),
-                        "NEQ inner operation should be EQ"
-                    );
-                    let arg0 = get_z3_app_arg(eq_ast, 0).expect("Failed to get first NEQ argument");
-                    let arg1 =
-                        get_z3_app_arg(eq_ast, 1).expect("Failed to get second NEQ argument");
-                    assert!(
-                        verify_z3_symbol_name(arg0, "x"),
-                        "First NEQ argument should be 'x'"
-                    );
-                    assert!(
-                        verify_z3_symbol_name(arg1, "y"),
-                        "Second NEQ argument should be 'y'"
-                    );
-                });
+                // Verify the inner EQ and its operands
+                let eq_ast = get_z3_app_arg(z3_ast, 0).expect("Failed to get NEQ inner EQ");
+                assert!(
+                    verify_z3_ast_kind(eq_ast, z3::DeclKind::Eq),
+                    "NEQ inner operation should be EQ"
+                );
+                let arg0 = get_z3_app_arg(eq_ast, 0).expect("Failed to get first NEQ argument");
+                let arg1 = get_z3_app_arg(eq_ast, 1).expect("Failed to get second NEQ argument");
+                assert!(
+                    verify_z3_symbol_name(arg0, "x"),
+                    "First NEQ argument should be 'x'"
+                );
+                assert!(
+                    verify_z3_symbol_name(arg1, "y"),
+                    "Second NEQ argument should be 'y'"
+                );
             }
         }
 
@@ -466,28 +444,26 @@ mod tests {
                 let else_ = ctx.false_().unwrap();
                 let if_expr = ctx.if_(&cond, &then, &else_).unwrap();
 
-                Z3_CONTEXT.with(|z3_ctx| {
-                    let z3_ast = convert_bool_to_z3(*z3_ctx, &if_expr).unwrap();
-                    assert!(verify_z3_ast_kind(z3_ast, z3::DeclKind::Ite));
+                let z3_ast = convert_bool_to_z3(&if_expr).unwrap();
+                assert!(verify_z3_ast_kind(z3_ast, z3::DeclKind::Ite));
 
-                    // Verify condition and branches
-                    let cond_ast = get_z3_app_arg(z3_ast, 0).expect("Failed to get IF condition");
-                    let then_ast = get_z3_app_arg(z3_ast, 1).expect("Failed to get IF then branch");
-                    let else_ast = get_z3_app_arg(z3_ast, 2).expect("Failed to get IF else branch");
+                // Verify condition and branches
+                let cond_ast = get_z3_app_arg(z3_ast, 0).expect("Failed to get IF condition");
+                let then_ast = get_z3_app_arg(z3_ast, 1).expect("Failed to get IF then branch");
+                let else_ast = get_z3_app_arg(z3_ast, 2).expect("Failed to get IF else branch");
 
-                    assert!(
-                        verify_z3_symbol_name(cond_ast, "c"),
-                        "IF condition should be 'c'"
-                    );
-                    assert!(
-                        verify_z3_bool_value(then_ast, true),
-                        "IF then branch should be true"
-                    );
-                    assert!(
-                        verify_z3_bool_value(else_ast, false),
-                        "IF else branch should be false"
-                    );
-                });
+                assert!(
+                    verify_z3_symbol_name(cond_ast, "c"),
+                    "IF condition should be 'c'"
+                );
+                assert!(
+                    verify_z3_bool_value(then_ast, true),
+                    "IF then branch should be true"
+                );
+                assert!(
+                    verify_z3_bool_value(else_ast, false),
+                    "IF else branch should be false"
+                );
             }
         }
     }
