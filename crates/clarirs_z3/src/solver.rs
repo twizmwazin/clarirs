@@ -1,6 +1,5 @@
 use crate::convert::{
     convert_bool_from_z3, convert_bool_to_z3, convert_bv_from_z3, convert_bv_to_z3,
-    convert_float_from_z3, convert_float_to_z3, convert_string_from_z3, convert_string_to_z3,
 };
 use crate::simplify::simplify;
 use crate::Z3_CONTEXT;
@@ -113,166 +112,16 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         })
     }
 
-    fn eval_bitvec(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            let converted_expr = convert_bv_to_z3(z3_ctx, expr)?;
-            let simplified_expr = simplify(z3_ctx, converted_expr);
-            let app = z3::to_app(z3_ctx, simplified_expr);
-            let expr_decl = z3::get_app_decl(z3_ctx, app);
-
-            let converted_assertions: Vec<_> = self
-                .assertions
-                .iter()
-                .map(|assertion| convert_bool_to_z3(z3_ctx, assertion))
-                .collect::<Result<_, _>>()?;
-
-            let z3_solver = z3::mk_solver(z3_ctx);
-            z3::solver_inc_ref(z3_ctx, z3_solver);
-            for assertion in &converted_assertions {
-                z3::solver_assert(z3_ctx, z3_solver, *assertion);
-            }
-
-            let check_result = z3::solver_check(z3_ctx, z3_solver);
-            if check_result != z3::Lbool::True {
-                z3::dec_ref(z3_ctx, converted_expr);
-                for assertion in &converted_assertions {
-                    z3::dec_ref(z3_ctx, *assertion);
-                }
-                z3::solver_dec_ref(z3_ctx, z3_solver);
-                return Err(ClarirsError::Unsat);
-            }
-
-            let model = z3::solver_get_model(z3_ctx, z3_solver);
-            z3::model_inc_ref(z3_ctx, model);
-            let result = z3::model_get_const_interp(z3_ctx, model, expr_decl);
-
-            let result_converted = convert_bv_from_z3(
-                self.ctx,
-                if result.is_null() {
-                    simplified_expr
-                } else {
-                    result
-                },
-            );
-
-            z3::dec_ref(z3_ctx, converted_expr);
-            for assertion in &converted_assertions {
-                z3::dec_ref(z3_ctx, *assertion);
-            }
-            z3::solver_dec_ref(z3_ctx, z3_solver);
-            z3::model_dec_ref(z3_ctx, model);
-            z3::dec_ref(z3_ctx, result);
-
-            result_converted
-        })
+    fn eval_bitvec(&mut self, _expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        todo!()
     }
 
-    fn eval_float(&mut self, expr: &FloatAst<'c>) -> Result<FloatAst<'c>, ClarirsError> {
-        Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            let converted_expr = convert_float_to_z3(z3_ctx, expr)?;
-            let simplified_expr = simplify(z3_ctx, converted_expr);
-            let app = z3::to_app(z3_ctx, simplified_expr);
-            let expr_decl = z3::get_app_decl(z3_ctx, app);
-
-            let converted_assertions: Vec<_> = self
-                .assertions
-                .iter()
-                .map(|assertion| convert_bool_to_z3(z3_ctx, assertion))
-                .collect::<Result<_, _>>()?;
-
-            let z3_solver = z3::mk_solver(z3_ctx);
-            z3::solver_inc_ref(z3_ctx, z3_solver);
-            for assertion in &converted_assertions {
-                z3::solver_assert(z3_ctx, z3_solver, *assertion);
-            }
-
-            let check_result = z3::solver_check(z3_ctx, z3_solver);
-            if check_result != z3::Lbool::True {
-                z3::dec_ref(z3_ctx, converted_expr);
-                for assertion in &converted_assertions {
-                    z3::dec_ref(z3_ctx, *assertion);
-                }
-                z3::solver_dec_ref(z3_ctx, z3_solver);
-                return Err(ClarirsError::Unsat);
-            }
-
-            let model = z3::solver_get_model(z3_ctx, z3_solver);
-            z3::model_inc_ref(z3_ctx, model);
-            let result = z3::model_get_const_interp(z3_ctx, model, expr_decl);
-
-            let result_converted = convert_float_from_z3(
-                self.ctx,
-                if result.is_null() {
-                    simplified_expr
-                } else {
-                    result
-                },
-            );
-
-            z3::dec_ref(z3_ctx, converted_expr);
-            for assertion in &converted_assertions {
-                z3::dec_ref(z3_ctx, *assertion);
-            }
-            z3::solver_dec_ref(z3_ctx, z3_solver);
-            z3::model_dec_ref(z3_ctx, model);
-            z3::dec_ref(z3_ctx, result);
-
-            result_converted
-        })
+    fn eval_float(&mut self, _expr: &FloatAst<'c>) -> Result<FloatAst<'c>, ClarirsError> {
+        todo!()
     }
 
-    fn eval_string(&mut self, expr: &StringAst<'c>) -> Result<StringAst<'c>, ClarirsError> {
-        Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            let converted_expr = convert_string_to_z3(z3_ctx, expr)?;
-            let simplified_expr = simplify(z3_ctx, converted_expr);
-            let app = z3::to_app(z3_ctx, simplified_expr);
-            let expr_decl = z3::get_app_decl(z3_ctx, app);
-
-            let converted_assertions: Vec<_> = self
-                .assertions
-                .iter()
-                .map(|assertion| convert_bool_to_z3(z3_ctx, assertion))
-                .collect::<Result<_, _>>()?;
-
-            let z3_solver = z3::mk_solver(z3_ctx);
-            z3::solver_inc_ref(z3_ctx, z3_solver);
-            for assertion in &converted_assertions {
-                z3::solver_assert(z3_ctx, z3_solver, *assertion);
-            }
-
-            let check_result = z3::solver_check(z3_ctx, z3_solver);
-            if check_result != z3::Lbool::True {
-                z3::dec_ref(z3_ctx, converted_expr);
-                for assertion in &converted_assertions {
-                    z3::dec_ref(z3_ctx, *assertion);
-                }
-                z3::solver_dec_ref(z3_ctx, z3_solver);
-                return Err(ClarirsError::Unsat);
-            }
-
-            let model = z3::solver_get_model(z3_ctx, z3_solver);
-            z3::model_inc_ref(z3_ctx, model);
-            let result = z3::model_get_const_interp(z3_ctx, model, expr_decl);
-
-            let result_converted = convert_string_from_z3(
-                self.ctx,
-                if result.is_null() {
-                    simplified_expr
-                } else {
-                    result
-                },
-            );
-
-            z3::dec_ref(z3_ctx, converted_expr);
-            for assertion in &converted_assertions {
-                z3::dec_ref(z3_ctx, *assertion);
-            }
-            z3::solver_dec_ref(z3_ctx, z3_solver);
-            z3::model_dec_ref(z3_ctx, model);
-            z3::dec_ref(z3_ctx, result);
-
-            result_converted
-        })
+    fn eval_string(&mut self, _expr: &StringAst<'c>) -> Result<StringAst<'c>, ClarirsError> {
+        todo!()
     }
 
     fn is_true(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
