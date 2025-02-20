@@ -1,6 +1,4 @@
-use crate::convert::{
-    convert_bool_from_z3, convert_bool_to_z3, convert_bv_from_z3, convert_bv_to_z3,
-};
+use crate::convert::Z3Convert;
 use crate::simplify::simplify;
 use crate::Z3_CONTEXT;
 use clarirs_core::prelude::*;
@@ -38,7 +36,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
             let converted_assertions: Vec<_> = self
                 .assertions
                 .iter()
-                .map(|assertion| convert_bool_to_z3(assertion))
+                .map(|assertion| assertion.to_z3())
                 .collect::<Result<_, _>>()?;
 
             let z3_solver = z3::mk_solver(z3_ctx);
@@ -61,7 +59,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
 
     fn eval_bool(&mut self, expr: &BoolAst<'c>) -> Result<BoolAst<'c>, ClarirsError> {
         Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            let converted_expr = convert_bool_to_z3(expr)?;
+            let converted_expr = expr.to_z3()?;
             let simplified_expr = simplify(z3_ctx, converted_expr);
             let app = z3::to_app(z3_ctx, simplified_expr);
             let expr_decl = z3::get_app_decl(z3_ctx, app);
@@ -69,7 +67,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
             let converted_assertions: Vec<_> = self
                 .assertions
                 .iter()
-                .map(|assertion| convert_bool_to_z3(assertion))
+                .map(|assertion| assertion.to_z3())
                 .collect::<Result<_, _>>()?;
 
             let z3_solver = z3::mk_solver(z3_ctx);
@@ -91,14 +89,14 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
             z3::model_inc_ref(z3_ctx, model);
             let result = z3::model_get_const_interp(z3_ctx, model, expr_decl);
 
-            let result_converted = convert_bool_from_z3(
+            let result_converted = BoolAst::from_z3(
                 self.ctx,
                 if result.is_null() {
                     simplified_expr
                 } else {
                     result
                 },
-            );
+            )?;
 
             z3::dec_ref(z3_ctx, converted_expr);
             for assertion in &converted_assertions {
@@ -108,7 +106,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
             z3::model_dec_ref(z3_ctx, model);
             z3::dec_ref(z3_ctx, result);
 
-            result_converted
+            Ok(result_converted)
         })
     }
 
@@ -126,7 +124,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
 
     fn is_true(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
         Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            let converted_expr = convert_bool_to_z3(expr)?;
+            let converted_expr = expr.to_z3()?;
             let simplified_expr = simplify(z3_ctx, converted_expr);
             let result = z3::get_bool_value(z3_ctx, simplified_expr) == z3::Lbool::True;
             z3::dec_ref(z3_ctx, converted_expr);
@@ -137,7 +135,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
 
     fn is_false(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
         Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            let converted_expr = convert_bool_to_z3(expr)?;
+            let converted_expr = expr.to_z3()?;
             let simplified_expr = simplify(z3_ctx, converted_expr);
             let result = z3::get_bool_value(z3_ctx, simplified_expr) == z3::Lbool::False;
             z3::dec_ref(z3_ctx, converted_expr);
@@ -148,14 +146,14 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
 
     fn min(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
         Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            let converted_expr = convert_bv_to_z3(expr)?;
+            let converted_expr = expr.to_z3()?;
             let app = z3::to_app(z3_ctx, converted_expr);
             let expr_decl = z3::get_app_decl(z3_ctx, app);
 
             let converted_assertions: Vec<_> = self
                 .assertions
                 .iter()
-                .map(|assertion| convert_bool_to_z3(assertion))
+                .map(|assertion| assertion.to_z3())
                 .collect::<Result<_, _>>()?;
 
             let z3_optimize = z3::mk_optimize(z3_ctx);
@@ -178,7 +176,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
             let model = z3::optimize_get_model(z3_ctx, z3_optimize);
             z3::model_inc_ref(z3_ctx, model);
             let result = z3::model_get_const_interp(z3_ctx, model, expr_decl);
-            let result_convered = convert_bv_from_z3(result);
+            let result_convered = BitVecAst::from_z3(self.ctx, result);
 
             z3::dec_ref(z3_ctx, converted_expr);
             z3::optimize_dec_ref(z3_ctx, z3_optimize);
@@ -191,14 +189,14 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
 
     fn max(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
         Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            let converted_expr = convert_bv_to_z3(expr)?;
+            let converted_expr = expr.to_z3()?;
             let app = z3::to_app(z3_ctx, converted_expr);
             let expr_decl = z3::get_app_decl(z3_ctx, app);
 
             let converted_assertions: Vec<_> = self
                 .assertions
                 .iter()
-                .map(|assertion| convert_bool_to_z3(assertion))
+                .map(|assertion| assertion.to_z3())
                 .collect::<Result<_, _>>()?;
 
             let z3_optimize = z3::mk_optimize(z3_ctx);
@@ -221,7 +219,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
             let model = z3::optimize_get_model(z3_ctx, z3_optimize);
             z3::model_inc_ref(z3_ctx, model);
             let result = z3::model_get_const_interp(z3_ctx, model, expr_decl);
-            let result_convered = convert_bv_from_z3(result);
+            let result_convered = BitVecAst::from_z3(self.ctx, result);
 
             z3::dec_ref(z3_ctx, converted_expr);
             z3::optimize_dec_ref(z3_ctx, z3_optimize);

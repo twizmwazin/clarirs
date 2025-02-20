@@ -1,10 +1,14 @@
 use clarirs_core::prelude::*;
 use clarirs_z3_sys as z3;
 
-pub fn convert_float_to_z3(_ast: &FloatAst) -> Result<z3::Ast, ClarirsError> {
-    todo!()
-}
+use super::Z3Convert;
 
-pub fn convert_float_from_z3<'c>(_ast: z3::Ast) -> Result<FloatAst<'c>, ClarirsError> {
-    todo!()
+impl<'c> Z3Convert<'c> for FloatAst<'c> {
+    fn to_z3(&self) -> Result<z3::Ast, ClarirsError> {
+        todo!()
+    }
+
+    fn from_z3(_ctx: &'c Context<'c>, _ast: z3::Ast) -> Result<Self, ClarirsError> {
+        todo!()
+    }
 }

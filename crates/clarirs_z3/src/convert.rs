@@ -3,7 +3,10 @@ mod bv;
 mod float;
 mod string;
 
-pub(crate) use bool::{convert_bool_from_z3, convert_bool_to_z3};
-pub(crate) use bv::{convert_bv_from_z3, convert_bv_to_z3};
-pub(crate) use float::{convert_float_from_z3, convert_float_to_z3};
-pub(crate) use string::{convert_string_from_z3, convert_string_to_z3};
+use clarirs_core::prelude::*;
+use clarirs_z3_sys as z3;
+
+pub(crate) trait Z3Convert<'c>: Sized {
+    fn to_z3(&self) -> Result<z3::Ast, ClarirsError>;
+    fn from_z3(ctx: &'c Context<'c>, ast: z3::Ast) -> Result<Self, ClarirsError>;
+}
