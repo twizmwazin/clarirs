@@ -1,55 +1,25 @@
-use clarirs_core::error::ClarirsError;
+mod bool;
+mod bv;
+mod float;
+mod string;
 
-pub(crate) trait AstExt<'ctx>: z3::ast::Ast<'ctx> {
-    fn arg_bool(&'ctx self, idx: usize) -> Result<z3::ast::Bool<'ctx>, ClarirsError> {
-        self.nth_child(idx)
-            .ok_or(ClarirsError::UnknownError(
-                "Failed to get nth child".to_string(),
-            ))
-            .and_then(|child| {
-                child.as_bool().ok_or(ClarirsError::UnknownError(
-                    "Failed to get as bool".to_string(),
-                ))
-            })
-    }
+use clarirs_core::prelude::*;
+use clarirs_z3_sys as z3;
 
-    fn arg_bv(&'ctx self, idx: usize) -> Result<z3::ast::BV<'ctx>, ClarirsError> {
-        self.nth_child(idx)
-            .ok_or(ClarirsError::UnknownError(
-                "Failed to get nth child".to_string(),
-            ))
-            .and_then(|child| {
-                child.as_bv().ok_or(ClarirsError::UnknownError(
-                    "Failed to get as bv".to_string(),
-                ))
-            })
-    }
+use crate::Z3_CONTEXT;
 
-    #[allow(dead_code)] // FIXME: just until conversion is implemented
-    fn arg_float(&'ctx self, idx: usize) -> Result<z3::ast::Float<'ctx>, ClarirsError> {
-        self.nth_child(idx)
-            .ok_or(ClarirsError::UnknownError(
-                "Failed to get nth child".to_string(),
-            ))
-            .and_then(|child| {
-                child.as_float().ok_or(ClarirsError::UnknownError(
-                    "Failed to get as float".to_string(),
-                ))
-            })
-    }
+pub(crate) trait AstExtZ3<'c>: HasContext<'c> + Sized {
+    fn to_z3(&self) -> Result<z3::Ast, ClarirsError>;
+    fn from_z3(ctx: &'c Context<'c>, ast: z3::Ast) -> Result<Self, ClarirsError>;
 
-    #[allow(dead_code)] // FIXME: just until conversion is implemented
-    fn arg_string(&'ctx self, idx: usize) -> Result<z3::ast::String<'ctx>, ClarirsError> {
-        self.nth_child(idx)
-            .ok_or(ClarirsError::UnknownError(
-                "Failed to get nth child".to_string(),
-            ))
-            .and_then(|child| {
-                child.as_string().ok_or(ClarirsError::UnknownError(
-                    "Failed to get as string".to_string(),
-                ))
-            })
+    fn simplify_z3(&self) -> Result<Self, ClarirsError> {
+        let ast = self.to_z3()?;
+        Z3_CONTEXT.with(|ctx| {
+            let simplified_ast = unsafe { z3::simplify(*ctx, ast) };
+            unsafe { z3::inc_ref(*ctx, simplified_ast) };
+            let result = Self::from_z3(self.context(), simplified_ast);
+            unsafe { z3::dec_ref(*ctx, simplified_ast) };
+            result
+        })
     }
 }
-
-impl<'ctx, T: z3::ast::Ast<'ctx>> AstExt<'ctx> for T {}
