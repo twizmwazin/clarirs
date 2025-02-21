@@ -1,9 +1,9 @@
 use clarirs_core::prelude::*;
 use clarirs_z3_sys as z3;
 
-use super::Z3Convert;
+use super::AstExtZ3;
 
-impl<'c> Z3Convert<'c> for FloatAst<'c> {
+impl<'c> AstExtZ3<'c> for FloatAst<'c> {
     fn to_z3(&self) -> Result<z3::Ast, ClarirsError> {
         todo!()
     }

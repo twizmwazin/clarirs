@@ -2,9 +2,9 @@ use crate::Z3_CONTEXT;
 use clarirs_core::prelude::*;
 use clarirs_z3_sys as z3;
 
-use super::Z3Convert;
+use super::AstExtZ3;
 
-impl<'c> Z3Convert<'c> for BoolAst<'c> {
+impl<'c> AstExtZ3<'c> for BoolAst<'c> {
     fn to_z3(&self) -> Result<z3::Ast, ClarirsError> {
         Z3_CONTEXT.with(|&z3_ctx| unsafe {
             Ok(match self.op() {
@@ -122,7 +122,7 @@ impl<'c> Z3Convert<'c> for BoolAst<'c> {
 
                             // Special case: if the inner expression is a BoolEq, convert to BoolNeq
                             if let BooleanOp::BoolEq(a, b) = inner.op() {
-                                ctx.neq(a, b)
+                                ctx.neq(&a, &b)
                             } else {
                                 ctx.not(&inner)
                             }

@@ -1,5 +1,4 @@
-use crate::convert::Z3Convert;
-use crate::simplify::simplify;
+use crate::astext::AstExtZ3;
 use crate::Z3_CONTEXT;
 use clarirs_core::prelude::*;
 use clarirs_z3_sys as z3;
@@ -58,10 +57,10 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
     }
 
     fn eval_bool(&mut self, expr: &BoolAst<'c>) -> Result<BoolAst<'c>, ClarirsError> {
+        let expr = expr.simplify_z3()?;
         Z3_CONTEXT.with(|&z3_ctx| unsafe {
             let converted_expr = expr.to_z3()?;
-            let simplified_expr = simplify(z3_ctx, converted_expr);
-            let app = z3::to_app(z3_ctx, simplified_expr);
+            let app = z3::to_app(z3_ctx, converted_expr);
             let expr_decl = z3::get_app_decl(z3_ctx, app);
 
             let converted_assertions: Vec<_> = self
@@ -92,7 +91,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
             let result_converted = BoolAst::from_z3(
                 self.ctx,
                 if result.is_null() {
-                    simplified_expr
+                    converted_expr
                 } else {
                     result
                 },
@@ -123,23 +122,21 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
     }
 
     fn is_true(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+        let expr = expr.simplify_z3()?;
         Z3_CONTEXT.with(|&z3_ctx| unsafe {
             let converted_expr = expr.to_z3()?;
-            let simplified_expr = simplify(z3_ctx, converted_expr);
-            let result = z3::get_bool_value(z3_ctx, simplified_expr) == z3::Lbool::True;
+            let result = z3::get_bool_value(z3_ctx, converted_expr) == z3::Lbool::True;
             z3::dec_ref(z3_ctx, converted_expr);
-            z3::dec_ref(z3_ctx, simplified_expr);
             Ok(result)
         })
     }
 
     fn is_false(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+        let expr = expr.simplify_z3()?;
         Z3_CONTEXT.with(|&z3_ctx| unsafe {
             let converted_expr = expr.to_z3()?;
-            let simplified_expr = simplify(z3_ctx, converted_expr);
-            let result = z3::get_bool_value(z3_ctx, simplified_expr) == z3::Lbool::False;
+            let result = z3::get_bool_value(z3_ctx, converted_expr) == z3::Lbool::False;
             z3::dec_ref(z3_ctx, converted_expr);
-            z3::dec_ref(z3_ctx, simplified_expr);
             Ok(result)
         })
     }
