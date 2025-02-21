@@ -719,7 +719,7 @@ fn test_reverse() -> Result<()> {
     let mut words: SmallVec<[u64; 1]> = SmallVec::new();
     words.push(0xFFFFFFFFFFFFFFFF);
     words.push(0xEE);
-    let original = BitVec::new(words, 72);
+    let original = BitVec::new(words, 72)?;
 
     // Input: [EE, FF, FF, FF, FF, FF, FF, FF, FF].
     // After byte reversal: [FF, FF, FF, FF, FF, FF, FF, FF, EE].
@@ -732,7 +732,7 @@ fn test_reverse() -> Result<()> {
     let mut expected_words: SmallVec<[u64; 1]> = SmallVec::new();
     expected_words.push(0xFFFFFFFFFFFFFFEE);
     expected_words.push(0x00000000000000FF);
-    let expected = BitVec::new(expected_words, 72);
+    let expected = BitVec::new(expected_words, 72)?;
 
     assert_eq!(
         reversed, expected,

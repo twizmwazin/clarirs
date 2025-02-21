@@ -134,7 +134,7 @@ impl FromPyObject<'_> for CoerceFP {
             Ok(CoerceFP(fp_val.clone().unbind()))
         } else if let Ok(fp_val) = val.extract::<f64>() {
             Ok(CoerceFP(
-                FP::new(val.py(), &GLOBAL_CONTEXT.fpv(fp_val).unwrap()).unwrap(),
+                FP::new(val.py(), &GLOBAL_CONTEXT.fpv(Float::from(fp_val)).unwrap()).unwrap(),
             ))
         } else {
             Err(ClaripyError::InvalidArgumentType("Expected FP".to_string()).into())

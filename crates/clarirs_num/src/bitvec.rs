@@ -37,7 +37,7 @@ pub struct BitVec {
 }
 
 impl BitVec {
-    pub fn new(words: SmallVec<[u64; 1]>, length: usize) -> Self {
+    pub fn new(mut words: SmallVec<[u64; 1]>, length: usize) -> Result<Self, BitVecError> {
         // Calculate mask for the final word - keep all valid bits
         let bits_in_last_word = length % 64;
         let final_word_mask = if bits_in_last_word == 0 {
@@ -46,26 +46,41 @@ impl BitVec {
             (1u64 << bits_in_last_word) - 1
         };
 
-        Self {
-            words: SmallVec::from_iter(words.iter().copied()),
+        if !words.is_empty() {
+            let last_idx = words.len() - 1;
+            words[last_idx] &= final_word_mask;
+        }
+
+        Ok(Self {
+            words,
             length,
             final_word_mask,
+        })
+    }
+
+    pub fn from_prim<T>(value: T) -> Result<Self, BitVecError>
+    where
+        T: Into<u64>,
+    {
+        Self::from_prim_with_size(value, size_of::<T>() * 8)
+    }
+
+    pub fn from_prim_with_size<T>(value: T, length: usize) -> Result<Self, BitVecError>
+    where
+        T: Into<u64>,
+    {
+        let value_u64: u64 = value.into();
+
+        // Ensure the value fits within the given length
+        if length < 64 && value_u64 >= (1u64 << length) {
+            return Err(BitVecError::BitVectorTooShort {
+                value: BigUint::from(value_u64),
+                length,
+            });
         }
-    }
 
-    pub fn from_prim<T>(value: T) -> Self
-    where
-        T: Into<u64>,
-    {
-        BitVec::from_prim_with_size(value, size_of::<T>() * 8)
-    }
-
-    pub fn from_prim_with_size<T>(value: T, length: usize) -> Self
-    where
-        T: Into<u64>,
-    {
         let mut words = SmallVec::new();
-        words.push(value.into());
+        words.push(value_u64);
         Self::new(words, length)
     }
 
@@ -88,11 +103,11 @@ impl BitVec {
             if num_words > 0 {
                 words.push(0);
             }
-            return Ok(BitVec::new(words, length));
+            return BitVec::new(words, length);
         }
 
         // Convert the BigUint to a BitVec
-        Ok(BitVec::new(value.iter_u64_digits().collect(), length))
+        BitVec::new(value.iter_u64_digits().collect(), length)
     }
 
     pub fn from_biguint_trunc(value: &BigUint, length: usize) -> BitVec {
@@ -173,7 +188,7 @@ impl BitVec {
             new_words[last_index] &= mask;
         }
 
-        Ok(Self::new(new_words, self.length))
+        Self::new(new_words, self.length)
     }
 
     // Check if all bits in the BitVec are 1
@@ -274,7 +289,7 @@ impl BitVec {
         for _ in 0..num_words {
             words.push(0);
         }
-        BitVec::new(words, length)
+        BitVec::new(words, length).expect("BitVec::new should never fail in zeros()")
     }
 
     // Creates and returns a BitVec with these one-filled words.
