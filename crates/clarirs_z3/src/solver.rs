@@ -123,22 +123,12 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
 
     fn is_true(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
         let expr = expr.simplify_z3()?;
-        Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            let converted_expr = expr.to_z3()?;
-            let result = z3::get_bool_value(z3_ctx, converted_expr) == z3::Lbool::True;
-            z3::dec_ref(z3_ctx, converted_expr);
-            Ok(result)
-        })
+        Ok(expr.concrete() && expr.is_true())
     }
 
     fn is_false(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
         let expr = expr.simplify_z3()?;
-        Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            let converted_expr = expr.to_z3()?;
-            let result = z3::get_bool_value(z3_ctx, converted_expr) == z3::Lbool::False;
-            z3::dec_ref(z3_ctx, converted_expr);
-            Ok(result)
-        })
+        Ok(expr.concrete() && expr.is_false())
     }
 
     fn min(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
