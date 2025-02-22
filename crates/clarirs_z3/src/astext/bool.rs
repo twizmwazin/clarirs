@@ -122,7 +122,7 @@ impl<'c> AstExtZ3<'c> for BoolAst<'c> {
 
                             // Special case: if the inner expression is a BoolEq, convert to BoolNeq
                             if let BooleanOp::BoolEq(a, b) = inner.op() {
-                                ctx.neq(&a, &b)
+                                ctx.neq(a, b)
                             } else {
                                 ctx.not(&inner)
                             }
