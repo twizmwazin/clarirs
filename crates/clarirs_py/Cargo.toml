@@ -19,7 +19,7 @@ clarirs_core = { path = "../clarirs_core", features = ["runtime-checks"] }
 clarirs_z3 = { path = "../clarirs_z3" }
 thiserror = { workspace = true }
 num-bigint = "0.4.6"
-log = "0.4.25"
+log = "0.4.26"
 dashmap = "6.1.0"
 
 [lib]
