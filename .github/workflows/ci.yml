@@ -55,8 +55,8 @@ jobs:
       - name: Run tests
         run: cargo test --all-features --no-fail-fast
 
-  python-bindings:
-    name: Python Bindings on ${{ matrix.os }}
+  build-wheels:
+    name: Building wheel files on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -73,6 +73,16 @@ jobs:
 
       - name: Setup Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
+      
+      - name: Install Maturin
+        run: pip install maturin
 
-      - name: Build and install Python bindings
-        run: pip install .
+      - name: Build Wheel
+        run: maturin build --release -o dist
+
+      - name: Upload Wheel Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: dist/*.whl
+  
