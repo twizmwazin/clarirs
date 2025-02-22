@@ -1,5 +1,6 @@
 pub use crate::ast;
 pub use crate::ast::{
+    GLOBAL_CONTEXT,
     args::ExtractPyArgs,
     base::Base,
     bits::Bits,
@@ -9,9 +10,8 @@ pub use crate::ast::{
     fp::FP,
     opstring::ToOpString,
     string::PyAstString,
-    GLOBAL_CONTEXT,
 };
 pub use crate::error::ClaripyError;
 pub use clarirs_core::prelude::*;
-pub use pyo3::prelude::*;
 pub use pyo3::IntoPyObjectExt;
+pub use pyo3::prelude::*;

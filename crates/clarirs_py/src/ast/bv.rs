@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::LazyLock;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use clarirs_core::ast::bitvec::BitVecExt;
 use dashmap::DashMap;

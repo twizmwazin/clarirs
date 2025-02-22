@@ -1,8 +1,8 @@
 #![allow(non_snake_case)]
 
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
     LazyLock,
+    atomic::{AtomicUsize, Ordering},
 };
 
 use clarirs_core::ast::float::FloatExt;

@@ -9,4 +9,4 @@ pub use crate::ast::{Annotation, AstFactory, AstNode, AstRef};
 pub use crate::context::{Context, HasContext};
 pub use crate::error::ClarirsError;
 pub use crate::solver::{ConcreteSolver, Solver};
-pub use clarirs_num::{BitVec, FSort, Float, FPRM};
+pub use clarirs_num::{BitVec, FPRM, FSort, Float};
