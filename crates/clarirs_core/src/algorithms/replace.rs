@@ -1,3 +1,5 @@
+use std::mem::discriminant;
+
 use crate::prelude::*;
 
 pub trait Replace<'c, T> {
@@ -1962,6 +1964,185 @@ impl<'c> Replace<'c, StringAst<'c>> for StringAst<'c> {
                         .make_string(StringOp::Annotated(a_replaced, anno.clone()))
                 }
             }
+        }
+    }
+}
+
+// VarAst Imlementations
+
+impl<'c> Replace<'c, BoolAst<'c>> for VarAst<'c> {
+    fn replace(&self, from: &BoolAst<'c>, to: &BoolAst<'c>) -> Result<Self, ClarirsError> {
+        match self {
+            VarAst::Boolean(a) => a.replace(from, to).map(VarAst::Boolean),
+            VarAst::BitVec(a) => a.replace(from, to).map(VarAst::BitVec),
+            VarAst::Float(a) => a.replace(from, to).map(VarAst::Float),
+            VarAst::String(a) => a.replace(from, to).map(VarAst::String),
+        }
+    }
+}
+
+impl<'c> Replace<'c, BitVecAst<'c>> for VarAst<'c> {
+    fn replace(&self, from: &BitVecAst<'c>, to: &BitVecAst<'c>) -> Result<Self, ClarirsError> {
+        match self {
+            VarAst::Boolean(a) => a.replace(from, to).map(VarAst::Boolean),
+            VarAst::BitVec(a) => a.replace(from, to).map(VarAst::BitVec),
+            VarAst::Float(a) => a.replace(from, to).map(VarAst::Float),
+            VarAst::String(a) => a.replace(from, to).map(VarAst::String),
+        }
+    }
+}
+
+impl<'c> Replace<'c, FloatAst<'c>> for VarAst<'c> {
+    fn replace(&self, from: &FloatAst<'c>, to: &FloatAst<'c>) -> Result<Self, ClarirsError> {
+        match self {
+            VarAst::Boolean(a) => a.replace(from, to).map(VarAst::Boolean),
+            VarAst::BitVec(a) => a.replace(from, to).map(VarAst::BitVec),
+            VarAst::Float(a) => a.replace(from, to).map(VarAst::Float),
+            VarAst::String(a) => a.replace(from, to).map(VarAst::String),
+        }
+    }
+}
+
+impl<'c> Replace<'c, StringAst<'c>> for VarAst<'c> {
+    fn replace(&self, from: &StringAst<'c>, to: &StringAst<'c>) -> Result<Self, ClarirsError> {
+        match self {
+            VarAst::Boolean(a) => a.replace(from, to).map(VarAst::Boolean),
+            VarAst::BitVec(a) => a.replace(from, to).map(VarAst::BitVec),
+            VarAst::Float(a) => a.replace(from, to).map(VarAst::Float),
+            VarAst::String(a) => a.replace(from, to).map(VarAst::String),
+        }
+    }
+}
+
+impl<'c> Replace<'c, VarAst<'c>> for BoolAst<'c> {
+    fn replace(&self, from: &VarAst<'c>, to: &VarAst<'c>) -> Result<Self, ClarirsError> {
+        if discriminant(from) != discriminant(to) {
+            return Err(ClarirsError::TypeError(
+                "Cannot replace different types".to_string(),
+            ));
+        }
+
+        match from {
+            VarAst::Boolean(from_) => self.replace(from_, to.as_bool().unwrap()),
+            VarAst::BitVec(from_) => self.replace(from_, to.as_bitvec().unwrap()),
+            VarAst::Float(from_) => self.replace(from_, to.as_float().unwrap()),
+            VarAst::String(from_) => self.replace(from_, to.as_string().unwrap()),
+        }
+    }
+}
+
+impl<'c> Replace<'c, VarAst<'c>> for BitVecAst<'c> {
+    fn replace(&self, from: &VarAst<'c>, to: &VarAst<'c>) -> Result<Self, ClarirsError> {
+        if discriminant(from) != discriminant(to) {
+            return Err(ClarirsError::TypeError(
+                "Cannot replace different types".to_string(),
+            ));
+        }
+
+        match from {
+            VarAst::Boolean(from_) => self.replace(from_, to.as_bool().unwrap()),
+            VarAst::BitVec(from_) => self.replace(from_, to.as_bitvec().unwrap()),
+            VarAst::Float(from_) => self.replace(from_, to.as_float().unwrap()),
+            VarAst::String(from_) => self.replace(from_, to.as_string().unwrap()),
+        }
+    }
+}
+
+impl<'c> Replace<'c, VarAst<'c>> for FloatAst<'c> {
+    fn replace(&self, from: &VarAst<'c>, to: &VarAst<'c>) -> Result<Self, ClarirsError> {
+        if discriminant(from) != discriminant(to) {
+            return Err(ClarirsError::TypeError(
+                "Cannot replace different types".to_string(),
+            ));
+        }
+
+        match from {
+            VarAst::Boolean(from_) => self.replace(from_, to.as_bool().unwrap()),
+            VarAst::BitVec(from_) => self.replace(from_, to.as_bitvec().unwrap()),
+            VarAst::Float(from_) => self.replace(from_, to.as_float().unwrap()),
+            VarAst::String(from_) => self.replace(from_, to.as_string().unwrap()),
+        }
+    }
+}
+
+impl<'c> Replace<'c, VarAst<'c>> for StringAst<'c> {
+    fn replace(&self, from: &VarAst<'c>, to: &VarAst<'c>) -> Result<Self, ClarirsError> {
+        if discriminant(from) != discriminant(to) {
+            return Err(ClarirsError::TypeError(
+                "Cannot replace different types".to_string(),
+            ));
+        }
+
+        match from {
+            VarAst::Boolean(from_) => self.replace(from_, to.as_bool().unwrap()),
+            VarAst::BitVec(from_) => self.replace(from_, to.as_bitvec().unwrap()),
+            VarAst::Float(from_) => self.replace(from_, to.as_float().unwrap()),
+            VarAst::String(from_) => self.replace(from_, to.as_string().unwrap()),
+        }
+    }
+}
+
+impl<'c> Replace<'c, VarAst<'c>> for VarAst<'c> {
+    fn replace(&self, from: &VarAst<'c>, to: &VarAst<'c>) -> Result<Self, ClarirsError> {
+        if discriminant(self) != discriminant(from) {
+            return Err(ClarirsError::TypeError(
+                "Cannot replace different types".to_string(),
+            ));
+        }
+
+        if self == from {
+            return Ok(to.clone());
+        }
+
+        match (self, from) {
+            (VarAst::Boolean(self_), VarAst::Boolean(from_)) => self_
+                .replace(from_, to.as_bool().unwrap())
+                .map(VarAst::Boolean),
+            (VarAst::Boolean(self_), VarAst::BitVec(from_)) => self_
+                .replace(from_, to.as_bitvec().unwrap())
+                .map(VarAst::Boolean),
+            (VarAst::Boolean(self_), VarAst::Float(from_)) => self_
+                .replace(from_, to.as_float().unwrap())
+                .map(VarAst::Boolean),
+            (VarAst::Boolean(self_), VarAst::String(from_)) => self_
+                .replace(from_, to.as_string().unwrap())
+                .map(VarAst::Boolean),
+            (VarAst::BitVec(self_), VarAst::Boolean(from_)) => self_
+                .replace(from_, to.as_bool().unwrap())
+                .map(VarAst::BitVec),
+            (VarAst::BitVec(self_), VarAst::BitVec(from_)) => self_
+                .replace(from_, to.as_bitvec().unwrap())
+                .map(VarAst::BitVec),
+            (VarAst::BitVec(self_), VarAst::Float(from_)) => self_
+                .replace(from_, to.as_float().unwrap())
+                .map(VarAst::BitVec),
+            (VarAst::BitVec(self_), VarAst::String(from_)) => self_
+                .replace(from_, to.as_string().unwrap())
+                .map(VarAst::BitVec),
+            (VarAst::Float(self_), VarAst::Boolean(from_)) => self_
+                .replace(from_, to.as_bool().unwrap())
+                .map(VarAst::Float),
+            (VarAst::Float(self_), VarAst::BitVec(from_)) => self_
+                .replace(from_, to.as_bitvec().unwrap())
+                .map(VarAst::Float),
+            (VarAst::Float(self_), VarAst::Float(from_)) => self_
+                .replace(from_, to.as_float().unwrap())
+                .map(VarAst::Float),
+            (VarAst::Float(self_), VarAst::String(from_)) => self_
+                .replace(from_, to.as_string().unwrap())
+                .map(VarAst::Float),
+            (VarAst::String(self_), VarAst::Boolean(from_)) => self_
+                .replace(from_, to.as_bool().unwrap())
+                .map(VarAst::String),
+            (VarAst::String(self_), VarAst::BitVec(from_)) => self_
+                .replace(from_, to.as_bitvec().unwrap())
+                .map(VarAst::String),
+            (VarAst::String(self_), VarAst::Float(from_)) => self_
+                .replace(from_, to.as_float().unwrap())
+                .map(VarAst::String),
+            (VarAst::String(self_), VarAst::String(from_)) => self_
+                .replace(from_, to.as_string().unwrap())
+                .map(VarAst::String),
         }
     }
 }
