@@ -3,7 +3,7 @@ use crate::{
     convert::{convert_bv_to_z3, convert_float_to_z3, convert_string_to_z3},
 };
 use clarirs_core::prelude::*;
-use z3::{ast::Ast, DeclKind};
+use z3::{DeclKind, ast::Ast};
 
 use super::convert_bv_from_z3;
 

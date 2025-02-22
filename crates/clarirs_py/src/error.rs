@@ -2,7 +2,7 @@ use std::convert::Infallible;
 
 use crate::prelude::*;
 use clarirs_num::bitvec::BitVecError;
-use pyo3::{exceptions::PyRuntimeError, DowncastError, DowncastIntoError, PyErr, PyObject};
+use pyo3::{DowncastError, DowncastIntoError, PyErr, PyObject, exceptions::PyRuntimeError};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
