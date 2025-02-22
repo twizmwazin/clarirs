@@ -16,7 +16,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                 BitVecOp::Not(ast) => {
                     simplify!(ast);
                     match ast.op() {
-                        BitVecOp::BVV(value) => ctx.bvv(!value.clone()),
+                        BitVecOp::BVV(value) => ctx.bvv((!value.clone())?),
                         _ => ctx.not(&ast),
                     }
                 }
@@ -24,7 +24,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
                         (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
-                            ctx.bvv(value1.clone() & value2.clone())
+                            ctx.bvv((value1.clone() & value2.clone())?)
                         }
                         _ => ctx.and(&arc, &arc1),
                     }
@@ -33,7 +33,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
                         (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
-                            ctx.bvv(value1.clone() | value2.clone())
+                            ctx.bvv((value1.clone() | value2.clone())?)
                         }
                         _ => ctx.or(&arc, &arc1),
                     }
@@ -42,7 +42,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
                         (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
-                            ctx.bvv(value1.clone() ^ value2.clone())
+                            ctx.bvv((value1.clone() ^ value2.clone())?)
                         }
                         _ => ctx.xor(&arc, &arc1),
                     }
@@ -54,7 +54,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                             // Check if the value is negative by examining the sign bit
                             if value.sign() {
                                 // If negative, return the negated value
-                                ctx.bvv(-value.clone())
+                                ctx.bvv((-value.clone())?)
                             } else {
                                 // If positive, return the value as-is
                                 ctx.bvv(value.clone())
@@ -67,7 +67,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
                         (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
-                            ctx.bvv(value1.clone() + value2.clone())
+                            ctx.bvv((value1.clone() + value2.clone())?)
                         }
                         _ => ctx.and(&arc, &arc1),
                     }
@@ -76,7 +76,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
                         (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
-                            ctx.bvv(value1.clone() - value2.clone())
+                            ctx.bvv((value1.clone() - value2.clone())?)
                         }
                         _ => ctx.sub(&arc, &arc1),
                     }
@@ -85,7 +85,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
                         (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
-                            ctx.bvv(value1.clone() * value2.clone())
+                            ctx.bvv((value1.clone() * value2.clone())?)
                         }
                         _ => ctx.mul(&arc, &arc1),
                     }
@@ -109,7 +109,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
 
                     match (dividend_ast.op(), divisor_ast.op()) {
                         (BitVecOp::BVV(dividend_val), BitVecOp::BVV(divisor_val)) => {
-                            ctx.bvv(dividend_val.sdiv(divisor_val))
+                            ctx.bvv((dividend_val.sdiv(divisor_val))?)
                         }
                         _ => ctx.sdiv(&dividend_ast, &divisor_ast),
                     }
@@ -130,7 +130,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
 
                     match (dividend_ast.op(), divisor_ast.op()) {
                         (BitVecOp::BVV(dividend_val), BitVecOp::BVV(divisor_val)) => {
-                            ctx.bvv(dividend_val.srem(divisor_val))
+                            ctx.bvv((dividend_val.srem(divisor_val))?)
                         }
                         _ => ctx.srem(&dividend_ast, &divisor_ast),
                     }
@@ -150,7 +150,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                         (BitVecOp::BVV(value), BitVecOp::BVV(shift_amount)) => {
                             let shift_amount_usize = shift_amount.to_usize().unwrap_or(0);
                             let result = value.clone() << shift_amount_usize;
-                            ctx.bvv(result)
+                            ctx.bvv(result?)
                         }
                         _ => ctx.shl(&arc, &arc1),
                     }
@@ -167,7 +167,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                             } else if shift_amount_usize == 0 {
                                 value.clone()
                             } else {
-                                value.clone() >> shift_amount_usize
+                                (value.clone() >> shift_amount_usize)?
                             };
                             ctx.bvv(result)
                         }
@@ -250,14 +250,14 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                     simplify!(arc);
 
                     match arc.op() {
-                        BitVecOp::BVV(value) => ctx.bvv(value.zero_extend(*num_bits as usize)),
+                        BitVecOp::BVV(value) => ctx.bvv(value.zero_extend(*num_bits as usize)?),
                         _ => ctx.zero_ext(&arc, *num_bits),
                     }
                 }
                 BitVecOp::SignExt(arc, num_bits) => {
                     simplify!(arc);
                     match arc.op() {
-                        BitVecOp::BVV(value) => ctx.bvv(value.sign_extend(*num_bits as usize)),
+                        BitVecOp::BVV(value) => ctx.bvv(value.sign_extend(*num_bits as usize)?),
                         _ => ctx.sign_ext(&arc, *num_bits),
                     }
                 }
@@ -315,7 +315,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
 
                             // Shift the first value to the left to make space, then OR with the second value
                             let concatenated_value =
-                                (value1.clone() << value2.len()) | value2.clone();
+                                ((value1.clone() << value2.len())? | value2.clone())?;
 
                             // Return a new BitVec with the concatenated result and new length
                             ctx.bvv(BitVec::from_biguint_trunc(
@@ -399,7 +399,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                     match arc.op() {
                         StringOp::StringV(value) => {
                             let length = value.len() as u64;
-                            ctx.bvv(BitVec::from_prim_with_size(length, 64))
+                            ctx.bvv(BitVec::from_prim_with_size(length, 64)?)
                         }
                         // _ => Err(ClarirsError::InvalidArguments),
                         _ => ctx.strlen(&arc), // Fallback to symbolic
@@ -423,13 +423,13 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                                 match s[i..].find(t) {
                                     Some(pos) => {
                                         let result_index = (i + pos) as u64;
-                                        ctx.bvv(BitVec::from_prim_with_size(result_index, 64))
+                                        ctx.bvv(BitVec::from_prim_with_size(result_index, 64)?)
                                     }
-                                    None => ctx.bvv(BitVec::from_prim_with_size(-1i64 as u64, 64)), // -1 if not found
+                                    None => ctx.bvv(BitVec::from_prim_with_size(-1i64 as u64, 64)?), // -1 if not found
                                 }
                             } else {
                                 // If start index is out of bounds, return -1
-                                ctx.bvv(BitVec::from_prim_with_size(-1i64 as u64, 64))
+                                ctx.bvv(BitVec::from_prim_with_size(-1i64 as u64, 64)?)
                             }
                         }
                         // _ => Err(ClarirsError::InvalidArguments), // Handle non-concrete cases
