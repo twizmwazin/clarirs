@@ -1,3 +1,4 @@
+pub mod collect_vars;
 pub mod dfs;
 pub mod join;
 pub mod replace;
