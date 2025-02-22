@@ -1,3 +1,4 @@
+pub mod dfs;
 pub mod join;
 pub mod replace;
 pub mod simplify;
