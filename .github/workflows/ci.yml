@@ -40,6 +40,11 @@ jobs:
 
       - name: Clippy Check
         run: cargo clippy --all-features -- -D warnings
+        env:
+          SCCACHE_GHA_ENABLED: "true"
+          RUSTC_WRAPPER: "sccache"
+          CMAKE_C_COMPILER_LAUNCHER: "sccache"
+          CMAKE_CXX_COMPILER_LAUNCHER: "sccache"
 
   test:
     name: Test on ${{ matrix.os }}
@@ -63,6 +68,11 @@ jobs:
 
       - name: Build
         run: cargo build --all-features
+        env:
+          SCCACHE_GHA_ENABLED: "true"
+          RUSTC_WRAPPER: "sccache"
+          CMAKE_C_COMPILER_LAUNCHER: "sccache"
+          CMAKE_CXX_COMPILER_LAUNCHER: "sccache"
 
       - name: Run tests
         run: cargo test --all-features --no-fail-fast
@@ -96,6 +106,11 @@ jobs:
 
       - name: Build Wheel
         run: maturin build --release -o dist
+        env:
+          SCCACHE_GHA_ENABLED: "true"
+          RUSTC_WRAPPER: "sccache"
+          CMAKE_C_COMPILER_LAUNCHER: "sccache"
+          CMAKE_CXX_COMPILER_LAUNCHER: "sccache"
 
       - name: Upload Wheel Artifact
         uses: actions/upload-artifact@v4
