@@ -24,7 +24,7 @@ pub fn walk_dfs<'c>(
                 for child in current.children() {
                     stack.push(child.clone());
                 }
-            },
+            }
             DfsResult::SkipChildren => continue,
             DfsResult::Stop => break,
         }
