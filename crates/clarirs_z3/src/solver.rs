@@ -1,4 +1,5 @@
 use crate::astext::AstExtZ3;
+use crate::rc::{RcModel, RcOptimize, RcSolver};
 use crate::Z3_CONTEXT;
 use clarirs_core::prelude::*;
 use clarirs_z3_sys as z3;
@@ -26,36 +27,42 @@ impl<'c> HasContext<'c> for Z3Solver<'c> {
 
 impl<'c> Z3Solver<'c> {
 
-    fn make_filled_solver(&self) -> Result<z3::Solver, ClarirsError> {
+    fn make_filled_solver(&self) -> Result<RcSolver, ClarirsError> {
         Z3_CONTEXT.with(|&z3_ctx| unsafe {
             let z3_solver = z3::mk_solver(z3_ctx);
             z3::solver_inc_ref(z3_ctx, z3_solver);
 
             for assertion in &self.assertions {
                 let converted = assertion.to_z3()?;
-                z3::solver_assert(z3_ctx, z3_solver, converted);
-                z3::dec_ref(z3_ctx, converted);
+                z3::solver_assert(z3_ctx, z3_solver, *converted);
             }
 
-            Ok(z3_solver)
+            Ok(RcSolver::from(z3_solver))
         })
     }
 
-    fn make_model(&self) -> Result<z3::Model, ClarirsError> {
+    fn mk_filled_optimize(&self) -> Result<RcOptimize, ClarirsError> {
+        Z3_CONTEXT.with(|&z3_ctx| unsafe {
+            let z3_optimize = z3::mk_optimize(z3_ctx);
+            z3::optimize_inc_ref(z3_ctx, z3_optimize);
+
+            for assertion in &self.assertions {
+                let converted = assertion.to_z3()?;
+                z3::optimize_assert(z3_ctx, z3_optimize, *converted);
+            }
+
+            Ok(RcOptimize::from(z3_optimize))
+        })
+    }
+
+    fn make_model(&self) -> Result<RcModel, ClarirsError> {
         Z3_CONTEXT.with(|&z3_ctx| unsafe {
             let z3_solver = self.make_filled_solver()?;
-            let sat = z3::solver_check(z3_ctx, z3_solver) == z3::Lbool::True;
-
-            if !sat {
-                z3::solver_dec_ref(z3_ctx, z3_solver);
+            if z3::solver_check(z3_ctx, *z3_solver) != z3::Lbool::True {
                 return Err(ClarirsError::Unsat);
             }
 
-            let model = z3::solver_get_model(z3_ctx, z3_solver);
-            z3::model_inc_ref(z3_ctx, model);
-            z3::solver_dec_ref(z3_ctx, z3_solver);
-
-            Ok(model)
+            Ok(RcModel::from(z3::solver_get_model(z3_ctx, *z3_solver)))
         })
     }
 
@@ -65,68 +72,48 @@ impl<'c> Z3Solver<'c> {
                 VarAst::Boolean(a) => {
                     let z3_expr = a.to_z3()?;
                     let mut eval_result: z3::Ast = std::mem::zeroed();
-                    let eval_ret = z3::model_eval(z3_ctx, model, z3_expr, true, &mut eval_result);
+                    let eval_ret = z3::model_eval(z3_ctx, model, *z3_expr, true, &mut eval_result);
                     let result = if eval_ret {
                         Ok(VarAst::from(&BoolAst::from_z3(expr.context(), eval_result)?))
                     } else {
                         Err(ClarirsError::Unsat)
                     };
 
-                    z3::dec_ref(z3_ctx, z3_expr);
-                    if eval_ret {
-                        z3::dec_ref(z3_ctx, eval_result);
-                    }
-
                     result
                 }
                 VarAst::BitVec(a) => {
                     let z3_expr = a.to_z3()?;
                     let mut eval_result: z3::Ast = std::mem::zeroed();
-                    let eval_ret = z3::model_eval(z3_ctx, model, z3_expr, true, &mut eval_result);
+                    let eval_ret = z3::model_eval(z3_ctx, model, *z3_expr, true, &mut eval_result);
                     let result = if eval_ret {
                         Ok(VarAst::from(&BitVecAst::from_z3(expr.context(), eval_result)?))
                     } else {
                         Err(ClarirsError::Unsat)
                     };
 
-                    z3::dec_ref(z3_ctx, z3_expr);
-                    if eval_ret {
-                        z3::dec_ref(z3_ctx, eval_result);
-                    }
-
                     result
                 }
                 VarAst::Float(a) => {
                     let z3_expr = a.to_z3()?;
                     let mut eval_result: z3::Ast = std::mem::zeroed();
-                    let eval_ret = z3::model_eval(z3_ctx, model, z3_expr, true, &mut eval_result);
+                    let eval_ret = z3::model_eval(z3_ctx, model, *z3_expr, true, &mut eval_result);
                     let result = if eval_ret {
                         Ok(VarAst::from(&FloatAst::from_z3(expr.context(), eval_result)?))
                     } else {
                         Err(ClarirsError::Unsat)
                     };
 
-                    z3::dec_ref(z3_ctx, z3_expr);
-                    if eval_ret {
-                        z3::dec_ref(z3_ctx, eval_result);
-                    }
-
                     result
                 }
                 VarAst::String(a) => {
                     let z3_expr = a.to_z3()?;
                     let mut eval_result: z3::Ast = std::mem::zeroed();
-                    let eval_ret = z3::model_eval(z3_ctx, model, z3_expr, true, &mut eval_result);
+                    let eval_ret = z3::model_eval(z3_ctx, model, *z3_expr, true, &mut eval_result);
                     let result = if eval_ret {
                         Ok(VarAst::from(&StringAst::from_z3(expr.context(), eval_result)?))
                     } else {
                         Err(ClarirsError::Unsat)
                     };
-
-                    z3::dec_ref(z3_ctx, z3_expr);
-                    if eval_ret {
-                        z3::dec_ref(z3_ctx, eval_result);
-                    }
 
                     result
                 }
@@ -155,13 +142,8 @@ impl<'c> Z3Solver<'c> {
         // Expression is not concrete, we need to get a model from Z3 and
         // replace the variables with the values from the model
         let model = self.make_model()?;
-        let result = Z3Solver::eval_expr_with_model(model, &expr);
 
-        unsafe {
-            z3::model_dec_ref(Z3_CONTEXT.with(|&z3_ctx| z3_ctx), model);
-        }
-
-        result
+        Z3Solver::eval_expr_with_model(*model, &expr)
     }
 }
 
@@ -174,9 +156,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
     fn satisfiable(&mut self) -> Result<bool, ClarirsError> {
         Z3_CONTEXT.with(|&z3_ctx| unsafe {
             let z3_solver = self.make_filled_solver()?;
-            let sat = z3::solver_check(z3_ctx, z3_solver) == z3::Lbool::True;
-            z3::solver_dec_ref(z3_ctx, z3_solver);
-            Ok(sat)
+            Ok(z3::solver_check(z3_ctx, *z3_solver) == z3::Lbool::True)
         })
     }
 
@@ -223,88 +203,36 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
     }
 
     fn min(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        let optimize = self.mk_filled_optimize()?;
         Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            let converted_expr = expr.to_z3()?;
-            let app = z3::to_app(z3_ctx, converted_expr);
-            let expr_decl = z3::get_app_decl(z3_ctx, app);
-
-            let converted_assertions: Vec<_> = self
-                .assertions
-                .iter()
-                .map(|assertion| assertion.to_z3())
-                .collect::<Result<_, _>>()?;
-
-            let z3_optimize = z3::mk_optimize(z3_ctx);
-            z3::optimize_inc_ref(z3_ctx, z3_optimize);
-            for assertion in &converted_assertions {
-                z3::optimize_assert(z3_ctx, z3_optimize, *assertion);
-            }
-            z3::optimize_maximize(z3_ctx, z3_optimize, converted_expr);
-
-            let check_result = z3::optimize_check(z3_ctx, z3_optimize, 0, std::ptr::null_mut());
-            if check_result != z3::Lbool::True {
-                z3::dec_ref(z3_ctx, converted_expr);
-                for assertion in &converted_assertions {
-                    z3::dec_ref(z3_ctx, *assertion);
-                }
-                z3::optimize_dec_ref(z3_ctx, z3_optimize);
+            z3::optimize_minimize(z3_ctx, *optimize, *expr.to_z3()?);
+            if z3::optimize_check(z3_ctx, *optimize, 0, std::ptr::null_mut()) != z3::Lbool::True {
                 return Err(ClarirsError::Unsat);
             }
 
-            let model = z3::optimize_get_model(z3_ctx, z3_optimize);
-            z3::model_inc_ref(z3_ctx, model);
-            let result = z3::model_get_const_interp(z3_ctx, model, expr_decl);
-            let result_convered = BitVecAst::from_z3(self.ctx, result);
-
-            z3::dec_ref(z3_ctx, converted_expr);
-            z3::optimize_dec_ref(z3_ctx, z3_optimize);
-            z3::model_dec_ref(z3_ctx, model);
-            z3::dec_ref(z3_ctx, result);
-
-            result_convered
+            let model = RcModel::from(z3::optimize_get_model(z3_ctx, *optimize));
+            let result = Z3Solver::eval_expr_with_model(*model, &VarAst::from(expr))?;
+            match result {
+                VarAst::BitVec(ast) => Ok(ast),
+                _ => unreachable!(),
+            }
         })
     }
 
     fn max(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        let optimize = self.mk_filled_optimize()?;
         Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            let converted_expr = expr.to_z3()?;
-            let app = z3::to_app(z3_ctx, converted_expr);
-            let expr_decl = z3::get_app_decl(z3_ctx, app);
-
-            let converted_assertions: Vec<_> = self
-                .assertions
-                .iter()
-                .map(|assertion| assertion.to_z3())
-                .collect::<Result<_, _>>()?;
-
-            let z3_optimize = z3::mk_optimize(z3_ctx);
-            z3::optimize_inc_ref(z3_ctx, z3_optimize);
-            for assertion in &converted_assertions {
-                z3::optimize_assert(z3_ctx, z3_optimize, *assertion);
-            }
-            z3::optimize_maximize(z3_ctx, z3_optimize, converted_expr);
-
-            let check_result = z3::optimize_check(z3_ctx, z3_optimize, 0, std::ptr::null_mut());
-            if check_result != z3::Lbool::True {
-                z3::dec_ref(z3_ctx, converted_expr);
-                for assertion in &converted_assertions {
-                    z3::dec_ref(z3_ctx, *assertion);
-                }
-                z3::optimize_dec_ref(z3_ctx, z3_optimize);
+            z3::optimize_maximize(z3_ctx, *optimize, *expr.to_z3()?);
+            if z3::optimize_check(z3_ctx, *optimize, 0, std::ptr::null_mut()) != z3::Lbool::True {
                 return Err(ClarirsError::Unsat);
             }
 
-            let model = z3::optimize_get_model(z3_ctx, z3_optimize);
-            z3::model_inc_ref(z3_ctx, model);
-            let result = z3::model_get_const_interp(z3_ctx, model, expr_decl);
-            let result_convered = BitVecAst::from_z3(self.ctx, result);
-
-            z3::dec_ref(z3_ctx, converted_expr);
-            z3::optimize_dec_ref(z3_ctx, z3_optimize);
-            z3::model_dec_ref(z3_ctx, model);
-            z3::dec_ref(z3_ctx, result);
-
-            result_convered
+            let model = RcModel::from(z3::optimize_get_model(z3_ctx, *optimize));
+            let result = Z3Solver::eval_expr_with_model(*model, &VarAst::from(expr))?;
+            match result {
+                VarAst::BitVec(ast) => Ok(ast),
+                _ => unreachable!(),
+            }
         })
     }
 }

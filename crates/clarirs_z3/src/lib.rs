@@ -1,4 +1,5 @@
 mod astext;
+mod rc;
 mod solver;
 
 use clarirs_z3_sys as z3;

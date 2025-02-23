@@ -1,14 +1,14 @@
 use clarirs_core::prelude::*;
-use clarirs_z3_sys as z3;
 
 use super::AstExtZ3;
+use crate::rc::RcAst;
 
 impl<'c> AstExtZ3<'c> for BitVecAst<'c> {
-    fn to_z3(&self) -> Result<z3::Ast, ClarirsError> {
+    fn to_z3(&self) -> Result<RcAst, ClarirsError> {
         todo!()
     }
 
-    fn from_z3(_ctx: &'c Context<'c>, _ast: z3::Ast) -> Result<Self, ClarirsError> {
+    fn from_z3(_ctx: &'c Context<'c>, _ast: impl Into<RcAst>) -> Result<Self, ClarirsError> {
         todo!()
     }
 }

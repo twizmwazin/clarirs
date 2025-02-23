@@ -1,63 +1,63 @@
-use crate::Z3_CONTEXT;
+use crate::{rc::RcAst, Z3_CONTEXT};
 use clarirs_core::prelude::*;
 use clarirs_z3_sys as z3;
 
 use super::AstExtZ3;
 
 impl<'c> AstExtZ3<'c> for BoolAst<'c> {
-    fn to_z3(&self) -> Result<z3::Ast, ClarirsError> {
+    fn to_z3(&self) -> Result<RcAst, ClarirsError> {
         Z3_CONTEXT.with(|&z3_ctx| unsafe {
             Ok(match self.op() {
                 BooleanOp::BoolS(s) => {
                     let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
                     let sym = z3::mk_string_symbol(z3_ctx, s_cstr.as_ptr());
                     let sort = z3::mk_bool_sort(z3_ctx);
-                    z3::mk_const(z3_ctx, sym, sort)
+                    RcAst::from(z3::mk_const(z3_ctx, sym, sort))
                 }
                 BooleanOp::BoolV(b) => {
                     if *b {
                         z3::mk_true(z3_ctx)
                     } else {
                         z3::mk_false(z3_ctx)
-                    }
+                    }.into()
                 }
                 BooleanOp::Not(a) => {
                     let a = a.to_z3()?;
-                    z3::mk_not(z3_ctx, a)
+                    z3::mk_not(z3_ctx, a.0).into()
                 }
                 BooleanOp::And(a, b) => {
                     let a = a.to_z3()?;
                     let b = b.to_z3()?;
-                    let args = [a, b];
-                    z3::mk_and(z3_ctx, 2, args.as_ptr())
+                    let args = [a.0, b.0];
+                    z3::mk_and(z3_ctx, 2, args.as_ptr()).into()
                 }
                 BooleanOp::Or(a, b) => {
                     let a = a.to_z3()?;
                     let b = b.to_z3()?;
-                    let args = [a, b];
-                    z3::mk_or(z3_ctx, 2, args.as_ptr())
+                    let args = [a.0, b.0];
+                    z3::mk_or(z3_ctx, 2, args.as_ptr()).into()
                 }
                 BooleanOp::Xor(a, b) => {
                     let a = a.to_z3()?;
                     let b = b.to_z3()?;
-                    z3::mk_xor(z3_ctx, a, b)
+                    z3::mk_xor(z3_ctx, a.0, b.0).into()
                 }
                 BooleanOp::BoolEq(a, b) => {
                     let a = a.to_z3()?;
                     let b = b.to_z3()?;
-                    z3::mk_eq(z3_ctx, a, b)
+                    z3::mk_eq(z3_ctx, a.0, b.0).into()
                 }
                 BooleanOp::BoolNeq(a, b) => {
                     let a = a.to_z3()?;
                     let b = b.to_z3()?;
-                    let eq = z3::mk_eq(z3_ctx, a, b);
-                    z3::mk_not(z3_ctx, eq)
+                    let eq = z3::mk_eq(z3_ctx, a.0, b.0);
+                    z3::mk_not(z3_ctx, eq).into()
                 }
                 BooleanOp::If(cond, then, else_) => {
                     let cond = cond.to_z3()?;
                     let then = then.to_z3()?;
                     let else_ = else_.to_z3()?;
-                    z3::mk_ite(z3_ctx, cond, then, else_)
+                    z3::mk_ite(z3_ctx, cond.0, then.0, else_.0).into()
                 }
                 BooleanOp::Annotated(inner, _) => inner.to_z3()?,
 
@@ -97,19 +97,19 @@ impl<'c> AstExtZ3<'c> for BoolAst<'c> {
                         "failed to create Z3 AST, got null".to_string(),
                     ))
                 } else {
-                    z3::inc_ref(z3_ctx, ast);
                     Ok(ast)
                 }
             })
         })
     }
 
-    fn from_z3(ctx: &'c Context<'c>, ast: clarirs_z3_sys::Ast) -> Result<Self, ClarirsError> {
+    fn from_z3(ctx: &'c Context<'c>, ast: impl Into<RcAst>) -> Result<Self, ClarirsError> {
         Z3_CONTEXT.with(|z3_ctx| unsafe {
-            let ast_kind = z3::get_ast_kind(*z3_ctx, ast);
+            let ast = ast.into();
+            let ast_kind = z3::get_ast_kind(*z3_ctx, *ast);
             match ast_kind {
                 z3::AstKind::App => {
-                    let app = z3::to_app(*z3_ctx, ast);
+                    let app = z3::to_app(*z3_ctx, *ast);
                     let decl = z3::get_app_decl(*z3_ctx, app);
                     let decl_kind = z3::get_decl_kind(*z3_ctx, decl);
 
@@ -158,7 +158,7 @@ impl<'c> AstExtZ3<'c> for BoolAst<'c> {
                         }
                         z3::DeclKind::Uninterpreted => {
                             // Verify it's a boolean
-                            let sort = z3::get_sort(*z3_ctx, ast);
+                            let sort = z3::get_sort(*z3_ctx, *ast);
                             let bool_sort = z3::mk_bool_sort(*z3_ctx);
                             if sort != bool_sort {
                                 return Err(ClarirsError::ConversionError(
@@ -268,8 +268,8 @@ mod tests {
                 let sym = ctx.bools("x").unwrap();
 
                 let z3_ast = sym.to_z3().unwrap();
-                assert!(verify_z3_ast_kind(z3_ast, z3::DeclKind::Uninterpreted));
-                assert!(verify_z3_symbol_name(z3_ast, "x"));
+                assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Uninterpreted));
+                assert!(verify_z3_symbol_name(*z3_ast, "x"));
             }
         }
 
@@ -283,8 +283,8 @@ mod tests {
                 let t_z3 = t.to_z3().unwrap();
                 let f_z3 = f.to_z3().unwrap();
 
-                assert!(verify_z3_bool_value(t_z3, true));
-                assert!(verify_z3_bool_value(f_z3, false));
+                assert!(verify_z3_bool_value(*t_z3, true));
+                assert!(verify_z3_bool_value(*f_z3, false));
             }
         }
 
@@ -296,10 +296,10 @@ mod tests {
                 let not_x = ctx.not(&x).unwrap();
 
                 let z3_ast = not_x.to_z3().unwrap();
-                assert!(verify_z3_ast_kind(z3_ast, z3::DeclKind::Not));
+                assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Not));
 
                 // Verify the operand is the symbol "x"
-                let arg = get_z3_app_arg(z3_ast, 0).expect("Failed to get NOT argument");
+                let arg = get_z3_app_arg(*z3_ast, 0).expect("Failed to get NOT argument");
                 assert!(
                     verify_z3_symbol_name(arg, "x"),
                     "NOT argument should be 'x'"
@@ -316,11 +316,11 @@ mod tests {
                 let and = ctx.and(&x, &y).unwrap();
 
                 let z3_ast = and.to_z3().unwrap();
-                assert!(verify_z3_ast_kind(z3_ast, z3::DeclKind::And));
+                assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::And));
 
                 // Verify operands
-                let arg0 = get_z3_app_arg(z3_ast, 0).expect("Failed to get first AND argument");
-                let arg1 = get_z3_app_arg(z3_ast, 1).expect("Failed to get second AND argument");
+                let arg0 = get_z3_app_arg(*z3_ast, 0).expect("Failed to get first AND argument");
+                let arg1 = get_z3_app_arg(*z3_ast, 1).expect("Failed to get second AND argument");
                 assert!(
                     verify_z3_symbol_name(arg0, "x"),
                     "First AND argument should be 'x'"
@@ -341,11 +341,11 @@ mod tests {
                 let or = ctx.or(&x, &y).unwrap();
 
                 let z3_ast = or.to_z3().unwrap();
-                assert!(verify_z3_ast_kind(z3_ast, z3::DeclKind::Or));
+                assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Or));
 
                 // Verify operands
-                let arg0 = get_z3_app_arg(z3_ast, 0).expect("Failed to get first OR argument");
-                let arg1 = get_z3_app_arg(z3_ast, 1).expect("Failed to get second OR argument");
+                let arg0 = get_z3_app_arg(*z3_ast, 0).expect("Failed to get first OR argument");
+                let arg1 = get_z3_app_arg(*z3_ast, 1).expect("Failed to get second OR argument");
                 assert!(
                     verify_z3_symbol_name(arg0, "x"),
                     "First OR argument should be 'x'"
@@ -366,11 +366,11 @@ mod tests {
                 let xor = ctx.xor(&x, &y).unwrap();
 
                 let z3_ast = xor.to_z3().unwrap();
-                assert!(verify_z3_ast_kind(z3_ast, z3::DeclKind::Xor));
+                assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Xor));
 
                 // Verify operands
-                let arg0 = get_z3_app_arg(z3_ast, 0).expect("Failed to get first XOR argument");
-                let arg1 = get_z3_app_arg(z3_ast, 1).expect("Failed to get second XOR argument");
+                let arg0 = get_z3_app_arg(*z3_ast, 0).expect("Failed to get first XOR argument");
+                let arg1 = get_z3_app_arg(*z3_ast, 1).expect("Failed to get second XOR argument");
                 assert!(
                     verify_z3_symbol_name(arg0, "x"),
                     "First XOR argument should be 'x'"
@@ -391,11 +391,11 @@ mod tests {
                 let eq = ctx.eq_(&x, &y).unwrap();
 
                 let z3_ast = eq.to_z3().unwrap();
-                assert!(verify_z3_ast_kind(z3_ast, z3::DeclKind::Eq));
+                assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Eq));
 
                 // Verify operands
-                let arg0 = get_z3_app_arg(z3_ast, 0).expect("Failed to get first EQ argument");
-                let arg1 = get_z3_app_arg(z3_ast, 1).expect("Failed to get second EQ argument");
+                let arg0 = get_z3_app_arg(*z3_ast, 0).expect("Failed to get first EQ argument");
+                let arg1 = get_z3_app_arg(*z3_ast, 1).expect("Failed to get second EQ argument");
                 assert!(
                     verify_z3_symbol_name(arg0, "x"),
                     "First EQ argument should be 'x'"
@@ -417,10 +417,10 @@ mod tests {
 
                 let z3_ast = neq.to_z3().unwrap();
                 // NEQ is implemented as NOT(EQ)
-                assert!(verify_z3_ast_kind(z3_ast, z3::DeclKind::Not));
+                assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Not));
 
                 // Verify the inner EQ and its operands
-                let eq_ast = get_z3_app_arg(z3_ast, 0).expect("Failed to get NEQ inner EQ");
+                let eq_ast = get_z3_app_arg(*z3_ast, 0).expect("Failed to get NEQ inner EQ");
                 assert!(
                     verify_z3_ast_kind(eq_ast, z3::DeclKind::Eq),
                     "NEQ inner operation should be EQ"
@@ -448,12 +448,12 @@ mod tests {
                 let if_expr = ctx.if_(&cond, &then, &else_).unwrap();
 
                 let z3_ast = if_expr.to_z3().unwrap();
-                assert!(verify_z3_ast_kind(z3_ast, z3::DeclKind::Ite));
+                assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Ite));
 
                 // Verify condition and branches
-                let cond_ast = get_z3_app_arg(z3_ast, 0).expect("Failed to get IF condition");
-                let then_ast = get_z3_app_arg(z3_ast, 1).expect("Failed to get IF then branch");
-                let else_ast = get_z3_app_arg(z3_ast, 2).expect("Failed to get IF else branch");
+                let cond_ast = get_z3_app_arg(*z3_ast, 0).expect("Failed to get IF condition");
+                let then_ast = get_z3_app_arg(*z3_ast, 1).expect("Failed to get IF then branch");
+                let else_ast = get_z3_app_arg(*z3_ast, 2).expect("Failed to get IF else branch");
 
                 assert!(
                     verify_z3_symbol_name(cond_ast, "c"),
