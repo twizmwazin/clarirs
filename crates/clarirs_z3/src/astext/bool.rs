@@ -394,61 +394,61 @@ mod tests {
 
         #[test]
         fn neq() {
-                let ctx = Context::new();
-                let x = ctx.bools("x").unwrap();
-                let y = ctx.bools("y").unwrap();
-                let neq = ctx.neq(&x, &y).unwrap();
+            let ctx = Context::new();
+            let x = ctx.bools("x").unwrap();
+            let y = ctx.bools("y").unwrap();
+            let neq = ctx.neq(&x, &y).unwrap();
 
-                let z3_ast = neq.to_z3().unwrap();
-                // NEQ is implemented as NOT(EQ)
-                assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Not));
+            let z3_ast = neq.to_z3().unwrap();
+            // NEQ is implemented as NOT(EQ)
+            assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Not));
 
-                // Verify the inner EQ and its operands
-                let eq_ast = get_z3_app_arg(*z3_ast, 0).expect("Failed to get NEQ inner EQ");
-                assert!(
-                    verify_z3_ast_kind(eq_ast, z3::DeclKind::Eq),
-                    "NEQ inner operation should be EQ"
-                );
-                let arg0 = get_z3_app_arg(eq_ast, 0).expect("Failed to get first NEQ argument");
-                let arg1 = get_z3_app_arg(eq_ast, 1).expect("Failed to get second NEQ argument");
-                assert!(
-                    verify_z3_symbol_name(arg0, "x"),
-                    "First NEQ argument should be 'x'"
-                );
-                assert!(
-                    verify_z3_symbol_name(arg1, "y"),
-                    "Second NEQ argument should be 'y'"
-                );
+            // Verify the inner EQ and its operands
+            let eq_ast = get_z3_app_arg(*z3_ast, 0).expect("Failed to get NEQ inner EQ");
+            assert!(
+                verify_z3_ast_kind(eq_ast, z3::DeclKind::Eq),
+                "NEQ inner operation should be EQ"
+            );
+            let arg0 = get_z3_app_arg(eq_ast, 0).expect("Failed to get first NEQ argument");
+            let arg1 = get_z3_app_arg(eq_ast, 1).expect("Failed to get second NEQ argument");
+            assert!(
+                verify_z3_symbol_name(arg0, "x"),
+                "First NEQ argument should be 'x'"
+            );
+            assert!(
+                verify_z3_symbol_name(arg1, "y"),
+                "Second NEQ argument should be 'y'"
+            );
         }
 
         #[test]
         fn if_() {
-                let ctx = Context::new();
-                let cond = ctx.bools("c").unwrap();
-                let then = ctx.true_().unwrap();
-                let else_ = ctx.false_().unwrap();
-                let if_expr = ctx.if_(&cond, &then, &else_).unwrap();
+            let ctx = Context::new();
+            let cond = ctx.bools("c").unwrap();
+            let then = ctx.true_().unwrap();
+            let else_ = ctx.false_().unwrap();
+            let if_expr = ctx.if_(&cond, &then, &else_).unwrap();
 
-                let z3_ast = if_expr.to_z3().unwrap();
-                assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Ite));
+            let z3_ast = if_expr.to_z3().unwrap();
+            assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Ite));
 
-                // Verify condition and branches
-                let cond_ast = get_z3_app_arg(*z3_ast, 0).expect("Failed to get IF condition");
-                let then_ast = get_z3_app_arg(*z3_ast, 1).expect("Failed to get IF then branch");
-                let else_ast = get_z3_app_arg(*z3_ast, 2).expect("Failed to get IF else branch");
+            // Verify condition and branches
+            let cond_ast = get_z3_app_arg(*z3_ast, 0).expect("Failed to get IF condition");
+            let then_ast = get_z3_app_arg(*z3_ast, 1).expect("Failed to get IF then branch");
+            let else_ast = get_z3_app_arg(*z3_ast, 2).expect("Failed to get IF else branch");
 
-                assert!(
-                    verify_z3_symbol_name(cond_ast, "c"),
-                    "IF condition should be 'c'"
-                );
-                assert!(
-                    verify_z3_bool_value(then_ast, true),
-                    "IF then branch should be true"
-                );
-                assert!(
-                    verify_z3_bool_value(else_ast, false),
-                    "IF else branch should be false"
-                );
+            assert!(
+                verify_z3_symbol_name(cond_ast, "c"),
+                "IF condition should be 'c'"
+            );
+            assert!(
+                verify_z3_bool_value(then_ast, true),
+                "IF then branch should be true"
+            );
+            assert!(
+                verify_z3_bool_value(else_ast, false),
+                "IF else branch should be false"
+            );
         }
     }
 
