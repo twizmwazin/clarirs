@@ -1,6 +1,6 @@
+use crate::Z3_CONTEXT;
 use crate::astext::AstExtZ3;
 use crate::rc::{RcModel, RcOptimize, RcSolver};
-use crate::Z3_CONTEXT;
 use clarirs_core::prelude::*;
 use clarirs_z3_sys as z3;
 
@@ -26,7 +26,6 @@ impl<'c> HasContext<'c> for Z3Solver<'c> {
 }
 
 impl<'c> Z3Solver<'c> {
-
     fn make_filled_solver(&self) -> Result<RcSolver, ClarirsError> {
         Z3_CONTEXT.with(|&z3_ctx| unsafe {
             let z3_solver = z3::mk_solver(z3_ctx);
@@ -66,56 +65,63 @@ impl<'c> Z3Solver<'c> {
         })
     }
 
-    fn eval_expr_with_model(model: z3::Model, expr: &VarAst<'c>) -> Result<VarAst<'c>, ClarirsError> {
+    fn eval_expr_with_model(
+        model: z3::Model,
+        expr: &VarAst<'c>,
+    ) -> Result<VarAst<'c>, ClarirsError> {
         Z3_CONTEXT.with(|&z3_ctx| unsafe {
             match expr {
                 VarAst::Boolean(a) => {
                     let z3_expr = a.to_z3()?;
                     let mut eval_result: z3::Ast = std::mem::zeroed();
                     let eval_ret = z3::model_eval(z3_ctx, model, *z3_expr, true, &mut eval_result);
-                    let result = if eval_ret {
-                        Ok(VarAst::from(&BoolAst::from_z3(expr.context(), eval_result)?))
+                    if eval_ret {
+                        Ok(VarAst::from(&BoolAst::from_z3(
+                            expr.context(),
+                            eval_result,
+                        )?))
                     } else {
                         Err(ClarirsError::Unsat)
-                    };
-
-                    result
+                    }
                 }
                 VarAst::BitVec(a) => {
                     let z3_expr = a.to_z3()?;
                     let mut eval_result: z3::Ast = std::mem::zeroed();
                     let eval_ret = z3::model_eval(z3_ctx, model, *z3_expr, true, &mut eval_result);
-                    let result = if eval_ret {
-                        Ok(VarAst::from(&BitVecAst::from_z3(expr.context(), eval_result)?))
+                    if eval_ret {
+                        Ok(VarAst::from(&BitVecAst::from_z3(
+                            expr.context(),
+                            eval_result,
+                        )?))
                     } else {
                         Err(ClarirsError::Unsat)
-                    };
-
-                    result
+                    }
                 }
                 VarAst::Float(a) => {
                     let z3_expr = a.to_z3()?;
                     let mut eval_result: z3::Ast = std::mem::zeroed();
                     let eval_ret = z3::model_eval(z3_ctx, model, *z3_expr, true, &mut eval_result);
-                    let result = if eval_ret {
-                        Ok(VarAst::from(&FloatAst::from_z3(expr.context(), eval_result)?))
+                    if eval_ret {
+                        Ok(VarAst::from(&FloatAst::from_z3(
+                            expr.context(),
+                            eval_result,
+                        )?))
                     } else {
                         Err(ClarirsError::Unsat)
-                    };
-
-                    result
+                    }
                 }
                 VarAst::String(a) => {
                     let z3_expr = a.to_z3()?;
                     let mut eval_result: z3::Ast = std::mem::zeroed();
                     let eval_ret = z3::model_eval(z3_ctx, model, *z3_expr, true, &mut eval_result);
-                    let result = if eval_ret {
-                        Ok(VarAst::from(&StringAst::from_z3(expr.context(), eval_result)?))
+                    if eval_ret {
+                        Ok(VarAst::from(&StringAst::from_z3(
+                            expr.context(),
+                            eval_result,
+                        )?))
                     } else {
                         Err(ClarirsError::Unsat)
-                    };
-
-                    result
+                    }
                 }
             }
         })
@@ -128,7 +134,6 @@ impl<'c> Z3Solver<'c> {
             VarAst::Float(expr) => VarAst::from(&expr.simplify_z3()?),
             VarAst::String(expr) => VarAst::from(&expr.simplify_z3()?),
         })
-
     }
 
     fn eval(&self, expr: &VarAst<'c>) -> Result<VarAst<'c>, ClarirsError> {

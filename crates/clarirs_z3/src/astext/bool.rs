@@ -1,4 +1,4 @@
-use crate::{rc::RcAst, Z3_CONTEXT};
+use crate::{Z3_CONTEXT, rc::RcAst};
 use clarirs_core::prelude::*;
 use clarirs_z3_sys as z3;
 
@@ -14,13 +14,12 @@ impl<'c> AstExtZ3<'c> for BoolAst<'c> {
                     let sort = z3::mk_bool_sort(z3_ctx);
                     RcAst::from(z3::mk_const(z3_ctx, sym, sort))
                 }
-                BooleanOp::BoolV(b) => {
-                    if *b {
-                        z3::mk_true(z3_ctx)
-                    } else {
-                        z3::mk_false(z3_ctx)
-                    }.into()
+                BooleanOp::BoolV(b) => if *b {
+                    z3::mk_true(z3_ctx)
+                } else {
+                    z3::mk_false(z3_ctx)
                 }
+                .into(),
                 BooleanOp::Not(a) => {
                     let a = a.to_z3()?;
                     z3::mk_not(z3_ctx, a.0).into()
@@ -188,8 +187,8 @@ mod tests {
     use super::*;
 
     // Helper functions to verify Z3 AST structure and values
-    unsafe fn verify_z3_ast_kind(ast: z3::Ast, expected_kind: z3::DeclKind) -> bool {
-        Z3_CONTEXT.with(|z3_ctx| {
+    fn verify_z3_ast_kind(ast: z3::Ast, expected_kind: z3::DeclKind) -> bool {
+        Z3_CONTEXT.with(|z3_ctx| unsafe {
             let app = z3::to_app(*z3_ctx, ast);
             let decl = z3::get_app_decl(*z3_ctx, app);
             let kind = z3::get_decl_kind(*z3_ctx, decl);
@@ -197,8 +196,8 @@ mod tests {
         })
     }
 
-    unsafe fn verify_z3_bool_value(ast: z3::Ast, expected_value: bool) -> bool {
-        Z3_CONTEXT.with(|z3_ctx| {
+    fn verify_z3_bool_value(ast: z3::Ast, expected_value: bool) -> bool {
+        Z3_CONTEXT.with(|z3_ctx| unsafe {
             let app = z3::to_app(*z3_ctx, ast);
             let decl = z3::get_app_decl(*z3_ctx, app);
             let kind = z3::get_decl_kind(*z3_ctx, decl);
@@ -209,8 +208,8 @@ mod tests {
         })
     }
 
-    unsafe fn verify_z3_symbol_name(ast: z3::Ast, expected_name: &str) -> bool {
-        Z3_CONTEXT.with(|z3_ctx| {
+    fn verify_z3_symbol_name(ast: z3::Ast, expected_name: &str) -> bool {
+        Z3_CONTEXT.with(|z3_ctx| unsafe {
             // For non-constant ASTs, we need to handle the case where the AST is an application
             let ast_kind = z3::get_ast_kind(*z3_ctx, ast);
             if ast_kind != z3::AstKind::App {
@@ -233,8 +232,8 @@ mod tests {
         })
     }
 
-    unsafe fn get_z3_app_arg(ast: z3::Ast, index: u32) -> Option<z3::Ast> {
-        Z3_CONTEXT.with(|z3_ctx| {
+    fn get_z3_app_arg(ast: z3::Ast, index: u32) -> Option<z3::Ast> {
+        Z3_CONTEXT.with(|z3_ctx| unsafe {
             let ast_kind = z3::get_ast_kind(*z3_ctx, ast);
             if ast_kind != z3::AstKind::App {
                 return None;
@@ -263,153 +262,138 @@ mod tests {
 
         #[test]
         fn symbol() {
-            unsafe {
-                let ctx = Context::new();
-                let sym = ctx.bools("x").unwrap();
+            let ctx = Context::new();
+            let sym = ctx.bools("x").unwrap();
 
-                let z3_ast = sym.to_z3().unwrap();
-                assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Uninterpreted));
-                assert!(verify_z3_symbol_name(*z3_ast, "x"));
-            }
+            let z3_ast = sym.to_z3().unwrap();
+            assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Uninterpreted));
+            assert!(verify_z3_symbol_name(*z3_ast, "x"));
         }
 
         #[test]
         fn values() {
-            unsafe {
-                let ctx = Context::new();
-                let t = ctx.true_().unwrap();
-                let f = ctx.false_().unwrap();
+            let ctx = Context::new();
+            let t = ctx.true_().unwrap();
+            let f = ctx.false_().unwrap();
 
-                let t_z3 = t.to_z3().unwrap();
-                let f_z3 = f.to_z3().unwrap();
+            let t_z3 = t.to_z3().unwrap();
+            let f_z3 = f.to_z3().unwrap();
 
-                assert!(verify_z3_bool_value(*t_z3, true));
-                assert!(verify_z3_bool_value(*f_z3, false));
-            }
+            assert!(verify_z3_bool_value(*t_z3, true));
+            assert!(verify_z3_bool_value(*f_z3, false));
         }
 
         #[test]
         fn not() {
-            unsafe {
-                let ctx = Context::new();
-                let x = ctx.bools("x").unwrap();
-                let not_x = ctx.not(&x).unwrap();
+            let ctx = Context::new();
+            let x = ctx.bools("x").unwrap();
+            let not_x = ctx.not(&x).unwrap();
 
-                let z3_ast = not_x.to_z3().unwrap();
-                assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Not));
+            let z3_ast = not_x.to_z3().unwrap();
+            assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Not));
 
-                // Verify the operand is the symbol "x"
-                let arg = get_z3_app_arg(*z3_ast, 0).expect("Failed to get NOT argument");
-                assert!(
-                    verify_z3_symbol_name(arg, "x"),
-                    "NOT argument should be 'x'"
-                );
-            }
+            // Verify the operand is the symbol "x"
+            let arg = get_z3_app_arg(*z3_ast, 0).expect("Failed to get NOT argument");
+            assert!(
+                verify_z3_symbol_name(arg, "x"),
+                "NOT argument should be 'x'"
+            );
         }
 
         #[test]
         fn and() {
-            unsafe {
-                let ctx = Context::new();
-                let x = ctx.bools("x").unwrap();
-                let y = ctx.bools("y").unwrap();
-                let and = ctx.and(&x, &y).unwrap();
+            let ctx = Context::new();
+            let x = ctx.bools("x").unwrap();
+            let y = ctx.bools("y").unwrap();
+            let and = ctx.and(&x, &y).unwrap();
 
-                let z3_ast = and.to_z3().unwrap();
-                assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::And));
+            let z3_ast = and.to_z3().unwrap();
+            assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::And));
 
-                // Verify operands
-                let arg0 = get_z3_app_arg(*z3_ast, 0).expect("Failed to get first AND argument");
-                let arg1 = get_z3_app_arg(*z3_ast, 1).expect("Failed to get second AND argument");
-                assert!(
-                    verify_z3_symbol_name(arg0, "x"),
-                    "First AND argument should be 'x'"
-                );
-                assert!(
-                    verify_z3_symbol_name(arg1, "y"),
-                    "Second AND argument should be 'y'"
-                );
-            }
+            // Verify operands
+            let arg0 = get_z3_app_arg(*z3_ast, 0).expect("Failed to get first AND argument");
+            let arg1 = get_z3_app_arg(*z3_ast, 1).expect("Failed to get second AND argument");
+            assert!(
+                verify_z3_symbol_name(arg0, "x"),
+                "First AND argument should be 'x'"
+            );
+            assert!(
+                verify_z3_symbol_name(arg1, "y"),
+                "Second AND argument should be 'y'"
+            );
         }
 
         #[test]
         fn or() {
-            unsafe {
-                let ctx = Context::new();
-                let x = ctx.bools("x").unwrap();
-                let y = ctx.bools("y").unwrap();
-                let or = ctx.or(&x, &y).unwrap();
+            let ctx = Context::new();
+            let x = ctx.bools("x").unwrap();
+            let y = ctx.bools("y").unwrap();
+            let or = ctx.or(&x, &y).unwrap();
 
-                let z3_ast = or.to_z3().unwrap();
-                assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Or));
+            let z3_ast = or.to_z3().unwrap();
+            assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Or));
 
-                // Verify operands
-                let arg0 = get_z3_app_arg(*z3_ast, 0).expect("Failed to get first OR argument");
-                let arg1 = get_z3_app_arg(*z3_ast, 1).expect("Failed to get second OR argument");
-                assert!(
-                    verify_z3_symbol_name(arg0, "x"),
-                    "First OR argument should be 'x'"
-                );
-                assert!(
-                    verify_z3_symbol_name(arg1, "y"),
-                    "Second OR argument should be 'y'"
-                );
-            }
+            // Verify operands
+            let arg0 = get_z3_app_arg(*z3_ast, 0).expect("Failed to get first OR argument");
+            let arg1 = get_z3_app_arg(*z3_ast, 1).expect("Failed to get second OR argument");
+            assert!(
+                verify_z3_symbol_name(arg0, "x"),
+                "First OR argument should be 'x'"
+            );
+            assert!(
+                verify_z3_symbol_name(arg1, "y"),
+                "Second OR argument should be 'y'"
+            );
         }
 
         #[test]
         fn xor() {
-            unsafe {
-                let ctx = Context::new();
-                let x = ctx.bools("x").unwrap();
-                let y = ctx.bools("y").unwrap();
-                let xor = ctx.xor(&x, &y).unwrap();
+            let ctx = Context::new();
+            let x = ctx.bools("x").unwrap();
+            let y = ctx.bools("y").unwrap();
+            let xor = ctx.xor(&x, &y).unwrap();
 
-                let z3_ast = xor.to_z3().unwrap();
-                assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Xor));
+            let z3_ast = xor.to_z3().unwrap();
+            assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Xor));
 
-                // Verify operands
-                let arg0 = get_z3_app_arg(*z3_ast, 0).expect("Failed to get first XOR argument");
-                let arg1 = get_z3_app_arg(*z3_ast, 1).expect("Failed to get second XOR argument");
-                assert!(
-                    verify_z3_symbol_name(arg0, "x"),
-                    "First XOR argument should be 'x'"
-                );
-                assert!(
-                    verify_z3_symbol_name(arg1, "y"),
-                    "Second XOR argument should be 'y'"
-                );
-            }
+            // Verify operands
+            let arg0 = get_z3_app_arg(*z3_ast, 0).expect("Failed to get first XOR argument");
+            let arg1 = get_z3_app_arg(*z3_ast, 1).expect("Failed to get second XOR argument");
+            assert!(
+                verify_z3_symbol_name(arg0, "x"),
+                "First XOR argument should be 'x'"
+            );
+            assert!(
+                verify_z3_symbol_name(arg1, "y"),
+                "Second XOR argument should be 'y'"
+            );
         }
 
         #[test]
         fn eq() {
-            unsafe {
-                let ctx = Context::new();
-                let x = ctx.bools("x").unwrap();
-                let y = ctx.bools("y").unwrap();
-                let eq = ctx.eq_(&x, &y).unwrap();
+            let ctx = Context::new();
+            let x = ctx.bools("x").unwrap();
+            let y = ctx.bools("y").unwrap();
+            let eq = ctx.eq_(&x, &y).unwrap();
 
-                let z3_ast = eq.to_z3().unwrap();
-                assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Eq));
+            let z3_ast = eq.to_z3().unwrap();
+            assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Eq));
 
-                // Verify operands
-                let arg0 = get_z3_app_arg(*z3_ast, 0).expect("Failed to get first EQ argument");
-                let arg1 = get_z3_app_arg(*z3_ast, 1).expect("Failed to get second EQ argument");
-                assert!(
-                    verify_z3_symbol_name(arg0, "x"),
-                    "First EQ argument should be 'x'"
-                );
-                assert!(
-                    verify_z3_symbol_name(arg1, "y"),
-                    "Second EQ argument should be 'y'"
-                );
-            }
+            // Verify operands
+            let arg0 = get_z3_app_arg(*z3_ast, 0).expect("Failed to get first EQ argument");
+            let arg1 = get_z3_app_arg(*z3_ast, 1).expect("Failed to get second EQ argument");
+            assert!(
+                verify_z3_symbol_name(arg0, "x"),
+                "First EQ argument should be 'x'"
+            );
+            assert!(
+                verify_z3_symbol_name(arg1, "y"),
+                "Second EQ argument should be 'y'"
+            );
         }
 
         #[test]
         fn neq() {
-            unsafe {
                 let ctx = Context::new();
                 let x = ctx.bools("x").unwrap();
                 let y = ctx.bools("y").unwrap();
@@ -435,12 +419,10 @@ mod tests {
                     verify_z3_symbol_name(arg1, "y"),
                     "Second NEQ argument should be 'y'"
                 );
-            }
         }
 
         #[test]
         fn if_() {
-            unsafe {
                 let ctx = Context::new();
                 let cond = ctx.bools("c").unwrap();
                 let then = ctx.true_().unwrap();
@@ -467,7 +449,6 @@ mod tests {
                     verify_z3_bool_value(else_ast, false),
                     "IF else branch should be false"
                 );
-            }
         }
     }
 

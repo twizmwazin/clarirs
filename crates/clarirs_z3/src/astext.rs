@@ -6,7 +6,7 @@ mod string;
 use clarirs_core::prelude::*;
 use clarirs_z3_sys as z3;
 
-use crate::{rc::RcAst, Z3_CONTEXT};
+use crate::{Z3_CONTEXT, rc::RcAst};
 
 pub(crate) trait AstExtZ3<'c>: HasContext<'c> + Sized {
     fn to_z3(&self) -> Result<RcAst, ClarirsError>;

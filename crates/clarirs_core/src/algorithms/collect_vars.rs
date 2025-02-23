@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use crate::prelude::*;
 
-use super::dfs::{walk_dfs, DfsResult};
+use super::dfs::{DfsResult, walk_dfs};
 
 #[allow(clippy::mutable_key_type)]
 pub fn collect_vars<'c>(ast: &VarAst<'c>) -> Result<HashSet<VarAst<'c>>, ClarirsError> {
@@ -20,7 +20,11 @@ pub fn collect_vars<'c>(ast: &VarAst<'c>) -> Result<HashSet<VarAst<'c>>, Clarirs
             return DfsResult::SkipChildren;
         }
 
-        let intersect: Vec<String> = node.variables().intersection(&interesting).cloned().collect();
+        let intersect: Vec<String> = node
+            .variables()
+            .intersection(&interesting)
+            .cloned()
+            .collect();
 
         match intersect.len() {
             0 => DfsResult::SkipChildren,
@@ -29,14 +33,12 @@ pub fn collect_vars<'c>(ast: &VarAst<'c>) -> Result<HashSet<VarAst<'c>>, Clarirs
                 vars.insert(node.clone());
                 interesting.remove(&intersect[0]);
                 DfsResult::Continue
-            },
+            }
             _ => DfsResult::Continue,
         }
-
     })?;
 
-   Ok(vars)
-
+    Ok(vars)
 }
 
 #[cfg(test)]
