@@ -7,7 +7,7 @@ use clarirs_z3_sys as z3;
 thread_local! {
     static Z3_CONTEXT: z3::Context = unsafe {
         let cfg = z3::mk_config();
-        let ctx = z3::mk_context(cfg);
+        let ctx = z3::mk_context_rc(cfg);
         z3::del_config(cfg);
         ctx
     }

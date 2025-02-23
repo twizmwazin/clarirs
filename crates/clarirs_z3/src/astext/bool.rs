@@ -545,6 +545,7 @@ mod tests {
                         let decl = z3::mk_func_decl(*z3_ctx, sym, 0, std::ptr::null(), sort);
                         z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())
                     };
+                    z3::inc_ref(*z3_ctx, x_z3);
                     let y_z3 = {
                         let s_cstr = std::ffi::CString::new("y").unwrap();
                         let sym = z3::mk_string_symbol(*z3_ctx, s_cstr.as_ptr());
@@ -576,6 +577,7 @@ mod tests {
                         let decl = z3::mk_func_decl(*z3_ctx, sym, 0, std::ptr::null(), sort);
                         z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())
                     };
+                    z3::inc_ref(*z3_ctx, x_z3);
                     let y_z3 = {
                         let s_cstr = std::ffi::CString::new("y").unwrap();
                         let sym = z3::mk_string_symbol(*z3_ctx, s_cstr.as_ptr());
@@ -607,6 +609,7 @@ mod tests {
                         let decl = z3::mk_func_decl(*z3_ctx, sym, 0, std::ptr::null(), sort);
                         z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())
                     };
+                    z3::inc_ref(*z3_ctx, x_z3);
                     let y_z3 = {
                         let s_cstr = std::ffi::CString::new("y").unwrap();
                         let sym = z3::mk_string_symbol(*z3_ctx, s_cstr.as_ptr());
@@ -637,6 +640,7 @@ mod tests {
                         let decl = z3::mk_func_decl(*z3_ctx, sym, 0, std::ptr::null(), sort);
                         z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())
                     };
+                    z3::inc_ref(*z3_ctx, x_z3);
                     let y_z3 = {
                         let s_cstr = std::ffi::CString::new("y").unwrap();
                         let sym = z3::mk_string_symbol(*z3_ctx, s_cstr.as_ptr());
