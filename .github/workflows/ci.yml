@@ -35,6 +35,9 @@ jobs:
           components: clippy
           rustflags: ""
 
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.7
+
       - name: Clippy Check
         run: cargo clippy --all-features -- -D warnings
 
@@ -54,6 +57,9 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           rustflags: ""
+
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.7
 
       - name: Build
         run: cargo build --all-features
@@ -81,6 +87,9 @@ jobs:
 
       - name: Setup Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.7
 
       - name: Install Maturin
         run: pip install maturin
