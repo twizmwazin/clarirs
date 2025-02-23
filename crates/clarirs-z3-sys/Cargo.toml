@@ -1,0 +1,21 @@
+[package]
+name = "clarirs-z3-sys"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
+repository.workspace = true
+description = "Low-level bindings to the Z3 SMT solver"
+links = "z3"
+build = "build.rs"
+
+[dependencies]
+
+[build-dependencies]
+bindgen = { git = "https://github.com/twizmwazin/rust-bindgen.git", rev = "27b6d79" }
+cmake = "0.1.50"
+
+[lints]
+workspace = true
