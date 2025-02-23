@@ -1,8 +1,8 @@
 #![allow(non_snake_case)]
 
+use std::sync::LazyLock;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
-use std::sync::LazyLock;
 
 use ast::args::ExtractPyArgs;
 use dashmap::DashMap;

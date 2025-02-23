@@ -1,7 +1,8 @@
 use std::convert::Infallible;
 
 use crate::prelude::*;
-use pyo3::{exceptions::PyRuntimeError, DowncastError, DowncastIntoError, PyErr, PyObject};
+use clarirs_num::bitvec::BitVecError;
+use pyo3::{DowncastError, DowncastIntoError, PyErr, PyObject, exceptions::PyRuntimeError};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -26,6 +27,8 @@ pub enum ClaripyError {
     Infallible,
     #[error("Invalid argument: {0}")]
     InvalidArgument(String),
+    #[error("BitVec error: {0}")]
+    BitVecError(#[from] BitVecError),
 }
 
 impl From<ClarirsError> for ClaripyError {

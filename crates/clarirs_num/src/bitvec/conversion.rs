@@ -1,82 +1,91 @@
 use num_bigint::BigUint;
 use smallvec::SmallVec;
 
-use super::{BitVec, BitVecError};
+use super::BitVec;
 
 impl From<i8> for BitVec {
-    fn from(value: i8) -> Self {
+    fn from(value: i8) -> BitVec {
         BitVec::new(SmallVec::from_slice(&[value as u64]), 8)
+            .expect("BitVec::new() failed unexpectedly for i8")
     }
 }
 
 impl From<u8> for BitVec {
-    fn from(value: u8) -> Self {
+    fn from(value: u8) -> BitVec {
         BitVec::new(SmallVec::from_slice(&[value as u64]), 8)
+            .expect("Bitvec::new() failed unexpectedly for u8>")
     }
 }
 
 impl From<i16> for BitVec {
-    fn from(value: i16) -> Self {
+    fn from(value: i16) -> BitVec {
         BitVec::new(SmallVec::from_slice(&[value as u64]), 16)
+            .expect("Bitvec::new() failed unexpectedly for i16")
     }
 }
 
 impl From<u16> for BitVec {
-    fn from(value: u16) -> Self {
+    fn from(value: u16) -> BitVec {
         BitVec::new(SmallVec::from_slice(&[value as u64]), 16)
+            .expect("Bitvec::new() failed unexpectedly for u16")
     }
 }
 
 impl From<i32> for BitVec {
-    fn from(value: i32) -> Self {
+    fn from(value: i32) -> BitVec {
         BitVec::new(SmallVec::from_slice(&[value as u64]), 32)
+            .expect("Bitvec::new() failed unexpectedly for i32")
     }
 }
 
 impl From<u32> for BitVec {
-    fn from(value: u32) -> Self {
+    fn from(value: u32) -> BitVec {
         BitVec::new(SmallVec::from_slice(&[value as u64]), 32)
+            .expect("Bitvec::new() failed unexpectedly for u32")
     }
 }
 
 impl From<i64> for BitVec {
-    fn from(value: i64) -> Self {
+    fn from(value: i64) -> BitVec {
         BitVec::new(
             SmallVec::from_slice(&[unsafe { std::mem::transmute::<i64, u64>(value) }]),
             64,
         )
+        .expect("Bitvec::new() failed unexpectedly for i64")
     }
 }
 
 impl From<u64> for BitVec {
-    fn from(value: u64) -> Self {
+    fn from(value: u64) -> BitVec {
         BitVec::new(SmallVec::from_slice(&[value]), 64)
+            .expect("Bitvec::new() failed unexpectedly for u64")
     }
 }
 
 impl From<i128> for BitVec {
-    fn from(value: i128) -> Self {
+    fn from(value: i128) -> BitVec {
         BitVec::new(
             SmallVec::from_slice(&[value as u64, (value >> 64) as u64]),
             128,
         )
+        .expect("Bitvec::new() failed unexpectedly for i128")
     }
 }
 
 impl From<u128> for BitVec {
-    fn from(value: u128) -> Self {
+    fn from(value: u128) -> BitVec {
         BitVec::new(
             SmallVec::from_slice(&[value as u64, (value >> 64) as u64]),
             128,
         )
+        .expect("Bitvec::new() failed unexpectedly for u128")
     }
 }
 
-impl TryFrom<BigUint> for BitVec {
-    type Error = BitVecError;
-
-    fn try_from(value: BigUint) -> Result<Self, Self::Error> {
+impl From<BigUint> for BitVec {
+    fn from(value: BigUint) -> Self {
         BitVec::from_biguint(&value, value.bits() as usize)
+            .expect("Bitvec::new() failed unexpectedly for BigUint")
     }
 }
 
@@ -94,6 +103,7 @@ impl From<&BitVec> for BigUint {
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
     use num_traits::Zero;
 
@@ -127,7 +137,7 @@ mod tests {
         assert_eq!(bv.to_biguint(), value);
 
         // Test single-bit vector
-        let bv = BitVec::from_prim_with_size(1u8, 1);
+        let bv = BitVec::from_prim_with_size(1u8, 1).unwrap();
         assert_eq!(bv.to_biguint(), BigUint::one());
 
         // Test zero-width vector
@@ -208,11 +218,11 @@ mod tests {
         assert_eq!(bv.to_u64().unwrap(), u32::MAX as u64);
 
         // Test odd-sized vectors
-        let bv = BitVec::from_prim_with_size(0x1Fu8, 5); // 5 bits
+        let bv = BitVec::from_prim_with_size(0x1Fu8, 5).unwrap(); // 5 bits
         assert_eq!(bv.to_u64().unwrap(), 0x1F);
 
         // Test single-bit vector
-        let bv = BitVec::from_prim_with_size(1u8, 1);
+        let bv = BitVec::from_prim_with_size(1u8, 1).unwrap();
         assert_eq!(bv.to_u64().unwrap(), 1);
     }
 
@@ -246,11 +256,11 @@ mod tests {
         }
 
         // Test odd-sized vectors
-        let bv = BitVec::from_prim_with_size(0x1Fu8, 5); // 5 bits
+        let bv = BitVec::from_prim_with_size(0x1Fu8, 5).unwrap(); // 5 bits
         assert_eq!(bv.to_usize().unwrap(), 0x1F);
 
         // Test single-bit vector
-        let bv = BitVec::from_prim_with_size(1u8, 1);
+        let bv = BitVec::from_prim_with_size(1u8, 1).unwrap();
         assert_eq!(bv.to_usize().unwrap(), 1);
     }
 
@@ -347,6 +357,10 @@ mod tests {
         let bv = BitVec::from(-42i8);
         assert_eq!(bv.len(), 8);
         assert_eq!(bv.to_u64().unwrap() & 0xFF, 214u64); // -42i8 as u8 = 214, mask to 8 bits
+
+        let bv = BitVec::from(-1i8);
+        assert_eq!(bv.len(), 8);
+        assert_eq!(bv.to_u64().unwrap(), 255);
     }
 
     #[test]

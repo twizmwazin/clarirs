@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::LazyLock;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use clarirs_core::ast::bitvec::BitVecExt;
 use dashmap::DashMap;
@@ -258,7 +258,7 @@ impl BV {
     #[getter]
     pub fn concrete_value(&self) -> Result<Option<BigUint>, ClaripyError> {
         Ok(match self.inner.simplify()?.op() {
-            BitVecOp::BVV(ref bv) => Some(bv.as_biguint()),
+            BitVecOp::BVV(bv) => Some(bv.as_biguint()),
             _ => None,
         })
     }
