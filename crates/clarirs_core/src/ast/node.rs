@@ -126,6 +126,17 @@ pub enum VarAst<'c> {
     String(StringAst<'c>),
 }
 
+impl<'c> HasContext<'c> for VarAst<'c> {
+    fn context(&self) -> &'c Context<'c> {
+        match self {
+            VarAst::Boolean(ast) => ast.context(),
+            VarAst::BitVec(ast) => ast.context(),
+            VarAst::Float(ast) => ast.context(),
+            VarAst::String(ast) => ast.context(),
+        }
+    }
+}
+
 impl<'c> Op<'c> for VarAst<'c> {
     fn child_iter(&self) -> IntoIter<VarAst<'c>> {
         match self {
@@ -175,6 +186,36 @@ impl<'c> Op<'c> for VarAst<'c> {
             VarAst::BitVec(ast) => ast.get_annotations(),
             VarAst::Float(ast) => ast.get_annotations(),
             VarAst::String(ast) => ast.get_annotations(),
+        }
+    }
+}
+
+impl<'c> VarAst<'c> {
+    pub fn as_bool(&self) -> Option<&BoolAst<'c>> {
+        match self {
+            VarAst::Boolean(ast) => Some(ast),
+            _ => None,
+        }
+    }
+
+    pub fn as_bitvec(&self) -> Option<&BitVecAst<'c>> {
+        match self {
+            VarAst::BitVec(ast) => Some(ast),
+            _ => None,
+        }
+    }
+
+    pub fn as_float(&self) -> Option<&FloatAst<'c>> {
+        match self {
+            VarAst::Float(ast) => Some(ast),
+            _ => None,
+        }
+    }
+
+    pub fn as_string(&self) -> Option<&StringAst<'c>> {
+        match self {
+            VarAst::String(ast) => Some(ast),
+            _ => None,
         }
     }
 }
