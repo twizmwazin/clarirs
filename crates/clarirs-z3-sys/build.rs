@@ -129,7 +129,7 @@ fn main() {
 
     // Configure static linking
     println!("cargo:rustc-link-search=native={}", lib_dir);
-    if cfg!(target_os = "windows") {
+    if cfg!(target_os = "windows") && env::var("CC").is_ok_and(|cc| cc.contains("msvc")) {
         println!("cargo:rustc-link-lib=static=libz3");
     } else {
         println!("cargo:rustc-link-lib=static=z3");
