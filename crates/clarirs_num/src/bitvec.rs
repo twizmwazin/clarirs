@@ -10,8 +10,8 @@ mod tests;
 use std::fmt::Debug;
 
 use num_bigint::BigUint;
-use num_traits::{Num, Zero};
 use num_traits::cast::ToPrimitive;
+use num_traits::{Num, Zero};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use thiserror::Error;

@@ -1379,7 +1379,7 @@ mod tests {
                 let ctx = Context::new();
                 Z3_CONTEXT.with(|z3_ctx| {
                     let sort = z3::mk_bv_sort(*z3_ctx, 8);
-                    
+
                     // Create condition (true)
                     let cond = z3::mk_true(*z3_ctx);
                     z3::inc_ref(*z3_ctx, cond);
@@ -1424,7 +1424,7 @@ mod tests {
         #[test]
         fn values() {
             let ctx = Context::new();
-            
+
             // Test 8-bit value
             let bv8 = ctx.bvv_prim(42u8).unwrap();
             let result8 = round_trip(&ctx, &bv8).unwrap();
