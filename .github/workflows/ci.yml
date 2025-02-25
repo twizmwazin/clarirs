@@ -35,6 +35,9 @@ jobs:
           components: clippy
           rustflags: ""
 
+      - name: Install ninja
+        uses: seanmiddleditch/gha-setup-ninja@v6
+
       - name: Run sccache-cache
         uses: mozilla-actions/sccache-action@v0.0.7
 
@@ -103,6 +106,9 @@ jobs:
 
       - name: Setup Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Install ninja
+        uses: seanmiddleditch/gha-setup-ninja@v6
 
       - name: Run sccache-cache
         uses: mozilla-actions/sccache-action@v0.0.7
