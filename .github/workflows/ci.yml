@@ -35,6 +35,9 @@ jobs:
           components: clippy
           rustflags: ""
 
+      - name: Install ninja
+        uses: seanmiddleditch/gha-setup-ninja@v6
+
       - name: Run sccache-cache
         uses: mozilla-actions/sccache-action@v0.0.7
 
@@ -45,6 +48,9 @@ jobs:
           RUSTC_WRAPPER: "sccache"
           CMAKE_C_COMPILER_LAUNCHER: "sccache"
           CMAKE_CXX_COMPILER_LAUNCHER: "sccache"
+          CMAKE_MSVC_DEBUG_INFORMATION_FORMAT: Embedded
+          CMAKE_POLICY_CMP0141: NEW
+          CMAKE_GENERATOR: Ninja
 
   test:
     name: Test on ${{ matrix.os }}
@@ -63,6 +69,9 @@ jobs:
         with:
           rustflags: ""
 
+      - name: Install ninja
+        uses: seanmiddleditch/gha-setup-ninja@v6
+
       - name: Run sccache-cache
         uses: mozilla-actions/sccache-action@v0.0.7
 
@@ -73,6 +82,9 @@ jobs:
           RUSTC_WRAPPER: "sccache"
           CMAKE_C_COMPILER_LAUNCHER: "sccache"
           CMAKE_CXX_COMPILER_LAUNCHER: "sccache"
+          CMAKE_MSVC_DEBUG_INFORMATION_FORMAT: Embedded
+          CMAKE_POLICY_CMP0141: NEW
+          CMAKE_GENERATOR: Ninja
 
       - name: Run tests
         run: cargo test --all-features --no-fail-fast
@@ -98,6 +110,9 @@ jobs:
       - name: Setup Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
+      - name: Install ninja
+        uses: seanmiddleditch/gha-setup-ninja@v6
+
       - name: Run sccache-cache
         uses: mozilla-actions/sccache-action@v0.0.7
 
@@ -111,6 +126,9 @@ jobs:
           RUSTC_WRAPPER: "sccache"
           CMAKE_C_COMPILER_LAUNCHER: "sccache"
           CMAKE_CXX_COMPILER_LAUNCHER: "sccache"
+          CMAKE_MSVC_DEBUG_INFORMATION_FORMAT: Embedded
+          CMAKE_POLICY_CMP0141: NEW
+          CMAKE_GENERATOR: Ninja
 
       - name: Upload Wheel Artifact
         uses: actions/upload-artifact@v4
