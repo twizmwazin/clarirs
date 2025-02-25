@@ -218,10 +218,10 @@ pub trait AstFactory<'c>: Sized {
     fn extract(
         &'c self,
         lhs: &BitVecAst<'c>,
-        lower: u32,
-        upper: u32,
+        high: u32,
+        low: u32,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::Extract(lhs.clone(), lower, upper))
+        self.make_bitvec(BitVecOp::Extract(lhs.clone(), high, low))
     }
 
     fn concat(

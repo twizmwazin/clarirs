@@ -898,10 +898,10 @@ impl<'c> Replace<'c, BoolAst<'c>> for BitVecAst<'c> {
                 self.context()
                     .make_bitvec(BitVecOp::SignExt(a_replaced, *size))
             }
-            BitVecOp::Extract(a, low, high) => {
+            BitVecOp::Extract(a, high, low) => {
                 let a_replaced = a.replace(from, to)?;
                 self.context()
-                    .make_bitvec(BitVecOp::Extract(a_replaced, *low, *high))
+                    .make_bitvec(BitVecOp::Extract(a_replaced, *high, *low))
             }
             BitVecOp::Concat(a, b) => {
                 let a_replaced = a.replace(from, to)?;
@@ -1079,10 +1079,10 @@ impl<'c> Replace<'c, BitVecAst<'c>> for BitVecAst<'c> {
                     self.context()
                         .make_bitvec(BitVecOp::SignExt(a_replaced, *size))
                 }
-                BitVecOp::Extract(a, low, high) => {
+                BitVecOp::Extract(a, high, low) => {
                     let a_replaced = a.replace(from, to)?;
                     self.context()
-                        .make_bitvec(BitVecOp::Extract(a_replaced, *low, *high))
+                        .make_bitvec(BitVecOp::Extract(a_replaced, *high, *low))
                 }
                 BitVecOp::Concat(a, b) => {
                     let a_replaced = a.replace(from, to)?;
@@ -1258,10 +1258,10 @@ impl<'c> Replace<'c, FloatAst<'c>> for BitVecAst<'c> {
                 self.context()
                     .make_bitvec(BitVecOp::SignExt(a_replaced, *size))
             }
-            BitVecOp::Extract(a, low, high) => {
+            BitVecOp::Extract(a, high, low) => {
                 let a_replaced = a.replace(from, to)?;
                 self.context()
-                    .make_bitvec(BitVecOp::Extract(a_replaced, *low, *high))
+                    .make_bitvec(BitVecOp::Extract(a_replaced, *high, *low))
             }
             BitVecOp::Concat(a, b) => {
                 let a_replaced = a.replace(from, to)?;
@@ -1436,10 +1436,10 @@ impl<'c> Replace<'c, StringAst<'c>> for BitVecAst<'c> {
                 self.context()
                     .make_bitvec(BitVecOp::SignExt(a_replaced, *size))
             }
-            BitVecOp::Extract(a, low, high) => {
+            BitVecOp::Extract(a, high, low) => {
                 let a_replaced = a.replace(from, to)?;
                 self.context()
-                    .make_bitvec(BitVecOp::Extract(a_replaced, *low, *high))
+                    .make_bitvec(BitVecOp::Extract(a_replaced, *high, *low))
             }
             BitVecOp::Concat(a, b) => {
                 let a_replaced = a.replace(from, to)?;

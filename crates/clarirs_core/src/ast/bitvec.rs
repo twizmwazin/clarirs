@@ -157,11 +157,11 @@ impl std::hash::Hash for BitVecOp<'_> {
                 a.hash(state);
                 size.hash(state);
             }
-            BitVecOp::Extract(a, low, high) => {
+            BitVecOp::Extract(a, high, low) => {
                 22.hash(state);
                 a.hash(state);
-                low.hash(state);
                 high.hash(state);
+                low.hash(state);
             }
             BitVecOp::Concat(a, b) => {
                 23.hash(state);
@@ -317,7 +317,7 @@ impl<'c> BitVecExt<'c> for BitVecAst<'c> {
             | BitVecOp::AShR(a, _)
             | BitVecOp::RotateLeft(a, _)
             | BitVecOp::RotateRight(a, _) => a.size(),
-            BitVecOp::Extract(_, low, high) => high - low,
+            BitVecOp::Extract(_, high, low) => high - low + 1,
             BitVecOp::Concat(a, b) => a.size() + b.size(),
             BitVecOp::FpToIEEEBV(fp) => fp.size(),
             BitVecOp::FpToUBV(_, _, _) | BitVecOp::FpToSBV(_, _, _) => 64,
@@ -332,7 +332,7 @@ impl<'c> BitVecExt<'c> for BitVecAst<'c> {
 
         let mut res = vec![];
         for i in 0..self.size() / bits {
-            res.push(self.context().extract(self, (i + 1) * bits, i * bits)?);
+            res.push(self.context().extract(self, i * bits, (i + 1) * bits - 1)?);
         }
 
         Ok(res)

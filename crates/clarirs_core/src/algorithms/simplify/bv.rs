@@ -261,48 +261,52 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                         _ => ctx.sign_ext(&arc, *num_bits),
                     }
                 }
-                BitVecOp::Extract(arc, f, t) => {
+                BitVecOp::Extract(arc, high, low) => {
                     simplify!(arc);
 
                     // If the extract bounds are the entire BV, return the inner value as-is
-                    if *f == 0 && *t == arc.size() - 1 {
+                    if *high == arc.size() - 1 && *low == 0 {
                         return Ok(arc);
                     }
 
                     match arc.op() {
                         // Concrete BVV case
-                        BitVecOp::BVV(value) => ctx.bvv(value.extract(*f as usize, *t as usize)?),
+                        BitVecOp::BVV(value) => {
+                            ctx.bvv(value.extract(*low as usize, *high as usize - 1)?)
+                        }
 
                         // Concat cases
 
                         // Extracting the entire left side
-                        BitVecOp::Concat(lhs, rhs) if *f == 0 && *t == lhs.size() => {
+                        BitVecOp::Concat(lhs, rhs)
+                            if *high == arc.size() - 1 && *low == rhs.size() =>
+                        {
                             Ok(lhs.clone())
                         }
                         // Extracting the entire right side
-                        BitVecOp::Concat(lhs, rhs) if *f == lhs.size() && *t == arc.size() => {
+                        BitVecOp::Concat(lhs, rhs) if *high == rhs.size() - 1 && *low == 0 => {
                             Ok(rhs.clone())
                         }
                         // Extracting a part of the left side
-                        BitVecOp::Concat(lhs, rhs) if *t < lhs.size() => {
-                            Ok(ctx.extract(lhs, *f, *t)?)
+                        BitVecOp::Concat(lhs, rhs) if *low > rhs.size() => {
+                            Ok(ctx.extract(lhs, *high - rhs.size(), *low - rhs.size())?)
                         }
                         // Extracting a part of the right side
-                        BitVecOp::Concat(lhs, rhs) if *f >= lhs.size() => {
-                            Ok(ctx.extract(rhs, *f - lhs.size(), *t - lhs.size())?)
+                        BitVecOp::Concat(lhs, rhs) if *high <= rhs.size() => {
+                            Ok(ctx.extract(rhs, *high, *low)?)
                         }
                         // Extracting a part that spans both sides
                         BitVecOp::Concat(lhs, rhs) => {
                             // Extraction spans both left and right
                             // First extract the needed parts from each side
-                            let left_part = ctx.extract(lhs, *f, lhs.size())?;
-                            let right_part = ctx.extract(rhs, 0, *t - lhs.size())?;
+                            let left_part = ctx.extract(lhs, *high - rhs.size(), 0)?;
+                            let right_part = ctx.extract(rhs, rhs.size() - 1, *low)?;
 
                             // Concatenate the extracted parts
                             // Simplify the result to apply further optimizations
                             ctx.concat(&left_part, &right_part)?.simplify()
                         }
-                        _ => ctx.extract(&arc, *f, *t),
+                        _ => ctx.extract(&arc, *high, *low),
                     }
                 }
                 BitVecOp::Concat(arc, arc1) => {

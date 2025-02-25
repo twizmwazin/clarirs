@@ -834,14 +834,14 @@ fn test_extract_concat() -> Result<()> {
     let concat = ctx.concat(&x, &y)?;
 
     // Extract exactly one side of symbolic values
-    let extract_left = ctx.extract(&concat, 0, 16)?.simplify()?;
+    let extract_left = ctx.extract(&concat, 31, 16)?.simplify()?;
     assert_eq!(extract_left, x);
 
-    let extract_right = ctx.extract(&concat, 16, 32)?.simplify()?;
+    let extract_right = ctx.extract(&concat, 15, 0)?.simplify()?;
     assert_eq!(extract_right, y);
 
     // Extract middle bits crossing the symbolic boundary
-    let middle = ctx.extract(&concat, 8, 24)?.simplify()?;
+    let middle = ctx.extract(&concat, 23, 8)?.simplify()?;
 
     // Verify properties of the middle extraction
     let size = middle.size();
