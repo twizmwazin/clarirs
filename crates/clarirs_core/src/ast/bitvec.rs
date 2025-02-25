@@ -285,6 +285,8 @@ impl<'c> Op<'c> for BitVecOp<'c> {
 
 pub trait BitVecExt<'c> {
     fn size(&self) -> u32;
+
+    fn chop(&self, bits: u32) -> Result<Vec<BitVecAst<'c>>, ClarirsError>;
 }
 
 impl<'c> BitVecExt<'c> for BitVecAst<'c> {
@@ -321,5 +323,18 @@ impl<'c> BitVecExt<'c> for BitVecAst<'c> {
             BitVecOp::FpToUBV(_, _, _) | BitVecOp::FpToSBV(_, _, _) => 64,
             BitVecOp::StrLen(_) | BitVecOp::StrToBV(_) | BitVecOp::StrIndexOf(_, _, _) => 64,
         }
+    }
+
+    fn chop(&self, bits: u32) -> Result<Vec<BitVecAst<'c>>, ClarirsError> {
+        if self.size() % bits != 0 {
+            return Err(ClarirsError::UnsupportedOperation);
+        }
+
+        let mut res = vec![];
+        for i in 0..self.size() / bits {
+            res.push(self.context().extract(self, (i + 1) * bits, i * bits)?);
+        }
+
+        Ok(res)
     }
 }
