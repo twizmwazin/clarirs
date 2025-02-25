@@ -1,4 +1,4 @@
-use clarirs_core::prelude::*;
+use clarirs_core::{ast::bitvec::BitVecExt, prelude::*};
 use clarirs_z3_sys as z3;
 
 use super::AstExtZ3;
@@ -24,7 +24,19 @@ impl<'c> AstExtZ3<'c> for BitVecAst<'c> {
                     let a = a.to_z3()?;
                     z3::mk_bvnot(z3_ctx, a.0).into()
                 }
-                BitVecOp::Abs(a) => todo!(),
+                BitVecOp::Abs(a) => self
+                    .context()
+                    .if_(
+                        &self.context().slt(
+                            a,
+                            &self
+                                .context()
+                                .bvv_prim_with_size(0u8, self.size() as usize)?,
+                        )?,
+                        &self.context().not(a)?,
+                        a,
+                    )?
+                    .to_z3()?,
                 BitVecOp::And(a, b) => {
                     let a = a.to_z3()?;
                     let b = b.to_z3()?;
@@ -75,7 +87,14 @@ impl<'c> AstExtZ3<'c> for BitVecAst<'c> {
                     let b = b.to_z3()?;
                     z3::mk_bvsrem(z3_ctx, a.0, b.0).into()
                 }
-                BitVecOp::Pow(a, b) => todo!(),
+                BitVecOp::Pow(_a, _b) => {
+                    // Leaving this one out for right now as it isn't supported
+                    // by Z3, nor in the claripy z3 backend. It seems likely
+                    // that this op was never used (or more likely there is a
+                    // vex pow op and this is used in that, but this op has
+                    // never shown up in a real program or test case).
+                    todo!()
+                }
                 BitVecOp::ShL(a, b) => {
                     let a = a.to_z3()?;
                     let b = b.to_z3()?;
@@ -118,7 +137,14 @@ impl<'c> AstExtZ3<'c> for BitVecAst<'c> {
                     let b = b.to_z3()?;
                     z3::mk_concat(z3_ctx, a.0, b.0).into()
                 }
-                BitVecOp::Reverse(a) => todo!(),
+                BitVecOp::Reverse(a) => a
+                    .chop(8)?
+                    .iter()
+                    .rev()
+                    .try_fold(self.context().bvv_prim_with_size(0u8, 0)?, |acc, x| {
+                        self.context().concat(&acc, x)
+                    })?
+                    .to_z3()?,
                 BitVecOp::If(cond, then, else_) => {
                     let cond = cond.to_z3()?;
                     let then = then.to_z3()?;
@@ -172,15 +198,6 @@ impl<'c> AstExtZ3<'c> for BitVecAst<'c> {
                             let name = std::ffi::CStr::from_ptr(name).to_str().unwrap();
                             ctx.bvs(name, width as u32)
                         }
-                        // z3::DeclKind::Bnum => {
-                        //     let numeral_string = z3::get_numeral_string(*z3_ctx, *ast);
-                        //     let numeral_str =
-                        //         std::ffi::CStr::from_ptr(numeral_string).to_str().unwrap();
-                        //     let sort = z3::get_sort(*z3_ctx, *ast);
-                        //     let sort_num = z3::get_bv_sort_size(*z3_ctx, sort);
-                        //     let biguint = BitVec::from_str(numeral_str, sort_num as usize).unwrap();
-                        //     ctx.bvv(biguint)
-                        // }
                         z3::DeclKind::Bnot => {
                             let arg = z3::get_app_arg(*z3_ctx, app, 0);
                             let inner = BitVecAst::from_z3(ctx, arg)?;
