@@ -25,24 +25,15 @@ class TestBoolOperations(unittest.TestCase):
     def _check_equal(self, expr, expected):
         """Helper to check equality of Bool expressions"""
         # For symbolic expressions, only use Z3 backend
-        print("a1")
         if expr.symbolic:
-            print("a2")
             z3_result = self.z3.eval(expr, 1)[0]
-            print("a3")
             self.assertEqual(z3_result, expected, "Z3 result does not match expected value")
-            print("a4")
         else:
-            print("a5")
             # For concrete expressions, check both Z3 and concrete backends
             z3_result = self.z3.eval(expr, 1)[0]
-            print("a6")
             concrete_result = self.concrete.eval(expr, 1)[0]
-            print("a7")
             self.assertEqual(z3_result, expected, "Z3 result does not match expected value")
-            print("a8")
             self.assertEqual(concrete_result, expected, "Concrete result does not match expected value")
-            print("a9")
 
     def test_true(self):
         """Test creation of true Bool value"""
@@ -116,22 +107,15 @@ class TestBoolOperations(unittest.TestCase):
     def test_not(self):
         """Test logical NOT"""
         # Test concrete values
-        print(1)
         result = claripy.Not(self.true)
-        print(2)
         self._check_equal(result, False)
-        print(3)
 
         result = claripy.Not(self.false)
-        print(4)
         self._check_equal(result, True)
-        print(5)
 
         # Test symbolic values
         sym_not = claripy.Not(self.bool_sym)
-        print(6)
         self.assertTrue(sym_not.op != 'BoolV')
-        print(7)
 
     def test_eq(self):
         """Test equality"""
