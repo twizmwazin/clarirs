@@ -51,6 +51,8 @@ jobs:
           CMAKE_MSVC_DEBUG_INFORMATION_FORMAT: Embedded
           CMAKE_POLICY_CMP0141: NEW
           CMAKE_GENERATOR: Ninja
+          CC: "clang"
+          CXX: "clang++"
 
   test:
     name: Test on ${{ matrix.os }}
@@ -85,6 +87,8 @@ jobs:
           CMAKE_MSVC_DEBUG_INFORMATION_FORMAT: Embedded
           CMAKE_POLICY_CMP0141: NEW
           CMAKE_GENERATOR: Ninja
+          CC: "clang"
+          CXX: "clang++"
 
       - name: Run tests
         run: cargo test --all-features --no-fail-fast
@@ -129,6 +133,8 @@ jobs:
           CMAKE_MSVC_DEBUG_INFORMATION_FORMAT: Embedded
           CMAKE_POLICY_CMP0141: NEW
           CMAKE_GENERATOR: Ninja
+          CC: "clang"
+          CXX: "clang++"
 
       - name: Upload Wheel Artifact
         uses: actions/upload-artifact@v4
