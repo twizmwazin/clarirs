@@ -47,6 +47,7 @@ jobs:
           CMAKE_CXX_COMPILER_LAUNCHER: "sccache"
           CMAKE_MSVC_DEBUG_INFORMATION_FORMAT: Embedded
           CMAKE_POLICY_CMP0141: NEW
+          CMAKE_GENERATOR: Ninja
 
   test:
     name: Test on ${{ matrix.os }}
@@ -77,6 +78,7 @@ jobs:
           CMAKE_CXX_COMPILER_LAUNCHER: "sccache"
           CMAKE_MSVC_DEBUG_INFORMATION_FORMAT: Embedded
           CMAKE_POLICY_CMP0141: NEW
+          CMAKE_GENERATOR: Ninja
 
       - name: Run tests
         run: cargo test --all-features --no-fail-fast
@@ -117,6 +119,7 @@ jobs:
           CMAKE_CXX_COMPILER_LAUNCHER: "sccache"
           CMAKE_MSVC_DEBUG_INFORMATION_FORMAT: Embedded
           CMAKE_POLICY_CMP0141: NEW
+          CMAKE_GENERATOR: Ninja
 
       - name: Upload Wheel Artifact
         uses: actions/upload-artifact@v4
