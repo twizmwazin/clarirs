@@ -10,7 +10,7 @@ mod tests;
 use std::fmt::Debug;
 
 use num_bigint::BigUint;
-use num_traits::Zero;
+use num_traits::{Num, Zero};
 use num_traits::cast::ToPrimitive;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -123,6 +123,14 @@ impl BitVec {
                 .collect::<Vec<u8>>()
                 .as_slice(),
         )
+    }
+
+    pub fn from_str(s: &str, length: usize) -> Result<BitVec, BitVecError> {
+        let value = BigUint::from_str_radix(s, 10).map_err(|_| BitVecError::BitVectorTooShort {
+            value: BigUint::from(0u32),
+            length,
+        })?;
+        BitVec::from_biguint(&value, length)
     }
 
     pub fn sign(&self) -> bool {
