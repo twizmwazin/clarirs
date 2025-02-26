@@ -825,6 +825,29 @@ fn test_rotate_right() -> Result<()> {
 }
 
 #[test]
+fn test_extract() -> Result<()> {
+    let ctx = Context::new();
+
+    // Whole bitvector, concrete
+    let bv = ctx.bvv_prim(0x1234_5678_9ABC_DEF0_u64).unwrap();
+    let extract = ctx.extract(&bv, 63, 0)?.simplify()?;
+    assert_eq!(extract, bv);
+
+    // Whole bitvector, symbolic
+    let x = ctx.bvs("x", 64)?;
+    let extract = ctx.extract(&x, 63, 0)?.simplify()?;
+    assert_eq!(extract, x);
+
+    // Partial extraction, concrete
+    let extract = ctx.extract(&bv, 63, 32)?.simplify()?;
+    let expected = ctx.bvv_prim(0x1234_5678_u32).unwrap();
+    assert_eq!(extract, expected);
+
+    Ok(())
+}
+
+
+#[test]
 fn test_extract_concat() -> Result<()> {
     let ctx = Context::new();
 

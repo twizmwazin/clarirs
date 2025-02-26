@@ -20,10 +20,12 @@ use num_traits::One;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Error)]
 pub enum BitVecError {
-    #[error("BitVector too short: {value:?} is too short for length {length}")]
+    #[error("BitVector too short: {length} is too short for value {value}")]
     BitVectorTooShort { value: BigUint, length: usize },
     #[error("BitVector not bite-sized: {length:?} is not a multiple of 8")]
     BitVectorNotByteSized { length: usize },
+    #[error("Invalid bitvector extract bounds: {upper}:{lower} not valid for bitvector of length {length}")]
+    InvalidExtractBounds { upper: u32, lower: u32, length: usize },
 }
 
 /// BitVec are represented as a SmallVec of usize, where each usize is a word of

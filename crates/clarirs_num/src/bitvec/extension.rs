@@ -5,10 +5,14 @@ use super::BitVec;
 use super::BitVecError;
 
 impl BitVec {
+    /// Extracts a subvector from the current vector. Range bounds are (from,
+    /// to), where both are inclusive. The extracted vector will have a length
+    /// of (to - from + 1).
     pub fn extract(&self, from: usize, to: usize) -> Result<Self, BitVecError> {
         if from > to || to >= self.len() {
-            return Err(BitVecError::BitVectorTooShort {
-                value: self.to_biguint(),
+            return Err(BitVecError::InvalidExtractBounds {
+                upper: to as u32 - 1,
+                lower: from as u32,
                 length: self.len(),
             });
         }

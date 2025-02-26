@@ -51,6 +51,14 @@ impl From<BitVecError> for ClarirsError {
             BitVecError::BitVectorNotByteSized { length } => {
                 ClarirsError::BitVectorNotByteSized { length }
             }
+            BitVecError::InvalidExtractBounds {
+                upper,
+                lower,
+                length,
+            } => ClarirsError::ConversionError(format!(
+                "Invalid extract bounds: upper: {}, lower: {}, length: {}",
+                upper, lower, length
+            )),
         }
     }
 }
