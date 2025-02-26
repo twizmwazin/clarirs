@@ -129,6 +129,21 @@ impl<'c> AstExtZ3<'c> for BitVecAst<'c> {
                     z3::mk_sign_ext(z3_ctx, *i, a.0).into()
                 }
                 BitVecOp::Extract(a, high, low) => {
+                    if high >= &a.size() {
+                        return Err(ClarirsError::ConversionError(
+                            "high index is greater than bitvector size".to_string(),
+                        ));
+                    }
+                    if low >= &a.size() {
+                        return Err(ClarirsError::ConversionError(
+                            "low index is greater than bitvector size".to_string(),
+                        ));
+                    }
+                    if low > high {
+                        return Err(ClarirsError::ConversionError(
+                            "low index is greater than high index".to_string(),
+                        ));
+                    }
                     let a = a.to_z3()?;
                     z3::mk_extract(z3_ctx, *high, *low, a.0).into()
                 }
@@ -137,14 +152,27 @@ impl<'c> AstExtZ3<'c> for BitVecAst<'c> {
                     let b = b.to_z3()?;
                     z3::mk_concat(z3_ctx, a.0, b.0).into()
                 }
-                BitVecOp::Reverse(a) => a
-                    .chop(8)?
-                    .iter()
-                    .rev()
-                    .try_fold(self.context().bvv_prim_with_size(0u8, 0)?, |acc, x| {
-                        self.context().concat(&acc, x)
-                    })?
-                    .to_z3()?,
+                BitVecOp::Reverse(a) => {
+                    if a.size() == 0 || a.size() % 8 != 0 {
+                        return Err(ClarirsError::ConversionError(
+                            "reverse only supports bitvectors with size multiple of 8".to_string(),
+                        ));
+                    }
+
+                    let bytes = a.chop(8)?;
+                    let reversed = bytes.iter().rev().collect::<Vec<_>>();
+
+                    let mut acc: Option<BitVecAst> = None;
+
+                    for byte in reversed {
+                        acc = match acc {
+                            Some(inner) => Some(self.context().concat(&inner, byte)?),
+                            None => Some(byte.clone()),
+                        };
+                    }
+
+                    acc.unwrap().to_z3()?
+                }
                 BitVecOp::If(cond, then, else_) => {
                     let cond = cond.to_z3()?;
                     let then = then.to_z3()?;

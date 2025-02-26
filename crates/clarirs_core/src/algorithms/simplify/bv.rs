@@ -272,7 +272,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                     match arc.op() {
                         // Concrete BVV case
                         BitVecOp::BVV(value) => {
-                            ctx.bvv(value.extract(*low as usize, *high as usize - 1)?)
+                            ctx.bvv(value.extract(*low as usize, *high as usize)?)
                         }
 
                         // Concat cases

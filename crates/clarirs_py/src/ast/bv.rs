@@ -774,8 +774,16 @@ pub fn Concat(py: Python, args: Vec<Bound<BV>>) -> Result<Py<BV>, ClaripyError> 
 }
 
 #[pyfunction]
-pub fn Extract(py: Python, end: u32, start: u32, base: Bound<BV>) -> Result<Py<BV>, ClaripyError> {
-    BV::new(py, &GLOBAL_CONTEXT.extract(&base.get().inner, start, end)?)
+pub fn Extract(
+    py: Python,
+    upper: u32,
+    lower: u32,
+    base: Bound<BV>,
+) -> Result<Py<BV>, ClaripyError> {
+    BV::new(
+        py,
+        &GLOBAL_CONTEXT.extract(&base.get().inner, upper, lower)?,
+    )
 }
 
 #[pyfunction]
