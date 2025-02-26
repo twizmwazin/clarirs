@@ -846,7 +846,6 @@ fn test_extract() -> Result<()> {
     Ok(())
 }
 
-
 #[test]
 fn test_extract_concat() -> Result<()> {
     let ctx = Context::new();

@@ -332,7 +332,10 @@ impl<'c> BitVecExt<'c> for BitVecAst<'c> {
 
         let mut res = vec![];
         for i in 0..self.size() / bits {
-            res.push(self.context().extract(self, ((i + 1) * bits) - 1, i * bits)?);
+            res.push(
+                self.context()
+                    .extract(self, ((i + 1) * bits) - 1, i * bits)?,
+            );
         }
 
         Ok(res)
