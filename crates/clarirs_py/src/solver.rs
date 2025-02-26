@@ -19,6 +19,10 @@ impl PyConcreteSolver {
         Ok(self.inner.add(&expr.get().inner)?)
     }
 
+    fn satisfiable(&mut self) -> Result<bool, ClaripyError> {
+        Ok(self.inner.satisfiable().unwrap())
+    }
+
     fn eval(
         &mut self,
         py: Python,
@@ -108,6 +112,10 @@ impl PyZ3Solver {
 
     fn add(&mut self, expr: Bound<Bool>) -> Result<(), ClaripyError> {
         Ok(self.inner.add(&expr.get().inner)?)
+    }
+
+    fn satisfiable(&mut self) -> Result<bool, ClaripyError> {
+        Ok(self.inner.satisfiable().unwrap())
     }
 
     fn eval(
