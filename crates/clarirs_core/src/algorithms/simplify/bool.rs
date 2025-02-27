@@ -133,7 +133,7 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
                     match (arc.op(), arc1.op()) {
                         (lhs, rhs) if lhs == rhs => ctx.false_(),
                         (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => ctx.boolv(arc.signed_lt(arc1)),
-                        _ => ctx.ule(&arc, &arc1),
+                        _ => ctx.slt(&arc, &arc1),
                     }
                 }
                 BooleanOp::SLE(arc, arc1) => {
@@ -141,7 +141,7 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
                     match (arc.op(), arc1.op()) {
                         (lhs, rhs) if lhs == rhs => ctx.true_(),
                         (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => ctx.boolv(arc.signed_le(arc1)),
-                        _ => ctx.ule(&arc, &arc1),
+                        _ => ctx.sle(&arc, &arc1),
                     }
                 }
                 BooleanOp::SGT(arc, arc1) => {
@@ -149,7 +149,7 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
                     match (arc.op(), arc1.op()) {
                         (lhs, rhs) if lhs == rhs => ctx.false_(),
                         (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => ctx.boolv(arc.signed_gt(arc1)),
-                        _ => ctx.ule(&arc, &arc1),
+                        _ => ctx.sgt(&arc, &arc1),
                     }
                 }
                 BooleanOp::SGE(arc, arc1) => {
@@ -157,7 +157,7 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
                     match (arc.op(), arc1.op()) {
                         (lhs, rhs) if lhs == rhs => ctx.true_(),
                         (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => ctx.boolv(arc.signed_ge(arc1)),
-                        _ => ctx.ule(&arc, &arc1),
+                        _ => ctx.sge(&arc, &arc1),
                     }
                 }
                 BooleanOp::FpEq(arc, arc1) => {
