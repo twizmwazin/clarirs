@@ -334,20 +334,14 @@ pub fn FpToBv(
     )
 }
 
-#[pyfunction(name = "fpNeg", signature = (lhs, rm = None))]
-pub fn FpNeg(py: Python, lhs: Bound<FP>, rm: Option<PyRM>) -> Result<Py<FP>, ClaripyError> {
-    FP::new(
-        py,
-        &GLOBAL_CONTEXT.fp_neg(&lhs.get().inner, rm.unwrap_or_default())?,
-    )
+#[pyfunction(name = "fpNeg", signature = (lhs))]
+pub fn FpNeg(py: Python, lhs: Bound<FP>) -> Result<Py<FP>, ClaripyError> {
+    FP::new(py, &GLOBAL_CONTEXT.fp_neg(&lhs.get().inner)?)
 }
 
-#[pyfunction(name = "fpAbs", signature = (lhs, rm = None))]
-pub fn FpAbs(py: Python, lhs: Bound<FP>, rm: Option<PyRM>) -> Result<Py<FP>, ClaripyError> {
-    FP::new(
-        py,
-        &GLOBAL_CONTEXT.fp_abs(&lhs.get().inner, rm.unwrap_or_default())?,
-    )
+#[pyfunction(name = "fpAbs", signature = (lhs))]
+pub fn FpAbs(py: Python, lhs: Bound<FP>) -> Result<Py<FP>, ClaripyError> {
+    FP::new(py, &GLOBAL_CONTEXT.fp_abs(&lhs.get().inner)?)
 }
 
 #[pyfunction(name = "fpAdd", signature = (lhs, rhs, rm = None))]

@@ -340,20 +340,12 @@ pub trait AstFactory<'c>: Sized {
         self.make_bitvec(BitVecOp::FpToSBV(lhs.clone(), width, rm.into()))
     }
 
-    fn fp_neg<RM: Into<FPRM>>(
-        &'c self,
-        lhs: &FloatAst<'c>,
-        rm: RM,
-    ) -> Result<FloatAst<'c>, ClarirsError> {
-        self.make_float(FloatOp::FpNeg(lhs.clone(), rm.into()))
+    fn fp_neg(&'c self, lhs: &FloatAst<'c>) -> Result<FloatAst<'c>, ClarirsError> {
+        self.make_float(FloatOp::FpNeg(lhs.clone()))
     }
 
-    fn fp_abs<RM: Into<FPRM>>(
-        &'c self,
-        lhs: &FloatAst<'c>,
-        rm: RM,
-    ) -> Result<FloatAst<'c>, ClarirsError> {
-        self.make_float(FloatOp::FpAbs(lhs.clone(), rm.into()))
+    fn fp_abs(&'c self, lhs: &FloatAst<'c>) -> Result<FloatAst<'c>, ClarirsError> {
+        self.make_float(FloatOp::FpAbs(lhs.clone()))
     }
 
     fn fp_add<RM: Into<FPRM>>(
