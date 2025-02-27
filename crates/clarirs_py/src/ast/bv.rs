@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
 
+use std::iter::once;
 use std::sync::LazyLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -610,11 +611,13 @@ impl BV {
         )
     }
 
-    pub fn concat(&self, py: Python, other: CoerceBV) -> Result<Py<BV>, ClaripyError> {
-        BV::new(
-            py,
-            &GLOBAL_CONTEXT.concat(&self.inner, &other.extract_like(py, self)?.get().inner)?,
-        )
+    #[pyo3(signature = (*args))]
+    pub fn concat(
+        self_: Bound<BV>,
+        py: Python,
+        args: Vec<Bound<BV>>,
+    ) -> Result<Py<BV>, ClaripyError> {
+        Concat(py, once(self_).chain(args.iter().cloned()).collect())
     }
 
     pub fn zero_extend(&self, py: Python, amount: u32) -> Result<Py<BV>, ClaripyError> {
