@@ -295,7 +295,7 @@ impl<'c> BitVecExt<'c> for BitVecAst<'c> {
             BitVecOp::BVS(_, size) | BitVecOp::ZeroExt(_, size) | BitVecOp::SignExt(_, size) => {
                 *size
             }
-            BitVecOp::BVV(bv) => bv.len() as u32,
+            BitVecOp::BVV(bv) => bv.len(),
             BitVecOp::Not(a)
             | BitVecOp::Abs(a)
             | BitVecOp::Reverse(a)

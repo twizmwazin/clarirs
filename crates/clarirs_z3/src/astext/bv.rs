@@ -15,7 +15,7 @@ impl<'c> AstExtZ3<'c> for BitVecAst<'c> {
                     RcAst::from(z3::mk_const(z3_ctx, sym, sort))
                 }
                 BitVecOp::BVV(v) => {
-                    let sort = z3::mk_bv_sort(z3_ctx, v.len() as u32);
+                    let sort = z3::mk_bv_sort(z3_ctx, v.len());
                     let numeral = v.to_biguint().to_string();
                     let numeral_cstr = std::ffi::CString::new(numeral).unwrap();
                     z3::mk_numeral(z3_ctx, numeral_cstr.as_ptr(), sort).into()
@@ -27,12 +27,9 @@ impl<'c> AstExtZ3<'c> for BitVecAst<'c> {
                 BitVecOp::Abs(a) => self
                     .context()
                     .if_(
-                        &self.context().slt(
-                            a,
-                            &self
-                                .context()
-                                .bvv_prim_with_size(0u8, self.size() as usize)?,
-                        )?,
+                        &self
+                            .context()
+                            .slt(a, &self.context().bvv_prim_with_size(0u8, self.size())?)?,
                         &self.context().not(a)?,
                         a,
                     )?
@@ -209,7 +206,7 @@ impl<'c> AstExtZ3<'c> for BitVecAst<'c> {
                     let numeral_str = std::ffi::CStr::from_ptr(numeral_string).to_str().unwrap();
                     let sort = z3::get_sort(*z3_ctx, *ast);
                     let sort_num = z3::get_bv_sort_size(*z3_ctx, sort);
-                    let biguint = BitVec::from_str(numeral_str, sort_num as usize).unwrap();
+                    let biguint = BitVec::from_str(numeral_str, sort_num).unwrap();
                     ctx.bvv(biguint)
                 }
                 z3::AstKind::App => {
@@ -217,7 +214,7 @@ impl<'c> AstExtZ3<'c> for BitVecAst<'c> {
                     let decl = z3::get_app_decl(*z3_ctx, app);
                     let decl_kind = z3::get_decl_kind(*z3_ctx, decl);
                     let sort = z3::get_sort(*z3_ctx, *ast);
-                    let width = z3::get_bv_sort_size(*z3_ctx, sort) as usize;
+                    let width = z3::get_bv_sort_size(*z3_ctx, sort);
 
                     match decl_kind {
                         z3::DeclKind::Uninterpreted => {
@@ -341,7 +338,7 @@ mod tests {
             let numeral_string = z3::get_numeral_string(*z3_ctx, ast);
             let numeral_str = std::ffi::CStr::from_ptr(numeral_string).to_str().unwrap();
             let sort = z3::get_sort(*z3_ctx, ast);
-            let width = z3::get_bv_sort_size(*z3_ctx, sort) as usize;
+            let width = z3::get_bv_sort_size(*z3_ctx, sort);
             let value = BitVec::from_str(numeral_str, width).unwrap();
             value == expected_value
         })
