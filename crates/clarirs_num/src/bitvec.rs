@@ -305,7 +305,7 @@ impl BitVec {
         // is no more than 64 bits, we just need the first word
         match self.words.first() {
             Some(&word) => Some(word),
-            None => Some(0) // Empty BitVec represents 0
+            None => Some(0), // Empty BitVec represents 0
         }
     }
 
