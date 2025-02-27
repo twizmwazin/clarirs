@@ -1,103 +1,76 @@
-use num_bigint::BigUint;
-use smallvec::SmallVec;
+use num_bigint::{BigInt, BigUint};
 
 use super::BitVec;
 
 impl From<i8> for BitVec {
     fn from(value: i8) -> BitVec {
-        BitVec::new(SmallVec::from_slice(&[value as u64]), 8)
-            .expect("BitVec::new() failed unexpectedly for i8")
+        Self::from_bigint_trunc(&BigInt::from(value), 8)
     }
 }
 
 impl From<u8> for BitVec {
     fn from(value: u8) -> BitVec {
-        BitVec::new(SmallVec::from_slice(&[value as u64]), 8)
-            .expect("Bitvec::new() failed unexpectedly for u8>")
+        Self::from_biguint_trunc(&BigUint::from(value), 8)
     }
 }
 
 impl From<i16> for BitVec {
     fn from(value: i16) -> BitVec {
-        BitVec::new(SmallVec::from_slice(&[value as u64]), 16)
-            .expect("Bitvec::new() failed unexpectedly for i16")
+        Self::from_bigint_trunc(&BigInt::from(value), 16)
     }
 }
 
 impl From<u16> for BitVec {
     fn from(value: u16) -> BitVec {
-        BitVec::new(SmallVec::from_slice(&[value as u64]), 16)
-            .expect("Bitvec::new() failed unexpectedly for u16")
+        Self::from_biguint_trunc(&BigUint::from(value), 16)
     }
 }
 
 impl From<i32> for BitVec {
     fn from(value: i32) -> BitVec {
-        BitVec::new(SmallVec::from_slice(&[value as u64]), 32)
-            .expect("Bitvec::new() failed unexpectedly for i32")
+        Self::from_bigint_trunc(&BigInt::from(value), 32)
     }
 }
 
 impl From<u32> for BitVec {
     fn from(value: u32) -> BitVec {
-        BitVec::new(SmallVec::from_slice(&[value as u64]), 32)
-            .expect("Bitvec::new() failed unexpectedly for u32")
+        Self::from_biguint_trunc(&BigUint::from(value), 32)
     }
 }
 
 impl From<i64> for BitVec {
     fn from(value: i64) -> BitVec {
-        BitVec::new(
-            SmallVec::from_slice(&[unsafe { std::mem::transmute::<i64, u64>(value) }]),
-            64,
-        )
-        .expect("Bitvec::new() failed unexpectedly for i64")
+        Self::from_bigint_trunc(&BigInt::from(value), 64)
     }
 }
 
 impl From<u64> for BitVec {
     fn from(value: u64) -> BitVec {
-        BitVec::new(SmallVec::from_slice(&[value]), 64)
-            .expect("Bitvec::new() failed unexpectedly for u64")
+        Self::from_biguint_trunc(&BigUint::from(value), 64)
     }
 }
 
 impl From<i128> for BitVec {
     fn from(value: i128) -> BitVec {
-        BitVec::new(
-            SmallVec::from_slice(&[value as u64, (value >> 64) as u64]),
-            128,
-        )
-        .expect("Bitvec::new() failed unexpectedly for i128")
+        Self::from_bigint_trunc(&BigInt::from(value), 128)
     }
 }
 
 impl From<u128> for BitVec {
     fn from(value: u128) -> BitVec {
-        BitVec::new(
-            SmallVec::from_slice(&[value as u64, (value >> 64) as u64]),
-            128,
-        )
-        .expect("Bitvec::new() failed unexpectedly for u128")
+        Self::from_biguint_trunc(&BigUint::from(value), 128)
     }
 }
 
-impl From<BigUint> for BitVec {
-    fn from(value: BigUint) -> Self {
-        BitVec::from_biguint(&value, value.bits() as u32)
-            .expect("Bitvec::new() failed unexpectedly for BigUint")
+impl From<BitVec> for BigUint {
+    fn from(bv: BitVec) -> Self {
+        bv.to_biguint()
     }
 }
 
 impl From<&BitVec> for BigUint {
     fn from(bv: &BitVec) -> Self {
-        BigUint::from_bytes_be(
-            bv.words
-                .iter()
-                .flat_map(|w| w.to_be_bytes())
-                .collect::<Vec<u8>>()
-                .as_slice(),
-        )
+        bv.to_biguint()
     }
 }
 

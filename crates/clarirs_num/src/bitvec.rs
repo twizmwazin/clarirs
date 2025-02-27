@@ -10,7 +10,7 @@ mod tests;
 use std::fmt::Debug;
 use std::mem::size_of;
 
-use num_bigint::BigUint;
+use num_bigint::{BigInt, BigUint, Sign};
 use num_traits::cast::ToPrimitive;
 use num_traits::{Num, Zero};
 use serde::{Deserialize, Serialize};
@@ -63,6 +63,8 @@ impl BitVec {
         })
     }
 
+    // From Conversions
+
     pub fn from_prim<T>(value: T) -> Result<Self, BitVecError>
     where
         T: Into<u64>,
@@ -89,13 +91,8 @@ impl BitVec {
         Self::new(words, length)
     }
 
-    #[allow(clippy::len_without_is_empty)]
-    pub fn len(&self) -> u32 {
-        self.length
-    }
-
     pub fn from_biguint(value: &BigUint, length: u32) -> Result<BitVec, BitVecError> {
-        if value.bits() > length.into() {
+        if value.bits() as u32 > length {
             return Err(BitVecError::BitVectorTooShort {
                 value: value.clone(),
                 length,
@@ -120,14 +117,68 @@ impl BitVec {
         Self::from_biguint(&truncated, length).expect("BitVec truncation failed")
     }
 
-    pub fn as_biguint(&self) -> BigUint {
-        BigUint::from_bytes_be(
-            self.words
-                .iter()
-                .flat_map(|w| w.to_be_bytes())
-                .collect::<Vec<u8>>()
-                .as_slice(),
-        )
+    pub fn from_bigint(value: &BigInt, length: u32) -> Result<BitVec, BitVecError> {
+        // Check if the value fits within the specified bit width based on its sign
+        // For an n-bit signed integer, the maximum positive value is 2^(n-1) - 1
+        if value.sign() == Sign::Plus {
+            let max_value = (BigUint::from(1u8) << (length - 1)) - BigUint::from(1u8);
+            if value.magnitude() > &max_value {
+                return Err(BitVecError::BitVectorTooShort {
+                    value: value.magnitude().clone(),
+                    length,
+                });
+            }
+        }
+        // For an n-bit signed integer, the minimum negative value is -2^(n-1)
+        if value.sign() == Sign::Minus {
+            let min_value_magnitude = BigUint::from(1u8) << (length - 1);
+            if value.magnitude() > &min_value_magnitude {
+                return Err(BitVecError::BitVectorTooShort {
+                    value: value.magnitude().clone(),
+                    length,
+                });
+            }
+        }
+
+        let big_uint = if value.sign() == Sign::Minus {
+            // For negative values, compute 2's complement: 2^length - |value|
+            (BigUint::from(1u8) << length) - value.magnitude()
+        } else {
+            // For positive values, use the magnitude directly
+            value.magnitude().clone()
+        };
+        BitVec::from_biguint(&big_uint, length)
+    }
+
+    pub fn from_bigint_trunc(value: &BigInt, length: u32) -> BitVec {
+        let big_uint = if value.sign() == Sign::Minus {
+            // For negative values, compute 2's complement: 2^length - (|value| % 2^length)
+            let modulus = BigUint::from(1u8) << length;
+            let truncated_magnitude = value.magnitude() % &modulus;
+            if truncated_magnitude.is_zero() {
+                BigUint::zero()
+            } else {
+                &modulus - truncated_magnitude
+            }
+        } else {
+            // For positive values, use the magnitude directly and truncate
+            value.magnitude() % (BigUint::from(1u8) << length)
+        };
+        BitVec::from_biguint(&big_uint, length).expect("BitVec truncation failed")
+    }
+
+    pub fn to_biguint(&self) -> BigUint {
+        // Convert the BitVec to a BigUint
+        // The internal representation of BitVec uses little-endian word order
+        // (least significant word first)
+        let mut result = BigUint::from(0u32);
+        for (i, &word) in self.words.iter().enumerate() {
+            // Shift each word by its position (64 bits per word)
+            let word_value = BigUint::from(word);
+            let shifted = word_value << (i * 64);
+            result |= shifted;
+        }
+        result
     }
 
     pub fn from_str(s: &str, length: u32) -> Result<BitVec, BitVecError> {
@@ -136,6 +187,11 @@ impl BitVec {
             length,
         })?;
         BitVec::from_biguint(&value, length)
+    }
+
+    #[allow(clippy::len_without_is_empty)]
+    pub fn len(&self) -> u32 {
+        self.length
     }
 
     pub fn sign(&self) -> bool {
@@ -239,29 +295,18 @@ impl BitVec {
         }
     }
 
-    // Converts the BitVec to BigUint
-    pub fn to_biguint(&self) -> BigUint {
-        BigUint::from_bytes_le(
-            &self
-                .words
-                .iter()
-                .flat_map(|w| w.to_le_bytes())
-                .collect::<Vec<u8>>(),
-        )
-    }
-
     pub fn to_u64(&self) -> Option<u64> {
         if self.len() > 64 {
             // The BitVec is too large to fit in a u64
             return None;
         }
 
-        // Combine all words into a single u64
-        let mut value: u64 = 0;
-        for (i, &word) in self.words.iter().enumerate() {
-            value |= word << (i * 64);
+        // Since each word is already a u64 and we've verified the BitVec
+        // is no more than 64 bits, we just need the first word
+        match self.words.first() {
+            Some(&word) => Some(word),
+            None => Some(0) // Empty BitVec represents 0
         }
-        Some(value)
     }
 
     /// Counts the number of leading zeros in the BitVec.
