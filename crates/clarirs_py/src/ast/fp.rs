@@ -10,6 +10,7 @@ use dashmap::DashMap;
 use pyo3::types::{PyBytes, PyFrozenSet, PyWeakrefReference};
 
 use crate::prelude::*;
+use clarirs_core::smtlib::ToSmtLib;
 
 static FPS_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static PY_FP_CACHE: LazyLock<DashMap<u64, Py<PyWeakrefReference>>> = LazyLock::new(DashMap::new);
@@ -201,6 +202,10 @@ impl FP {
 
     pub fn __hash__(&self) -> usize {
         self.hash() as usize
+    }
+
+    pub fn __repr__(&self) -> String {
+        self.inner.to_smtlib()
     }
 
     #[getter]

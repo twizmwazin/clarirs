@@ -9,6 +9,7 @@ use dashmap::DashMap;
 use pyo3::types::{PyBytes, PyFrozenSet, PyWeakrefReference};
 
 use crate::prelude::*;
+use clarirs_core::smtlib::ToSmtLib;
 
 static STRINGS_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static PY_STRING_CACHE: LazyLock<DashMap<u64, Py<PyWeakrefReference>>> =
@@ -137,6 +138,10 @@ impl PyAstString {
 
     pub fn __hash__(&self) -> usize {
         self.hash() as usize
+    }
+
+    pub fn __repr__(&self) -> String {
+        self.inner.to_smtlib()
     }
 
     #[getter]
