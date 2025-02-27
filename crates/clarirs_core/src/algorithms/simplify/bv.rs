@@ -459,7 +459,28 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                     }
                 }
 
-                BitVecOp::If(arc, arc1, arc2) => todo!("bv if simplification"),
+                BitVecOp::If(if_, then_, else_) => {
+                    simplify!(if_, then_, else_);
+
+                    // If both branches are identical, return either one
+                    if then_ == else_ {
+                        return Ok(then_.clone());
+                    }
+
+                    match if_.op() {
+                        // If the condition is a concrete boolean value, return the appropriate branch
+                        BooleanOp::BoolV(value) => {
+                            if *value {
+                                Ok(else_.clone())
+                            } else {
+                                Ok(then_.clone())
+                            }
+                        }
+                        // If the condition has a Not at the top level, invert the branches
+                        BooleanOp::Not(inner) => ctx.if_(inner, &else_, &then_),
+                        _ => ctx.if_(&if_, &then_, &else_),
+                    }
+                }
                 BitVecOp::Annotated(arc, annotation) => todo!("bv annotation simplification"),
             }
         })
