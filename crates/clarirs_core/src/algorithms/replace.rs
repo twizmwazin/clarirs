@@ -1502,13 +1502,11 @@ impl<'c> Replace<'c, BoolAst<'c>> for FloatAst<'c> {
             FloatOp::FPS(..) | FloatOp::FPV(..) => Ok(self.clone()),
             FloatOp::FpNeg(a) => {
                 let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::FpNeg(a_replaced))
+                self.context().make_float(FloatOp::FpNeg(a_replaced))
             }
             FloatOp::FpAbs(a) => {
                 let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::FpAbs(a_replaced))
+                self.context().make_float(FloatOp::FpAbs(a_replaced))
             }
             FloatOp::FpAdd(a, b, rm) => {
                 let a_replaced = a.replace(from, to)?;
@@ -1574,13 +1572,11 @@ impl<'c> Replace<'c, BitVecAst<'c>> for FloatAst<'c> {
             FloatOp::FPS(..) | FloatOp::FPV(..) => Ok(self.clone()),
             FloatOp::FpNeg(a) => {
                 let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::FpNeg(a_replaced))
+                self.context().make_float(FloatOp::FpNeg(a_replaced))
             }
             FloatOp::FpAbs(a) => {
                 let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::FpAbs(a_replaced))
+                self.context().make_float(FloatOp::FpAbs(a_replaced))
             }
             FloatOp::FpAdd(a, b, rm) => {
                 let a_replaced = a.replace(from, to)?;
@@ -1649,13 +1645,11 @@ impl<'c> Replace<'c, FloatAst<'c>> for FloatAst<'c> {
                 FloatOp::FPS(..) | FloatOp::FPV(..) => Ok(self.clone()),
                 FloatOp::FpNeg(a) => {
                     let a_replaced = a.replace(from, to)?;
-                    self.context()
-                        .make_float(FloatOp::FpNeg(a_replaced))
+                    self.context().make_float(FloatOp::FpNeg(a_replaced))
                 }
                 FloatOp::FpAbs(a) => {
                     let a_replaced = a.replace(from, to)?;
-                    self.context()
-                        .make_float(FloatOp::FpAbs(a_replaced))
+                    self.context().make_float(FloatOp::FpAbs(a_replaced))
                 }
                 FloatOp::FpAdd(a, b, rm) => {
                     let a_replaced = a.replace(from, to)?;
@@ -1722,13 +1716,11 @@ impl<'c> Replace<'c, StringAst<'c>> for FloatAst<'c> {
             FloatOp::FPS(..) | FloatOp::FPV(..) => Ok(self.clone()),
             FloatOp::FpNeg(a) => {
                 let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::FpNeg(a_replaced))
+                self.context().make_float(FloatOp::FpNeg(a_replaced))
             }
             FloatOp::FpAbs(a) => {
                 let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::FpAbs(a_replaced))
+                self.context().make_float(FloatOp::FpAbs(a_replaced))
             }
             FloatOp::FpAdd(a, b, rm) => {
                 let a_replaced = a.replace(from, to)?;
