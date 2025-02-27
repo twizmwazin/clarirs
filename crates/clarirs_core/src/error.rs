@@ -18,14 +18,14 @@ pub enum ClarirsError {
     #[error("BitVector too short: {value:?} is too short for length {length}")]
     BitVectorTooShort {
         value: num_bigint::BigUint,
-        length: usize,
+        length: u32,
     },
     #[error("Usatisfiable constraints")]
     UnsatisfiableConstraints,
     #[error("Type error: {:?}", .0)]
     TypeError(String),
     #[error("BitVector not bite-sized: {length:?} is not a multiple of 8")]
-    BitVectorNotByteSized { length: usize },
+    BitVectorNotByteSized { length: u32 },
     #[error("AST not represented in model")]
     AstNotInModel,
     #[error("Conversion error: {:?}", .0)]

@@ -84,7 +84,7 @@ impl From<u128> for BitVec {
 
 impl From<BigUint> for BitVec {
     fn from(value: BigUint) -> Self {
-        BitVec::from_biguint(&value, value.bits() as usize)
+        BitVec::from_biguint(&value, value.bits() as u32)
             .expect("Bitvec::new() failed unexpectedly for BigUint")
     }
 }
@@ -229,7 +229,7 @@ mod tests {
     #[test]
     fn test_to_usize() {
         // Test conversion of zero
-        let bv = BitVec::zeros(usize::BITS as usize);
+        let bv = BitVec::zeros(usize::BITS);
         assert_eq!(bv.to_usize().unwrap(), 0);
 
         // Test conversion of various values
@@ -237,7 +237,7 @@ mod tests {
         assert_eq!(bv.to_usize().unwrap(), 42);
 
         // Test width > usize::BITS (should error)
-        let bv = BitVec::zeros((usize::BITS + 1) as usize);
+        let bv = BitVec::zeros(usize::BITS + 1);
         assert!(bv.to_usize().is_none());
 
         // Test different widths

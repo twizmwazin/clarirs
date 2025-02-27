@@ -148,8 +148,8 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
                         (BitVecOp::BVV(value), BitVecOp::BVV(shift_amount)) => {
-                            let shift_amount_usize = shift_amount.to_usize().unwrap_or(0);
-                            let result = value.clone() << shift_amount_usize;
+                            let shift_amount_u32 = shift_amount.to_u64().unwrap_or(0) as u32;
+                            let result = value.clone() << shift_amount_u32;
                             ctx.bvv(result?)
                         }
                         _ => ctx.shl(&arc, &arc1),
@@ -160,14 +160,14 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                     match (arc.op(), arc1.op()) {
                         (BitVecOp::BVV(value), BitVecOp::BVV(shift_amount)) => {
                             let bit_width = value.len();
-                            let shift_amount_usize = shift_amount.to_usize().unwrap_or(0);
+                            let shift_amount_u32 = shift_amount.to_u64().unwrap_or(0) as u32;
 
-                            let result = if shift_amount_usize >= bit_width {
+                            let result = if shift_amount_u32 >= bit_width {
                                 BitVec::zeros(bit_width)
-                            } else if shift_amount_usize == 0 {
+                            } else if shift_amount_u32 == 0 {
                                 value.clone()
                             } else {
-                                (value.clone() >> shift_amount_usize)?
+                                (value.clone() >> shift_amount_u32)?
                             };
                             ctx.bvv(result)
                         }
@@ -180,7 +180,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
 
                     match (arc.op(), arc1.op()) {
                         (BitVecOp::BVV(value), BitVecOp::BVV(shift_amount)) => {
-                            let shift_amount_usize = shift_amount.to_usize().unwrap_or(0);
+                            let shift_amount_u32 = shift_amount.to_u64().unwrap_or(0) as u32;
                             let bit_length = value.len();
 
                             // Convert value to BigUint
@@ -192,7 +192,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                                 != BigUint::zero();
 
                             // If shifting >= bit_length, return all-ones (if negative) or all-zeros (if positive)
-                            if shift_amount_usize >= bit_length {
+                            if shift_amount_u32 >= bit_length {
                                 return if sign_bit_set {
                                     ctx.bvv(BitVec::from_biguint_trunc(
                                         &((BigUint::one() << bit_length) - BigUint::one()),
@@ -204,14 +204,13 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                             }
 
                             // Perform the shift
-                            let unsigned_shifted = unsigned_value.clone() >> shift_amount_usize;
+                            let unsigned_shifted = unsigned_value.clone() >> shift_amount_u32;
 
                             // Extend the sign bit if needed
                             let result = if sign_bit_set {
                                 // Create a mask to extend the sign bit
-                                let mask = ((BigUint::one() << shift_amount_usize)
-                                    - BigUint::one())
-                                    << (bit_length - shift_amount_usize);
+                                let mask = ((BigUint::one() << shift_amount_u32) - BigUint::one())
+                                    << (bit_length - shift_amount_u32);
                                 unsigned_shifted | mask
                             } else {
                                 unsigned_shifted
@@ -227,8 +226,8 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
 
                     match (arc.op(), arc1.op()) {
                         (BitVecOp::BVV(value_bv), BitVecOp::BVV(rotate_bv)) => {
-                            let rotate_usize = rotate_bv.to_usize().unwrap_or(0);
-                            let rotated_bv = value_bv.rotate_left(rotate_usize)?;
+                            let rotate_u32 = rotate_bv.to_u64().unwrap_or(0) as u32;
+                            let rotated_bv = value_bv.rotate_left(rotate_u32)?;
                             ctx.bvv(rotated_bv)
                         }
                         _ => ctx.rotate_left(&arc, &arc1),
@@ -239,8 +238,8 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
 
                     match (arc.op(), arc1.op()) {
                         (BitVecOp::BVV(value_bv), BitVecOp::BVV(rotate_amount_bv)) => {
-                            let rotate_usize = rotate_amount_bv.to_usize().unwrap_or(0);
-                            let rotated_bv = value_bv.rotate_right(rotate_usize)?;
+                            let rotate_u32 = rotate_amount_bv.to_u64().unwrap_or(0) as u32;
+                            let rotated_bv = value_bv.rotate_right(rotate_u32)?;
                             ctx.bvv(rotated_bv)
                         }
                         _ => ctx.rotate_right(&arc, &arc1),
@@ -250,14 +249,14 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                     simplify!(arc);
 
                     match arc.op() {
-                        BitVecOp::BVV(value) => ctx.bvv(value.zero_extend(*num_bits as usize)?),
+                        BitVecOp::BVV(value) => ctx.bvv(value.zero_extend(*num_bits)?),
                         _ => ctx.zero_ext(&arc, *num_bits),
                     }
                 }
                 BitVecOp::SignExt(arc, num_bits) => {
                     simplify!(arc);
                     match arc.op() {
-                        BitVecOp::BVV(value) => ctx.bvv(value.sign_extend(*num_bits as usize)?),
+                        BitVecOp::BVV(value) => ctx.bvv(value.sign_extend(*num_bits)?),
                         _ => ctx.sign_ext(&arc, *num_bits),
                     }
                 }
@@ -271,9 +270,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
 
                     match arc.op() {
                         // Concrete BVV case
-                        BitVecOp::BVV(value) => {
-                            ctx.bvv(value.extract(*low as usize, *high as usize)?)
-                        }
+                        BitVecOp::BVV(value) => ctx.bvv(value.extract(*low, *high)?),
 
                         // Concat cases
 
@@ -348,7 +345,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                         FloatOp::FPV(float) => {
                             // Convert the floating-point value to its IEEE 754 bit representation
                             let ieee_bits = float.to_ieee_bits();
-                            let bit_length = float.fsort().size() as usize;
+                            let bit_length = float.fsort().size();
 
                             // Create a BitVec with the IEEE 754 representation
                             ctx.bvv(
@@ -370,7 +367,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
 
                             // Truncate or extend the result to fit within the specified bit size
                             let result_bitvec =
-                                BitVec::from_biguint_trunc(&unsigned_value, *bit_size as usize);
+                                BitVec::from_biguint_trunc(&unsigned_value, *bit_size);
 
                             ctx.bvv(result_bitvec)
                         }
@@ -391,7 +388,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
 
                             // Create a BitVec with the result, truncating or extending to fit within the specified bit size
                             let result_bitvec =
-                                BitVec::from_biguint_trunc(&unsigned_value, *bit_size as usize);
+                                BitVec::from_biguint_trunc(&unsigned_value, *bit_size);
 
                             ctx.bvv(result_bitvec)
                         }
@@ -452,7 +449,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                                 .map_err(|_| ClarirsError::InvalidArguments)?; // Error if parsing fails
 
                             // Determine the bit length required to represent the number
-                            let bit_length = value.bits() as usize;
+                            let bit_length = value.bits() as u32;
 
                             // Convert the parsed value into a BitVec with the calculated bit length
                             let bitvec = BitVec::from_biguint_trunc(&value, bit_length);

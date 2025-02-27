@@ -79,7 +79,7 @@ impl Float {
     }
 
     pub fn fsort(&self) -> FSort {
-        FSort::new(self.exponent.len() as u32, self.mantissa.len() as u32)
+        FSort::new(self.exponent.len(), self.mantissa.len())
     }
 
     pub fn is_zero(&self) -> bool {
@@ -96,8 +96,8 @@ impl Float {
 
         let float = Self {
             sign: sign == 1,
-            exponent: BitVec::from_prim_with_size(exponent, fsort.exponent as usize)?,
-            mantissa: BitVec::from_prim_with_size(mantissa, fsort.mantissa as usize)?,
+            exponent: BitVec::from_prim_with_size(exponent, fsort.exponent)?,
+            mantissa: BitVec::from_prim_with_size(mantissa, fsort.mantissa)?,
         };
 
         float.to_fsort(fsort, rm)
@@ -114,20 +114,20 @@ impl Float {
                 if self.is_nan() {
                     return Ok(Self::new(
                         self.sign,
-                        BitVec::ones(F64_SORT.exponent as usize),
-                        BitVec::ones(F64_SORT.mantissa as usize),
+                        BitVec::ones(F64_SORT.exponent),
+                        BitVec::ones(F64_SORT.mantissa),
                     ));
                 } else if self.is_infinity() {
                     return Ok(Self::new(
                         self.sign,
-                        BitVec::ones(F64_SORT.exponent as usize),
-                        BitVec::zeros(F64_SORT.mantissa as usize),
+                        BitVec::ones(F64_SORT.exponent),
+                        BitVec::zeros(F64_SORT.mantissa),
                     ));
                 } else if self.is_zero() || self.is_subnormal() {
                     return Ok(Self::new(
                         self.sign,
-                        BitVec::zeros(F64_SORT.exponent as usize),
-                        BitVec::zeros(F64_SORT.mantissa as usize),
+                        BitVec::zeros(F64_SORT.exponent),
+                        BitVec::zeros(F64_SORT.mantissa),
                     ));
                 }
 
@@ -146,12 +146,12 @@ impl Float {
                 let extended_mantissa = BitVec::from_prim_with_size(
                     self.mantissa.to_u64().expect("mantissa too big")
                         << (F64_SORT.mantissa - F32_SORT.mantissa),
-                    F64_SORT.mantissa as usize,
+                    F64_SORT.mantissa,
                 );
 
                 Ok(Self::new(
                     self.sign,
-                    BitVec::from_prim_with_size(f64_exp, F64_SORT.exponent as usize)?,
+                    BitVec::from_prim_with_size(f64_exp, F64_SORT.exponent)?,
                     extended_mantissa?,
                 ))
             }
@@ -160,20 +160,20 @@ impl Float {
                 if self.is_nan() {
                     return Ok(Self::new(
                         self.sign,
-                        BitVec::ones(F32_SORT.exponent as usize),
-                        BitVec::ones(F32_SORT.mantissa as usize),
+                        BitVec::ones(F32_SORT.exponent),
+                        BitVec::ones(F32_SORT.mantissa),
                     ));
                 } else if self.is_infinity() {
                     return Ok(Self::new(
                         self.sign,
-                        BitVec::ones(F32_SORT.exponent as usize),
-                        BitVec::zeros(F32_SORT.mantissa as usize),
+                        BitVec::ones(F32_SORT.exponent),
+                        BitVec::zeros(F32_SORT.mantissa),
                     ));
                 } else if self.is_zero() || self.is_subnormal() {
                     return Ok(Self::new(
                         self.sign,
-                        BitVec::zeros(F32_SORT.exponent as usize),
-                        BitVec::zeros(F32_SORT.mantissa as usize),
+                        BitVec::zeros(F32_SORT.exponent),
+                        BitVec::zeros(F32_SORT.mantissa),
                     ));
                 }
 
@@ -237,8 +237,8 @@ impl Float {
 
                 Ok(Self::new(
                     self.sign,
-                    BitVec::from_prim_with_size(f32_exp, F32_SORT.exponent as usize)?,
-                    BitVec::from_prim_with_size(truncated_mantissa, F32_SORT.mantissa as usize)?,
+                    BitVec::from_prim_with_size(f32_exp, F32_SORT.exponent)?,
+                    BitVec::from_prim_with_size(truncated_mantissa, F32_SORT.mantissa)?,
                 ))
             }
             _ => todo!("to_fsort for other cases"),
@@ -529,12 +529,12 @@ fn normalize(mantissa: BitVec, exponent: BitVec) -> Result<(BitVec, BitVec), Bit
     let shift_amount = mantissa.leading_zeros();
 
     // Clamp shift_amount so it never exceeds the mantissa length
-    if shift_amount >= mantissa.len() {
+    if shift_amount >= mantissa.len() as usize {
         return Ok((exponent, mantissa));
     }
 
     // Otherwise, shift mantissa and adjust exponent
-    let normalized_mantissa = mantissa << shift_amount;
+    let normalized_mantissa = mantissa << (shift_amount as u32);
     let shift_bitvec = BitVec::from_prim_with_size(shift_amount as u32, exponent.len())?;
 
     let normalized_exponent = exponent.clone() - shift_bitvec;

@@ -584,7 +584,7 @@ pub trait AstFactory<'c>: Sized {
     fn bvv_prim_with_size<T: Into<u64>>(
         &'c self,
         value: T,
-        length: usize,
+        length: u32,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
         self.bvv(BitVec::from_prim_with_size(value, length)?)
     }
@@ -594,7 +594,7 @@ pub trait AstFactory<'c>: Sized {
         value: &BigUint,
         length: u32,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.bvv(BitVec::from_biguint(value, length as usize)?)
+        self.bvv(BitVec::from_biguint(value, length)?)
     }
 
     fn fpv_from_f64(&'c self, value: f64) -> Result<FloatAst<'c>, ClarirsError> {

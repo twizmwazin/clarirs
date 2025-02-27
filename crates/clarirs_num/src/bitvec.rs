@@ -8,6 +8,7 @@ mod extension;
 mod tests;
 
 use std::fmt::Debug;
+use std::mem::size_of;
 
 use num_bigint::BigUint;
 use num_traits::cast::ToPrimitive;
@@ -21,17 +22,13 @@ use num_traits::One;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Error)]
 pub enum BitVecError {
     #[error("BitVector too short: {length} is too short for value {value}")]
-    BitVectorTooShort { value: BigUint, length: usize },
+    BitVectorTooShort { value: BigUint, length: u32 },
     #[error("BitVector not bite-sized: {length:?} is not a multiple of 8")]
-    BitVectorNotByteSized { length: usize },
+    BitVectorNotByteSized { length: u32 },
     #[error(
         "Invalid bitvector extract bounds: {upper}:{lower} not valid for bitvector of length {length}"
     )]
-    InvalidExtractBounds {
-        upper: u32,
-        lower: u32,
-        length: usize,
-    },
+    InvalidExtractBounds { upper: u32, lower: u32, length: u32 },
 }
 
 /// BitVec are represented as a SmallVec of usize, where each usize is a word of
@@ -39,13 +36,13 @@ pub enum BitVecError {
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct BitVec {
     words: SmallVec<[u64; 1]>,
-    length: usize,
+    length: u32,
     #[serde(skip)] // TODO: This needs to be recalculated when deserializing
     final_word_mask: u64,
 }
 
 impl BitVec {
-    pub fn new(mut words: SmallVec<[u64; 1]>, length: usize) -> Result<Self, BitVecError> {
+    pub fn new(mut words: SmallVec<[u64; 1]>, length: u32) -> Result<Self, BitVecError> {
         // Calculate mask for the final word - keep all valid bits
         let bits_in_last_word = length % 64;
         let final_word_mask = if bits_in_last_word == 0 {
@@ -70,10 +67,10 @@ impl BitVec {
     where
         T: Into<u64>,
     {
-        Self::from_prim_with_size(value, size_of::<T>() * 8)
+        Self::from_prim_with_size(value, (size_of::<T>() * 8) as u32)
     }
 
-    pub fn from_prim_with_size<T>(value: T, length: usize) -> Result<Self, BitVecError>
+    pub fn from_prim_with_size<T>(value: T, length: u32) -> Result<Self, BitVecError>
     where
         T: Into<u64>,
     {
@@ -93,12 +90,12 @@ impl BitVec {
     }
 
     #[allow(clippy::len_without_is_empty)]
-    pub fn len(&self) -> usize {
+    pub fn len(&self) -> u32 {
         self.length
     }
 
-    pub fn from_biguint(value: &BigUint, length: usize) -> Result<BitVec, BitVecError> {
-        if value.bits() as usize > length {
+    pub fn from_biguint(value: &BigUint, length: u32) -> Result<BitVec, BitVecError> {
+        if value.bits() > length.into() {
             return Err(BitVecError::BitVectorTooShort {
                 value: value.clone(),
                 length,
@@ -107,7 +104,7 @@ impl BitVec {
 
         if value == &BigUint::ZERO {
             let mut words = SmallVec::new();
-            let num_words = (length + 63) / 64; // Number of 64-bit words
+            let num_words = (length as usize + 63) / 64; // Number of 64-bit words
             if num_words > 0 {
                 words.push(0);
             }
@@ -118,8 +115,8 @@ impl BitVec {
         BitVec::new(value.iter_u64_digits().collect(), length)
     }
 
-    pub fn from_biguint_trunc(value: &BigUint, length: usize) -> BitVec {
-        let truncated = value % (BigUint::from(2u32).pow(length as u32));
+    pub fn from_biguint_trunc(value: &BigUint, length: u32) -> BitVec {
+        let truncated = value % (BigUint::from(2u32).pow(length));
         Self::from_biguint(&truncated, length).expect("BitVec truncation failed")
     }
 
@@ -133,7 +130,7 @@ impl BitVec {
         )
     }
 
-    pub fn from_str(s: &str, length: usize) -> Result<BitVec, BitVecError> {
+    pub fn from_str(s: &str, length: u32) -> Result<BitVec, BitVecError> {
         let value = BigUint::from_str_radix(s, 10).map_err(|_| BitVecError::BitVectorTooShort {
             value: BigUint::from(0u32),
             length,
@@ -149,7 +146,7 @@ impl BitVec {
         let last_word_index = (self.length - 1) / 64;
         let bit_index = (self.length - 1) % 64;
 
-        if let Some(word) = self.words.get(last_word_index) {
+        if let Some(word) = self.words.get(last_word_index as usize) {
             (word & (1u64 << bit_index)) != 0
         } else {
             false
@@ -164,7 +161,7 @@ impl BitVec {
         }
 
         // Calculate total number of bytes the bit-vector occupies.
-        let total_bytes = self.length / 8;
+        let total_bytes = self.length as usize / 8;
 
         // 1. Extract the bytes of the bit-vector in little-endian order.
         // (Words store the low-order bytes first.)
@@ -235,7 +232,7 @@ impl BitVec {
     // Converts the BitVec to a usize if it fits within the usize range, otherwise returns None
     pub fn to_usize(&self) -> Option<usize> {
         // Check that the BitVec's bit length does not exceed the size of usize
-        if self.len() > (usize::BITS as usize) {
+        if self.len() > usize::BITS {
             None
         } else {
             Some(self.to_biguint().to_usize().unwrap_or(0))
@@ -272,7 +269,7 @@ impl BitVec {
         let mut total = 0;
         for (i, &word) in self.words.iter().rev().enumerate() {
             let word_size = if i == 0 && self.length % 64 != 0 {
-                self.length % 64
+                (self.length % 64) as usize
             } else {
                 64
             };
@@ -299,9 +296,9 @@ impl BitVec {
     }
 
     // Creates and returns a BitVec with these zero-filled words.
-    pub fn zeros(length: usize) -> BitVec {
+    pub fn zeros(length: u32) -> BitVec {
         let mut words = SmallVec::new();
-        let num_words = (length + 63) / 64; // Number of 64-bit words
+        let num_words = (length as usize + 63) / 64; // Number of 64-bit words
         for _ in 0..num_words {
             words.push(0);
         }
@@ -309,8 +306,8 @@ impl BitVec {
     }
 
     // Creates and returns a BitVec with these one-filled words.
-    pub fn ones(length: usize) -> BitVec {
-        BitVec::from_biguint_trunc(&((BigUint::from(2u32) << length) - 1u32), length)
+    pub fn ones(length: u32) -> BitVec {
+        BitVec::from_biguint_trunc(&((BigUint::from(2u32) << (length as u64)) - 1u32), length)
     }
 
     // Power function for BitVec

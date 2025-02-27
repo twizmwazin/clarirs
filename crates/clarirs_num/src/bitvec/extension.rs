@@ -8,11 +8,11 @@ impl BitVec {
     /// Extracts a subvector from the current vector. Range bounds are (from,
     /// to), where both are inclusive. The extracted vector will have a length
     /// of (to - from + 1).
-    pub fn extract(&self, from: usize, to: usize) -> Result<Self, BitVecError> {
+    pub fn extract(&self, from: u32, to: u32) -> Result<Self, BitVecError> {
         if from > to || to >= self.len() {
             return Err(BitVecError::InvalidExtractBounds {
-                upper: to as u32 - 1,
-                lower: from as u32,
+                upper: to - 1, // Convert to inclusive for smtlib-style extract
+                lower: from,
                 length: self.len(),
             });
         }
@@ -21,14 +21,14 @@ impl BitVec {
         let mut result = BitVec::zeros(extract_len);
 
         let mut remaining_bits = extract_len;
-        let mut src_word_idx = from / 64;
-        let mut src_bit_idx = from % 64;
-        let mut dst_bit_idx = 0;
+        let mut src_word_idx = (from / 64) as usize;
+        let mut src_bit_idx = (from % 64) as usize;
+        let mut dst_bit_idx = 0usize;
 
         while remaining_bits > 0 {
             // How many bits we can copy in this iteration
             let bits_this_round = std::cmp::min(
-                remaining_bits,                                    // How many bits we still need
+                remaining_bits as usize, // How many bits we still need
                 64 - std::cmp::max(src_bit_idx, dst_bit_idx % 64), // Space left in current word
             );
 
@@ -42,7 +42,7 @@ impl BitVec {
             result.words[dst_word_idx] |= bits << dst_shift;
 
             // Update indices
-            remaining_bits -= bits_this_round;
+            remaining_bits -= bits_this_round as u32;
             src_bit_idx += bits_this_round;
             if src_bit_idx >= 64 {
                 src_word_idx += 1;
@@ -83,7 +83,7 @@ impl BitVec {
             }
 
             // Check if we have an extra word
-            let expected_words = (self.len() + other.len() + 63) / 64;
+            let expected_words = ((self.len() + other.len() + 63) / 64) as usize;
             if new_bv.len() > expected_words {
                 new_bv.pop();
             }
@@ -92,11 +92,11 @@ impl BitVec {
         BitVec::new(new_bv, self.length + other.length)
     }
 
-    pub fn zero_extend(&self, additional_bits: usize) -> Result<BitVec, BitVecError> {
+    pub fn zero_extend(&self, additional_bits: u32) -> Result<BitVec, BitVecError> {
         BitVec::from_prim_with_size(0u8, additional_bits)?.concat(self)
     }
 
-    pub fn sign_extend(&self, additional_bits: usize) -> Result<BitVec, BitVecError> {
+    pub fn sign_extend(&self, additional_bits: u32) -> Result<BitVec, BitVecError> {
         let extension = if self.sign() {
             BitVec::from_biguint_trunc(
                 &((BigUint::from(1u8) << additional_bits) - 1u8),

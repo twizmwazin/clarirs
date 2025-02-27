@@ -68,16 +68,16 @@ impl BitXor for BitVec {
     }
 }
 
-impl Shl<usize> for BitVec {
+impl Shl<u32> for BitVec {
     type Output = Result<Self, BitVecError>;
 
-    fn shl(self, rhs: usize) -> Self::Output {
+    fn shl(self, rhs: u32) -> Self::Output {
         BitVec::new(
             self.words
                 .iter()
                 .scan(0, |carry, w| {
-                    let new_carry = w >> (64 - rhs);
-                    let new_word = (w << rhs) | *carry;
+                    let new_carry = w >> (64 - rhs as usize);
+                    let new_word = (w << rhs as usize) | *carry;
                     *carry = new_carry;
                     Some(new_word)
                 })
@@ -87,17 +87,17 @@ impl Shl<usize> for BitVec {
     }
 }
 
-impl Shr<usize> for BitVec {
+impl Shr<u32> for BitVec {
     type Output = Result<Self, BitVecError>;
 
-    fn shr(self, rhs: usize) -> Self::Output {
+    fn shr(self, rhs: u32) -> Self::Output {
         BitVec::new(
             self.words
                 .iter()
                 .rev()
                 .scan(0, |carry, w| {
-                    let new_carry = w << (64 - rhs);
-                    let new_word = (w >> rhs) | *carry;
+                    let new_carry = w << (64 - rhs as usize);
+                    let new_word = (w >> rhs as usize) | *carry;
                     *carry = new_carry;
                     Some(new_word)
                 })
@@ -108,7 +108,7 @@ impl Shr<usize> for BitVec {
 }
 
 impl BitVec {
-    pub fn rotate_left(&self, rotate_amount: usize) -> Result<Self, BitVecError> {
+    pub fn rotate_left(&self, rotate_amount: u32) -> Result<Self, BitVecError> {
         use num_bigint::BigUint;
         use num_traits::One;
 
@@ -124,7 +124,7 @@ impl BitVec {
         BitVec::from_biguint(&rotated_biguint, bit_length)
     }
 
-    pub fn rotate_right(&self, rotate_amount: usize) -> Result<Self, BitVecError> {
+    pub fn rotate_right(&self, rotate_amount: u32) -> Result<Self, BitVecError> {
         use num_bigint::BigUint;
         use num_traits::One;
 
