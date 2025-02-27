@@ -12,6 +12,7 @@ use pyo3::types::{PyBytes, PyFrozenSet, PySlice, PyWeakrefReference};
 use crate::ast::{and, not, or, xor};
 use crate::prelude::*;
 use crate::pyslicemethodsext::PySliceMethodsExt;
+use clarirs_core::smtlib::ToSmtLib;
 
 static BVS_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static PY_BV_CACHE: LazyLock<DashMap<u64, Py<PyWeakrefReference>>> = LazyLock::new(DashMap::new);
@@ -227,6 +228,10 @@ impl BV {
 
     pub fn __hash__(&self) -> usize {
         self.hash() as usize
+    }
+
+    pub fn __repr__(&self) -> String {
+        self.inner.to_smtlib()
     }
 
     #[getter]
