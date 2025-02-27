@@ -6,14 +6,16 @@ use std::sync::atomic::Ordering;
 
 use ast::args::ExtractPyArgs;
 use dashmap::DashMap;
-use pyo3::types::PyBytes;
-use pyo3::types::PyFrozenSet;
-use pyo3::types::PyWeakrefMethods;
-use pyo3::types::PyWeakrefReference;
+use pyo3::exceptions::PyValueError;
+use pyo3::types::PyList;
+use pyo3::types::PyTuple;
+use pyo3::types::{PyBytes, PyDict, PyFrozenSet, PyWeakrefMethods, PyWeakrefReference};
 
 use crate::ast::{and, not, or, xor};
 use crate::prelude::*;
 use clarirs_core::smtlib::ToSmtLib;
+
+use super::r#if;
 
 static BOOLS_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static PY_BOOL_CACHE: LazyLock<DashMap<u64, Py<PyWeakrefReference>>> = LazyLock::new(DashMap::new);
@@ -380,6 +382,127 @@ pub fn false_op(py: Python) -> Result<Py<Bool>, ClaripyError> {
     Bool::new(py, &GLOBAL_CONTEXT.false_()?)
 }
 
+/// Create an if-then-else tree from a list of condition-value pairs with a default value
+///
+/// # Arguments
+///
+/// * `cases` - A list of (condition, value) tuples
+/// * `default` - The default value if none of the conditions are satisfied
+///
+/// # Returns
+///
+/// An expression encoding the result
+#[pyfunction]
+pub fn ite_cases(py: Python, cases: Bound<PyList>, default: Bound<PyAny>) -> PyResult<PyObject> {
+    let mut sofar = default;
+
+    // Process cases in reverse order
+    let cases_len = cases.len();
+    for i in (0..cases_len).rev() {
+        let case = cases.get_item(i)?;
+        let tuple = case.downcast::<PyTuple>()?;
+        if tuple.len() != 2 {
+            return Err(PyValueError::new_err(
+                "Each case must be a (condition, value) tuple",
+            ));
+        }
+
+        let cond = tuple.get_item(0)?;
+        let cond_bool = cond.downcast::<Bool>()?.clone();
+        let value = tuple.get_item(1)?;
+
+        // Create If expression: If(cond, value, sofar)
+        sofar = r#if(py, cond_bool, value, sofar)?.bind(py).as_any().clone();
+    }
+
+    Ok(sofar.unbind())
+}
+
+/// Create a binary search tree for large tables
+///
+/// # Arguments
+///
+/// * `i` - The variable which may take on multiple values
+/// * `d` - A dictionary mapping possible values for i to values which the result could be
+/// * `default` - A default value if i matches none of the keys of d
+///
+/// # Returns
+///
+/// An expression encoding the result
+#[pyfunction]
+pub fn ite_dict(
+    py: Python,
+    i: Bound<Base>,
+    d: Bound<PyDict>,
+    default: Bound<PyAny>,
+) -> PyResult<PyObject> {
+    // For small dictionaries, just use ite_cases
+    if d.len() <= 4 {
+        let cases = PyList::empty(py);
+        for (k, v) in d.iter() {
+            let cond = i.call_method1("__eq__", (k.clone(),))?;
+            let tuple = PyTuple::new(py, &[cond, v])?;
+            cases.append(tuple)?;
+        }
+
+        return ite_cases(py, Py::from(cases).bind(py).clone(), default);
+    }
+
+    // Binary search
+    // Find the median
+    let keys = d.keys();
+
+    // Sort the keys
+    keys.getattr("sort")?.call0()?;
+
+    let split_idx = (keys.len() - 1) / 2;
+    let split_val = keys.get_item(split_idx)?;
+
+    // Split the dictionary
+    let dict_low = PyDict::new(py);
+    let dict_high = PyDict::new(py);
+
+    for (k, v) in d.iter() {
+        let le = k.call_method1("__le__", (split_val.clone(),))?;
+        let is_le = le.downcast::<Bool>()?;
+
+        if is_le.get().inner.is_true() {
+            dict_low.set_item(k, v)?;
+        } else {
+            dict_high.set_item(k, v)?;
+        }
+    }
+
+    // Recursively build trees for each part
+    let val_low = if dict_low.is_empty() {
+        default.clone().unbind()
+    } else {
+        ite_dict(py, i.clone(), dict_low, default.clone())?
+    };
+
+    let val_high = if dict_high.is_empty() {
+        default.unbind()
+    } else {
+        ite_dict(py, i.clone(), dict_high, default.clone())?
+    };
+
+    // Combine with an if-then-else
+    let cond = i
+        .call_method1("__le__", (split_val,))?
+        .downcast::<Bool>()?
+        .clone();
+
+    // Create If expression: If(cond, val_low, val_high)
+    let result = r#if(
+        py,
+        cond,
+        val_low.bind(py).clone(),
+        val_high.bind(py).clone(),
+    )?;
+    let coerced = result.bind(py).clone().into_any().unbind();
+    Ok(coerced)
+}
+
 pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<Bool>()?;
 
@@ -395,6 +518,8 @@ pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
         super::r#if,
         true_op,
         false_op,
+        ite_cases,
+        ite_dict,
     );
 
     Ok(())
