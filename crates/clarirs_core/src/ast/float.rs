@@ -9,8 +9,8 @@ use crate::prelude::*;
 pub enum FloatOp<'c> {
     FPS(String, FSort),
     FPV(Float),
-    FpNeg(FloatAst<'c>, FPRM),
-    FpAbs(FloatAst<'c>, FPRM),
+    FpNeg(FloatAst<'c>),
+    FpAbs(FloatAst<'c>),
     FpAdd(FloatAst<'c>, FloatAst<'c>, FPRM),
     FpSub(FloatAst<'c>, FloatAst<'c>, FPRM),
     FpMul(FloatAst<'c>, FloatAst<'c>, FPRM),
@@ -37,15 +37,13 @@ impl std::hash::Hash for FloatOp<'_> {
                 1.hash(state);
                 f.hash(state);
             }
-            FloatOp::FpNeg(a, rm) => {
+            FloatOp::FpNeg(a) => {
                 2.hash(state);
                 a.hash(state);
-                rm.hash(state);
             }
-            FloatOp::FpAbs(a, rm) => {
+            FloatOp::FpAbs(a) => {
                 3.hash(state);
                 a.hash(state);
-                rm.hash(state);
             }
             FloatOp::FpAdd(a, b, rm) => {
                 4.hash(state);
@@ -108,8 +106,8 @@ impl<'c> Op<'c> for FloatOp<'c> {
         match self {
             FloatOp::FPS(_, _) | FloatOp::FPV(_) => vec![].into_iter(),
 
-            FloatOp::FpNeg(a, _)
-            | FloatOp::FpAbs(a, _)
+            FloatOp::FpNeg(a)
+            | FloatOp::FpAbs(a)
             | FloatOp::FpSqrt(a, _)
             | FloatOp::FpToFp(a, _, _)
             | FloatOp::Annotated(a, _) => vec![a.into()].into_iter(),
@@ -157,8 +155,8 @@ impl<'c> FloatExt<'c> for FloatAst<'c> {
         match self.op() {
             FloatOp::FPS(_, sort) => sort.size(),
             FloatOp::FPV(value) => value.fsort().size(),
-            FloatOp::FpNeg(a, _)
-            | FloatOp::FpAbs(a, _)
+            FloatOp::FpNeg(a)
+            | FloatOp::FpAbs(a)
             | FloatOp::FpSqrt(a, _)
             | FloatOp::FpAdd(a, _, _)
             | FloatOp::FpSub(a, _, _)

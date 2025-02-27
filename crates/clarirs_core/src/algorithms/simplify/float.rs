@@ -11,7 +11,7 @@ impl<'c> Simplify<'c> for FloatAst<'c> {
                 FloatOp::FPS(name, fsort) => ctx.fps(name.clone(), fsort.clone()),
                 FloatOp::FPV(float) => ctx.fpv(float.clone()),
 
-                FloatOp::FpNeg(arc, _fprm) => {
+                FloatOp::FpNeg(arc) => {
                     simplify!(arc);
                     match arc.op() {
                         FloatOp::FPV(float) => {
@@ -26,7 +26,7 @@ impl<'c> Simplify<'c> for FloatAst<'c> {
                         _ => Err(ClarirsError::InvalidArguments), // Handle non-float cases
                     }
                 }
-                FloatOp::FpAbs(arc, _fprm) => {
+                FloatOp::FpAbs(arc) => {
                     simplify!(arc);
                     match arc.op() {
                         FloatOp::FPV(float) => {
