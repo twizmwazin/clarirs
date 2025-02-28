@@ -4,6 +4,7 @@ mod macros;
 
 pub mod annotation;
 pub mod ast;
+mod dynsolver;
 pub mod error;
 pub mod prelude;
 pub mod py_err;

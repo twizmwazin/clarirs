@@ -49,8 +49,8 @@ impl<'c> HasContext<'c> for ConcreteSolver<'c> {
 }
 
 impl<'c> ConcreteSolver<'c> {
-    pub fn new(ctx: &'c Context<'c>) -> Result<Self, ClarirsError> {
-        Ok(Self { ctx })
+    pub fn new(ctx: &'c Context<'c>) -> Self {
+        Self { ctx }
     }
 }
 
@@ -117,7 +117,7 @@ mod tests {
     #[test]
     fn test_concrete_solver() -> Result<()> {
         let context = Context::new();
-        let mut solver = ConcreteSolver::new(&context)?;
+        let mut solver = ConcreteSolver::new(&context);
 
         // Bool tests
         solver.eval_bool(&context.true_()?)?;
