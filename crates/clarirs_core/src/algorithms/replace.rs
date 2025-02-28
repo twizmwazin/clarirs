@@ -1960,54 +1960,54 @@ impl<'c> Replace<'c, StringAst<'c>> for StringAst<'c> {
     }
 }
 
-// VarAst Imlementations
+// DynAst Imlementations
 
-impl<'c> Replace<'c, BoolAst<'c>> for VarAst<'c> {
+impl<'c> Replace<'c, BoolAst<'c>> for DynAst<'c> {
     fn replace(&self, from: &BoolAst<'c>, to: &BoolAst<'c>) -> Result<Self, ClarirsError> {
         match self {
-            VarAst::Boolean(a) => a.replace(from, to).map(VarAst::Boolean),
-            VarAst::BitVec(a) => a.replace(from, to).map(VarAst::BitVec),
-            VarAst::Float(a) => a.replace(from, to).map(VarAst::Float),
-            VarAst::String(a) => a.replace(from, to).map(VarAst::String),
+            DynAst::Boolean(a) => a.replace(from, to).map(DynAst::Boolean),
+            DynAst::BitVec(a) => a.replace(from, to).map(DynAst::BitVec),
+            DynAst::Float(a) => a.replace(from, to).map(DynAst::Float),
+            DynAst::String(a) => a.replace(from, to).map(DynAst::String),
         }
     }
 }
 
-impl<'c> Replace<'c, BitVecAst<'c>> for VarAst<'c> {
+impl<'c> Replace<'c, BitVecAst<'c>> for DynAst<'c> {
     fn replace(&self, from: &BitVecAst<'c>, to: &BitVecAst<'c>) -> Result<Self, ClarirsError> {
         match self {
-            VarAst::Boolean(a) => a.replace(from, to).map(VarAst::Boolean),
-            VarAst::BitVec(a) => a.replace(from, to).map(VarAst::BitVec),
-            VarAst::Float(a) => a.replace(from, to).map(VarAst::Float),
-            VarAst::String(a) => a.replace(from, to).map(VarAst::String),
+            DynAst::Boolean(a) => a.replace(from, to).map(DynAst::Boolean),
+            DynAst::BitVec(a) => a.replace(from, to).map(DynAst::BitVec),
+            DynAst::Float(a) => a.replace(from, to).map(DynAst::Float),
+            DynAst::String(a) => a.replace(from, to).map(DynAst::String),
         }
     }
 }
 
-impl<'c> Replace<'c, FloatAst<'c>> for VarAst<'c> {
+impl<'c> Replace<'c, FloatAst<'c>> for DynAst<'c> {
     fn replace(&self, from: &FloatAst<'c>, to: &FloatAst<'c>) -> Result<Self, ClarirsError> {
         match self {
-            VarAst::Boolean(a) => a.replace(from, to).map(VarAst::Boolean),
-            VarAst::BitVec(a) => a.replace(from, to).map(VarAst::BitVec),
-            VarAst::Float(a) => a.replace(from, to).map(VarAst::Float),
-            VarAst::String(a) => a.replace(from, to).map(VarAst::String),
+            DynAst::Boolean(a) => a.replace(from, to).map(DynAst::Boolean),
+            DynAst::BitVec(a) => a.replace(from, to).map(DynAst::BitVec),
+            DynAst::Float(a) => a.replace(from, to).map(DynAst::Float),
+            DynAst::String(a) => a.replace(from, to).map(DynAst::String),
         }
     }
 }
 
-impl<'c> Replace<'c, StringAst<'c>> for VarAst<'c> {
+impl<'c> Replace<'c, StringAst<'c>> for DynAst<'c> {
     fn replace(&self, from: &StringAst<'c>, to: &StringAst<'c>) -> Result<Self, ClarirsError> {
         match self {
-            VarAst::Boolean(a) => a.replace(from, to).map(VarAst::Boolean),
-            VarAst::BitVec(a) => a.replace(from, to).map(VarAst::BitVec),
-            VarAst::Float(a) => a.replace(from, to).map(VarAst::Float),
-            VarAst::String(a) => a.replace(from, to).map(VarAst::String),
+            DynAst::Boolean(a) => a.replace(from, to).map(DynAst::Boolean),
+            DynAst::BitVec(a) => a.replace(from, to).map(DynAst::BitVec),
+            DynAst::Float(a) => a.replace(from, to).map(DynAst::Float),
+            DynAst::String(a) => a.replace(from, to).map(DynAst::String),
         }
     }
 }
 
-impl<'c> Replace<'c, VarAst<'c>> for BoolAst<'c> {
-    fn replace(&self, from: &VarAst<'c>, to: &VarAst<'c>) -> Result<Self, ClarirsError> {
+impl<'c> Replace<'c, DynAst<'c>> for BoolAst<'c> {
+    fn replace(&self, from: &DynAst<'c>, to: &DynAst<'c>) -> Result<Self, ClarirsError> {
         if discriminant(from) != discriminant(to) {
             return Err(ClarirsError::TypeError(
                 "Cannot replace different types".to_string(),
@@ -2015,16 +2015,16 @@ impl<'c> Replace<'c, VarAst<'c>> for BoolAst<'c> {
         }
 
         match from {
-            VarAst::Boolean(from_) => self.replace(from_, to.as_bool().unwrap()),
-            VarAst::BitVec(from_) => self.replace(from_, to.as_bitvec().unwrap()),
-            VarAst::Float(from_) => self.replace(from_, to.as_float().unwrap()),
-            VarAst::String(from_) => self.replace(from_, to.as_string().unwrap()),
+            DynAst::Boolean(from_) => self.replace(from_, to.as_bool().unwrap()),
+            DynAst::BitVec(from_) => self.replace(from_, to.as_bitvec().unwrap()),
+            DynAst::Float(from_) => self.replace(from_, to.as_float().unwrap()),
+            DynAst::String(from_) => self.replace(from_, to.as_string().unwrap()),
         }
     }
 }
 
-impl<'c> Replace<'c, VarAst<'c>> for BitVecAst<'c> {
-    fn replace(&self, from: &VarAst<'c>, to: &VarAst<'c>) -> Result<Self, ClarirsError> {
+impl<'c> Replace<'c, DynAst<'c>> for BitVecAst<'c> {
+    fn replace(&self, from: &DynAst<'c>, to: &DynAst<'c>) -> Result<Self, ClarirsError> {
         if discriminant(from) != discriminant(to) {
             return Err(ClarirsError::TypeError(
                 "Cannot replace different types".to_string(),
@@ -2032,16 +2032,16 @@ impl<'c> Replace<'c, VarAst<'c>> for BitVecAst<'c> {
         }
 
         match from {
-            VarAst::Boolean(from_) => self.replace(from_, to.as_bool().unwrap()),
-            VarAst::BitVec(from_) => self.replace(from_, to.as_bitvec().unwrap()),
-            VarAst::Float(from_) => self.replace(from_, to.as_float().unwrap()),
-            VarAst::String(from_) => self.replace(from_, to.as_string().unwrap()),
+            DynAst::Boolean(from_) => self.replace(from_, to.as_bool().unwrap()),
+            DynAst::BitVec(from_) => self.replace(from_, to.as_bitvec().unwrap()),
+            DynAst::Float(from_) => self.replace(from_, to.as_float().unwrap()),
+            DynAst::String(from_) => self.replace(from_, to.as_string().unwrap()),
         }
     }
 }
 
-impl<'c> Replace<'c, VarAst<'c>> for FloatAst<'c> {
-    fn replace(&self, from: &VarAst<'c>, to: &VarAst<'c>) -> Result<Self, ClarirsError> {
+impl<'c> Replace<'c, DynAst<'c>> for FloatAst<'c> {
+    fn replace(&self, from: &DynAst<'c>, to: &DynAst<'c>) -> Result<Self, ClarirsError> {
         if discriminant(from) != discriminant(to) {
             return Err(ClarirsError::TypeError(
                 "Cannot replace different types".to_string(),
@@ -2049,16 +2049,16 @@ impl<'c> Replace<'c, VarAst<'c>> for FloatAst<'c> {
         }
 
         match from {
-            VarAst::Boolean(from_) => self.replace(from_, to.as_bool().unwrap()),
-            VarAst::BitVec(from_) => self.replace(from_, to.as_bitvec().unwrap()),
-            VarAst::Float(from_) => self.replace(from_, to.as_float().unwrap()),
-            VarAst::String(from_) => self.replace(from_, to.as_string().unwrap()),
+            DynAst::Boolean(from_) => self.replace(from_, to.as_bool().unwrap()),
+            DynAst::BitVec(from_) => self.replace(from_, to.as_bitvec().unwrap()),
+            DynAst::Float(from_) => self.replace(from_, to.as_float().unwrap()),
+            DynAst::String(from_) => self.replace(from_, to.as_string().unwrap()),
         }
     }
 }
 
-impl<'c> Replace<'c, VarAst<'c>> for StringAst<'c> {
-    fn replace(&self, from: &VarAst<'c>, to: &VarAst<'c>) -> Result<Self, ClarirsError> {
+impl<'c> Replace<'c, DynAst<'c>> for StringAst<'c> {
+    fn replace(&self, from: &DynAst<'c>, to: &DynAst<'c>) -> Result<Self, ClarirsError> {
         if discriminant(from) != discriminant(to) {
             return Err(ClarirsError::TypeError(
                 "Cannot replace different types".to_string(),
@@ -2066,16 +2066,16 @@ impl<'c> Replace<'c, VarAst<'c>> for StringAst<'c> {
         }
 
         match from {
-            VarAst::Boolean(from_) => self.replace(from_, to.as_bool().unwrap()),
-            VarAst::BitVec(from_) => self.replace(from_, to.as_bitvec().unwrap()),
-            VarAst::Float(from_) => self.replace(from_, to.as_float().unwrap()),
-            VarAst::String(from_) => self.replace(from_, to.as_string().unwrap()),
+            DynAst::Boolean(from_) => self.replace(from_, to.as_bool().unwrap()),
+            DynAst::BitVec(from_) => self.replace(from_, to.as_bitvec().unwrap()),
+            DynAst::Float(from_) => self.replace(from_, to.as_float().unwrap()),
+            DynAst::String(from_) => self.replace(from_, to.as_string().unwrap()),
         }
     }
 }
 
-impl<'c> Replace<'c, VarAst<'c>> for VarAst<'c> {
-    fn replace(&self, from: &VarAst<'c>, to: &VarAst<'c>) -> Result<Self, ClarirsError> {
+impl<'c> Replace<'c, DynAst<'c>> for DynAst<'c> {
+    fn replace(&self, from: &DynAst<'c>, to: &DynAst<'c>) -> Result<Self, ClarirsError> {
         if discriminant(self) != discriminant(from) {
             return Err(ClarirsError::TypeError(
                 "Cannot replace different types".to_string(),
@@ -2087,54 +2087,54 @@ impl<'c> Replace<'c, VarAst<'c>> for VarAst<'c> {
         }
 
         match (self, from) {
-            (VarAst::Boolean(self_), VarAst::Boolean(from_)) => self_
+            (DynAst::Boolean(self_), DynAst::Boolean(from_)) => self_
                 .replace(from_, to.as_bool().unwrap())
-                .map(VarAst::Boolean),
-            (VarAst::Boolean(self_), VarAst::BitVec(from_)) => self_
+                .map(DynAst::Boolean),
+            (DynAst::Boolean(self_), DynAst::BitVec(from_)) => self_
                 .replace(from_, to.as_bitvec().unwrap())
-                .map(VarAst::Boolean),
-            (VarAst::Boolean(self_), VarAst::Float(from_)) => self_
+                .map(DynAst::Boolean),
+            (DynAst::Boolean(self_), DynAst::Float(from_)) => self_
                 .replace(from_, to.as_float().unwrap())
-                .map(VarAst::Boolean),
-            (VarAst::Boolean(self_), VarAst::String(from_)) => self_
+                .map(DynAst::Boolean),
+            (DynAst::Boolean(self_), DynAst::String(from_)) => self_
                 .replace(from_, to.as_string().unwrap())
-                .map(VarAst::Boolean),
-            (VarAst::BitVec(self_), VarAst::Boolean(from_)) => self_
+                .map(DynAst::Boolean),
+            (DynAst::BitVec(self_), DynAst::Boolean(from_)) => self_
                 .replace(from_, to.as_bool().unwrap())
-                .map(VarAst::BitVec),
-            (VarAst::BitVec(self_), VarAst::BitVec(from_)) => self_
+                .map(DynAst::BitVec),
+            (DynAst::BitVec(self_), DynAst::BitVec(from_)) => self_
                 .replace(from_, to.as_bitvec().unwrap())
-                .map(VarAst::BitVec),
-            (VarAst::BitVec(self_), VarAst::Float(from_)) => self_
+                .map(DynAst::BitVec),
+            (DynAst::BitVec(self_), DynAst::Float(from_)) => self_
                 .replace(from_, to.as_float().unwrap())
-                .map(VarAst::BitVec),
-            (VarAst::BitVec(self_), VarAst::String(from_)) => self_
+                .map(DynAst::BitVec),
+            (DynAst::BitVec(self_), DynAst::String(from_)) => self_
                 .replace(from_, to.as_string().unwrap())
-                .map(VarAst::BitVec),
-            (VarAst::Float(self_), VarAst::Boolean(from_)) => self_
+                .map(DynAst::BitVec),
+            (DynAst::Float(self_), DynAst::Boolean(from_)) => self_
                 .replace(from_, to.as_bool().unwrap())
-                .map(VarAst::Float),
-            (VarAst::Float(self_), VarAst::BitVec(from_)) => self_
+                .map(DynAst::Float),
+            (DynAst::Float(self_), DynAst::BitVec(from_)) => self_
                 .replace(from_, to.as_bitvec().unwrap())
-                .map(VarAst::Float),
-            (VarAst::Float(self_), VarAst::Float(from_)) => self_
+                .map(DynAst::Float),
+            (DynAst::Float(self_), DynAst::Float(from_)) => self_
                 .replace(from_, to.as_float().unwrap())
-                .map(VarAst::Float),
-            (VarAst::Float(self_), VarAst::String(from_)) => self_
+                .map(DynAst::Float),
+            (DynAst::Float(self_), DynAst::String(from_)) => self_
                 .replace(from_, to.as_string().unwrap())
-                .map(VarAst::Float),
-            (VarAst::String(self_), VarAst::Boolean(from_)) => self_
+                .map(DynAst::Float),
+            (DynAst::String(self_), DynAst::Boolean(from_)) => self_
                 .replace(from_, to.as_bool().unwrap())
-                .map(VarAst::String),
-            (VarAst::String(self_), VarAst::BitVec(from_)) => self_
+                .map(DynAst::String),
+            (DynAst::String(self_), DynAst::BitVec(from_)) => self_
                 .replace(from_, to.as_bitvec().unwrap())
-                .map(VarAst::String),
-            (VarAst::String(self_), VarAst::Float(from_)) => self_
+                .map(DynAst::String),
+            (DynAst::String(self_), DynAst::Float(from_)) => self_
                 .replace(from_, to.as_float().unwrap())
-                .map(VarAst::String),
-            (VarAst::String(self_), VarAst::String(from_)) => self_
+                .map(DynAst::String),
+            (DynAst::String(self_), DynAst::String(from_)) => self_
                 .replace(from_, to.as_string().unwrap())
-                .map(VarAst::String),
+                .map(DynAst::String),
         }
     }
 }

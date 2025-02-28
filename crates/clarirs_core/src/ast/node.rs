@@ -91,7 +91,7 @@ impl<'c, O: Op<'c> + Serialize> AstNode<'c, O> {
 }
 
 impl<'c, O: Op<'c>> Op<'c> for AstNode<'c, O> {
-    fn child_iter(&self) -> IntoIter<VarAst<'c>> {
+    fn child_iter(&self) -> IntoIter<DynAst<'c>> {
         self.op.child_iter()
     }
 
@@ -119,127 +119,127 @@ impl<'c, O: Op<'c>> Op<'c> for AstNode<'c, O> {
 pub type AstRef<'c, Op> = Arc<AstNode<'c, Op>>;
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize)]
-pub enum VarAst<'c> {
+pub enum DynAst<'c> {
     Boolean(BoolAst<'c>),
     BitVec(BitVecAst<'c>),
     Float(FloatAst<'c>),
     String(StringAst<'c>),
 }
 
-impl<'c> HasContext<'c> for VarAst<'c> {
+impl<'c> HasContext<'c> for DynAst<'c> {
     fn context(&self) -> &'c Context<'c> {
         match self {
-            VarAst::Boolean(ast) => ast.context(),
-            VarAst::BitVec(ast) => ast.context(),
-            VarAst::Float(ast) => ast.context(),
-            VarAst::String(ast) => ast.context(),
+            DynAst::Boolean(ast) => ast.context(),
+            DynAst::BitVec(ast) => ast.context(),
+            DynAst::Float(ast) => ast.context(),
+            DynAst::String(ast) => ast.context(),
         }
     }
 }
 
-impl<'c> Op<'c> for VarAst<'c> {
-    fn child_iter(&self) -> IntoIter<VarAst<'c>> {
+impl<'c> Op<'c> for DynAst<'c> {
+    fn child_iter(&self) -> IntoIter<DynAst<'c>> {
         match self {
-            VarAst::Boolean(ast) => ast.child_iter(),
-            VarAst::BitVec(ast) => ast.child_iter(),
-            VarAst::Float(ast) => ast.child_iter(),
-            VarAst::String(ast) => ast.child_iter(),
+            DynAst::Boolean(ast) => ast.child_iter(),
+            DynAst::BitVec(ast) => ast.child_iter(),
+            DynAst::Float(ast) => ast.child_iter(),
+            DynAst::String(ast) => ast.child_iter(),
         }
     }
 
     fn depth(&self) -> u32 {
         match self {
-            VarAst::Boolean(ast) => ast.depth(),
-            VarAst::BitVec(ast) => ast.depth(),
-            VarAst::Float(ast) => ast.depth(),
-            VarAst::String(ast) => ast.depth(),
+            DynAst::Boolean(ast) => ast.depth(),
+            DynAst::BitVec(ast) => ast.depth(),
+            DynAst::Float(ast) => ast.depth(),
+            DynAst::String(ast) => ast.depth(),
         }
     }
 
     fn is_true(&self) -> bool {
         match self {
-            VarAst::Boolean(ast) => ast.is_true(),
+            DynAst::Boolean(ast) => ast.is_true(),
             _ => false,
         }
     }
 
     fn is_false(&self) -> bool {
         match self {
-            VarAst::Boolean(ast) => ast.is_false(),
+            DynAst::Boolean(ast) => ast.is_false(),
             _ => false,
         }
     }
 
     fn variables(&self) -> HashSet<String> {
         match self {
-            VarAst::Boolean(ast) => ast.variables(),
-            VarAst::BitVec(ast) => ast.variables(),
-            VarAst::Float(ast) => ast.variables(),
-            VarAst::String(ast) => ast.variables(),
+            DynAst::Boolean(ast) => ast.variables(),
+            DynAst::BitVec(ast) => ast.variables(),
+            DynAst::Float(ast) => ast.variables(),
+            DynAst::String(ast) => ast.variables(),
         }
         .clone()
     }
 
     fn get_annotations(&self) -> Vec<Annotation> {
         match self {
-            VarAst::Boolean(ast) => ast.get_annotations(),
-            VarAst::BitVec(ast) => ast.get_annotations(),
-            VarAst::Float(ast) => ast.get_annotations(),
-            VarAst::String(ast) => ast.get_annotations(),
+            DynAst::Boolean(ast) => ast.get_annotations(),
+            DynAst::BitVec(ast) => ast.get_annotations(),
+            DynAst::Float(ast) => ast.get_annotations(),
+            DynAst::String(ast) => ast.get_annotations(),
         }
     }
 }
 
-impl<'c> VarAst<'c> {
+impl<'c> DynAst<'c> {
     pub fn as_bool(&self) -> Option<&BoolAst<'c>> {
         match self {
-            VarAst::Boolean(ast) => Some(ast),
+            DynAst::Boolean(ast) => Some(ast),
             _ => None,
         }
     }
 
     pub fn as_bitvec(&self) -> Option<&BitVecAst<'c>> {
         match self {
-            VarAst::BitVec(ast) => Some(ast),
+            DynAst::BitVec(ast) => Some(ast),
             _ => None,
         }
     }
 
     pub fn as_float(&self) -> Option<&FloatAst<'c>> {
         match self {
-            VarAst::Float(ast) => Some(ast),
+            DynAst::Float(ast) => Some(ast),
             _ => None,
         }
     }
 
     pub fn as_string(&self) -> Option<&StringAst<'c>> {
         match self {
-            VarAst::String(ast) => Some(ast),
+            DynAst::String(ast) => Some(ast),
             _ => None,
         }
     }
 }
 
-impl<'c> From<&BoolAst<'c>> for VarAst<'c> {
+impl<'c> From<&BoolAst<'c>> for DynAst<'c> {
     fn from(ast: &BoolAst<'c>) -> Self {
-        VarAst::Boolean(ast.clone())
+        DynAst::Boolean(ast.clone())
     }
 }
 
-impl<'c> From<&BitVecAst<'c>> for VarAst<'c> {
+impl<'c> From<&BitVecAst<'c>> for DynAst<'c> {
     fn from(ast: &BitVecAst<'c>) -> Self {
-        VarAst::BitVec(ast.clone())
+        DynAst::BitVec(ast.clone())
     }
 }
 
-impl<'c> From<&FloatAst<'c>> for VarAst<'c> {
+impl<'c> From<&FloatAst<'c>> for DynAst<'c> {
     fn from(ast: &FloatAst<'c>) -> Self {
-        VarAst::Float(ast.clone())
+        DynAst::Float(ast.clone())
     }
 }
 
-impl<'c> From<&StringAst<'c>> for VarAst<'c> {
+impl<'c> From<&StringAst<'c>> for DynAst<'c> {
     fn from(ast: &StringAst<'c>) -> Self {
-        VarAst::String(ast.clone())
+        DynAst::String(ast.clone())
     }
 }

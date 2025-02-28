@@ -218,7 +218,7 @@ impl std::hash::Hash for BitVecOp<'_> {
 }
 
 impl<'c> Op<'c> for BitVecOp<'c> {
-    fn child_iter(&self) -> IntoIter<VarAst<'c>> {
+    fn child_iter(&self) -> IntoIter<DynAst<'c>> {
         match self {
             BitVecOp::BVS(..) | BitVecOp::BVV(..) => vec![],
 
