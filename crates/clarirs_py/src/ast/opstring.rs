@@ -4,9 +4,9 @@ pub trait ToOpString {
     fn to_opstring(&self) -> String;
 }
 
-impl ToOpString for BooleanOp<'static> {
+impl ToOpString for BoolAst<'static> {
     fn to_opstring(&self) -> String {
-        match self {
+        match self.op() {
             BooleanOp::BoolS(..) => "BoolS".to_string(),
             BooleanOp::BoolV(..) => "BoolV".to_string(),
             BooleanOp::Not(..) => "Not".to_string(),
@@ -40,14 +40,14 @@ impl ToOpString for BooleanOp<'static> {
             BooleanOp::StrEq(..) => "__eq__".to_string(),
             BooleanOp::StrNeq(..) => "__ne__".to_string(),
             BooleanOp::If(..) => "If".to_string(),
-            BooleanOp::Annotated(child, _) => child.op().to_opstring(),
+            BooleanOp::Annotated(child, _) => child.to_opstring(),
         }
     }
 }
 
-impl ToOpString for BitVecOp<'static> {
+impl ToOpString for BitVecAst<'static> {
     fn to_opstring(&self) -> String {
-        match self {
+        match self.op() {
             BitVecOp::BVS(..) => "BVS".to_string(),
             BitVecOp::BVV(..) => "BVV".to_string(),
             BitVecOp::Not(..) => "__neg__".to_string(),
@@ -80,14 +80,14 @@ impl ToOpString for BitVecOp<'static> {
             BitVecOp::StrIndexOf(..) => "StrIndexOf".to_string(),
             BitVecOp::StrToBV(..) => "StrToBV".to_string(),
             BitVecOp::If(..) => "If".to_string(),
-            BitVecOp::Annotated(child, _) => child.op().to_opstring(),
+            BitVecOp::Annotated(child, _) => child.to_opstring(),
         }
     }
 }
 
-impl ToOpString for FloatOp<'static> {
+impl ToOpString for FloatAst<'static> {
     fn to_opstring(&self) -> String {
-        match self {
+        match self.op() {
             FloatOp::FPS(..) => "FPS".to_string(),
             FloatOp::FPV(..) => "FPV".to_string(),
             FloatOp::FpNeg(..) => "fpNeg".to_string(),
@@ -100,14 +100,14 @@ impl ToOpString for FloatOp<'static> {
             FloatOp::FpToFp(..) => "fpToFp".to_string(),
             FloatOp::BvToFpUnsigned(..) => "fpToFPUnsigned".to_string(),
             FloatOp::If(..) => "If".to_string(),
-            FloatOp::Annotated(child, _) => child.op().to_opstring(),
+            FloatOp::Annotated(child, _) => child.to_opstring(),
         }
     }
 }
 
-impl ToOpString for StringOp<'static> {
+impl ToOpString for StringAst<'static> {
     fn to_opstring(&self) -> String {
-        match self {
+        match self.op() {
             StringOp::StringS(..) => "StringS".to_string(),
             StringOp::StringV(..) => "StringV".to_string(),
             StringOp::StrConcat(..) => "StrConcat".to_string(),
@@ -115,7 +115,18 @@ impl ToOpString for StringOp<'static> {
             StringOp::StrReplace(..) => "StrReplace".to_string(),
             StringOp::BVToStr(..) => "IntToStr".to_string(),
             StringOp::If(..) => "If".to_string(),
-            StringOp::Annotated(child, _) => child.op().to_opstring(),
+            StringOp::Annotated(child, _) => child.to_opstring(),
+        }
+    }
+}
+
+impl ToOpString for DynAst<'static> {
+    fn to_opstring(&self) -> String {
+        match self {
+            DynAst::Boolean(b) => b.to_opstring(),
+            DynAst::BitVec(b) => b.to_opstring(),
+            DynAst::Float(b) => b.to_opstring(),
+            DynAst::String(b) => b.to_opstring(),
         }
     }
 }

@@ -7,12 +7,12 @@ pub trait ExtractPyArgs {
     -> Result<Vec<Bound<'py, PyAny>>, ClaripyError>;
 }
 
-impl ExtractPyArgs for BooleanOp<'static> {
+impl ExtractPyArgs for BoolAst<'static> {
     fn extract_py_args<'py>(
         &self,
         py: Python<'py>,
     ) -> Result<Vec<Bound<'py, PyAny>>, ClaripyError> {
-        Ok(match self {
+        Ok(match self.op() {
             BooleanOp::BoolS(name) => vec![name.into_bound_py_any(py)?],
             BooleanOp::BoolV(val) => vec![val.into_bound_py_any(py)?],
             BooleanOp::Not(expr) => vec![Bool::new(py, expr)?.into_any()],
@@ -61,17 +61,17 @@ impl ExtractPyArgs for BooleanOp<'static> {
                 Bool::new(py, then_)?.into_any(),
                 Bool::new(py, else_)?.into_any(),
             ],
-            BooleanOp::Annotated(inner, _) => inner.op().extract_py_args(py)?,
+            BooleanOp::Annotated(inner, _) => inner.extract_py_args(py)?,
         })
     }
 }
 
-impl ExtractPyArgs for BitVecOp<'static> {
+impl ExtractPyArgs for BitVecAst<'static> {
     fn extract_py_args<'py>(
         &self,
         py: Python<'py>,
     ) -> Result<Vec<Bound<'py, PyAny>>, ClaripyError> {
-        Ok(match self {
+        Ok(match self.op(){
             BitVecOp::BVS(name, size) => {
                 vec![name.into_bound_py_any(py)?, size.into_bound_py_any(py)?]
             }
@@ -124,17 +124,17 @@ impl ExtractPyArgs for BitVecOp<'static> {
                 BV::new(py, then_)?.into_any(),
                 BV::new(py, else_)?.into_any(),
             ],
-            BitVecOp::Annotated(inner, _) => inner.op().extract_py_args(py)?,
+            BitVecOp::Annotated(inner, _) => inner.extract_py_args(py)?,
         })
     }
 }
 
-impl ExtractPyArgs for FloatOp<'static> {
+impl ExtractPyArgs for FloatAst<'static> {
     fn extract_py_args<'py>(
         &self,
         py: Python<'py>,
     ) -> Result<Vec<Bound<'py, PyAny>>, ClaripyError> {
-        Ok(match self {
+        Ok(match self.op() {
             FloatOp::FPS(name, fsort) => vec![
                 name.into_bound_py_any(py)?,
                 Bound::new(py, PyFSort::from(fsort))?.into_any(),
@@ -160,17 +160,17 @@ impl ExtractPyArgs for FloatOp<'static> {
                 FP::new(py, then_)?.into_any(),
                 FP::new(py, else_)?.into_any(),
             ],
-            FloatOp::Annotated(inner, _) => inner.op().extract_py_args(py)?,
+            FloatOp::Annotated(inner, _) => inner.extract_py_args(py)?,
         })
     }
 }
 
-impl ExtractPyArgs for StringOp<'static> {
+impl ExtractPyArgs for StringAst<'static> {
     fn extract_py_args<'py>(
         &self,
         py: Python<'py>,
     ) -> Result<Vec<Bound<'py, PyAny>>, ClaripyError> {
-        Ok(match self {
+        Ok(match self.op() {
             StringOp::StringS(name) => vec![name.into_bound_py_any(py)?],
             StringOp::StringV(value) => vec![value.into_bound_py_any(py)?],
             StringOp::StrConcat(lhs, rhs) => vec![
@@ -193,7 +193,21 @@ impl ExtractPyArgs for StringOp<'static> {
                 PyAstString::new(py, then_)?.into_any(),
                 PyAstString::new(py, else_)?.into_any(),
             ],
-            StringOp::Annotated(inner, _) => inner.op().extract_py_args(py)?,
+            StringOp::Annotated(inner, _) => inner.extract_py_args(py)?,
         })
+    }
+}
+
+impl ExtractPyArgs for DynAst<'static> {
+    fn extract_py_args<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> Result<Vec<Bound<'py, PyAny>>, ClaripyError> {
+        match self {
+            DynAst::Boolean(expr) => expr.extract_py_args(py),
+            DynAst::BitVec(expr) => expr.extract_py_args(py),
+            DynAst::Float(expr) => expr.extract_py_args(py),
+            DynAst::String(expr) => expr.extract_py_args(py),
+        }
     }
 }
