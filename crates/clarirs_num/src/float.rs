@@ -387,8 +387,8 @@ impl Float {
         let self_f32 = self.to_fsort(F32_SORT, FPRM::NearestTiesToEven).ok()?;
         Some(recompose_f32(
             self.sign as u8,
-            self_f32.exponent.as_biguint().to_u8()?,
-            self_f32.mantissa.as_biguint().to_u32()?,
+            self_f32.exponent.to_biguint().to_u8()?,
+            self_f32.mantissa.to_biguint().to_u32()?,
         ))
     }
 
@@ -397,7 +397,7 @@ impl Float {
         let self_f64 = self.to_fsort(F64_SORT, FPRM::NearestTiesToEven).ok()?;
         Some(recompose_f64(
             self.sign as u8,
-            self_f64.exponent.as_biguint().to_u16()?,
+            self_f64.exponent.to_biguint().to_u16()?,
             self_f64.mantissa.to_u64()?,
         ))
     }
