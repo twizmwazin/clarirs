@@ -114,22 +114,25 @@ pub struct FP {
 }
 
 impl FP {
-    pub fn new(py: Python, inner: &FloatAst<'static>) -> Result<Py<FP>, ClaripyError> {
+    pub fn new<'py>(
+        py: Python<'py>,
+        inner: &FloatAst<'static>,
+    ) -> Result<Bound<'py, FP>, ClaripyError> {
         Self::new_with_name(py, inner, None)
     }
 
-    pub fn new_with_name(
-        py: Python,
+    pub fn new_with_name<'py>(
+        py: Python<'py>,
         inner: &FloatAst<'static>,
         name: Option<String>,
-    ) -> Result<Py<FP>, ClaripyError> {
+    ) -> Result<Bound<'py, FP>, ClaripyError> {
         if let Some(cache_hit) = PY_FP_CACHE.get(&inner.hash()).and_then(|cache_hit| {
             cache_hit
                 .bind(py)
                 .upgrade_as::<FP>()
                 .expect("bool cache poisoned")
         }) {
-            Ok(cache_hit.unbind())
+            Ok(cache_hit)
         } else {
             let this = Py::new(
                 py,
@@ -142,7 +145,7 @@ impl FP {
             let weakref = PyWeakrefReference::new(this.bind(py))?;
             PY_FP_CACHE.insert(inner.hash(), weakref.unbind());
 
-            Ok(this)
+            Ok(this.into_bound(py))
         }
     }
 
@@ -162,12 +165,12 @@ impl FP {
     }
 
     #[getter]
-    pub fn args(&self, py: Python) -> Result<Vec<PyObject>, ClaripyError> {
+    pub fn args<'py>(&self, py: Python<'py>) -> Result<Vec<Bound<'py, PyAny>>, ClaripyError> {
         self.inner.op().extract_py_args(py)
     }
 
     #[getter]
-    pub fn variables(&self, py: Python) -> Result<Py<PyFrozenSet>, ClaripyError> {
+    pub fn variables<'py>(&self, py: Python<'py>) -> Result<Bound<'py, PyFrozenSet>, ClaripyError> {
         Ok(PyFrozenSet::new(
             py,
             self.inner
@@ -176,8 +179,7 @@ impl FP {
                 .map(|v| v.into_py_any(py))
                 .collect::<Result<Vec<_>, _>>()?
                 .iter(),
-        )?
-        .unbind())
+        )?)
     }
 
     #[getter]
@@ -217,7 +219,7 @@ impl FP {
         self.inner.depth() == 1
     }
 
-    pub fn simplify(&self, py: Python) -> Result<Py<FP>, ClaripyError> {
+    pub fn simplify<'py>(&self, py: Python<'py>) -> Result<Bound<'py, FP>, ClaripyError> {
         FP::new(py, &self.inner.simplify()?)
     }
 
@@ -229,7 +231,11 @@ impl FP {
         self.size()
     }
 
-    pub fn annotate(&self, py: Python, annotation: Bound<PyAny>) -> Result<Py<FP>, ClaripyError> {
+    pub fn annotate<'py>(
+        &self,
+        py: Python<'py>,
+        annotation: Bound<'py, PyAny>,
+    ) -> Result<Bound<'py, FP>, ClaripyError> {
         let pickle_dumps = py.import("pickle")?.getattr("dumps")?;
         let annotation_bytes = pickle_dumps
             .call1((&annotation,))?
@@ -248,12 +254,12 @@ impl FP {
 }
 
 #[pyfunction(signature = (name, sort, explicit_name = false))]
-pub fn FPS(
-    py: Python,
+pub fn FPS<'py>(
+    py: Python<'py>,
     name: &str,
     sort: PyFSort,
     explicit_name: bool,
-) -> Result<Py<FP>, ClaripyError> {
+) -> Result<Bound<'py, FP>, ClaripyError> {
     let name: String = if explicit_name {
         name.to_string()
     } else {
@@ -264,7 +270,7 @@ pub fn FPS(
 }
 
 #[pyfunction]
-pub fn FPV(py: Python, value: f64, sort: PyFSort) -> Result<Py<FP>, ClaripyError> {
+pub fn FPV(py: Python<'_>, value: f64, sort: PyFSort) -> Result<Bound<'_, FP>, ClaripyError> {
     let float_value = Float::from(value);
     FP::new(
         py,
@@ -273,22 +279,22 @@ pub fn FPV(py: Python, value: f64, sort: PyFSort) -> Result<Py<FP>, ClaripyError
 }
 
 #[pyfunction]
-pub fn fpFP(
-    _py: Python,
-    _sign: Bound<BV>,
-    _exponent: Bound<BV>,
-    _significand: Bound<BV>,
-) -> Result<Py<FP>, ClaripyError> {
+pub fn fpFP<'py>(
+    _py: Python<'py>,
+    _sign: Bound<'py, BV>,
+    _exponent: Bound<'py, BV>,
+    _significand: Bound<'py, BV>,
+) -> Result<Bound<'py, FP>, ClaripyError> {
     todo!("fpFP")
 }
 
 #[pyfunction(name = "fpToFP", signature = (fp, sort, rm = None))]
-pub fn FpToFP(
-    py: Python,
-    fp: PyRef<FP>,
+pub fn FpToFP<'py>(
+    py: Python<'py>,
+    fp: PyRef<'py, FP>,
     sort: PyFSort,
     rm: Option<PyRM>,
-) -> Result<Py<FP>, ClaripyError> {
+) -> Result<Bound<'py, FP>, ClaripyError> {
     FP::new(
         py,
         &GLOBAL_CONTEXT.fp_to_fp(&fp.inner, sort, rm.unwrap_or_default())?,
@@ -296,12 +302,12 @@ pub fn FpToFP(
 }
 
 #[pyfunction(name = "fpToFPUnsigned", signature = (bv, sort, rm = None))]
-pub fn BvToFpUnsigned(
-    py: Python,
-    bv: Bound<BV>,
+pub fn BvToFpUnsigned<'py>(
+    py: Python<'py>,
+    bv: Bound<'py, BV>,
     sort: PyFSort,
     rm: Option<PyRM>,
-) -> Result<Py<FP>, ClaripyError> {
+) -> Result<Bound<'py, FP>, ClaripyError> {
     FP::new(
         py,
         &GLOBAL_CONTEXT.bv_to_fp_unsigned(&bv.get().inner, sort, rm.unwrap_or_default())?,
@@ -309,17 +315,20 @@ pub fn BvToFpUnsigned(
 }
 
 #[pyfunction(name = "fpToIEEEBV", signature = (fp))]
-pub fn fpToIEEEBV(py: Python, fp: Bound<FP>) -> Result<Py<BV>, ClaripyError> {
+pub fn fpToIEEEBV<'py>(
+    py: Python<'py>,
+    fp: Bound<'py, FP>,
+) -> Result<Bound<'py, BV>, ClaripyError> {
     BV::new(py, &GLOBAL_CONTEXT.fp_to_ieeebv(&fp.get().inner)?)
 }
 
 #[pyfunction(name = "fpToUBV", signature = (fp, len, rm = None))]
-pub fn FpToUbv(
-    py: Python,
-    fp: Bound<FP>,
+pub fn FpToUbv<'py>(
+    py: Python<'py>,
+    fp: Bound<'py, FP>,
     len: u32,
     rm: Option<PyRM>,
-) -> Result<Py<BV>, ClaripyError> {
+) -> Result<Bound<'py, BV>, ClaripyError> {
     BV::new(
         py,
         &GLOBAL_CONTEXT.fp_to_ubv(&fp.get().inner, len, rm.unwrap_or_default())?,
@@ -327,12 +336,12 @@ pub fn FpToUbv(
 }
 
 #[pyfunction(name = "fpToSBV", signature = (fp, len, rm = None))]
-pub fn FpToBv(
-    py: Python,
-    fp: Bound<FP>,
+pub fn FpToBv<'py>(
+    py: Python<'py>,
+    fp: Bound<'py, FP>,
     len: u32,
     rm: Option<PyRM>,
-) -> Result<Py<BV>, ClaripyError> {
+) -> Result<Bound<'py, BV>, ClaripyError> {
     BV::new(
         py,
         &GLOBAL_CONTEXT.fp_to_sbv(&fp.get().inner, len, rm.unwrap_or_default())?,
@@ -340,22 +349,22 @@ pub fn FpToBv(
 }
 
 #[pyfunction(name = "fpNeg", signature = (lhs))]
-pub fn FpNeg(py: Python, lhs: Bound<FP>) -> Result<Py<FP>, ClaripyError> {
+pub fn FpNeg<'py>(py: Python<'py>, lhs: Bound<'py, FP>) -> Result<Bound<'py, FP>, ClaripyError> {
     FP::new(py, &GLOBAL_CONTEXT.fp_neg(&lhs.get().inner)?)
 }
 
 #[pyfunction(name = "fpAbs", signature = (lhs))]
-pub fn FpAbs(py: Python, lhs: Bound<FP>) -> Result<Py<FP>, ClaripyError> {
+pub fn FpAbs<'py>(py: Python<'py>, lhs: Bound<'py, FP>) -> Result<Bound<'py, FP>, ClaripyError> {
     FP::new(py, &GLOBAL_CONTEXT.fp_abs(&lhs.get().inner)?)
 }
 
 #[pyfunction(name = "fpAdd", signature = (lhs, rhs, rm = None))]
-pub fn FpAdd(
-    py: Python,
-    lhs: Bound<FP>,
-    rhs: Bound<FP>,
+pub fn FpAdd<'py>(
+    py: Python<'py>,
+    lhs: Bound<'py, FP>,
+    rhs: Bound<'py, FP>,
     rm: Option<PyRM>,
-) -> Result<Py<FP>, ClaripyError> {
+) -> Result<Bound<'py, FP>, ClaripyError> {
     FP::new(
         py,
         &GLOBAL_CONTEXT.fp_add(&lhs.get().inner, &rhs.get().inner, rm.unwrap_or_default())?,
@@ -363,12 +372,12 @@ pub fn FpAdd(
 }
 
 #[pyfunction(name = "fpSub", signature = (lhs, rhs, rm = None))]
-pub fn FpSub(
-    py: Python,
-    lhs: Bound<FP>,
-    rhs: Bound<FP>,
+pub fn FpSub<'py>(
+    py: Python<'py>,
+    lhs: Bound<'py, FP>,
+    rhs: Bound<'py, FP>,
     rm: Option<PyRM>,
-) -> Result<Py<FP>, ClaripyError> {
+) -> Result<Bound<'py, FP>, ClaripyError> {
     FP::new(
         py,
         &GLOBAL_CONTEXT.fp_sub(&lhs.get().inner, &rhs.get().inner, rm.unwrap_or_default())?,
@@ -376,12 +385,12 @@ pub fn FpSub(
 }
 
 #[pyfunction(name = "fpMul", signature = (lhs, rhs, rm = None))]
-pub fn FpMul(
-    py: Python,
-    lhs: Bound<FP>,
-    rhs: Bound<FP>,
+pub fn FpMul<'py>(
+    py: Python<'py>,
+    lhs: Bound<'py, FP>,
+    rhs: Bound<'py, FP>,
     rm: Option<PyRM>,
-) -> Result<Py<FP>, ClaripyError> {
+) -> Result<Bound<'py, FP>, ClaripyError> {
     FP::new(
         py,
         &GLOBAL_CONTEXT.fp_mul(&lhs.get().inner, &rhs.get().inner, rm.unwrap_or_default())?,
@@ -389,12 +398,12 @@ pub fn FpMul(
 }
 
 #[pyfunction(name = "fpDiv", signature = (lhs, rhs, rm = None))]
-pub fn FpDiv(
-    py: Python,
-    lhs: Bound<FP>,
-    rhs: Bound<FP>,
+pub fn FpDiv<'py>(
+    py: Python<'py>,
+    lhs: Bound<'py, FP>,
+    rhs: Bound<'py, FP>,
     rm: Option<PyRM>,
-) -> Result<Py<FP>, ClaripyError> {
+) -> Result<Bound<'py, FP>, ClaripyError> {
     FP::new(
         py,
         &GLOBAL_CONTEXT.fp_div(&lhs.get().inner, &rhs.get().inner, rm.unwrap_or_default())?,
@@ -402,7 +411,11 @@ pub fn FpDiv(
 }
 
 #[pyfunction(name = "fpSqrt", signature = (lhs, rm = None))]
-pub fn FpSqrt(py: Python, lhs: Bound<FP>, rm: Option<PyRM>) -> Result<Py<FP>, ClaripyError> {
+pub fn FpSqrt<'py>(
+    py: Python<'py>,
+    lhs: Bound<'py, FP>,
+    rm: Option<PyRM>,
+) -> Result<Bound<'py, FP>, ClaripyError> {
     FP::new(
         py,
         &GLOBAL_CONTEXT.fp_sqrt(&lhs.get().inner, rm.unwrap_or_default())?,
@@ -410,7 +423,11 @@ pub fn FpSqrt(py: Python, lhs: Bound<FP>, rm: Option<PyRM>) -> Result<Py<FP>, Cl
 }
 
 #[pyfunction(name = "fpEQ", signature = (lhs, rhs))]
-pub fn FpEq(py: Python, lhs: Bound<FP>, rhs: Bound<FP>) -> Result<Py<Bool>, ClaripyError> {
+pub fn FpEq<'py>(
+    py: Python<'py>,
+    lhs: Bound<'py, FP>,
+    rhs: Bound<'py, FP>,
+) -> Result<Bound<'py, Bool>, ClaripyError> {
     Bool::new(
         py,
         &GLOBAL_CONTEXT.fp_eq(&lhs.get().inner, &rhs.get().inner)?,
@@ -418,7 +435,11 @@ pub fn FpEq(py: Python, lhs: Bound<FP>, rhs: Bound<FP>) -> Result<Py<Bool>, Clar
 }
 
 #[pyfunction(name = "fpNeq", signature = (lhs, rhs))]
-pub fn FpNeq(py: Python, lhs: Bound<FP>, rhs: Bound<FP>) -> Result<Py<Bool>, ClaripyError> {
+pub fn FpNeq<'py>(
+    py: Python<'py>,
+    lhs: Bound<'py, FP>,
+    rhs: Bound<'py, FP>,
+) -> Result<Bound<'py, Bool>, ClaripyError> {
     Bool::new(
         py,
         &GLOBAL_CONTEXT.fp_neq(&lhs.get().inner, &rhs.get().inner)?,
@@ -426,7 +447,11 @@ pub fn FpNeq(py: Python, lhs: Bound<FP>, rhs: Bound<FP>) -> Result<Py<Bool>, Cla
 }
 
 #[pyfunction(name = "fpLT", signature = (lhs, rhs))]
-pub fn FpLt(py: Python, lhs: Bound<FP>, rhs: Bound<FP>) -> Result<Py<Bool>, ClaripyError> {
+pub fn FpLt<'py>(
+    py: Python<'py>,
+    lhs: Bound<'py, FP>,
+    rhs: Bound<'py, FP>,
+) -> Result<Bound<'py, Bool>, ClaripyError> {
     Bool::new(
         py,
         &GLOBAL_CONTEXT.fp_lt(&lhs.get().inner, &rhs.get().inner)?,
@@ -434,7 +459,11 @@ pub fn FpLt(py: Python, lhs: Bound<FP>, rhs: Bound<FP>) -> Result<Py<Bool>, Clar
 }
 
 #[pyfunction(name = "fpLEQ", signature = (lhs, rhs))]
-pub fn FpLeq(py: Python, lhs: Bound<FP>, rhs: Bound<FP>) -> Result<Py<Bool>, ClaripyError> {
+pub fn FpLeq<'py>(
+    py: Python<'py>,
+    lhs: Bound<'py, FP>,
+    rhs: Bound<'py, FP>,
+) -> Result<Bound<'py, Bool>, ClaripyError> {
     Bool::new(
         py,
         &GLOBAL_CONTEXT.fp_leq(&lhs.get().inner, &rhs.get().inner)?,
@@ -442,7 +471,11 @@ pub fn FpLeq(py: Python, lhs: Bound<FP>, rhs: Bound<FP>) -> Result<Py<Bool>, Cla
 }
 
 #[pyfunction(name = "fpGT", signature = (lhs, rhs))]
-pub fn FpGt(py: Python, lhs: Bound<FP>, rhs: Bound<FP>) -> Result<Py<Bool>, ClaripyError> {
+pub fn FpGt<'py>(
+    py: Python<'py>,
+    lhs: Bound<'py, FP>,
+    rhs: Bound<'py, FP>,
+) -> Result<Bound<'py, Bool>, ClaripyError> {
     Bool::new(
         py,
         &GLOBAL_CONTEXT.fp_gt(&lhs.get().inner, &rhs.get().inner)?,
@@ -450,7 +483,11 @@ pub fn FpGt(py: Python, lhs: Bound<FP>, rhs: Bound<FP>) -> Result<Py<Bool>, Clar
 }
 
 #[pyfunction(name = "fpGEQ", signature = (lhs, rhs))]
-pub fn FpGeq(py: Python, lhs: Bound<FP>, rhs: Bound<FP>) -> Result<Py<Bool>, ClaripyError> {
+pub fn FpGeq<'py>(
+    py: Python<'py>,
+    lhs: Bound<'py, FP>,
+    rhs: Bound<'py, FP>,
+) -> Result<Bound<'py, Bool>, ClaripyError> {
     Bool::new(
         py,
         &GLOBAL_CONTEXT.fp_geq(&lhs.get().inner, &rhs.get().inner)?,
@@ -458,12 +495,12 @@ pub fn FpGeq(py: Python, lhs: Bound<FP>, rhs: Bound<FP>) -> Result<Py<Bool>, Cla
 }
 
 #[pyfunction(name = "fpIsNaN", signature = (fp))]
-pub fn FpIsNan(py: Python, fp: Bound<FP>) -> Result<Py<Bool>, ClaripyError> {
+pub fn FpIsNan<'py>(py: Python<'py>, fp: Bound<'py, FP>) -> Result<Bound<'py, Bool>, ClaripyError> {
     Bool::new(py, &GLOBAL_CONTEXT.fp_is_nan(&fp.get().inner)?)
 }
 
 #[pyfunction(name = "fpIsInf", signature = (fp))]
-pub fn FpIsInf(py: Python, fp: Bound<FP>) -> Result<Py<Bool>, ClaripyError> {
+pub fn FpIsInf<'py>(py: Python<'py>, fp: Bound<'py, FP>) -> Result<Bound<'py, Bool>, ClaripyError> {
     Bool::new(py, &GLOBAL_CONTEXT.fp_is_inf(&fp.get().inner)?)
 }
 

@@ -35,39 +35,22 @@ fn import_submodule<'py>(
 }
 
 #[pyfunction(name = "simplify")]
-fn py_simplify(py: Python, expr: Bound<Base>) -> Result<Py<Base>, ClaripyError> {
+fn py_simplify<'py>(
+    py: Python<'py>,
+    expr: Bound<'py, Base>,
+) -> Result<Bound<'py, Base>, ClaripyError> {
     if let Ok(bv_value) = expr.clone().into_any().downcast::<BV>() {
-        BV::new(py, &bv_value.get().inner.simplify().unwrap()).map(|b| {
-            b.into_any()
-                .downcast_bound::<Base>(py)
-                .unwrap()
-                .clone()
-                .unbind()
-        })
+        BV::new(py, &bv_value.get().inner.simplify().unwrap())
+            .map(|b| b.into_any().downcast::<Base>().unwrap().clone())
     } else if let Ok(bool_value) = expr.clone().into_any().downcast::<Bool>() {
-        Bool::new(py, &bool_value.get().inner.simplify().unwrap()).map(|b| {
-            b.into_any()
-                .downcast_bound::<Base>(py)
-                .unwrap()
-                .clone()
-                .unbind()
-        })
+        Bool::new(py, &bool_value.get().inner.simplify().unwrap())
+            .map(|b| b.into_any().downcast::<Base>().unwrap().clone())
     } else if let Ok(fp_value) = expr.clone().into_any().downcast::<FP>() {
-        FP::new(py, &fp_value.get().inner.simplify().unwrap()).map(|b| {
-            b.into_any()
-                .downcast_bound::<Base>(py)
-                .unwrap()
-                .clone()
-                .unbind()
-        })
+        FP::new(py, &fp_value.get().inner.simplify().unwrap())
+            .map(|b| b.into_any().downcast::<Base>().unwrap().clone())
     } else if let Ok(string_value) = expr.clone().into_any().downcast::<PyAstString>() {
-        PyAstString::new(py, &string_value.get().inner.simplify().unwrap()).map(|b| {
-            b.into_any()
-                .downcast_bound::<Base>(py)
-                .unwrap()
-                .clone()
-                .unbind()
-        })
+        PyAstString::new(py, &string_value.get().inner.simplify().unwrap())
+            .map(|b| b.into_any().downcast::<Base>().unwrap().clone())
     } else {
         panic!("Unsupported type");
     }

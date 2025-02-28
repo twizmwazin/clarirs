@@ -21,22 +21,25 @@ pub struct PyAstString {
 }
 
 impl PyAstString {
-    pub fn new(py: Python, inner: &StringAst<'static>) -> Result<Py<PyAstString>, ClaripyError> {
+    pub fn new<'py>(
+        py: Python<'py>,
+        inner: &StringAst<'static>,
+    ) -> Result<Bound<'py, PyAstString>, ClaripyError> {
         Self::new_with_name(py, inner, None)
     }
 
-    pub fn new_with_name(
-        py: Python,
+    pub fn new_with_name<'py>(
+        py: Python<'py>,
         inner: &StringAst<'static>,
         name: Option<String>,
-    ) -> Result<Py<PyAstString>, ClaripyError> {
+    ) -> Result<Bound<'py, PyAstString>, ClaripyError> {
         if let Some(cache_hit) = PY_STRING_CACHE.get(&inner.hash()).and_then(|cache_hit| {
             cache_hit
                 .bind(py)
                 .upgrade_as::<PyAstString>()
                 .expect("bool cache poisoned")
         }) {
-            Ok(cache_hit.unbind())
+            Ok(cache_hit)
         } else {
             let this = Py::new(
                 py,
@@ -47,7 +50,7 @@ impl PyAstString {
             let weakref = PyWeakrefReference::new(this.bind(py))?;
             PY_STRING_CACHE.insert(inner.hash(), weakref.unbind());
 
-            Ok(this)
+            Ok(this.into_bound(py))
         }
     }
 }
@@ -55,11 +58,11 @@ impl PyAstString {
 #[pymethods]
 impl PyAstString {
     #[new]
-    pub fn py_new(
-        py: Python,
+    pub fn py_new<'py>(
+        py: Python<'py>,
         op: &str,
         args: Vec<PyObject>,
-    ) -> Result<Py<PyAstString>, ClaripyError> {
+    ) -> Result<Bound<'py, PyAstString>, ClaripyError> {
         PyAstString::new(
             py,
             &match op {
@@ -98,12 +101,12 @@ impl PyAstString {
     }
 
     #[getter]
-    pub fn args(&self, py: Python) -> Result<Vec<PyObject>, ClaripyError> {
+    pub fn args<'py>(&self, py: Python<'py>) -> Result<Vec<Bound<'py, PyAny>>, ClaripyError> {
         self.inner.op().extract_py_args(py)
     }
 
     #[getter]
-    pub fn variables(&self, py: Python) -> Result<Py<PyFrozenSet>, ClaripyError> {
+    pub fn variables<'py>(&self, py: Python<'py>) -> Result<Bound<'py, PyFrozenSet>, ClaripyError> {
         Ok(PyFrozenSet::new(
             py,
             self.inner
@@ -112,8 +115,7 @@ impl PyAstString {
                 .map(|v| v.into_py_any(py))
                 .collect::<Result<Vec<_>, _>>()?
                 .iter(),
-        )?
-        .unbind())
+        )?)
     }
 
     #[getter]
@@ -153,7 +155,7 @@ impl PyAstString {
         self.inner.depth() == 1
     }
 
-    pub fn simplify(&self, py: Python) -> Result<Py<PyAstString>, ClaripyError> {
+    pub fn simplify<'py>(&self, py: Python<'py>) -> Result<Bound<'py, PyAstString>, ClaripyError> {
         PyAstString::new(py, &self.inner.simplify()?)
     }
 
@@ -165,11 +167,11 @@ impl PyAstString {
         })
     }
 
-    pub fn annotate(
+    pub fn annotate<'py>(
         &self,
-        py: Python,
-        annotation: Bound<PyAny>,
-    ) -> Result<Py<PyAstString>, ClaripyError> {
+        py: Python<'py>,
+        annotation: Bound<'py, PyAny>,
+    ) -> Result<Bound<'py, PyAstString>, ClaripyError> {
         let pickle_dumps = py.import("pickle")?.getattr("dumps")?;
         let annotation_bytes = pickle_dumps
             .call1((&annotation,))?
@@ -186,32 +188,40 @@ impl PyAstString {
         )
     }
 
-    pub fn __add__(
+    pub fn __add__<'py>(
         &self,
-        py: Python,
-        other: Bound<PyAstString>,
-    ) -> Result<Py<PyAstString>, ClaripyError> {
+        py: Python<'py>,
+        other: Bound<'py, PyAstString>,
+    ) -> Result<Bound<'py, PyAstString>, ClaripyError> {
         PyAstString::new(
             py,
             &GLOBAL_CONTEXT.strconcat(&self.inner, &other.get().inner)?,
         )
     }
 
-    pub fn __eq__(&self, py: Python, other: Bound<PyAstString>) -> Result<Py<Bool>, ClaripyError> {
+    pub fn __eq__<'py>(
+        &self,
+        py: Python<'py>,
+        other: Bound<'py, PyAstString>,
+    ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(py, &GLOBAL_CONTEXT.streq(&self.inner, &other.get().inner)?)
     }
 
-    pub fn __ne__(&self, py: Python, other: Bound<PyAstString>) -> Result<Py<Bool>, ClaripyError> {
+    pub fn __ne__<'py>(
+        &self,
+        py: Python<'py>,
+        other: Bound<'py, PyAstString>,
+    ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(py, &GLOBAL_CONTEXT.strneq(&self.inner, &other.get().inner)?)
     }
 }
 
 #[pyfunction(signature = (name, explicit_name = false))]
-pub fn StringS(
-    py: Python,
+pub fn StringS<'py>(
+    py: Python<'py>,
     name: &str,
     explicit_name: bool,
-) -> Result<Py<PyAstString>, ClaripyError> {
+) -> Result<Bound<'py, PyAstString>, ClaripyError> {
     let name: String = if explicit_name {
         name.to_string()
     } else {
@@ -222,21 +232,24 @@ pub fn StringS(
 }
 
 #[pyfunction]
-pub fn StringV(py: Python, value: &str) -> Result<Py<PyAstString>, ClaripyError> {
+pub fn StringV<'py>(py: Python<'py>, value: &str) -> Result<Bound<'py, PyAstString>, ClaripyError> {
     PyAstString::new(py, &GLOBAL_CONTEXT.stringv(value)?)
 }
 
 #[pyfunction]
-pub fn StrLen(py: Python, s: Bound<PyAstString>) -> Result<Py<BV>, ClaripyError> {
+pub fn StrLen<'py>(
+    py: Python<'py>,
+    s: Bound<'py, PyAstString>,
+) -> Result<Bound<'py, BV>, ClaripyError> {
     BV::new(py, &GLOBAL_CONTEXT.strlen(&s.get().inner)?)
 }
 
 #[pyfunction]
-pub fn StrConcat(
-    py: Python,
-    s1: Bound<PyAstString>,
-    s2: Bound<PyAstString>,
-) -> Result<Py<PyAstString>, ClaripyError> {
+pub fn StrConcat<'py>(
+    py: Python<'py>,
+    s1: Bound<'py, PyAstString>,
+    s2: Bound<'py, PyAstString>,
+) -> Result<Bound<'py, PyAstString>, ClaripyError> {
     PyAstString::new(
         py,
         &GLOBAL_CONTEXT.strconcat(&s1.get().inner, &s2.get().inner)?,
@@ -244,12 +257,12 @@ pub fn StrConcat(
 }
 
 #[pyfunction]
-pub fn StrSubstr(
-    py: Python,
+pub fn StrSubstr<'py>(
+    py: Python<'py>,
     start: CoerceBV,
     size: CoerceBV,
-    base: Bound<PyAstString>,
-) -> Result<Py<PyAstString>, ClaripyError> {
+    base: Bound<'py, PyAstString>,
+) -> Result<Bound<'py, PyAstString>, ClaripyError> {
     PyAstString::new(
         py,
         &GLOBAL_CONTEXT.strsubstr(&base.get().inner, &start.into(), &size.into())?,
@@ -257,11 +270,11 @@ pub fn StrSubstr(
 }
 
 #[pyfunction]
-pub fn StrContains(
-    py: Python,
-    haystack: Bound<PyAstString>,
-    needle: Bound<PyAstString>,
-) -> Result<Py<Bool>, ClaripyError> {
+pub fn StrContains<'py>(
+    py: Python<'py>,
+    haystack: Bound<'py, PyAstString>,
+    needle: Bound<'py, PyAstString>,
+) -> Result<Bound<'py, Bool>, ClaripyError> {
     Bool::new(
         py,
         &GLOBAL_CONTEXT.strcontains(&haystack.get().inner, &needle.get().inner)?,
@@ -269,12 +282,12 @@ pub fn StrContains(
 }
 
 #[pyfunction]
-pub fn StrIndexOf(
-    py: Python,
-    haystack: Bound<PyAstString>,
-    needle: Bound<PyAstString>,
+pub fn StrIndexOf<'py>(
+    py: Python<'py>,
+    haystack: Bound<'py, PyAstString>,
+    needle: Bound<'py, PyAstString>,
     start: CoerceBV,
-) -> Result<Py<BV>, ClaripyError> {
+) -> Result<Bound<'py, BV>, ClaripyError> {
     BV::new(
         py,
         &GLOBAL_CONTEXT.strindexof(&haystack.get().inner, &needle.get().inner, &start.into())?,
@@ -282,12 +295,12 @@ pub fn StrIndexOf(
 }
 
 #[pyfunction]
-pub fn StrReplace(
-    py: Python,
-    haystack: Bound<PyAstString>,
-    needle: Bound<PyAstString>,
-    replacement: Bound<PyAstString>,
-) -> Result<Py<PyAstString>, ClaripyError> {
+pub fn StrReplace<'py>(
+    py: Python<'py>,
+    haystack: Bound<'py, PyAstString>,
+    needle: Bound<'py, PyAstString>,
+    replacement: Bound<'py, PyAstString>,
+) -> Result<Bound<'py, PyAstString>, ClaripyError> {
     PyAstString::new(
         py,
         &GLOBAL_CONTEXT.strreplace(
@@ -299,22 +312,23 @@ pub fn StrReplace(
 }
 
 #[pyfunction]
-pub fn StrPrefixOf(
-    py: Python,
-    needle: Bound<PyAstString>,
-    haystack: Bound<PyAstString>,
-) -> Result<Py<Bool>, ClaripyError> {
+pub fn StrPrefixOf<'py>(
+    py: Python<'py>,
+    needle: Bound<'py, PyAstString>,
+    haystack: Bound<'py, PyAstString>,
+) -> Result<Bound<'py, Bool>, ClaripyError> {
     Bool::new(
         py,
         &GLOBAL_CONTEXT.strprefixof(&needle.get().inner, &haystack.get().inner)?,
     )
 }
+
 #[pyfunction]
-pub fn StrSuffixOf(
-    py: Python,
-    needle: Bound<PyAstString>,
-    haystack: Bound<PyAstString>,
-) -> Result<Py<Bool>, ClaripyError> {
+pub fn StrSuffixOf<'py>(
+    py: Python<'py>,
+    needle: Bound<'py, PyAstString>,
+    haystack: Bound<'py, PyAstString>,
+) -> Result<Bound<'py, Bool>, ClaripyError> {
     Bool::new(
         py,
         &GLOBAL_CONTEXT.strsuffixof(&needle.get().inner, &haystack.get().inner)?,
@@ -322,33 +336,44 @@ pub fn StrSuffixOf(
 }
 
 #[pyfunction]
-pub fn StrToInt(py: Python, s: Bound<PyAstString>) -> Result<Py<BV>, ClaripyError> {
+pub fn StrToInt<'py>(
+    py: Python<'py>,
+    s: Bound<'py, PyAstString>,
+) -> Result<Bound<'py, BV>, ClaripyError> {
     BV::new(py, &GLOBAL_CONTEXT.strtobv(&s.get().inner)?)
 }
 
 #[pyfunction]
-pub fn IntToStr(py: Python, bv: Bound<BV>) -> Result<Py<PyAstString>, ClaripyError> {
+pub fn IntToStr<'py>(
+    py: Python<'py>,
+    bv: Bound<'py, BV>,
+) -> Result<Bound<'py, PyAstString>, ClaripyError> {
     PyAstString::new(py, &GLOBAL_CONTEXT.bvtostr(&bv.get().inner)?)
 }
 
 #[pyfunction]
-pub fn StrIsDigit(py: Python, s: Bound<PyAstString>) -> Result<Py<Bool>, ClaripyError> {
+pub fn StrIsDigit<'py>(
+    py: Python<'py>,
+    s: Bound<'py, PyAstString>,
+) -> Result<Bound<'py, Bool>, ClaripyError> {
     Bool::new(py, &GLOBAL_CONTEXT.strisdigit(&s.get().inner)?)
 }
+
 #[pyfunction]
-pub fn StrEq(
-    py: Python,
-    s1: Bound<PyAstString>,
-    s2: Bound<PyAstString>,
-) -> Result<Py<Bool>, ClaripyError> {
+pub fn StrEq<'py>(
+    py: Python<'py>,
+    s1: Bound<'py, PyAstString>,
+    s2: Bound<'py, PyAstString>,
+) -> Result<Bound<'py, Bool>, ClaripyError> {
     Bool::new(py, &GLOBAL_CONTEXT.streq(&s1.get().inner, &s2.get().inner)?)
 }
+
 #[pyfunction]
-pub fn StrNeq(
-    py: Python,
-    s1: Bound<PyAstString>,
-    s2: Bound<PyAstString>,
-) -> Result<Py<Bool>, ClaripyError> {
+pub fn StrNeq<'py>(
+    py: Python<'py>,
+    s1: Bound<'py, PyAstString>,
+    s2: Bound<'py, PyAstString>,
+) -> Result<Bound<'py, Bool>, ClaripyError> {
     Bool::new(
         py,
         &GLOBAL_CONTEXT.strneq(&s1.get().inner, &s2.get().inner)?,

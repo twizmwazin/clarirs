@@ -23,14 +23,14 @@ impl PySolver {
     }
 
     #[pyo3(signature = (expr, n, extra_constraints = None, exact = None))]
-    fn eval_to_ast(
+    fn eval_to_ast<'py>(
         &mut self,
-        py: Python,
-        expr: Bound<Base>,
+        py: Python<'py>,
+        expr: Bound<'py, Base>,
         n: u32,
-        extra_constraints: Option<Vec<Bound<Bool>>>,
-        exact: Option<Bound<'_, PyAny>>,
-    ) -> Result<Vec<Py<Base>>, ClaripyError> {
+        extra_constraints: Option<Vec<Bound<'py, Bool>>>,
+        exact: Option<Bound<'py, PyAny>>,
+    ) -> Result<Vec<Bound<'py, Base>>, ClaripyError> {
         let _ = n; // TODO: Implement multiple solutions
         let _ = exact; // TODO: Implement approximate solutions
 
@@ -43,37 +43,17 @@ impl PySolver {
         }
 
         if let Ok(bv_value) = expr.clone().into_any().downcast::<BV>() {
-            BV::new(py, &solver.eval_bitvec(&bv_value.get().inner)?).map(|b| {
-                b.into_any()
-                    .downcast_bound::<Base>(py)
-                    .unwrap()
-                    .clone()
-                    .unbind()
-            })
+            BV::new(py, &solver.eval_bitvec(&bv_value.get().inner)?)
+                .map(|b| b.into_any().downcast::<Base>().unwrap().clone())
         } else if let Ok(bool_value) = expr.clone().into_any().downcast::<Bool>() {
-            Bool::new(py, &solver.eval_bool(&bool_value.get().inner).unwrap()).map(|b| {
-                b.into_any()
-                    .downcast_bound::<Base>(py)
-                    .unwrap()
-                    .clone()
-                    .unbind()
-            })
+            Bool::new(py, &solver.eval_bool(&bool_value.get().inner).unwrap())
+                .map(|b| b.into_any().downcast::<Base>().unwrap().clone())
         } else if let Ok(fp_value) = expr.clone().into_any().downcast::<FP>() {
-            FP::new(py, &solver.eval_float(&fp_value.get().inner)?).map(|b| {
-                b.into_any()
-                    .downcast_bound::<Base>(py)
-                    .unwrap()
-                    .clone()
-                    .unbind()
-            })
+            FP::new(py, &solver.eval_float(&fp_value.get().inner)?)
+                .map(|b| b.into_any().downcast::<Base>().unwrap().clone())
         } else if let Ok(string_value) = expr.clone().into_any().downcast::<PyAstString>() {
-            PyAstString::new(py, &solver.eval_string(&string_value.get().inner)?).map(|b| {
-                b.into_any()
-                    .downcast_bound::<Base>(py)
-                    .unwrap()
-                    .clone()
-                    .unbind()
-            })
+            PyAstString::new(py, &solver.eval_string(&string_value.get().inner)?)
+                .map(|b| b.into_any().downcast::<Base>().unwrap().clone())
         } else {
             panic!("Unsupported type");
         }
@@ -92,30 +72,28 @@ impl PySolver {
         self.eval_to_ast(py, expr, n, extra_constraints, exact)?
             .into_iter()
             .filter_map(|r| {
-                if let Ok(bv_value) = r.clone().into_any().downcast_bound::<BV>(py) {
+                if let Ok(bv_value) = r.clone().into_any().downcast::<BV>() {
                     // Assume that the BV is concrete, extract and return a Python integer
                     if let BitVecOp::BVV(bv) = bv_value.get().inner.op() {
                         Some(bv.to_biguint().into_bound_py_any(py))
                     } else {
                         None
                     }
-                } else if let Ok(bool_value) = r.clone().into_any().downcast_bound::<Bool>(py) {
+                } else if let Ok(bool_value) = r.clone().into_any().downcast::<Bool>() {
                     // Assume that the Bool is concrete, extract and return a Python boolean
                     if let BooleanOp::BoolV(b) = bool_value.get().inner.op() {
                         Some(b.into_bound_py_any(py))
                     } else {
                         None
                     }
-                } else if let Ok(fp_value) = r.clone().into_any().downcast_bound::<FP>(py) {
+                } else if let Ok(fp_value) = r.clone().into_any().downcast::<FP>() {
                     // Assume that the FP is concrete, extract and return a Python float
                     if let FloatOp::FPV(fp) = fp_value.get().inner.op() {
                         fp.to_f64().map(|f| f.into_bound_py_any(py))
                     } else {
                         None
                     }
-                } else if let Ok(string_value) =
-                    r.clone().into_any().downcast_bound::<PyAstString>(py)
-                {
+                } else if let Ok(string_value) = r.clone().into_any().downcast::<PyAstString>() {
                     // Assume that the PyAstString is concrete, extract and return a Python string
                     if let StringOp::StringV(s) = string_value.get().inner.op() {
                         Some(s.into_bound_py_any(py))
@@ -156,14 +134,14 @@ impl PySolver {
     }
 
     #[pyo3(signature = (expr, extra_constraints = None, exact = None, signed = false))]
-    fn min(
+    fn min<'py>(
         &mut self,
-        py: Python,
-        expr: Bound<BV>,
-        extra_constraints: Option<Vec<Bound<Bool>>>,
-        exact: Option<Bound<PyAny>>,
+        py: Python<'py>,
+        expr: Bound<'py, BV>,
+        extra_constraints: Option<Vec<Bound<'py, Bool>>>,
+        exact: Option<Bound<'py, PyAny>>,
         signed: bool,
-    ) -> Result<Py<BV>, ClaripyError> {
+    ) -> Result<Bound<'py, BV>, ClaripyError> {
         let _ = exact; // TODO: Implement approximate solutions
         let _ = signed; // TODO: Implement signed solutions
 
@@ -177,14 +155,14 @@ impl PySolver {
     }
 
     #[pyo3(signature = (expr, extra_constraints = None, exact = None, signed = false))]
-    fn max(
+    fn max<'py>(
         &mut self,
-        py: Python,
-        expr: Bound<BV>,
-        extra_constraints: Option<Vec<Bound<Bool>>>,
-        exact: Option<Bound<PyAny>>,
+        py: Python<'py>,
+        expr: Bound<'py, BV>,
+        extra_constraints: Option<Vec<Bound<'py, Bool>>>,
+        exact: Option<Bound<'py, PyAny>>,
         signed: bool,
-    ) -> Result<Py<BV>, ClaripyError> {
+    ) -> Result<Bound<'py, BV>, ClaripyError> {
         let _ = exact; // TODO: Implement approximate solutions
         let _ = signed; // TODO: Implement signedness
 
