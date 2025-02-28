@@ -26,30 +26,33 @@ pub struct Bool {
 }
 
 impl Bool {
-    pub fn new(py: Python, inner: &BoolAst<'static>) -> Result<Py<Bool>, ClaripyError> {
+    pub fn new<'py>(
+        py: Python<'py>,
+        inner: &BoolAst<'static>,
+    ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Self::new_with_name(py, inner, None)
     }
 
-    pub fn new_with_name(
-        py: Python,
+    pub fn new_with_name<'py>(
+        py: Python<'py>,
         inner: &BoolAst<'static>,
         name: Option<String>,
-    ) -> Result<Py<Bool>, ClaripyError> {
+    ) -> Result<Bound<'py, Bool>, ClaripyError> {
         if let Some(cache_hit) = PY_BOOL_CACHE.get(&inner.hash()).and_then(|cache_hit| {
             cache_hit
                 .bind(py)
                 .upgrade_as::<Bool>()
                 .expect("bool cache poisoned")
         }) {
-            Ok(cache_hit.unbind())
+            Ok(cache_hit)
         } else {
-            let this = Py::new(
+            let this = Bound::new(
                 py,
                 PyClassInitializer::from(Base::new_with_name(py, name)).add_subclass(Bool {
                     inner: inner.clone(),
                 }),
             )?;
-            let weakref = PyWeakrefReference::new(this.bind(py))?;
+            let weakref = PyWeakrefReference::new(&this)?;
             PY_BOOL_CACHE.insert(inner.hash(), weakref.unbind());
 
             Ok(this)
@@ -60,7 +63,11 @@ impl Bool {
 #[pymethods]
 impl Bool {
     #[new]
-    pub fn py_new(py: Python, op: &str, args: Vec<PyObject>) -> Result<Py<Bool>, ClaripyError> {
+    pub fn py_new<'py>(
+        py: Python<'py>,
+        op: &str,
+        args: Vec<PyObject>,
+    ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
             &match op {
@@ -207,12 +214,12 @@ impl Bool {
     }
 
     #[getter]
-    pub fn args(&self, py: Python) -> Result<Vec<PyObject>, ClaripyError> {
+    pub fn args<'py>(&self, py: Python<'py>) -> Result<Vec<Bound<'py, PyAny>>, ClaripyError> {
         self.inner.op().extract_py_args(py)
     }
 
     #[getter]
-    pub fn variables(&self, py: Python) -> Result<Py<PyFrozenSet>, ClaripyError> {
+    pub fn variables<'py>(&self, py: Python<'py>) -> Result<Bound<'py, PyFrozenSet>, ClaripyError> {
         Ok(PyFrozenSet::new(
             py,
             self.inner
@@ -221,8 +228,7 @@ impl Bool {
                 .map(|v| v.into_py_any(py))
                 .collect::<Result<Vec<_>, _>>()?
                 .iter(),
-        )?
-        .unbind())
+        )?)
     }
 
     #[getter]
@@ -262,7 +268,7 @@ impl Bool {
         self.inner.depth() == 1
     }
 
-    pub fn simplify(&self, py: Python) -> Result<Py<Bool>, ClaripyError> {
+    pub fn simplify<'py>(&self, py: Python<'py>) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(py, &self.inner.simplify()?)
     }
 
@@ -290,7 +296,11 @@ impl Bool {
         })
     }
 
-    pub fn annotate(&self, py: Python, annotation: Bound<PyAny>) -> Result<Py<Bool>, ClaripyError> {
+    pub fn annotate<'py>(
+        &self,
+        py: Python<'py>,
+        annotation: Bound<'py, PyAny>,
+    ) -> Result<Bound<'py, Bool>, ClaripyError> {
         let pickle_dumps = py.import("pickle")?.getattr("dumps")?;
         let annotation_bytes = pickle_dumps
             .call1((&annotation,))?
@@ -307,39 +317,59 @@ impl Bool {
         )
     }
 
-    pub fn __invert__(&self, py: Python) -> Result<Py<Bool>, ClaripyError> {
+    pub fn __invert__<'py>(&self, py: Python<'py>) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(py, &GLOBAL_CONTEXT.not(&self.inner)?)
     }
 
-    pub fn __and__(&self, py: Python, other: CoerceBool) -> Result<Py<Bool>, ClaripyError> {
+    pub fn __and__<'py>(
+        &self,
+        py: Python<'py>,
+        other: CoerceBool,
+    ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
             &GLOBAL_CONTEXT.and(&self.inner, &<CoerceBool as Into<BoolAst>>::into(other))?,
         )
     }
 
-    pub fn __or__(&self, py: Python, other: CoerceBool) -> Result<Py<Bool>, ClaripyError> {
+    pub fn __or__<'py>(
+        &self,
+        py: Python<'py>,
+        other: CoerceBool,
+    ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
             &GLOBAL_CONTEXT.or(&self.inner, &<CoerceBool as Into<BoolAst>>::into(other))?,
         )
     }
 
-    pub fn __xor__(&self, py: Python, other: CoerceBool) -> Result<Py<Bool>, ClaripyError> {
+    pub fn __xor__<'py>(
+        &self,
+        py: Python<'py>,
+        other: CoerceBool,
+    ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
             &GLOBAL_CONTEXT.xor(&self.inner, &<CoerceBool as Into<BoolAst>>::into(other))?,
         )
     }
 
-    pub fn __eq__(&self, py: Python, other: CoerceBool) -> Result<Py<Bool>, ClaripyError> {
+    pub fn __eq__<'py>(
+        &self,
+        py: Python<'py>,
+        other: CoerceBool,
+    ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
             &GLOBAL_CONTEXT.eq_(&self.inner, &<CoerceBool as Into<BoolAst>>::into(other))?,
         )
     }
 
-    pub fn __ne__(&self, py: Python, other: CoerceBool) -> Result<Py<Bool>, ClaripyError> {
+    pub fn __ne__<'py>(
+        &self,
+        py: Python<'py>,
+        other: CoerceBool,
+    ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
             &GLOBAL_CONTEXT.neq(&self.inner, &<CoerceBool as Into<BoolAst>>::into(other))?,
@@ -348,7 +378,11 @@ impl Bool {
 }
 
 #[pyfunction(signature = (name, explicit_name = false))]
-pub fn BoolS(py: Python, name: &str, explicit_name: bool) -> Result<Py<Bool>, ClaripyError> {
+pub fn BoolS<'py>(
+    py: Python<'py>,
+    name: &str,
+    explicit_name: bool,
+) -> Result<Bound<'py, Bool>, ClaripyError> {
     let name: String = if explicit_name {
         name.to_string()
     } else {
@@ -359,26 +393,34 @@ pub fn BoolS(py: Python, name: &str, explicit_name: bool) -> Result<Py<Bool>, Cl
 }
 
 #[pyfunction]
-pub fn BoolV(py: Python, value: bool) -> Result<Py<Bool>, ClaripyError> {
+pub fn BoolV(py: Python<'_>, value: bool) -> Result<Bound<'_, Bool>, ClaripyError> {
     Bool::new(py, &GLOBAL_CONTEXT.boolv(value)?)
 }
 
 #[pyfunction(name = "Eq")]
-pub fn Eq_(py: Python, a: Bound<Bool>, b: Bound<Bool>) -> Result<Py<Bool>, ClaripyError> {
+pub fn Eq_<'py>(
+    py: Python<'py>,
+    a: Bound<Bool>,
+    b: Bound<Bool>,
+) -> Result<Bound<'py, Bool>, ClaripyError> {
     Bool::new(py, &GLOBAL_CONTEXT.eq_(&a.get().inner, &b.get().inner)?)
 }
 
 #[pyfunction]
-pub fn Neq(py: Python, a: Bound<Bool>, b: Bound<Bool>) -> Result<Py<Bool>, ClaripyError> {
+pub fn Neq<'py>(
+    py: Python<'py>,
+    a: Bound<Bool>,
+    b: Bound<Bool>,
+) -> Result<Bound<'py, Bool>, ClaripyError> {
     Bool::new(py, &GLOBAL_CONTEXT.neq(&a.get().inner, &b.get().inner)?)
 }
 
 #[pyfunction(name = "true")]
-pub fn true_op(py: Python) -> Result<Py<Bool>, ClaripyError> {
+pub fn true_op(py: Python<'_>) -> Result<Bound<'_, Bool>, ClaripyError> {
     Bool::new(py, &GLOBAL_CONTEXT.true_()?)
 }
 #[pyfunction(name = "false")]
-pub fn false_op(py: Python) -> Result<Py<Bool>, ClaripyError> {
+pub fn false_op(py: Python<'_>) -> Result<Bound<'_, Bool>, ClaripyError> {
     Bool::new(py, &GLOBAL_CONTEXT.false_()?)
 }
 
@@ -393,7 +435,11 @@ pub fn false_op(py: Python) -> Result<Py<Bool>, ClaripyError> {
 ///
 /// An expression encoding the result
 #[pyfunction]
-pub fn ite_cases(py: Python, cases: Bound<PyList>, default: Bound<PyAny>) -> PyResult<PyObject> {
+pub fn ite_cases<'py>(
+    py: Python<'py>,
+    cases: Bound<'py, PyList>,
+    default: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyAny>> {
     let mut sofar = default;
 
     // Process cases in reverse order
@@ -412,10 +458,10 @@ pub fn ite_cases(py: Python, cases: Bound<PyList>, default: Bound<PyAny>) -> PyR
         let value = tuple.get_item(1)?;
 
         // Create If expression: If(cond, value, sofar)
-        sofar = r#if(py, cond_bool, value, sofar)?.bind(py).as_any().clone();
+        sofar = r#if(py, cond_bool, value, sofar)?.as_any().clone();
     }
 
-    Ok(sofar.unbind())
+    Ok(sofar)
 }
 
 /// Create a binary search tree for large tables
@@ -430,12 +476,12 @@ pub fn ite_cases(py: Python, cases: Bound<PyList>, default: Bound<PyAny>) -> PyR
 ///
 /// An expression encoding the result
 #[pyfunction]
-pub fn ite_dict(
-    py: Python,
-    i: Bound<Base>,
-    d: Bound<PyDict>,
-    default: Bound<PyAny>,
-) -> PyResult<PyObject> {
+pub fn ite_dict<'py>(
+    py: Python<'py>,
+    i: Bound<'py, Base>,
+    d: Bound<'py, PyDict>,
+    default: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyAny>> {
     // For small dictionaries, just use ite_cases
     if d.len() <= 4 {
         let cases = PyList::empty(py);
@@ -475,13 +521,13 @@ pub fn ite_dict(
 
     // Recursively build trees for each part
     let val_low = if dict_low.is_empty() {
-        default.clone().unbind()
+        default.clone()
     } else {
         ite_dict(py, i.clone(), dict_low, default.clone())?
     };
 
     let val_high = if dict_high.is_empty() {
-        default.unbind()
+        default.clone()
     } else {
         ite_dict(py, i.clone(), dict_high, default.clone())?
     };
@@ -493,13 +539,8 @@ pub fn ite_dict(
         .clone();
 
     // Create If expression: If(cond, val_low, val_high)
-    let result = r#if(
-        py,
-        cond,
-        val_low.bind(py).clone(),
-        val_high.bind(py).clone(),
-    )?;
-    let coerced = result.bind(py).clone().into_any().unbind();
+    let result = r#if(py, cond, val_low.clone(), val_high.clone())?;
+    let coerced = result.clone().into_any();
     Ok(coerced)
 }
 
