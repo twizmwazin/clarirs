@@ -67,7 +67,7 @@ impl std::hash::Hash for StringOp<'_> {
 }
 
 impl<'c> Op<'c> for StringOp<'c> {
-    fn child_iter(&self) -> IntoIter<VarAst<'c>> {
+    fn child_iter(&self) -> IntoIter<DynAst<'c>> {
         match self {
             StringOp::StringS(..) | StringOp::StringV(..) => vec![],
 

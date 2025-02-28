@@ -67,16 +67,16 @@ impl<'c> Z3Solver<'c> {
 
     fn eval_expr_with_model(
         model: z3::Model,
-        expr: &VarAst<'c>,
-    ) -> Result<VarAst<'c>, ClarirsError> {
+        expr: &DynAst<'c>,
+    ) -> Result<DynAst<'c>, ClarirsError> {
         Z3_CONTEXT.with(|&z3_ctx| unsafe {
             match expr {
-                VarAst::Boolean(a) => {
+                DynAst::Boolean(a) => {
                     let z3_expr = a.to_z3()?;
                     let mut eval_result: z3::Ast = std::mem::zeroed();
                     let eval_ret = z3::model_eval(z3_ctx, model, *z3_expr, true, &mut eval_result);
                     if eval_ret {
-                        Ok(VarAst::from(&BoolAst::from_z3(
+                        Ok(DynAst::from(&BoolAst::from_z3(
                             expr.context(),
                             eval_result,
                         )?))
@@ -84,12 +84,12 @@ impl<'c> Z3Solver<'c> {
                         Err(ClarirsError::Unsat)
                     }
                 }
-                VarAst::BitVec(a) => {
+                DynAst::BitVec(a) => {
                     let z3_expr = a.to_z3()?;
                     let mut eval_result: z3::Ast = std::mem::zeroed();
                     let eval_ret = z3::model_eval(z3_ctx, model, *z3_expr, true, &mut eval_result);
                     if eval_ret {
-                        Ok(VarAst::from(&BitVecAst::from_z3(
+                        Ok(DynAst::from(&BitVecAst::from_z3(
                             expr.context(),
                             eval_result,
                         )?))
@@ -97,12 +97,12 @@ impl<'c> Z3Solver<'c> {
                         Err(ClarirsError::Unsat)
                     }
                 }
-                VarAst::Float(a) => {
+                DynAst::Float(a) => {
                     let z3_expr = a.to_z3()?;
                     let mut eval_result: z3::Ast = std::mem::zeroed();
                     let eval_ret = z3::model_eval(z3_ctx, model, *z3_expr, true, &mut eval_result);
                     if eval_ret {
-                        Ok(VarAst::from(&FloatAst::from_z3(
+                        Ok(DynAst::from(&FloatAst::from_z3(
                             expr.context(),
                             eval_result,
                         )?))
@@ -110,12 +110,12 @@ impl<'c> Z3Solver<'c> {
                         Err(ClarirsError::Unsat)
                     }
                 }
-                VarAst::String(a) => {
+                DynAst::String(a) => {
                     let z3_expr = a.to_z3()?;
                     let mut eval_result: z3::Ast = std::mem::zeroed();
                     let eval_ret = z3::model_eval(z3_ctx, model, *z3_expr, true, &mut eval_result);
                     if eval_ret {
-                        Ok(VarAst::from(&StringAst::from_z3(
+                        Ok(DynAst::from(&StringAst::from_z3(
                             expr.context(),
                             eval_result,
                         )?))
@@ -127,16 +127,16 @@ impl<'c> Z3Solver<'c> {
         })
     }
 
-    fn simplify_varast(expr: &VarAst<'c>) -> Result<VarAst<'c>, ClarirsError> {
+    fn simplify_varast(expr: &DynAst<'c>) -> Result<DynAst<'c>, ClarirsError> {
         Ok(match expr {
-            VarAst::Boolean(expr) => VarAst::from(&expr.simplify_z3()?),
-            VarAst::BitVec(expr) => VarAst::from(&expr.simplify_z3()?),
-            VarAst::Float(expr) => VarAst::from(&expr.simplify_z3()?),
-            VarAst::String(expr) => VarAst::from(&expr.simplify_z3()?),
+            DynAst::Boolean(expr) => DynAst::from(&expr.simplify_z3()?),
+            DynAst::BitVec(expr) => DynAst::from(&expr.simplify_z3()?),
+            DynAst::Float(expr) => DynAst::from(&expr.simplify_z3()?),
+            DynAst::String(expr) => DynAst::from(&expr.simplify_z3()?),
         })
     }
 
-    fn eval(&self, expr: &VarAst<'c>) -> Result<VarAst<'c>, ClarirsError> {
+    fn eval(&self, expr: &DynAst<'c>) -> Result<DynAst<'c>, ClarirsError> {
         let expr = Z3Solver::simplify_varast(expr)?;
 
         // If the expression is concrete, we can return it directly
@@ -166,33 +166,33 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
     }
 
     fn eval_bool(&mut self, expr: &BoolAst<'c>) -> Result<BoolAst<'c>, ClarirsError> {
-        let result = self.eval(&VarAst::from(expr))?;
+        let result = self.eval(&DynAst::from(expr))?;
         match result {
-            VarAst::Boolean(ast) => Ok(ast),
+            DynAst::Boolean(ast) => Ok(ast),
             _ => unreachable!(),
         }
     }
 
     fn eval_bitvec(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        let result = self.eval(&VarAst::from(expr))?;
+        let result = self.eval(&DynAst::from(expr))?;
         match result {
-            VarAst::BitVec(ast) => Ok(ast),
+            DynAst::BitVec(ast) => Ok(ast),
             _ => unreachable!(),
         }
     }
 
     fn eval_float(&mut self, expr: &FloatAst<'c>) -> Result<FloatAst<'c>, ClarirsError> {
-        let result = self.eval(&VarAst::from(expr))?;
+        let result = self.eval(&DynAst::from(expr))?;
         match result {
-            VarAst::Float(ast) => Ok(ast),
+            DynAst::Float(ast) => Ok(ast),
             _ => unreachable!(),
         }
     }
 
     fn eval_string(&mut self, expr: &StringAst<'c>) -> Result<StringAst<'c>, ClarirsError> {
-        let result = self.eval(&VarAst::from(expr))?;
+        let result = self.eval(&DynAst::from(expr))?;
         match result {
-            VarAst::String(ast) => Ok(ast),
+            DynAst::String(ast) => Ok(ast),
             _ => unreachable!(),
         }
     }
@@ -216,9 +216,9 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
             }
 
             let model = RcModel::from(z3::optimize_get_model(z3_ctx, *optimize));
-            let result = Z3Solver::eval_expr_with_model(*model, &VarAst::from(expr))?;
+            let result = Z3Solver::eval_expr_with_model(*model, &DynAst::from(expr))?;
             match result {
-                VarAst::BitVec(ast) => Ok(ast),
+                DynAst::BitVec(ast) => Ok(ast),
                 _ => unreachable!(),
             }
         })
@@ -233,9 +233,9 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
             }
 
             let model = RcModel::from(z3::optimize_get_model(z3_ctx, *optimize));
-            let result = Z3Solver::eval_expr_with_model(*model, &VarAst::from(expr))?;
+            let result = Z3Solver::eval_expr_with_model(*model, &DynAst::from(expr))?;
             match result {
-                VarAst::BitVec(ast) => Ok(ast),
+                DynAst::BitVec(ast) => Ok(ast),
                 _ => unreachable!(),
             }
         })

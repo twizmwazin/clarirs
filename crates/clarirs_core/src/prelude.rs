@@ -2,7 +2,7 @@ pub use crate::algorithms::{Join, Simplify};
 pub use crate::ast::bitvec::{BitVecAst, BitVecOp};
 pub use crate::ast::bool::{BoolAst, BooleanOp};
 pub use crate::ast::float::{FloatAst, FloatOp};
-pub use crate::ast::node::VarAst;
+pub use crate::ast::node::DynAst;
 pub use crate::ast::op::Op;
 pub use crate::ast::string::{StringAst, StringOp};
 pub use crate::ast::{Annotation, AstFactory, AstNode, AstRef};
