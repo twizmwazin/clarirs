@@ -649,20 +649,11 @@ impl BV {
     }
 
     pub fn chop(self_: Bound<BV>, py: Python, bits: u32) -> Result<Vec<Py<BV>>, ClaripyError> {
-        let s = self_.get().size() as u32;
-        if s % bits != 0 {
-            return Err(ClaripyError::InvalidArgument(
-                "expression length should be a multiple of 'bits'".to_string(),
-            ));
-        }
-        if s == bits {
-            return Ok(vec![self_.unbind()]);
-        }
-        let mut result = Vec::with_capacity((s / bits) as usize);
-        for n in 0..(s / bits) {
-            result.push(BV::get_bytes(self_.clone(), py, n * bits, bits)?);
-        }
-        Ok(result)
+        self_.get().inner.chop(bits).map(|r| {
+            r.into_iter()
+                .map(|r| BV::new(py, &r))
+                .collect::<Result<Vec<_>, _>>()
+        })?
     }
 }
 
