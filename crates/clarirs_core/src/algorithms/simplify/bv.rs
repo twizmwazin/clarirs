@@ -315,14 +315,12 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                             let new_length = value1.len() + value2.len();
 
                             // Shift the first value to the left to make space, then OR with the second value
-                            let concatenated_value =
-                                ((value1.clone() << value2.len())? | value2.clone())?;
+                            let concatenated_value = ((value1.zero_extend(value2.len())?
+                                << value2.len())?
+                                | value2.clone())?;
 
                             // Return a new BitVec with the concatenated result and new length
-                            ctx.bvv(BitVec::from_biguint_trunc(
-                                &concatenated_value.to_biguint(),
-                                new_length,
-                            ))
+                            ctx.bvv(concatenated_value)
                         }
                         _ => ctx.concat(&arc, &arc1),
                     }
