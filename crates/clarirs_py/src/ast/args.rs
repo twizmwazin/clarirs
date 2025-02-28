@@ -71,7 +71,7 @@ impl ExtractPyArgs for BitVecAst<'static> {
         &self,
         py: Python<'py>,
     ) -> Result<Vec<Bound<'py, PyAny>>, ClaripyError> {
-        Ok(match self.op(){
+        Ok(match self.op() {
             BitVecOp::BVS(name, size) => {
                 vec![name.into_bound_py_any(py)?, size.into_bound_py_any(py)?]
             }
