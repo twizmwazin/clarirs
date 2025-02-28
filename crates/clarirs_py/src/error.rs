@@ -29,6 +29,8 @@ pub enum ClaripyError {
     InvalidArgument(String),
     #[error("BitVec error: {0}")]
     BitVecError(#[from] BitVecError),
+    #[error("Unsupported operation: {0}")]
+    UnsupportedOperation(String),
 }
 
 impl From<ClarirsError> for ClaripyError {
