@@ -186,7 +186,7 @@ class TestBoolOperations(unittest.TestCase):
         # Same true/false values
         result = claripy.If(self.bool_sym, self.bv1, self.bv1)
         # Use Z3 to evaluate symbolic result
-        z3_solver = claripy.frontend.FullFrontend(claripy.backends.z3)
+        z3_solver = claripy.solver.Z3Solver()
 
         # Create a constraint to resolve the symbolic condition
         z3_solver.add(self.bool_sym == True)

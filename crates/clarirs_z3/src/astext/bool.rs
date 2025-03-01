@@ -61,34 +61,127 @@ impl<'c> AstExtZ3<'c> for BoolAst<'c> {
                 BooleanOp::Annotated(inner, _) => inner.to_z3()?,
 
                 // BV operations
-                BooleanOp::Eq(_, _) => todo!("Eq"),
-                BooleanOp::Neq(_, _) => todo!("Neq"),
-                BooleanOp::ULT(_, _) => todo!("ULT"),
-                BooleanOp::ULE(_, _) => todo!("ULE"),
-                BooleanOp::UGT(_, _) => todo!("UGT"),
-                BooleanOp::UGE(_, _) => todo!("UGE"),
-                BooleanOp::SLT(_, _) => todo!("SLT"),
-                BooleanOp::SLE(_, _) => todo!("SLE"),
-                BooleanOp::SGT(_, _) => todo!("SGT"),
-                BooleanOp::SGE(_, _) => todo!("SGE"),
+                BooleanOp::Eq(a, b) => {
+                    let a = a.to_z3()?;
+                    let b = b.to_z3()?;
+                    z3::mk_eq(z3_ctx, a.0, b.0).into()
+                }
+                BooleanOp::Neq(a, b) => {
+                    let a = a.to_z3()?;
+                    let b = b.to_z3()?;
+                    let eq = z3::mk_eq(z3_ctx, a.0, b.0);
+                    z3::mk_not(z3_ctx, eq).into()
+                }
+                BooleanOp::ULT(a, b) => {
+                    let a = a.to_z3()?;
+                    let b = b.to_z3()?;
+                    z3::mk_bvult(z3_ctx, a.0, b.0).into()
+                }
+                BooleanOp::ULE(a, b) => {
+                    let a = a.to_z3()?;
+                    let b = b.to_z3()?;
+                    z3::mk_bvule(z3_ctx, a.0, b.0).into()
+                }
+                BooleanOp::UGT(a, b) => {
+                    let a = a.to_z3()?;
+                    let b = b.to_z3()?;
+                    z3::mk_bvugt(z3_ctx, a.0, b.0).into()
+                }
+                BooleanOp::UGE(a, b) => {
+                    let a = a.to_z3()?;
+                    let b = b.to_z3()?;
+                    z3::mk_bvuge(z3_ctx, a.0, b.0).into()
+                }
+                BooleanOp::SLT(a, b) => {
+                    let a = a.to_z3()?;
+                    let b = b.to_z3()?;
+                    z3::mk_bvslt(z3_ctx, a.0, b.0).into()
+                }
+                BooleanOp::SLE(a, b) => {
+                    let a = a.to_z3()?;
+                    let b = b.to_z3()?;
+                    z3::mk_bvsle(z3_ctx, a.0, b.0).into()
+                }
+                BooleanOp::SGT(a, b) => {
+                    let a = a.to_z3()?;
+                    let b = b.to_z3()?;
+                    z3::mk_bvsgt(z3_ctx, a.0, b.0).into()
+                }
+                BooleanOp::SGE(a, b) => {
+                    let a = a.to_z3()?;
+                    let b = b.to_z3()?;
+                    z3::mk_bvsge(z3_ctx, a.0, b.0).into()
+                }
 
                 // FP operations
-                BooleanOp::FpEq(_, _) => todo!("FpEq"),
-                BooleanOp::FpNeq(_, _) => todo!("FpNeq"),
-                BooleanOp::FpLt(_, _) => todo!("FpLt"),
-                BooleanOp::FpLeq(_, _) => todo!("FpLeq"),
-                BooleanOp::FpGt(_, _) => todo!("FpGt"),
-                BooleanOp::FpGeq(_, _) => todo!("FpGeq"),
-                BooleanOp::FpIsNan(_) => todo!("FpIsNan"),
-                BooleanOp::FpIsInf(_) => todo!("FpIsInf"),
+                BooleanOp::FpEq(a, b) => {
+                    let a = a.to_z3()?;
+                    let b = b.to_z3()?;
+                    z3::mk_fpa_eq(z3_ctx, a.0, b.0).into()
+                }
+                BooleanOp::FpNeq(a, b) => {
+                    let a = a.to_z3()?;
+                    let b = b.to_z3()?;
+                    let eq = z3::mk_fpa_eq(z3_ctx, a.0, b.0);
+                    z3::mk_not(z3_ctx, eq).into()
+                }
+                BooleanOp::FpLt(a, b) => {
+                    let a = a.to_z3()?;
+                    let b = b.to_z3()?;
+                    z3::mk_fpa_lt(z3_ctx, a.0, b.0).into()
+                }
+                BooleanOp::FpLeq(a, b) => {
+                    let a = a.to_z3()?;
+                    let b = b.to_z3()?;
+                    z3::mk_fpa_leq(z3_ctx, a.0, b.0).into()
+                }
+                BooleanOp::FpGt(a, b) => {
+                    let a = a.to_z3()?;
+                    let b = b.to_z3()?;
+                    z3::mk_fpa_gt(z3_ctx, a.0, b.0).into()
+                }
+                BooleanOp::FpGeq(a, b) => {
+                    let a = a.to_z3()?;
+                    let b = b.to_z3()?;
+                    z3::mk_fpa_geq(z3_ctx, a.0, b.0).into()
+                }
+                BooleanOp::FpIsNan(a) => {
+                    let a = a.to_z3()?;
+                    z3::mk_fpa_is_nan(z3_ctx, a.0).into()
+                }
+                BooleanOp::FpIsInf(a) => {
+                    let a = a.to_z3()?;
+                    z3::mk_fpa_is_infinite(z3_ctx, a.0).into()
+                }
 
                 // String operations
-                BooleanOp::StrContains(_, _) => todo!("StrContains"),
-                BooleanOp::StrPrefixOf(_, _) => todo!("StrPrefixOf"),
-                BooleanOp::StrSuffixOf(_, _) => todo!("StrSuffixOf"),
-                BooleanOp::StrIsDigit(_) => todo!("StrIsDigit"),
-                BooleanOp::StrEq(_, _) => todo!("StrEq"),
-                BooleanOp::StrNeq(_, _) => todo!("StrNeq"),
+                BooleanOp::StrContains(a, b) => {
+                    let a = a.to_z3()?;
+                    let b = b.to_z3()?;
+                    z3::mk_seq_contains(z3_ctx, a.0, b.0).into()
+                }
+                BooleanOp::StrPrefixOf(a, b) => {
+                    let a = a.to_z3()?;
+                    let b = b.to_z3()?;
+                    z3::mk_seq_prefix(z3_ctx, a.0, b.0).into()
+                }
+                BooleanOp::StrSuffixOf(a, b) => {
+                    let a = a.to_z3()?;
+                    let b = b.to_z3()?;
+                    z3::mk_seq_suffix(z3_ctx, a.0, b.0).into()
+                }
+                BooleanOp::StrIsDigit(_) => todo!("StrIsDigit - no direct Z3 equivalent"),
+                BooleanOp::StrEq(a, b) => {
+                    let a = a.to_z3()?;
+                    let b = b.to_z3()?;
+                    z3::mk_eq(z3_ctx, a.0, b.0).into()
+                }
+                BooleanOp::StrNeq(a, b) => {
+                    let a = a.to_z3()?;
+                    let b = b.to_z3()?;
+                    let eq = z3::mk_eq(z3_ctx, a.0, b.0);
+                    z3::mk_not(z3_ctx, eq).into()
+                }
             })
             .and_then(|ast| {
                 if ast.is_null() {

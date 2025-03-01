@@ -8,9 +8,9 @@ use serde::Serialize;
 use crate::prelude::*;
 
 pub trait Op<'c>: Debug + Hash + Serialize {
-    fn child_iter(&self) -> IntoIter<VarAst<'c>>;
+    fn child_iter(&self) -> IntoIter<DynAst<'c>>;
 
-    fn children(&self) -> Vec<VarAst<'c>> {
+    fn children(&self) -> Vec<DynAst<'c>> {
         self.child_iter().collect()
     }
 

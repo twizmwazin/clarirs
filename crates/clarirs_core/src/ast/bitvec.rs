@@ -218,7 +218,7 @@ impl std::hash::Hash for BitVecOp<'_> {
 }
 
 impl<'c> Op<'c> for BitVecOp<'c> {
-    fn child_iter(&self) -> IntoIter<VarAst<'c>> {
+    fn child_iter(&self) -> IntoIter<DynAst<'c>> {
         match self {
             BitVecOp::BVS(..) | BitVecOp::BVV(..) => vec![],
 
@@ -292,9 +292,7 @@ pub trait BitVecExt<'c> {
 impl<'c> BitVecExt<'c> for BitVecAst<'c> {
     fn size(&self) -> u32 {
         match self.op() {
-            BitVecOp::BVS(_, size) | BitVecOp::ZeroExt(_, size) | BitVecOp::SignExt(_, size) => {
-                *size
-            }
+            BitVecOp::BVS(_, size) => *size,
             BitVecOp::BVV(bv) => bv.len(),
             BitVecOp::Not(a)
             | BitVecOp::Abs(a)
@@ -319,6 +317,7 @@ impl<'c> BitVecExt<'c> for BitVecAst<'c> {
             | BitVecOp::RotateRight(a, _) => a.size(),
             BitVecOp::Extract(_, high, low) => high - low + 1,
             BitVecOp::Concat(a, b) => a.size() + b.size(),
+            BitVecOp::ZeroExt(a, ext) | BitVecOp::SignExt(a, ext) => a.size() + ext,
             BitVecOp::FpToIEEEBV(fp) => fp.size(),
             BitVecOp::FpToUBV(_, _, _) | BitVecOp::FpToSBV(_, _, _) => 64,
             BitVecOp::StrLen(_) | BitVecOp::StrToBV(_) | BitVecOp::StrIndexOf(_, _, _) => 64,

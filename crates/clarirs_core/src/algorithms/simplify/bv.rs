@@ -315,14 +315,12 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                             let new_length = value1.len() + value2.len();
 
                             // Shift the first value to the left to make space, then OR with the second value
-                            let concatenated_value =
-                                ((value1.clone() << value2.len())? | value2.clone())?;
+                            let concatenated_value = ((value1.zero_extend(value2.len())?
+                                << value2.len())?
+                                | value2.clone())?;
 
                             // Return a new BitVec with the concatenated result and new length
-                            ctx.bvv(BitVec::from_biguint_trunc(
-                                &concatenated_value.to_biguint(),
-                                new_length,
-                            ))
+                            ctx.bvv(concatenated_value)
                         }
                         _ => ctx.concat(&arc, &arc1),
                     }
@@ -459,7 +457,28 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                     }
                 }
 
-                BitVecOp::If(arc, arc1, arc2) => todo!("bv if simplification"),
+                BitVecOp::If(if_, then_, else_) => {
+                    simplify!(if_, then_, else_);
+
+                    // If both branches are identical, return either one
+                    if then_ == else_ {
+                        return Ok(then_.clone());
+                    }
+
+                    match if_.op() {
+                        // If the condition is a concrete boolean value, return the appropriate branch
+                        BooleanOp::BoolV(value) => {
+                            if *value {
+                                Ok(else_.clone())
+                            } else {
+                                Ok(then_.clone())
+                            }
+                        }
+                        // If the condition has a Not at the top level, invert the branches
+                        BooleanOp::Not(inner) => ctx.if_(inner, &else_, &then_),
+                        _ => ctx.if_(&if_, &then_, &else_),
+                    }
+                }
                 BitVecOp::Annotated(arc, annotation) => todo!("bv annotation simplification"),
             }
         })

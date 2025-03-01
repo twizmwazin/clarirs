@@ -102,7 +102,7 @@ impl std::hash::Hash for FloatOp<'_> {
 }
 
 impl<'c> Op<'c> for FloatOp<'c> {
-    fn child_iter(&self) -> IntoIter<VarAst<'c>> {
+    fn child_iter(&self) -> IntoIter<DynAst<'c>> {
         match self {
             FloatOp::FPS(_, _) | FloatOp::FPV(_) => vec![].into_iter(),
 

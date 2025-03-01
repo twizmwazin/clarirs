@@ -219,7 +219,7 @@ impl std::hash::Hash for BooleanOp<'_> {
 }
 
 impl<'c> Op<'c> for BooleanOp<'c> {
-    fn child_iter(&self) -> IntoIter<VarAst<'c>> {
+    fn child_iter(&self) -> IntoIter<DynAst<'c>> {
         match self {
             // Cases with no children
             BooleanOp::BoolS(_) | BooleanOp::BoolV(_) => vec![],
