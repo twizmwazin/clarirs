@@ -1,7 +1,8 @@
 use super::{BitVec, BitVecError};
 
 use anyhow::Result;
-use num_bigint::BigUint;
+use num_bigint::{BigInt, BigUint};
+use num_traits::Zero;
 use smallvec::SmallVec;
 
 #[test]
@@ -48,6 +49,210 @@ fn test_leading_zeros() -> Result<(), BitVecError> {
     words.push(0b10000000); // 1 at MSB of second word
     let bv = BitVec::new(words, 72)?;
     assert_eq!(bv.leading_zeros(), 0); // 0 zeros before the 1
+
+    Ok(())
+}
+
+#[test]
+fn test_from_bigint() -> Result<(), BitVecError> {
+    // Test positive values
+    let value = BigInt::from(42i32);
+    let bv = BitVec::from_bigint(&value, 32)?;
+    assert_eq!(bv.len(), 32);
+    assert_eq!(bv.to_u64().unwrap(), 42);
+
+    // Test zero
+    let value = BigInt::zero();
+    let bv = BitVec::from_bigint(&value, 32)?;
+    assert_eq!(bv.len(), 32);
+    assert_eq!(bv.to_u64().unwrap(), 0);
+
+    // Test negative values (2's complement representation)
+    // -1 in 8-bit 2's complement is 11111111 (all ones)
+    let value = BigInt::from(-1i32);
+    let bv = BitVec::from_bigint(&value, 8)?;
+    assert_eq!(bv.len(), 8);
+    assert_eq!(bv.to_u64().unwrap(), 0xFF);
+    assert!(bv.is_all_ones());
+
+    // -42 in 8-bit 2's complement is 256 - 42 = 214 (0xD6)
+    let value = BigInt::from(-42i32);
+    let bv = BitVec::from_bigint(&value, 8)?;
+    assert_eq!(bv.len(), 8);
+    assert_eq!(bv.to_u64().unwrap(), 0xD6);
+
+    // -128 in 8-bit 2's complement is 10000000 (0x80)
+    let value = BigInt::from(-128i32);
+    let bv = BitVec::from_bigint(&value, 8)?;
+    assert_eq!(bv.len(), 8);
+    assert_eq!(bv.to_u64().unwrap(), 0x80);
+
+    // Test different bit widths
+    let value = BigInt::from(-1i32);
+    let bv = BitVec::from_bigint(&value, 16)?;
+    assert_eq!(bv.len(), 16);
+    assert_eq!(bv.to_u64().unwrap(), 0xFFFF);
+
+    let value = BigInt::from(-1i32);
+    let bv = BitVec::from_bigint(&value, 32)?;
+    assert_eq!(bv.len(), 32);
+    assert_eq!(bv.to_u64().unwrap(), 0xFFFFFFFF);
+
+    // Test error case: value too large for width
+    let value = BigInt::from(256i32);
+    let result = BitVec::from_bigint(&value, 8);
+    assert!(result.is_err());
+
+    // Test error case: negative value too large for width
+    let value = BigInt::from(-129i32); // Requires 9 bits in 2's complement
+    let result = BitVec::from_bigint(&value, 8);
+    assert!(result.is_err());
+
+    Ok(())
+}
+
+#[test]
+fn test_from_bigint_trunc() {
+    // Test positive values
+    let value = BigInt::from(42i32);
+    let bv = BitVec::from_bigint_trunc(&value, 32);
+    assert_eq!(bv.len(), 32);
+    assert_eq!(bv.to_u64().unwrap(), 42);
+
+    // Test truncation of positive values
+    let value = BigInt::from(0x12345678i32);
+    let bv = BitVec::from_bigint_trunc(&value, 16); // Truncate to 16 bits
+    assert_eq!(bv.len(), 16);
+    assert_eq!(bv.to_u64().unwrap(), 0x5678); // Only lower 16 bits should remain
+
+    // Test negative values (2's complement representation)
+    // -1 in 8-bit 2's complement is 11111111 (all ones)
+    let value = BigInt::from(-1i32);
+    let bv = BitVec::from_bigint_trunc(&value, 8);
+    assert_eq!(bv.len(), 8);
+    assert_eq!(bv.to_u64().unwrap(), 0xFF);
+    assert!(bv.is_all_ones());
+
+    // -42 in 8-bit 2's complement is 256 - 42 = 214 (0xD6)
+    let value = BigInt::from(-42i32);
+    let bv = BitVec::from_bigint_trunc(&value, 8);
+    assert_eq!(bv.len(), 8);
+    assert_eq!(bv.to_u64().unwrap(), 0xD6);
+
+    // Test truncation of negative values
+    let value = BigInt::from(-0x12345678i32);
+    let bv = BitVec::from_bigint_trunc(&value, 16); // Truncate to 16 bits
+    assert_eq!(bv.len(), 16);
+    // In 2's complement, -0x12345678 truncated to 16 bits should be the 2's complement of 0x5678
+    assert_eq!(bv.to_u64().unwrap(), 0xA988); // 2's complement of 0x5678 in 16 bits
+
+    // Test different bit widths
+    let value = BigInt::from(-1i32);
+    let bv = BitVec::from_bigint_trunc(&value, 16);
+    assert_eq!(bv.len(), 16);
+    assert_eq!(bv.to_u64().unwrap(), 0xFFFF);
+
+    // Test zero
+    let value = BigInt::zero();
+    let bv = BitVec::from_bigint_trunc(&value, 32);
+    assert_eq!(bv.len(), 32);
+    assert_eq!(bv.to_u64().unwrap(), 0);
+
+    // Test with values larger than the specified width
+    let value = BigInt::from(256i32);
+    let bv = BitVec::from_bigint_trunc(&value, 8); // 256 doesn't fit in 8 bits
+    assert_eq!(bv.len(), 8);
+    assert_eq!(bv.to_u64().unwrap(), 0); // Should be truncated to 0
+
+    let value = BigInt::from(257i32);
+    let bv = BitVec::from_bigint_trunc(&value, 8); // 257 (0x101) truncated to 8 bits
+    assert_eq!(bv.len(), 8);
+    assert_eq!(bv.to_u64().unwrap(), 1); // Should be truncated to 1
+}
+
+#[test]
+fn test_from_biguint_trunc() {
+    // Test values within bit width
+    let value = BigUint::from(42u32);
+    let bv = BitVec::from_biguint_trunc(&value, 32);
+    assert_eq!(bv.len(), 32);
+    assert_eq!(bv.to_u64().unwrap(), 42);
+
+    // Test truncation
+    let value = BigUint::from(0x12345678u32);
+    let bv = BitVec::from_biguint_trunc(&value, 16); // Truncate to 16 bits
+    assert_eq!(bv.len(), 16);
+    assert_eq!(bv.to_u64().unwrap(), 0x5678); // Only lower 16 bits should remain
+
+    // Test different bit widths
+    let value = BigUint::from(0xFFu32);
+    let bv = BitVec::from_biguint_trunc(&value, 8);
+    assert_eq!(bv.len(), 8);
+    assert_eq!(bv.to_u64().unwrap(), 0xFF);
+
+    // Test zero
+    let value = BigUint::zero();
+    let bv = BitVec::from_biguint_trunc(&value, 32);
+    assert_eq!(bv.len(), 32);
+    assert_eq!(bv.to_u64().unwrap(), 0);
+
+    // Test with values larger than the specified width
+    let value = BigUint::from(256u32);
+    let bv = BitVec::from_biguint_trunc(&value, 8); // 256 doesn't fit in 8 bits
+    assert_eq!(bv.len(), 8);
+    assert_eq!(bv.to_u64().unwrap(), 0); // Should be truncated to 0
+
+    let value = BigUint::from(257u32);
+    let bv = BitVec::from_biguint_trunc(&value, 8); // 257 (0x101) truncated to 8 bits
+    assert_eq!(bv.len(), 8);
+    assert_eq!(bv.to_u64().unwrap(), 1); // Should be truncated to 1
+
+    // Test with large values
+    let value = (BigUint::from(1u32) << 64) - BigUint::from(1u32); // 2^64 - 1
+    let bv = BitVec::from_biguint_trunc(&value, 32); // Truncate to 32 bits
+    assert_eq!(bv.len(), 32);
+    assert_eq!(bv.to_u64().unwrap(), 0xFFFFFFFF); // Should be all ones in 32 bits
+}
+
+#[test]
+fn test_bigint_biguint_conversion() -> Result<(), BitVecError> {
+    // Test conversion between BigInt and BitVec with 2's complement
+
+    // Positive values should be the same in both representations
+    let value = BigInt::from(42i32);
+    let bv = BitVec::from_bigint(&value, 8)?;
+    assert_eq!(bv.to_u64().unwrap(), 42);
+
+    // -1 in 8-bit 2's complement is 11111111 (all ones, or 255 unsigned)
+    let value = BigInt::from(-1i32);
+    let bv = BitVec::from_bigint(&value, 8)?;
+    assert_eq!(bv.to_u64().unwrap(), 0xFF);
+
+    // -42 in 8-bit 2's complement is 256 - 42 = 214 (0xD6)
+    let value = BigInt::from(-42i32);
+    let bv = BitVec::from_bigint(&value, 8)?;
+    assert_eq!(bv.to_u64().unwrap(), 0xD6);
+
+    // Convert back to BigUint (should remain as 2's complement representation)
+    let value = BigInt::from(-42i32);
+    let bv = BitVec::from_bigint(&value, 8)?;
+    let biguint: BigUint = bv.to_biguint();
+    assert_eq!(biguint, BigUint::from(0xD6u32));
+
+    // Test with different bit widths
+    let value = BigInt::from(-42i32);
+
+    // 8-bit: -42 = 214 (0xD6)
+    let bv8 = BitVec::from_bigint(&value, 8)?;
+    assert_eq!(bv8.to_u64().unwrap(), 0xD6);
+
+    // 16-bit: -42 = 65494 (0xFFD6)
+    let bv16 = BitVec::from_bigint(&value, 16)?;
+    assert_eq!(bv16.to_u64().unwrap(), 0xFFD6);
+
+    // 32-bit: -42 = 4294967254 (0xFFFFFFD6)
+    let bv32 = BitVec::from_bigint(&value, 32)?;
+    assert_eq!(bv32.to_u64().unwrap(), 0xFFFFFFD6);
 
     Ok(())
 }

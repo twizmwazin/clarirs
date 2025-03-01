@@ -76,7 +76,7 @@ impl ExtractPyArgs for BitVecAst<'static> {
                 vec![name.into_bound_py_any(py)?, size.into_bound_py_any(py)?]
             }
             BitVecOp::BVV(bit_vec) => vec![
-                bit_vec.as_biguint().into_bound_py_any(py)?,
+                bit_vec.to_biguint().into_bound_py_any(py)?,
                 bit_vec.len().into_bound_py_any(py)?,
             ],
             BitVecOp::Not(expr) | BitVecOp::Abs(expr) => vec![BV::new(py, expr)?.into_any()],

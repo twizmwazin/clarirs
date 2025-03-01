@@ -270,7 +270,7 @@ impl BV {
     #[getter]
     pub fn concrete_value(&self) -> Result<Option<BigUint>, ClaripyError> {
         Ok(match self.inner.simplify()?.op() {
-            BitVecOp::BVV(bv) => Some(bv.as_biguint()),
+            BitVecOp::BVV(bv) => Some(bv.to_biguint()),
             _ => None,
         })
     }

@@ -60,7 +60,7 @@ impl<'py> CoerceBV<'py> {
             match self.inner.get().inner.op() {
                 BitVecOp::BVV(val) => BV::new(
                     py,
-                    &GLOBAL_CONTEXT.bvv_from_biguint_with_size(&val.as_biguint(), like_size)?,
+                    &GLOBAL_CONTEXT.bvv_from_biguint_with_size(&val.to_biguint(), like_size)?,
                 ),
                 _ => {
                     if like_size > our_size {
