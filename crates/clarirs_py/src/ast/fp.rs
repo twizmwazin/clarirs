@@ -161,12 +161,12 @@ impl FP {
 impl FP {
     #[getter]
     pub fn op(&self) -> String {
-        self.inner.op().to_opstring()
+        self.inner.to_opstring()
     }
 
     #[getter]
     pub fn args<'py>(&self, py: Python<'py>) -> Result<Vec<Bound<'py, PyAny>>, ClaripyError> {
-        self.inner.op().extract_py_args(py)
+        self.inner.extract_py_args(py)
     }
 
     #[getter]
