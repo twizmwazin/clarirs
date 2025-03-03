@@ -182,7 +182,7 @@ mod tests {
         // Test extraction with invalid range (should error)
         let bv = BitVec::from_prim_with_size(0b1010u8, 4)?;
         assert!(bv.extract(2, 1).is_err()); // from > to
-        assert!(bv.extract(0, 4).is_err()); // to >= len
+        assert!(bv.extract(0, 5).is_err()); // to > len
 
         // Test extraction from different widths
         let bv = BitVec::from_prim_with_size(0b110011u8, 6)?;
