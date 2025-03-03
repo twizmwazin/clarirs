@@ -9,7 +9,7 @@ impl BitVec {
     /// to), where both are inclusive. The extracted vector will have a length
     /// of (to - from + 1).
     pub fn extract(&self, from: u32, to: u32) -> Result<Self, BitVecError> {
-        if from > to || to >= self.len() {
+        if from > to || to > self.len() {
             return Err(BitVecError::InvalidExtractBounds {
                 upper: to - 1, // Convert to inclusive for smtlib-style extract
                 lower: from,
@@ -182,7 +182,7 @@ mod tests {
         // Test extraction with invalid range (should error)
         let bv = BitVec::from_prim_with_size(0b1010u8, 4)?;
         assert!(bv.extract(2, 1).is_err()); // from > to
-        assert!(bv.extract(0, 4).is_err()); // to >= len
+        assert!(bv.extract(0, 5).is_err()); // to > len
 
         // Test extraction from different widths
         let bv = BitVec::from_prim_with_size(0b110011u8, 6)?;
