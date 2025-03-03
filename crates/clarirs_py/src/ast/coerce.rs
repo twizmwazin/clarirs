@@ -41,11 +41,13 @@ pub enum CoerceBV<'py> {
 impl<'py> CoerceBV<'py> {
     pub fn extract(&self, py: Python<'py>, size: u32) -> Result<Bound<'py, BV>, ClaripyError> {
         match self {
-            CoerceBV::BV(bv) => if bv.get().size() as u32 == size {
-                Ok(bv.clone())
-            } else {
-                Err(ClaripyError::CastingError("BV size mismatch".to_string()))
-            },
+            CoerceBV::BV(bv) => {
+                if bv.get().size() as u32 == size {
+                    Ok(bv.clone())
+                } else {
+                    Err(ClaripyError::CastingError("BV size mismatch".to_string()))
+                }
+            }
             CoerceBV::Int(int) => {
                 let bv = BitVec::from_bigint_trunc(int, size);
                 BV::new(py, &GLOBAL_CONTEXT.bvv(bv)?)
