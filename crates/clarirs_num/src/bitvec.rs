@@ -101,7 +101,7 @@ impl BitVec {
 
         if value == &BigUint::ZERO {
             let mut words = SmallVec::new();
-            let num_words = (length as usize + 63) / 64; // Number of 64-bit words
+            let num_words = (length as usize).div_ceil(64); // Number of 64-bit words
             if num_words > 0 {
                 words.push(0);
             }
@@ -343,7 +343,7 @@ impl BitVec {
     // Creates and returns a BitVec with these zero-filled words.
     pub fn zeros(length: u32) -> BitVec {
         let mut words = SmallVec::new();
-        let num_words = (length as usize + 63) / 64; // Number of 64-bit words
+        let num_words = (length as usize).div_ceil(64); // Number of 64-bit words
         for _ in 0..num_words {
             words.push(0);
         }
