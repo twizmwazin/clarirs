@@ -32,12 +32,7 @@ pub enum ClaripyError {
 
 impl From<ClarirsError> for ClaripyError {
     fn from(e: ClarirsError) -> Self {
-        match e {
-            ClarirsError::DivisionByZero { dividend, divisor } => ClaripyError::InvalidOperation(
-                format!("Division by zero error: attempted {}/{}", dividend, divisor),
-            ),
-            _ => ClaripyError::ClarirsError(format!("{}", e)),
-        }
+        ClaripyError::ClarirsError(format!("{}", e))
     }
 }
 
