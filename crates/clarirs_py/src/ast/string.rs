@@ -6,7 +6,7 @@ use std::sync::{
 };
 
 use dashmap::DashMap;
-use pyo3::types::{PyBytes, PyFrozenSet, PyWeakrefReference, PyAnyMethods};
+use pyo3::types::{PyAnyMethods, PyBytes, PyFrozenSet, PyWeakrefReference};
 
 use crate::prelude::*;
 use clarirs_core::smtlib::ToSmtLib;
