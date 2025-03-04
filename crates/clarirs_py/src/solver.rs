@@ -8,6 +8,7 @@ pub struct PySolver {
 
 #[pymethods]
 impl PySolver {
+    #[pyo3(signature = (*exprs))]
     fn add<'py>(
         &mut self,
         exprs: Vec<Bound<'py, Bool>>,
