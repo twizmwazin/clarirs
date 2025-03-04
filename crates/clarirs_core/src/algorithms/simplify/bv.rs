@@ -469,9 +469,9 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                         // If the condition is a concrete boolean value, return the appropriate branch
                         BooleanOp::BoolV(value) => {
                             if *value {
-                                Ok(else_.clone())
-                            } else {
                                 Ok(then_.clone())
+                            } else {
+                                Ok(else_.clone())
                             }
                         }
                         // If the condition has a Not at the top level, invert the branches
