@@ -281,17 +281,23 @@ impl<'c> Op<'c> for BitVecOp<'c> {
             vec![]
         }
     }
+
+    fn check_same_sort(&self, other: &Self) -> bool {
+        self.size() == other.size()
+    }
 }
 
-pub trait BitVecExt<'c> {
+pub trait BitVecOpExt<'c> {
     fn size(&self) -> u32;
+}
 
+pub trait BitVecAstExt<'c> {
     fn chop(&self, bits: u32) -> Result<Vec<BitVecAst<'c>>, ClarirsError>;
 }
 
-impl<'c> BitVecExt<'c> for BitVecAst<'c> {
+impl<'c> BitVecOpExt<'c> for BitVecOp<'c> {
     fn size(&self) -> u32 {
-        match self.op() {
+        match self {
             BitVecOp::BVS(_, size) => *size,
             BitVecOp::BVV(bv) => bv.len(),
             BitVecOp::Not(a)
@@ -323,7 +329,15 @@ impl<'c> BitVecExt<'c> for BitVecAst<'c> {
             BitVecOp::StrLen(_) | BitVecOp::StrToBV(_) | BitVecOp::StrIndexOf(_, _, _) => 64,
         }
     }
+}
 
+impl<'c> BitVecOpExt<'c> for BitVecAst<'c> {
+    fn size(&self) -> u32 {
+        self.op().size()
+    }
+}
+
+impl<'c> BitVecAstExt<'c> for BitVecAst<'c> {
     fn chop(&self, bits: u32) -> Result<Vec<BitVecAst<'c>>, ClarirsError> {
         if self.size() % bits != 0 {
             return Err(ClarirsError::UnsupportedOperation);

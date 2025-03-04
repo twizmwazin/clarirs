@@ -1,4 +1,7 @@
-use clarirs_core::{ast::bitvec::BitVecExt, prelude::*};
+use clarirs_core::{
+    ast::bitvec::{BitVecAstExt, BitVecOpExt},
+    prelude::*,
+};
 use clarirs_z3_sys as z3;
 
 use super::AstExtZ3;

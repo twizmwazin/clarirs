@@ -144,15 +144,19 @@ impl<'c> Op<'c> for FloatOp<'c> {
             vec![]
         }
     }
+
+    fn check_same_sort(&self, other: &Self) -> bool {
+        self.size() == other.size()
+    }
 }
 
 pub trait FloatExt<'c> {
     fn size(&self) -> u32;
 }
 
-impl<'c> FloatExt<'c> for FloatAst<'c> {
+impl<'c> FloatExt<'c> for FloatOp<'c> {
     fn size(&self) -> u32 {
-        match self.op() {
+        match self {
             FloatOp::FPS(_, sort) => sort.size(),
             FloatOp::FPV(value) => value.fsort().size(),
             FloatOp::FpNeg(a)
@@ -166,5 +170,11 @@ impl<'c> FloatExt<'c> for FloatAst<'c> {
             | FloatOp::Annotated(a, _) => a.size(),
             FloatOp::FpToFp(_, sort, _) | FloatOp::BvToFpUnsigned(_, sort, _) => sort.size(),
         }
+    }
+}
+
+impl<'c> FloatExt<'c> for FloatAst<'c> {
+    fn size(&self) -> u32 {
+        self.op().size()
     }
 }

@@ -120,7 +120,10 @@ pub fn r#if<'py>(
             )
             .map(|b| b.into_any().downcast::<Base>().unwrap().clone())
         } else {
-            panic!("mismatched types")
+            Err(ClaripyError::TypeError(format!(
+                "Sort mismatch in if-then-else: {:?} and {:?}",
+                then_, else_
+            )))
         }
     } else if let Ok(then_bool) = then_.clone().into_any().downcast::<Bool>() {
         if let Ok(else_bv) = else_.clone().into_any().downcast::<Bool>() {
@@ -132,7 +135,10 @@ pub fn r#if<'py>(
             )
             .map(|b| b.into_any().downcast::<Base>().unwrap().clone())
         } else {
-            panic!("mismatched types")
+            Err(ClaripyError::TypeError(format!(
+                "Sort mismatch in if-then-else: {:?} and {:?}",
+                then_, else_
+            )))
         }
     } else if let Ok(then_fp) = then_.clone().into_any().downcast::<FP>() {
         if let Ok(else_bv) = else_.clone().into_any().downcast::<FP>() {
@@ -144,7 +150,10 @@ pub fn r#if<'py>(
             )
             .map(|b| b.into_any().downcast::<Base>().unwrap().clone())
         } else {
-            panic!("mismatched types")
+            Err(ClaripyError::TypeError(format!(
+                "Sort mismatch in if-then-else: {:?} and {:?}",
+                then_, else_
+            )))
         }
     } else if let Ok(then_string) = then_.clone().into_any().downcast::<PyAstString>() {
         if let Ok(else_bv) = else_.clone().into_any().downcast::<PyAstString>() {
@@ -156,7 +165,10 @@ pub fn r#if<'py>(
             )
             .map(|b| b.into_any().downcast::<Base>().unwrap().clone())
         } else {
-            panic!("mismatched types")
+            Err(ClaripyError::TypeError(format!(
+                "Sort mismatch in if-then-else: {:?} and {:?}",
+                then_, else_
+            )))
         }
     } else {
         panic!("unsupported type")

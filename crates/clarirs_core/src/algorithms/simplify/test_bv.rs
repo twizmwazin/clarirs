@@ -1,4 +1,4 @@
-use crate::{ast::bitvec::BitVecExt, prelude::*};
+use crate::{ast::bitvec::BitVecOpExt, prelude::*};
 use anyhow::Result;
 use smallvec::SmallVec;
 

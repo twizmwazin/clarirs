@@ -37,4 +37,6 @@ pub trait Op<'c>: Debug + Hash + Serialize {
     }
 
     fn get_annotations(&self) -> Vec<Annotation>;
+
+    fn check_same_sort(&self, other: &Self) -> bool;
 }
