@@ -1,5 +1,3 @@
-use std::convert::Infallible;
-
 use crate::prelude::*;
 use clarirs_num::bitvec::BitVecError;
 use pyo3::{DowncastError, DowncastIntoError, PyErr, PyObject, exceptions::PyRuntimeError};
@@ -21,12 +19,6 @@ pub enum ClaripyError {
     CastingError(String),
     #[error("Invalid argument type: {0}")]
     InvalidArgumentType(String),
-    #[error("Invalid Operation: {0}")]
-    InvalidOp(String),
-    #[error("Infallible")]
-    Infallible,
-    #[error("Invalid argument: {0}")]
-    InvalidArgument(String),
     #[error("BitVec error: {0}")]
     BitVecError(#[from] BitVecError),
     #[error("Unsupported operation: {0}")]
@@ -35,12 +27,6 @@ pub enum ClaripyError {
 
 impl From<ClarirsError> for ClaripyError {
     fn from(e: ClarirsError) -> Self {
-        ClaripyError::ClarirsError(format!("{}", e))
-    }
-}
-
-impl From<&ClarirsError> for ClaripyError {
-    fn from(e: &ClarirsError) -> Self {
         ClaripyError::ClarirsError(format!("{}", e))
     }
 }
@@ -66,11 +52,5 @@ impl From<DowncastError<'_, '_>> for ClaripyError {
 impl From<DowncastIntoError<'_>> for ClaripyError {
     fn from(e: DowncastIntoError) -> Self {
         ClaripyError::CastingError(format!("{}", e))
-    }
-}
-
-impl From<Infallible> for ClaripyError {
-    fn from(_: Infallible) -> Self {
-        ClaripyError::Infallible
     }
 }
