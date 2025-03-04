@@ -162,12 +162,13 @@ pub fn clarirs(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<annotation::RegionAnnotation>()?;
     m.add_class::<annotation::UninitializedAnnotation>()?;
 
-    m.add_class::<py_err::PyClaripyError>()?;
-    m.add_class::<py_err::UnsatError>()?;
-    m.add_class::<py_err::ClaripyFrontendError>()?;
-    m.add_class::<py_err::ClaripySolverInterruptError>()?;
-    m.add_class::<py_err::ClaripyOperationError>()?;
-    m.add_class::<py_err::ClaripyZeroDivisionError>()?;
+    m.add("ClaripyError", py.get_type::<py_err::ClaripyError>())?;
+    m.add("ClaripyTypeError", py.get_type::<py_err::ClaripyTypeError>())?;
+    m.add("UnsatError", py.get_type::<py_err::UnsatError>())?;
+    m.add("ClaripyFrontendError", py.get_type::<py_err::ClaripyFrontendError>())?;
+    m.add("ClaripySolverInterruptError", py.get_type::<py_err::ClaripySolverInterruptError>())?;
+    m.add("ClaripyOperationError", py.get_type::<py_err::ClaripyOperationError>())?;
+    m.add("ClaripyZeroDivisionError", py.get_type::<py_err::ClaripyZeroDivisionError>())?;
 
     m.add("FSORT_FLOAT", ast::fp::fsort_float())?;
     m.add("FSORT_DOUBLE", ast::fp::fsort_double())?;

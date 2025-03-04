@@ -1,12 +1,15 @@
-use crate::prelude::*;
+
+use crate::{prelude::*, py_err};
 use clarirs_num::bitvec::BitVecError;
-use pyo3::{DowncastError, DowncastIntoError, PyErr, PyObject, exceptions::PyRuntimeError};
+use pyo3::{DowncastError, DowncastIntoError, PyErr, PyObject};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ClaripyError {
     #[error("Clarirs error: {0}")]
     ClarirsError(String),
+    #[error("Type error: {0}")]
+    TypeError(String),
     #[error("Invalid operation: {0}")]
     InvalidOperation(String),
     #[error("Missing argument index: {0}")]
@@ -27,7 +30,11 @@ pub enum ClaripyError {
 
 impl From<ClarirsError> for ClaripyError {
     fn from(e: ClarirsError) -> Self {
-        ClaripyError::ClarirsError(format!("{}", e))
+        match e {
+            ClarirsError::TypeError(e) => ClaripyError::TypeError(e),
+            _ => ClaripyError::ClarirsError(format!("{}", e)),
+
+        }
     }
 }
 
@@ -39,7 +46,10 @@ impl From<PyErr> for ClaripyError {
 
 impl From<ClaripyError> for PyErr {
     fn from(e: ClaripyError) -> Self {
-        PyRuntimeError::new_err(format!("{}", e))
+        match e {
+            ClaripyError::TypeError(e) => py_err::ClaripyTypeError::new_err(e),
+            _ => py_err::ClaripyError::new_err(format!("{}", e)),
+        }
     }
 }
 

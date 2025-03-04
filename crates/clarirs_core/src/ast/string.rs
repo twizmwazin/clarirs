@@ -107,4 +107,8 @@ impl<'c> Op<'c> for StringOp<'c> {
             vec![]
         }
     }
+
+    fn check_same_sort(&self, _: &Self) -> bool {
+        true
+    }
 }

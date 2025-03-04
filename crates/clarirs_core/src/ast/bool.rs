@@ -297,4 +297,8 @@ impl<'c> Op<'c> for BooleanOp<'c> {
             vec![]
         }
     }
+
+    fn check_same_sort(&self, _: &Self) -> bool {
+        true
+    }
 }

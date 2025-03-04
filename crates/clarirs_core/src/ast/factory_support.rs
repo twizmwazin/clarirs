@@ -77,6 +77,9 @@ macro_rules! impl_supports_if_and_annotated {
         $(
             impl<'c> SupportsIf<'c> for $impler {
                 fn if_(factory: &'c impl AstFactory<'c>, cond: &BoolAst<'c>, then: &AstRef<'c, Self>, els: &AstRef<'c, Self>) -> Result<AstRef<'c, Self>, ClarirsError> {
+                    if !then.check_same_sort(els) {
+                        return Err(ClarirsError::TypeError(format!("Sort mismatch in if-then-else: {:?} and {:?}", then, els)));
+                    }
                     factory.$factory_func(<$impler>::If(cond.clone(), then.clone(), els.clone()))
                 }
             }
