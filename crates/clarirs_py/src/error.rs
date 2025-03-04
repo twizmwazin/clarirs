@@ -1,6 +1,9 @@
-use crate::{prelude::*, py_err};
+use crate::prelude::*;
 use clarirs_num::bitvec::BitVecError;
-use pyo3::{DowncastError, DowncastIntoError, PyErr, PyObject};
+use pyo3::{
+    DowncastError, DowncastIntoError, PyErr, PyObject,
+    exceptions::{PyRuntimeError, PyZeroDivisionError},
+};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -30,9 +33,17 @@ pub enum ClaripyError {
 impl From<ClarirsError> for ClaripyError {
     fn from(e: ClarirsError) -> Self {
         match e {
-            ClarirsError::TypeError(e) => ClaripyError::TypeError(e),
+            ClarirsError::DivisionByZero { dividend, divisor } => ClaripyError::InvalidOperation(
+                format!("Division by zero error: attempted {}/{}", dividend, divisor),
+            ),
             _ => ClaripyError::ClarirsError(format!("{}", e)),
         }
+    }
+}
+
+impl From<&ClarirsError> for ClaripyError {
+    fn from(e: &ClarirsError) -> Self {
+        ClaripyError::ClarirsError(format!("{}", e))
     }
 }
 
@@ -44,10 +55,13 @@ impl From<PyErr> for ClaripyError {
 
 impl From<ClaripyError> for PyErr {
     fn from(e: ClaripyError) -> Self {
-        match e {
-            ClaripyError::TypeError(e) => py_err::ClaripyTypeError::new_err(e),
-            _ => py_err::ClaripyError::new_err(format!("{}", e)),
+        if let ClaripyError::InvalidOperation(ref msg) = e {
+            println!("{}", msg);
+            if msg.contains("Division by zero") {
+                return PyZeroDivisionError::new_err(msg.clone());
+            }
         }
+        PyRuntimeError::new_err(format!("{}", e))
     }
 }
 

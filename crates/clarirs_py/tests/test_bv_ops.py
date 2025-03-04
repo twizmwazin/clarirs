@@ -105,7 +105,7 @@ class TestBVOperations(unittest.TestCase):
 
         # Test division by zero raises exception
         with self.assertRaises(ZeroDivisionError):
-            _ = self.bv1 // self.bv_zero
+            _ = (self.bv1 // self.bv_zero).concrete_value
 
         # Test symbolic division
         sym_div = self.sym_x // claripy.BVV(2, 8)
