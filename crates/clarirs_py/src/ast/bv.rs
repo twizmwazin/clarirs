@@ -4,7 +4,7 @@ use std::iter::once;
 use std::sync::LazyLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use clarirs_core::ast::bitvec::BitVecExt;
+use clarirs_core::ast::bitvec::{BitVecAstExt, BitVecOpExt};
 use dashmap::DashMap;
 use num_bigint::{BigInt, BigUint};
 use pyo3::exceptions::{PyTypeError, PyValueError};

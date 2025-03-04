@@ -1,7 +1,7 @@
 use num_bigint::{BigInt, BigUint};
 use num_traits::{Num, One, Zero};
 
-use crate::{algorithms::simplify::simplify, ast::bitvec::BitVecExt, prelude::*};
+use crate::{algorithms::simplify::simplify, ast::bitvec::BitVecOpExt, prelude::*};
 
 #[allow(unused_variables)]
 impl<'c> Simplify<'c> for BitVecAst<'c> {

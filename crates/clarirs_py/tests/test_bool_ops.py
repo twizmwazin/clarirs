@@ -204,12 +204,12 @@ class TestBoolOperations(unittest.TestCase):
         """Test if-then-else error conditions"""
         # Test mismatched bit lengths
         bv3 = claripy.BVV(1, 8)
-        with self.assertRaises(ClaripyTypeError):
+        with self.assertRaises(claripy.ClaripyTypeError):
             claripy.If(self.true, self.bv1, bv3)
 
         # Test invalid types
-        with self.assertRaises(ClaripyTypeError):
-            claripy.If(self.true, object(), self.bv1)  # type: ignore
+        with self.assertRaises(claripy.ClaripyTypeError):
+            claripy.If(self.true, self.true, self.bv1)  # type: ignore
 
     def test_ite_cases(self):
         """Test ite_cases utility function"""

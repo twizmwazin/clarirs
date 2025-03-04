@@ -114,6 +114,10 @@ impl<'c, O: Op<'c>> Op<'c> for AstNode<'c, O> {
     fn get_annotations(&self) -> Vec<Annotation> {
         self.op().get_annotations()
     }
+
+    fn check_same_sort(&self, other: &Self) -> bool {
+        self.op().check_same_sort(other.op())
+    }
 }
 
 pub type AstRef<'c, Op> = Arc<AstNode<'c, Op>>;
@@ -186,6 +190,16 @@ impl<'c> Op<'c> for DynAst<'c> {
             DynAst::BitVec(ast) => ast.get_annotations(),
             DynAst::Float(ast) => ast.get_annotations(),
             DynAst::String(ast) => ast.get_annotations(),
+        }
+    }
+
+    fn check_same_sort(&self, other: &Self) -> bool {
+        match (self, other) {
+            (DynAst::Boolean(a), DynAst::Boolean(b)) => a.check_same_sort(b),
+            (DynAst::BitVec(a), DynAst::BitVec(b)) => a.check_same_sort(b),
+            (DynAst::Float(a), DynAst::Float(b)) => a.check_same_sort(b),
+            (DynAst::String(a), DynAst::String(b)) => a.check_same_sort(b),
+            _ => false,
         }
     }
 }
