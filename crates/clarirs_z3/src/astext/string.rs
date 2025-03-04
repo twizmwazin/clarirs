@@ -5,10 +5,7 @@ use clarirs_z3_sys::{self as z3};
 use super::AstExtZ3;
 
 fn mk_bv2int(bv: RcAst) -> RcAst {
-    Z3_CONTEXT.with(|&z3_ctx| unsafe {
-        RcAst::from(z3::mk_bv2int(z3_ctx, bv.0, false))
-    })
-
+    Z3_CONTEXT.with(|&z3_ctx| unsafe { RcAst::from(z3::mk_bv2int(z3_ctx, bv.0, false)) })
 }
 
 impl<'c> AstExtZ3<'c> for StringAst<'c> {
@@ -461,7 +458,9 @@ mod tests {
                     let s_ast = ctx.stringv("hello world").unwrap();
                     let pattern_ast = ctx.stringv("world").unwrap();
                     let replacement_ast = ctx.stringv("there").unwrap();
-                    let expected = ctx.strreplace(&s_ast, &pattern_ast, &replacement_ast).unwrap();
+                    let expected = ctx
+                        .strreplace(&s_ast, &pattern_ast, &replacement_ast)
+                        .unwrap();
                     assert_eq!(result, expected);
                 });
             }

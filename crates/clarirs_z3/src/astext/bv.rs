@@ -316,9 +316,8 @@ impl<'c> AstExtZ3<'c> for BitVecAst<'c> {
                             match inner_ast_kind {
                                 z3::AstKind::Numeral => {
                                     let numeral_string = z3::get_numeral_string(*z3_ctx, inner_int);
-                                    let numeral_str = std::ffi::CStr::from_ptr(numeral_string)
-                                        .to_str()
-                                        .unwrap();
+                                    let numeral_str =
+                                        std::ffi::CStr::from_ptr(numeral_string).to_str().unwrap();
                                     let sort = z3::get_sort(*z3_ctx, inner_int);
                                     let sort_num = z3::get_bv_sort_size(*z3_ctx, sort);
                                     let biguint = BitVec::from_str(numeral_str, sort_num).unwrap();
@@ -336,7 +335,7 @@ impl<'c> AstExtZ3<'c> for BitVecAst<'c> {
                                         }
                                         _ => Err(ClarirsError::ConversionError(
                                             "unsupported operation".to_string(),
-                                        ))
+                                        )),
                                     }
                                 }
                                 _ => Err(ClarirsError::ConversionError(
