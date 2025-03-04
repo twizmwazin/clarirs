@@ -32,7 +32,10 @@ pub enum ClaripyError {
 
 impl From<ClarirsError> for ClaripyError {
     fn from(e: ClarirsError) -> Self {
-        ClaripyError::ClarirsError(format!("{}", e))
+        match e {
+            ClarirsError::TypeError(e) => ClaripyError::TypeError(e),
+            _ => ClaripyError::ClarirsError(format!("{}", e)),
+        }
     }
 }
 

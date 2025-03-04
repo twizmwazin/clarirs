@@ -285,14 +285,19 @@ impl<'c> Op<'c> for BitVecOp<'c> {
     fn check_same_sort(&self, other: &Self) -> bool {
         self.size() == other.size()
     }
+
+    fn check_same_sort(&self, other: &Self) -> bool {
+        self.size() == other.size()
+    }
 }
 
 pub trait BitVecOpExt<'c> {
+pub trait BitVecOpExt<'c> {
     fn size(&self) -> u32;
+}
 }
 
 pub trait BitVecAstExt<'c> {
-    /// Chop the BV into `bits` sized pieces. Returns in little-endian order.
     fn chop(&self, bits: u32) -> Result<Vec<BitVecAst<'c>>, ClarirsError>;
 }
 
