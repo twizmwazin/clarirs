@@ -479,7 +479,13 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                         _ => ctx.if_(&if_, &then_, &else_),
                     }
                 }
-                BitVecOp::Annotated(arc, annotation) => todo!("bv annotation simplification"),
+                BitVecOp::Annotated(arc, annotation) => {
+                    if annotation.eliminatable() {
+                        arc.simplify()
+                    } else {
+                        Ok(self.clone())
+                    }
+                }
             }
         })
     }
