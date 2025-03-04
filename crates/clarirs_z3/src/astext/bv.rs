@@ -309,6 +309,40 @@ impl<'c> AstExtZ3<'c> for BitVecAst<'c> {
                             let else_ = BitVecAst::from_z3(ctx, else_)?;
                             ctx.if_(&cond, &then, &else_)
                         }
+                        // Special case for bv2int used in string operations
+                        z3::DeclKind::Int2bv => {
+                            let inner_int = z3::get_app_arg(*z3_ctx, app, 0);
+                            let inner_ast_kind = z3::get_ast_kind(*z3_ctx, *ast);
+                            match inner_ast_kind {
+                                z3::AstKind::Numeral => {
+                                    let numeral_string = z3::get_numeral_string(*z3_ctx, inner_int);
+                                    let numeral_str =
+                                        std::ffi::CStr::from_ptr(numeral_string).to_str().unwrap();
+                                    let sort = z3::get_sort(*z3_ctx, inner_int);
+                                    let sort_num = z3::get_bv_sort_size(*z3_ctx, sort);
+                                    let biguint = BitVec::from_str(numeral_str, sort_num).unwrap();
+                                    ctx.bvv(biguint)
+                                }
+                                z3::AstKind::App => {
+                                    let app = z3::to_app(*z3_ctx, inner_int);
+                                    let decl = z3::get_app_decl(*z3_ctx, app);
+                                    let decl_kind = z3::get_decl_kind(*z3_ctx, decl);
+
+                                    match decl_kind {
+                                        z3::DeclKind::Bv2int => {
+                                            let arg = z3::get_app_arg(*z3_ctx, app, 0);
+                                            BitVecAst::from_z3(ctx, arg)
+                                        }
+                                        _ => Err(ClarirsError::ConversionError(
+                                            "unsupported operation".to_string(),
+                                        )),
+                                    }
+                                }
+                                _ => Err(ClarirsError::ConversionError(
+                                    "unsupported operation".to_string(),
+                                )),
+                            }
+                        }
                         _ => Err(ClarirsError::ConversionError(
                             "unsupported operation".to_string(),
                         )),
