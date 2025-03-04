@@ -11,29 +11,19 @@ pub enum ClarirsError {
     UnsupportedOperation,
     #[error("Invalid arguments")]
     InvalidArguments,
-    #[error("Invalid AST Type: {:?}", .0)]
-    InvalidAst(String),
-    #[error("IO Error: {:?}", .0)]
-    IoError(#[from] std::io::Error),
     #[error("BitVector too short: {value:?} is too short for length {length}")]
     BitVectorTooShort {
         value: num_bigint::BigUint,
         length: u32,
     },
-    #[error("Usatisfiable constraints")]
-    UnsatisfiableConstraints,
     #[error("Type error: {:?}", .0)]
     TypeError(String),
     #[error("BitVector not bite-sized: {length:?} is not a multiple of 8")]
     BitVectorNotByteSized { length: u32 },
-    #[error("AST not represented in model")]
-    AstNotInModel,
     #[error("Conversion error: {:?}", .0)]
     ConversionError(String),
     #[error("UNSAT")]
     Unsat,
-    #[error("Unknown error: {:?}", .0)]
-    UnknownError(String),
 }
 
 impl<T> From<PoisonError<T>> for ClarirsError {

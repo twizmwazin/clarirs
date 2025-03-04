@@ -203,7 +203,7 @@ impl Bool {
                     &args[1].downcast_bound::<Bool>(py)?.get().inner,
                     &args[2].downcast_bound::<Bool>(py)?.get().inner,
                 )?,
-                _ => return Err(ClaripyError::InvalidOp(op.to_string())),
+                _ => return Err(ClaripyError::InvalidOperation(op.to_string())),
             },
         )
     }
