@@ -83,7 +83,7 @@ impl BitVec {
             }
 
             // Check if we have an extra word
-            let expected_words = ((self.len() + other.len() + 63) / 64) as usize;
+            let expected_words = (self.len() + other.len()).div_ceil(64) as usize;
             if new_bv.len() > expected_words {
                 new_bv.pop();
             }

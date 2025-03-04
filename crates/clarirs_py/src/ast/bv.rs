@@ -877,7 +877,7 @@ pub fn BVV<'py>(
     if let Ok(int_val) = value.extract::<BigInt>() {
         if let Some(size) = size {
             let uint_value = int_val.to_biguint().unwrap_or(
-                ((BigInt::from(1) << (size - 1)) + int_val)
+                ((BigInt::from(1) << size) + int_val)
                     .to_biguint()
                     .expect("BigInt to BigUInt failed"),
             );
