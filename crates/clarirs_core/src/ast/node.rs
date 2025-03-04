@@ -114,7 +114,7 @@ impl<'c, O: Op<'c>> Op<'c> for AstNode<'c, O> {
     fn get_annotations(&self) -> Vec<Annotation> {
         self.op().get_annotations()
     }
-    
+
     fn check_same_sort(&self, other: &Self) -> bool {
         self.op().check_same_sort(other.op())
     }
@@ -192,7 +192,7 @@ impl<'c> Op<'c> for DynAst<'c> {
             DynAst::String(ast) => ast.get_annotations(),
         }
     }
-    
+
     fn check_same_sort(&self, other: &Self) -> bool {
         match (self, other) {
             (DynAst::Boolean(a), DynAst::Boolean(b)) => a.check_same_sort(b),

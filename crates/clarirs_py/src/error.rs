@@ -1,4 +1,3 @@
-
 use crate::{prelude::*, py_err};
 use clarirs_num::bitvec::BitVecError;
 use pyo3::{DowncastError, DowncastIntoError, PyErr, PyObject};
@@ -33,7 +32,6 @@ impl From<ClarirsError> for ClaripyError {
         match e {
             ClarirsError::TypeError(e) => ClaripyError::TypeError(e),
             _ => ClaripyError::ClarirsError(format!("{}", e)),
-
         }
     }
 }

@@ -144,7 +144,7 @@ impl<'c> Op<'c> for FloatOp<'c> {
             vec![]
         }
     }
-    
+
     fn check_same_sort(&self, other: &Self) -> bool {
         self.size() == other.size()
     }
