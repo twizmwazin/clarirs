@@ -219,13 +219,12 @@ impl BV {
     }
 
     #[getter]
-    pub fn annotations(&self, py: Python) -> PyResult<Vec<PyObject>> {
+    pub fn annotations<'py>(&self, py: Python<'py>) -> PyResult<Vec<Bound<'py, PyAny>>> {
         let pickle_loads = py.import("pickle")?.getattr("loads")?;
         self.inner
             .get_annotations()
             .iter()
             .map(|a| pickle_loads.call1((PyBytes::new(py, a.value()),)))
-            .map(|a| a.map(|a| a.unbind()))
             .collect()
     }
 
@@ -331,6 +330,30 @@ impl BV {
                 Annotation::new("".to_string(), annotation_bytes, eliminatable, relocatable),
             )?,
         )
+    }
+
+    pub fn has_annotation_type<'py>(
+        &self,
+        py: Python<'py>,
+        annotation_type: Bound<'py, PyAny>,
+    ) -> Result<bool, ClaripyError> {
+        Ok(self
+            .annotations(py)?
+            .iter()
+            .any(|annotation| annotation.is_instance(&annotation_type).unwrap_or(false)))
+    }
+
+    pub fn get_annotations_by_type<'py>(
+        &self,
+        py: Python<'py>,
+        annotation_type: Bound<'py, PyAny>,
+    ) -> Result<Vec<Bound<'py, PyAny>>, ClaripyError> {
+        Ok(self
+            .annotations(py)?
+            .iter()
+            .filter(|annotation| annotation.is_instance(&annotation_type).unwrap_or(false))
+            .cloned()
+            .collect())
     }
 
     pub fn __add__<'py>(
