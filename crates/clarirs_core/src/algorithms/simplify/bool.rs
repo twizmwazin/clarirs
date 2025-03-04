@@ -307,7 +307,13 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
                         _ => ctx.if_(&cond, &then_, &else_),
                     }
                 }
-                BooleanOp::Annotated(arc, annotation) => todo!("bool annotation simplification"),
+                BooleanOp::Annotated(arc, annotation) => {
+                    if annotation.eliminatable() {
+                        arc.simplify()
+                    } else {
+                        Ok(self.clone())
+                    }
+                }
             }
         })
     }

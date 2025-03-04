@@ -123,7 +123,13 @@ impl<'c> Simplify<'c> for FloatAst<'c> {
                     }
                 }
                 FloatOp::If(arc, arc1, arc2) => todo!("fp if simplification"),
-                FloatOp::Annotated(arc, annotation) => todo!("fp annotation simplification"),
+                FloatOp::Annotated(arc, annotation) => {
+                    if annotation.eliminatable() {
+                        arc.simplify()
+                    } else {
+                        Ok(self.clone())
+                    }
+                }
             }
         })
     }

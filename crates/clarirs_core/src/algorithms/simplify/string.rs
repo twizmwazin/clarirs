@@ -74,7 +74,11 @@ impl<'c> Simplify<'c> for StringAst<'c> {
                     }
                     StringOp::If(arc, arc1, arc2) => todo!("string if simplification"),
                     StringOp::Annotated(arc, annotation) => {
-                        todo!("string annotation simplification")
+                        if annotation.eliminatable() {
+                            arc.simplify()
+                        } else {
+                            Ok(self.clone())
+                        }
                     }
                 }
             })
