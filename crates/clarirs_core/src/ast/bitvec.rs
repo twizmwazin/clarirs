@@ -298,6 +298,7 @@ pub trait BitVecOpExt<'c> {
 }
 
 pub trait BitVecAstExt<'c> {
+    /// Chop the BV into `bits` sized pieces. Returns in little-endian order.
     fn chop(&self, bits: u32) -> Result<Vec<BitVecAst<'c>>, ClarirsError>;
 }
 
