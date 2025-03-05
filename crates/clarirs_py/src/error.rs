@@ -3,7 +3,7 @@ use crate::py_err::InvalidExtractBoundsError;
 use clarirs_num::bitvec::BitVecError;
 use pyo3::{
     DowncastError, DowncastIntoError, PyErr, PyObject,
-    exceptions::{PyRuntimeError, PyZeroDivisionError},
+    exceptions::{PyRuntimeError, PyValueError, PyZeroDivisionError},
 };
 use thiserror::Error;
 
@@ -29,6 +29,8 @@ pub enum ClaripyError {
     DivisionByZero { dividend: num_bigint::BigUint },
     #[error("Invalid extract bounds: upper: {upper}, lower: {lower}, length: {length}")]
     InvalidExtractBounds { upper: u32, lower: u32, length: u32 },
+    #[error("BitVector length {size} must be a multiple of {bits}.")]
+    InvalidChopSize { size: u32, bits: u32 },
     #[error("BitVec error: {0}")]
     BitVecError(#[from] BitVecError),
     #[error("Unsupported operation: {0}")]
@@ -48,6 +50,9 @@ impl From<ClarirsError> for ClaripyError {
                 lower,
                 length,
             },
+            ClarirsError::InvalidChopSize { size, bits } => {
+                ClaripyError::InvalidChopSize { size, bits }
+            }
             _ => ClaripyError::ClarirsError(format!("{}", e)),
         }
     }
@@ -73,6 +78,10 @@ impl From<ClaripyError> for PyErr {
             } => InvalidExtractBoundsError::new_err(format!(
                 "Invalid extract bounds: upper: {}, lower: {}, length: {}",
                 upper, lower, length
+            )),
+            ClaripyError::InvalidChopSize { size, bits } => PyValueError::new_err(format!(
+                "BitVector length {} must be a multiple of {}.",
+                size, bits
             )),
             _ => PyRuntimeError::new_err(format!("{}", e)),
         }

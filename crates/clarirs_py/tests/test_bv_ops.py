@@ -226,7 +226,7 @@ class TestBVOperations(unittest.TestCase):
         # Create a value with known bit patterns
         val = claripy.BVV(0xDEADBEEF, 32)
 
-        # # Extract full width
+        # Extract full width
         result = val[31:0]
         self._check_equal(result, 0xDEADBEEF)
 
@@ -254,7 +254,7 @@ class TestBVOperations(unittest.TestCase):
         sym_extract = self.sym_x[7:4]  # Extract middle bits
         self._check_symbolic_evaluation(sym_extract, lambda solver: solver.satisfiable())
 
-        # # # Test invalid indices should raise
+        # Test invalid indices should raise
         with self.assertRaises(claripy.InvalidExtractBounds):
             _ = val[32:0].concrete_value  # Can't extract beyond size
 
@@ -320,7 +320,7 @@ class TestBVOperations(unittest.TestCase):
         self.assertEqual(sym_sign_extend.length, 16)
         self._check_symbolic_evaluation(sym_sign_extend, lambda solver: solver.satisfiable())
 
-        # Chop operation
+        # # Chop operation
         val = claripy.BVV(0xDEADBEEF, 32)
         # Chop into bytes
         pieces = val.chop(bits=8)
@@ -337,7 +337,7 @@ class TestBVOperations(unittest.TestCase):
         self._check_equal(pieces[1], 0xBEEF)
 
         # Test invalid chop should raise
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as context:
             val.chop(bits=3)  # Not a multiple of length
 
     def test_rotate(self):

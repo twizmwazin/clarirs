@@ -20,6 +20,8 @@ pub enum ClarirsError {
     DivisionByZero { dividend: num_bigint::BigUint },
     #[error("Invalid extract bounds: upper: {upper}, lower: {lower}, length: {length}")]
     InvalidExtractBounds { upper: u32, lower: u32, length: u32 },
+    #[error(" BitVector length {size} must be a multiple of {bits}.")]
+    InvalidChopSize { size: u32, bits: u32 },
     #[error("Type error: {:?}", .0)]
     TypeError(String),
     #[error("BitVector not bite-sized: {length:?} is not a multiple of 8")]
@@ -54,6 +56,9 @@ impl From<BitVecError> for ClarirsError {
                 lower,
                 length,
             },
+            BitVecError::InvalidChopSize { size, bits } => {
+                ClarirsError::InvalidChopSize { size, bits }
+            }
             BitVecError::DivisionByZero { dividend } => ClarirsError::DivisionByZero { dividend },
         }
     }
