@@ -285,16 +285,10 @@ impl<'c> Op<'c> for BitVecOp<'c> {
     fn check_same_sort(&self, other: &Self) -> bool {
         self.size() == other.size()
     }
-
-    fn check_same_sort(&self, other: &Self) -> bool {
-        self.size() == other.size()
-    }
 }
 
-pub trait BitVecOpExt<'c> {
 pub trait BitVecOpExt<'c> {
     fn size(&self) -> u32;
-}
 }
 
 pub trait BitVecAstExt<'c> {

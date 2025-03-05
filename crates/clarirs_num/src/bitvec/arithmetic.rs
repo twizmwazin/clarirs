@@ -74,7 +74,6 @@ impl Div for BitVec {
         if rhs.is_zero() {
             return Err(BitVecError::DivisionByZero {
                 dividend: BigUint::from(&self),
-                divisor: BigUint::from(&rhs),
             });
         }
         Ok(BitVec::from_biguint_trunc(
@@ -252,9 +251,8 @@ mod tests {
             "Expected division by zero to return an error"
         );
 
-        if let Err(BitVecError::DivisionByZero { dividend, divisor }) = result {
+        if let Err(BitVecError::DivisionByZero { dividend }) = result {
             assert_eq!(dividend, BigUint::from(42u64));
-            assert_eq!(divisor, BigUint::from(0u64));
         } else {
             panic!("Expected DivisionByZero error, but got {:?}", result);
         }

@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use crate::py_err::InvalidExtractBoundsError;
 use clarirs_num::bitvec::BitVecError;
 use pyo3::{
     DowncastError, DowncastIntoError, PyErr, PyObject,
@@ -24,6 +25,10 @@ pub enum ClaripyError {
     CastingError(String),
     #[error("Invalid argument type: {0}")]
     InvalidArgumentType(String),
+    #[error("Division by zero error: attempted {dividend}/0")]
+    DivisionByZero { dividend: num_bigint::BigUint },
+    #[error("Invalid extract bounds: upper: {upper}, lower: {lower}, length: {length}")]
+    InvalidExtractBounds { upper: u32, lower: u32, length: u32 },
     #[error("BitVec error: {0}")]
     BitVecError(#[from] BitVecError),
     #[error("Unsupported operation: {0}")]
@@ -33,7 +38,16 @@ pub enum ClaripyError {
 impl From<ClarirsError> for ClaripyError {
     fn from(e: ClarirsError) -> Self {
         match e {
-            ClarirsError::TypeError(e) => ClaripyError::TypeError(e),
+            ClarirsError::DivisionByZero { dividend } => ClaripyError::DivisionByZero { dividend },
+            ClarirsError::InvalidExtractBounds {
+                upper,
+                lower,
+                length,
+            } => ClaripyError::InvalidExtractBounds {
+                upper,
+                lower,
+                length,
+            },
             _ => ClaripyError::ClarirsError(format!("{}", e)),
         }
     }
@@ -47,13 +61,21 @@ impl From<PyErr> for ClaripyError {
 
 impl From<ClaripyError> for PyErr {
     fn from(e: ClaripyError) -> Self {
-        if let ClaripyError::InvalidOperation(ref msg) = e {
-            println!("{}", msg);
-            if msg.contains("Division by zero") {
-                return PyZeroDivisionError::new_err(msg.clone());
-            }
+        match e {
+            ClaripyError::DivisionByZero { dividend } => PyZeroDivisionError::new_err(format!(
+                "Division by zero error: attempted {}/0",
+                dividend
+            )),
+            ClaripyError::InvalidExtractBounds {
+                upper,
+                lower,
+                length,
+            } => InvalidExtractBoundsError::new_err(format!(
+                "Invalid extract bounds: upper: {}, lower: {}, length: {}",
+                upper, lower, length
+            )),
+            _ => PyRuntimeError::new_err(format!("{}", e)),
         }
-        PyRuntimeError::new_err(format!("{}", e))
     }
 }
 

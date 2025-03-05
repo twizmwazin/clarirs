@@ -7,3 +7,4 @@ create_exception!(claripy.errors, ClaripyFrontendError, ClaripyError);
 create_exception!(claripy.errors, ClaripySolverInterruptError, ClaripyError);
 create_exception!(claripy.errors, ClaripyOperationError, ClaripyError);
 create_exception!(claripy.errors, ClaripyZeroDivisionError, ClaripyError);
+create_exception!(claripy.errors, InvalidExtractBoundsError, ClaripyError);
