@@ -105,7 +105,7 @@ class TestBVOperations(unittest.TestCase):
 
         # Test division by zero raises exception
         with self.assertRaises(ZeroDivisionError):
-            _ = self.bv1 // self.bv_zero
+            _ = (self.bv1 // self.bv_zero).concrete_value
 
         # Test symbolic division
         sym_div = self.sym_x // claripy.BVV(2, 8)
@@ -222,7 +222,7 @@ class TestBVOperations(unittest.TestCase):
         self._check_symbolic_evaluation(sym_slt, lambda solver: solver.satisfiable())
 
     def test_extract(self):
-        """Test bit extraction with various ranges and edge cases."""
+        # """Test bit extraction with various ranges and edge cases."""
         # Create a value with known bit patterns
         val = claripy.BVV(0xDEADBEEF, 32)
 
@@ -255,8 +255,9 @@ class TestBVOperations(unittest.TestCase):
         self._check_symbolic_evaluation(sym_extract, lambda solver: solver.satisfiable())
 
         # Test invalid indices should raise
-        with self.assertRaises(claripy.ClaripyOperationError):
-            _ = val[32:0]  # Can't extract beyond size
+        with self.assertRaises(claripy.InvalidExtractBounds):
+            _ = val[32:0].concrete_value  # Can't extract beyond size
+
 
         # Test negative indices (should work like Python slicing)
         result = val[-1:-1]  # Last bit
@@ -319,7 +320,7 @@ class TestBVOperations(unittest.TestCase):
         self.assertEqual(sym_sign_extend.length, 16)
         self._check_symbolic_evaluation(sym_sign_extend, lambda solver: solver.satisfiable())
 
-        # Chop operation
+        # # Chop operation
         val = claripy.BVV(0xDEADBEEF, 32)
         # Chop into bytes
         pieces = val.chop(bits=8)
@@ -336,7 +337,7 @@ class TestBVOperations(unittest.TestCase):
         self._check_equal(pieces[1], 0xBEEF)
 
         # Test invalid chop should raise
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as context:
             val.chop(bits=3)  # Not a multiple of length
 
     def test_rotate(self):

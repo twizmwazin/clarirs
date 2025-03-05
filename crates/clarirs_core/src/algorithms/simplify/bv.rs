@@ -95,11 +95,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
 
                     match (arc.op(), arc1.op()) {
                         (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
-                            let quotient = BitVec::from_biguint_trunc(
-                                &(value1.to_biguint() / value2.to_biguint()),
-                                value1.len(),
-                            );
-                            ctx.bvv(quotient)
+                            ctx.bvv((value1.clone() / value2.clone())?)
                         }
                         _ => ctx.udiv(&arc, &arc1),
                     }

@@ -71,6 +71,11 @@ impl Div for BitVec {
     type Output = Result<Self, BitVecError>;
 
     fn div(self, rhs: Self) -> Self::Output {
+        if rhs.is_zero() {
+            return Err(BitVecError::DivisionByZero {
+                dividend: BigUint::from(&self),
+            });
+        }
         Ok(BitVec::from_biguint_trunc(
             &(BigUint::from(&self) / BigUint::from(&rhs)),
             self.length,
@@ -236,13 +241,23 @@ mod tests {
         let result = (a / b)?;
         assert_eq!(result.to_u64().unwrap(), 3);
 
+        // Division by zero
+        let a = BitVec::from(42u64);
+        let b = BitVec::from(0u64);
+        let result = a / b;
+
+        assert!(
+            result.is_err(),
+            "Expected division by zero to return an error"
+        );
+
+        if let Err(BitVecError::DivisionByZero { dividend }) = result {
+            assert_eq!(dividend, BigUint::from(42u64));
+        } else {
+            panic!("Expected DivisionByZero error, but got {:?}", result);
+        }
+
         Ok(())
-        // TODO: DBZ error handling
-        // // Division by zero (should return the dividend)
-        // let a = BitVec::from(42u64);
-        // let b = BitVec::from(0u64);
-        // let result = a / b;
-        // assert_eq!(result.to_u64().unwrap(), 42);
     }
 
     #[test]
