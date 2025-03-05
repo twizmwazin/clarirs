@@ -223,47 +223,45 @@ class TestBVOperations(unittest.TestCase):
 
     def test_extract(self):
         # """Test bit extraction with various ranges and edge cases."""
-        # # Create a value with known bit patterns
+        # Create a value with known bit patterns
         val = claripy.BVV(0xDEADBEEF, 32)
 
         # # Extract full width
-        # result = val[31:0]
-        # self._check_equal(result, 0xDEADBEEF)
+        result = val[31:0]
+        self._check_equal(result, 0xDEADBEEF)
 
-        # # Extract each byte
-        # result = val[31:24]
-        # self._check_equal(result, 0xDE)
-        # result = val[23:16]
-        # self._check_equal(result, 0xAD)
-        # result = val[15:8]
-        # self._check_equal(result, 0xBE)
-        # result = val[7:0]
-        # self._check_equal(result, 0xEF)
+        # Extract each byte
+        result = val[31:24]
+        self._check_equal(result, 0xDE)
+        result = val[23:16]
+        self._check_equal(result, 0xAD)
+        result = val[15:8]
+        self._check_equal(result, 0xBE)
+        result = val[7:0]
+        self._check_equal(result, 0xEF)
 
-        # # Extract across byte boundaries
-        # result = val[27:20]
-        # self._check_equal(result, 0xEA)  # Fixed: Correct value for bits 27:20
+        # Extract across byte boundaries
+        result = val[27:20]
+        self._check_equal(result, 0xEA)  # Fixed: Correct value for bits 27:20
 
-        # # Extract single bits
-        # result = val[31]
-        # self._check_equal(result, 1)
-        # result = val[0]
-        # self._check_equal(result, 1)
+        # Extract single bits
+        result = val[31]
+        self._check_equal(result, 1)
+        result = val[0]
+        self._check_equal(result, 1)
 
-        # # # Test with symbolic value
-        # sym_extract = self.sym_x[7:4]  # Extract middle bits
-        # self._check_symbolic_evaluation(sym_extract, lambda solver: solver.satisfiable())
+        # Test with symbolic value
+        sym_extract = self.sym_x[7:4]  # Extract middle bits
+        self._check_symbolic_evaluation(sym_extract, lambda solver: solver.satisfiable())
 
         # # # Test invalid indices should raise
-        # with self.assertRaises(claripy.InvalidExtractBounds):
-        #     _ = val[32:0].concrete_value  # Can't extract beyond size
+        with self.assertRaises(claripy.InvalidExtractBounds):
+            _ = val[32:0].concrete_value  # Can't extract beyond size
 
-        result = val[32:0].concrete_value
-        print(result)
 
         # Test negative indices (should work like Python slicing)
-        # result = val[-1:-1]  # Last bit
-        # self._check_equal(result, 1)  # 0xDEADBEEF ends in 1
+        result = val[-1:-1]  # Last bit
+        self._check_equal(result, 1)  # 0xDEADBEEF ends in 1
 
     def test_concat(self):
         """Test concatenation with various combinations."""
