@@ -914,8 +914,8 @@ pub fn BVV<'py>(
     }
     // TODO: deduplicate bytes/str
     if let Ok(bytes_val) = value.extract::<Vec<u8>>() {
-        let int_val = BigUint::from_bytes_le(&bytes_val);
-        log::warn!("bytes value passed to BVV, assuming little-endian");
+        let int_val = BigUint::from_bytes_be(&bytes_val);
+        log::warn!("bytes value passed to BVV, assuming big-endian");
         if size.is_some() {
             log::warn!("BVV size specified with bytes, value will be ignored");
         }
@@ -929,7 +929,7 @@ pub fn BVV<'py>(
     if let Ok(str_val) = value.extract::<String>() {
         log::warn!("string value passed to BVV, assuming utf-8/big-endian");
         let bytes_val = str_val.as_bytes();
-        let int_val = BigUint::from_bytes_le(bytes_val);
+        let int_val = BigUint::from_bytes_be(bytes_val);
         if size.is_some() {
             log::warn!("BVV size specified with string, value will be ignored");
         }
