@@ -76,7 +76,6 @@ impl BV {
                 }
                 "BVV" => GLOBAL_CONTEXT
                     .bvv_from_biguint_with_size(&args[0].extract(py)?, args[1].extract(py)?)?,
-                "__neg__" => GLOBAL_CONTEXT.not(&args[0].downcast_bound::<BV>(py)?.get().inner)?,
                 "__and__" => GLOBAL_CONTEXT.and(
                     &args[0].downcast_bound::<BV>(py)?.get().inner,
                     &args[1].downcast_bound::<BV>(py)?.get().inner,
@@ -89,6 +88,7 @@ impl BV {
                     &args[0].downcast_bound::<BV>(py)?.get().inner,
                     &args[1].downcast_bound::<BV>(py)?.get().inner,
                 )?,
+                "__neg__" => GLOBAL_CONTEXT.neg(&args[0].downcast_bound::<BV>(py)?.get().inner)?,
                 "__abs__" => GLOBAL_CONTEXT.abs(&args[0].downcast_bound::<BV>(py)?.get().inner)?,
                 "__add__" => GLOBAL_CONTEXT.add(
                     &args[0].downcast_bound::<BV>(py)?.get().inner,
@@ -621,7 +621,7 @@ impl BV {
     }
 
     pub fn __neg__<'py>(&self, py: Python<'py>) -> Result<Bound<'py, BV>, ClaripyError> {
-        BV::new(py, &GLOBAL_CONTEXT.not(&self.inner)?)
+        BV::new(py, &GLOBAL_CONTEXT.neg(&self.inner)?)
     }
 
     pub fn __invert__<'py>(&self, py: Python<'py>) -> Result<Bound<'py, BV>, ClaripyError> {

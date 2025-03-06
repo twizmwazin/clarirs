@@ -806,6 +806,10 @@ impl<'c> Replace<'c, BoolAst<'c>> for BitVecAst<'c> {
                 self.context()
                     .make_bitvec(BitVecOp::Xor(a_replaced, b_replaced))
             }
+            BitVecOp::Neg(a) => {
+                let a_replaced = a.replace(from, to)?;
+                self.context().make_bitvec(BitVecOp::Neg(a_replaced))
+            }
             BitVecOp::Abs(a) => {
                 let a_replaced = a.replace(from, to)?;
                 self.context().make_bitvec(BitVecOp::Abs(a_replaced))
@@ -987,6 +991,10 @@ impl<'c> Replace<'c, BitVecAst<'c>> for BitVecAst<'c> {
                     self.context()
                         .make_bitvec(BitVecOp::Xor(a_replaced, b_replaced))
                 }
+                BitVecOp::Neg(a) => {
+                    let a_replaced = a.replace(from, to)?;
+                    self.context().make_bitvec(BitVecOp::Neg(a_replaced))
+                }
                 BitVecOp::Abs(a) => {
                     let a_replaced = a.replace(from, to)?;
                     self.context().make_bitvec(BitVecOp::Abs(a_replaced))
@@ -1166,6 +1174,10 @@ impl<'c> Replace<'c, FloatAst<'c>> for BitVecAst<'c> {
                 self.context()
                     .make_bitvec(BitVecOp::Xor(a_replaced, b_replaced))
             }
+            BitVecOp::Neg(a) => {
+                let a_replaced = a.replace(from, to)?;
+                self.context().make_bitvec(BitVecOp::Neg(a_replaced))
+            }
             BitVecOp::Abs(a) => {
                 let a_replaced = a.replace(from, to)?;
                 self.context().make_bitvec(BitVecOp::Abs(a_replaced))
@@ -1343,6 +1355,10 @@ impl<'c> Replace<'c, StringAst<'c>> for BitVecAst<'c> {
                 let b_replaced = b.replace(from, to)?;
                 self.context()
                     .make_bitvec(BitVecOp::Xor(a_replaced, b_replaced))
+            }
+            BitVecOp::Neg(a) => {
+                let a_replaced = a.replace(from, to)?;
+                self.context().make_bitvec(BitVecOp::Neg(a_replaced))
             }
             BitVecOp::Abs(a) => {
                 let a_replaced = a.replace(from, to)?;
