@@ -11,7 +11,6 @@ pub mod py_err;
 pub mod pyslicemethodsext;
 pub mod solver;
 
-use crate::py_err::InvalidExtractBoundsError;
 use prelude::*;
 
 fn import_submodule<'py>(
@@ -187,7 +186,7 @@ pub fn clarirs(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     )?;
     m.add(
         "InvalidExtractBounds",
-        py.get_type::<InvalidExtractBoundsError>(),
+        py.get_type::<py_err::InvalidExtractBoundsError>(),
     )?;
 
     m.add("FSORT_FLOAT", ast::fp::fsort_float())?;

@@ -1,9 +1,8 @@
-use crate::prelude::*;
-use crate::py_err::InvalidExtractBoundsError;
+use crate::{prelude::*, py_err};
 use clarirs_num::bitvec::BitVecError;
 use pyo3::{
     DowncastError, DowncastIntoError, PyErr, PyObject,
-    exceptions::{PyRuntimeError, PyValueError, PyZeroDivisionError},
+    exceptions::{PyValueError, PyZeroDivisionError},
 };
 use thiserror::Error;
 
@@ -53,8 +52,15 @@ impl From<ClarirsError> for ClaripyError {
             ClarirsError::InvalidChopSize { size, bits } => {
                 ClaripyError::InvalidChopSize { size, bits }
             }
+            ClarirsError::TypeError(e) => ClaripyError::TypeError(e),
             _ => ClaripyError::ClarirsError(format!("{}", e)),
         }
+    }
+}
+
+impl From<&ClarirsError> for ClaripyError {
+    fn from(e: &ClarirsError) -> Self {
+        ClaripyError::ClarirsError(format!("{}", e))
     }
 }
 
@@ -75,7 +81,7 @@ impl From<ClaripyError> for PyErr {
                 upper,
                 lower,
                 length,
-            } => InvalidExtractBoundsError::new_err(format!(
+            } => py_err::InvalidExtractBoundsError::new_err(format!(
                 "Invalid extract bounds: upper: {}, lower: {}, length: {}",
                 upper, lower, length
             )),
@@ -83,7 +89,8 @@ impl From<ClaripyError> for PyErr {
                 "BitVector length {} must be a multiple of {}.",
                 size, bits
             )),
-            _ => PyRuntimeError::new_err(format!("{}", e)),
+            ClaripyError::TypeError(e) => py_err::ClaripyTypeError::new_err(e),
+            _ => py_err::ClaripyError::new_err(format!("{}", e)),
         }
     }
 }
