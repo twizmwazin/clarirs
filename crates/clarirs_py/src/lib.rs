@@ -184,6 +184,10 @@ pub fn clarirs(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
         "ClaripyZeroDivisionError",
         py.get_type::<py_err::ClaripyZeroDivisionError>(),
     )?;
+    m.add(
+        "InvalidExtractBounds",
+        py.get_type::<py_err::InvalidExtractBoundsError>(),
+    )?;
 
     m.add("FSORT_FLOAT", ast::fp::fsort_float())?;
     m.add("FSORT_DOUBLE", ast::fp::fsort_double())?;

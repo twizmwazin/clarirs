@@ -341,7 +341,10 @@ impl<'c> BitVecOpExt<'c> for BitVecAst<'c> {
 impl<'c> BitVecAstExt<'c> for BitVecAst<'c> {
     fn chop(&self, bits: u32) -> Result<Vec<BitVecAst<'c>>, ClarirsError> {
         if self.size() % bits != 0 {
-            return Err(ClarirsError::UnsupportedOperation);
+            return Err(ClarirsError::InvalidChopSize {
+                size: self.size(),
+                bits,
+            });
         }
 
         let mut res = vec![];

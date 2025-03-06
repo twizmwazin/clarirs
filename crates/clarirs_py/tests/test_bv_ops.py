@@ -105,7 +105,7 @@ class TestBVOperations(unittest.TestCase):
 
         # Test division by zero raises exception
         with self.assertRaises(ZeroDivisionError):
-            _ = self.bv1 // self.bv_zero
+            _ = (self.bv1 // self.bv_zero).concrete_value
 
         # Test symbolic division
         sym_div = self.sym_x // claripy.BVV(2, 8)
@@ -255,8 +255,8 @@ class TestBVOperations(unittest.TestCase):
         self._check_symbolic_evaluation(sym_extract, lambda solver: solver.satisfiable())
 
         # Test invalid indices should raise
-        with self.assertRaises(claripy.ClaripyOperationError):
-            _ = val[32:0]  # Can't extract beyond size
+        with self.assertRaises(claripy.InvalidExtractBounds):
+            _ = val[32:0].concrete_value  # Can't extract beyond size
 
         # Test negative indices (should work like Python slicing)
         result = val[-1:-1]  # Last bit
