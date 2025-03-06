@@ -96,6 +96,10 @@ pub trait AstFactory<'c>: Sized {
         Op::neq(self, lhs, rhs)
     }
 
+    fn neg(&'c self, ast: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::Neg(ast.clone()))
+    }
+
     fn abs<Op: SupportsAbs<'c>>(
         &'c self,
         ast: &AstRef<'c, Op>,

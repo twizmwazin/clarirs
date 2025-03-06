@@ -47,6 +47,13 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                         _ => ctx.xor(&arc, &arc1),
                     }
                 }
+                BitVecOp::Neg(arc) => {
+                    simplify!(arc);
+                    match arc.op() {
+                        BitVecOp::BVV(value) => ctx.bvv((-value.clone())?),
+                        _ => ctx.neg(&arc),
+                    }
+                }
                 BitVecOp::Abs(arc) => {
                     simplify!(arc);
                     match arc.op() {

@@ -3,6 +3,37 @@ use anyhow::Result;
 use smallvec::SmallVec;
 
 #[test]
+fn test_neg() -> Result<()> {
+    let ctx = Context::new();
+
+    let table: Vec<(u64, u64)> = vec![
+        (0, 0),
+        (1, u64::MAX),
+        (2, u64::MAX - 1),
+        (3, u64::MAX - 2),
+        (4, u64::MAX - 3),
+        (5, u64::MAX - 4),
+        (6, u64::MAX - 5),
+        (7, u64::MAX - 6),
+        (8, u64::MAX - 7),
+        (9, u64::MAX - 8),
+        (u64::MAX, 1),
+        (u64::MAX - 1, 2),
+        (u64::MAX - 2, 3),
+    ];
+
+    for (a, expected) in table.clone() {
+        let a = ctx.bvv_prim(a).unwrap();
+        let expected = ctx.bvv_prim(expected).unwrap();
+
+        let result = ctx.neg(&a)?.simplify()?;
+        assert_eq!(result, expected);
+    }
+
+    Ok(())
+}
+
+#[test]
 fn test_add() -> Result<()> {
     let ctx = Context::new();
 

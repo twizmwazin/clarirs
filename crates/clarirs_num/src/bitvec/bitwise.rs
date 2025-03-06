@@ -1,16 +1,8 @@
-use std::ops::{BitAnd, BitOr, BitXor, Neg, Not, Shl, Shr};
+use std::ops::{BitAnd, BitOr, BitXor, Not, Shl, Shr};
 
 use smallvec::SmallVec;
 
 use super::{BitVec, BitVecError};
-
-impl Neg for BitVec {
-    type Output = Result<Self, BitVecError>;
-
-    fn neg(self) -> Self::Output {
-        !self
-    }
-}
 
 impl Not for BitVec {
     type Output = Result<Self, BitVecError>;
@@ -167,11 +159,10 @@ mod tests {
 
     #[test]
     fn test_neg() -> Result<(), BitVecError> {
-        // Negation should be equivalent to NOT
-        let bv = BitVec::from_prim_with_size(0b10101010u8, 8)?;
-        let neg_result = -bv.clone();
-        let not_result = !bv;
-        assert_eq!(neg_result, not_result);
+        // Arithmatic negation
+        let bv = BitVec::from_prim_with_size(0b1010u8, 4)?;
+        let result = (!bv)?;
+        assert_eq!(result.to_u64().unwrap(), 0b0101);
 
         Ok(())
     }

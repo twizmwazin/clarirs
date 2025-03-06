@@ -27,6 +27,10 @@ impl<'c> AstExtZ3<'c> for BitVecAst<'c> {
                     let a = a.to_z3()?;
                     z3::mk_bvnot(z3_ctx, a.0).into()
                 }
+                BitVecOp::Neg(a) => {
+                    let a = a.to_z3()?;
+                    z3::mk_bvneg(z3_ctx, a.0).into()
+                }
                 BitVecOp::Abs(a) => self
                     .context()
                     .if_(
@@ -230,6 +234,11 @@ impl<'c> AstExtZ3<'c> for BitVecAst<'c> {
                             let arg = z3::get_app_arg(*z3_ctx, app, 0);
                             let inner = BitVecAst::from_z3(ctx, arg)?;
                             ctx.not(&inner)
+                        }
+                        z3::DeclKind::Bneg => {
+                            let arg = z3::get_app_arg(*z3_ctx, app, 0);
+                            let inner = BitVecAst::from_z3(ctx, arg)?;
+                            ctx.neg(&inner)
                         }
                         z3::DeclKind::Band
                         | z3::DeclKind::Bor

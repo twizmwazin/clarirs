@@ -1,10 +1,18 @@
-use std::ops::{Add, Div, Mul, Rem, Sub};
+use std::ops::{Add, Div, Mul, Neg, Rem, Sub};
 
 use num_bigint::BigUint;
 use num_traits::Zero;
 use smallvec::SmallVec;
 
 use super::{BitVec, BitVecError};
+
+impl Neg for BitVec {
+    type Output = Result<Self, BitVecError>;
+
+    fn neg(self) -> Self::Output {
+        (!self.clone())? + BitVec::from_prim_with_size(1u64, self.length)?
+    }
+}
 
 impl Add for BitVec {
     type Output = Result<Self, BitVecError>;
@@ -52,7 +60,7 @@ impl Sub for BitVec {
     type Output = Result<Self, BitVecError>;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        (self.clone() + (-rhs)?)? + BitVec::from_prim_with_size(1u8, self.length)?
+        self.clone() + (-rhs)?
     }
 }
 
