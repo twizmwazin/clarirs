@@ -1,5 +1,6 @@
 use crate::{dynsolver::DynSolver, prelude::*};
 use clarirs_z3::Z3Solver;
+use pyo3::types::PyTuple;
 
 #[pyclass(name = "Solver", module = "clarirs.solver", subclass)]
 pub struct PySolver {
@@ -8,15 +9,35 @@ pub struct PySolver {
 
 #[pymethods]
 impl PySolver {
-    #[pyo3(signature = (*exprs))]
+    #[pyo3(signature = (exprs))]
     fn add<'py>(
         &mut self,
-        exprs: Vec<Bound<'py, Bool>>,
+        exprs: Bound<'py, PyAny>,
     ) -> Result<Vec<Bound<'py, Bool>>, ClaripyError> {
-        for expr in exprs.clone() {
+        // Handle both tuple of expressions and single expression
+        let bool_exprs = if let Ok(tuple) = exprs.downcast::<PyTuple>() {
+            // Convert tuple of expressions to Vec<Bound<Bool>>
+            tuple
+                .iter()
+                .map(|expr| {
+                    expr.downcast_into::<Bool>().map_err(|_| {
+                        ClaripyError::TypeError("add: expression must be a boolean".to_string())
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()?
+        } else {
+            // Handle single expression case
+            vec![exprs.downcast_into::<Bool>().map_err(|_| {
+                ClaripyError::TypeError("add: expression must be a boolean".to_string())
+            })?]
+        };
+
+        // Add all expressions to the solver
+        for expr in &bool_exprs {
             self.inner.add(&expr.get().inner)?;
         }
-        Ok(exprs)
+
+        Ok(bool_exprs)
     }
 
     fn satisfiable(&mut self) -> Result<bool, ClaripyError> {
