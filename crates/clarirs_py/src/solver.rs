@@ -147,12 +147,42 @@ impl PySolver {
             .collect::<Result<Vec<Vec<Bound<PyAny>>>, pyo3::PyErr>>()
     }
 
-    fn is_true(&mut self, expr: Bound<Bool>) -> Result<bool, ClaripyError> {
-        Ok(self.inner.is_true(&expr.get().inner).unwrap())
+    #[pyo3(signature = (expr, extra_constraints = None, exact = None))]
+    fn is_true<'py>(
+        &mut self,
+        expr: Bound<Bool>,
+        extra_constraints: Option<Vec<Bound<'py, Bool>>>,
+        exact: Option<Bound<'py, PyAny>>
+    ) -> Result<bool, ClaripyError> {
+        _ = exact; // TODO: Implement approximate solutions
+
+        // Fork the solver for extra constraints
+        let mut solver = self.inner.clone();
+        if let Some(extra_constraints) = extra_constraints {
+            for expr in extra_constraints {
+                solver.add(&expr.get().inner)?;
+            }
+        }
+        Ok(solver.is_true(&expr.get().inner).unwrap())
     }
 
-    fn is_false(&mut self, expr: Bound<Bool>) -> Result<bool, ClaripyError> {
-        Ok(self.inner.is_false(&expr.get().inner).unwrap())
+    #[pyo3(signature = (expr, extra_constraints = None, exact = None))]
+    fn is_false<'py>(
+        &mut self,
+        expr: Bound<Bool>,
+        extra_constraints: Option<Vec<Bound<'py, Bool>>>,
+        exact: Option<Bound<'py, PyAny>>
+    ) -> Result<bool, ClaripyError> {
+        _ = exact; // TODO: Implement approximate solutions
+
+        // Fork the solver for extra constraints
+        let mut solver = self.inner.clone();
+        if let Some(extra_constraints) = extra_constraints {
+            for expr in extra_constraints {
+                solver.add(&expr.get().inner)?;
+            }
+        }
+        Ok(solver.is_false(&expr.get().inner).unwrap())
     }
 
     #[pyo3(signature = (expr, extra_constraints = None, exact = None, signed = false))]
