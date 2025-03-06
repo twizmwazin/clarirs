@@ -152,7 +152,7 @@ impl PySolver {
         &mut self,
         expr: Bound<Bool>,
         extra_constraints: Option<Vec<Bound<'py, Bool>>>,
-        exact: Option<Bound<'py, PyAny>>
+        exact: Option<Bound<'py, PyAny>>,
     ) -> Result<bool, ClaripyError> {
         _ = exact; // TODO: Implement approximate solutions
 
@@ -171,7 +171,7 @@ impl PySolver {
         &mut self,
         expr: Bound<Bool>,
         extra_constraints: Option<Vec<Bound<'py, Bool>>>,
-        exact: Option<Bound<'py, PyAny>>
+        exact: Option<Bound<'py, PyAny>>,
     ) -> Result<bool, ClaripyError> {
         _ = exact; // TODO: Implement approximate solutions
 
