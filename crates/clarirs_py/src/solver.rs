@@ -1,5 +1,6 @@
 use crate::{dynsolver::DynSolver, prelude::*};
 use clarirs_z3::Z3Solver;
+use num_bigint::BigInt;
 use pyo3::types::PyTuple;
 
 #[pyclass(name = "Solver", module = "clarirs.solver", subclass)]
@@ -214,7 +215,6 @@ impl PySolver {
     #[pyo3(signature = (expr, extra_constraints = None, exact = None, signed = false))]
     fn max<'py>(
         &mut self,
-        py: Python<'py>,
         expr: Bound<'py, BV>,
         extra_constraints: Option<Vec<Bound<'py, Bool>>>,
         exact: Option<Bound<'py, PyAny>>,
