@@ -219,9 +219,7 @@ impl<'c> AstExtZ3<'c> for BoolAst<'c> {
                                 ctx.not(&inner)
                             }
                         }
-                        z3::DeclKind::And
-                        | z3::DeclKind::Or
-                        | z3::DeclKind::Xor => {
+                        z3::DeclKind::And | z3::DeclKind::Or | z3::DeclKind::Xor => {
                             let arg0 = z3::get_app_arg(*z3_ctx, app, 0);
                             let arg1 = z3::get_app_arg(*z3_ctx, app, 1);
 
