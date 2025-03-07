@@ -1,8 +1,13 @@
+use std::{
+    any::Any,
+    hash::{DefaultHasher, Hash, Hasher},
+};
+
 use pyo3::types::PyTuple;
 
 use crate::prelude::*;
 
-#[pyclass(name = "Annotation", module = "clarirs.annotation", subclass)]
+#[pyclass(name = "Annotation", module = "clarirs.annotation", subclass, frozen)]
 pub struct PyAnnotation {
     eliminatable: bool,
     relocatable: bool,
@@ -31,9 +36,34 @@ impl PyAnnotation {
     fn relocatable(&self) -> bool {
         self.relocatable
     }
+
+    fn __hash__(self_: Bound<PyAnnotation>) -> Result<isize, ClaripyError> {
+        let mut hasher = DefaultHasher::new();
+
+        self_
+            .get_type()
+            .name()?
+            .extract::<String>()?
+            .hash(&mut hasher);
+        self_.get().eliminatable.hash(&mut hasher);
+        self_.get().relocatable.hash(&mut hasher);
+
+        Ok(hasher.finish() as isize)
+    }
+
+    fn __eq__(self_: Bound<PyAnnotation>, other: Bound<PyAny>) -> PyResult<bool> {
+        if let Ok(other) = other.downcast::<PyAnnotation>() {
+            Ok(self_.get_type().name()?.extract::<String>()?
+                == other.get_type().name()?.extract::<String>()?
+                && self_.get().eliminatable == other.get().eliminatable
+                && self_.get().relocatable == other.get().relocatable)
+        } else {
+            Ok(false)
+        }
+    }
 }
 
-#[pyclass(extends = PyAnnotation, module = "clarirs.annotation", subclass)]
+#[pyclass(extends = PyAnnotation, module = "clarirs.annotation", subclass, frozen)]
 pub struct SimplificationAvoidanceAnnotation {}
 
 #[pymethods]
@@ -48,10 +78,10 @@ impl SimplificationAvoidanceAnnotation {
     }
 }
 
-#[pyclass(extends = PyAnnotation, module = "clarirs.annotation", subclass)]
+#[pyclass(extends = PyAnnotation, module = "clarirs.annotation", subclass, frozen)]
 pub struct RegionAnnotation {}
 
-#[pyclass(extends = PyAnnotation, module = "clarirs.annotation", subclass)]
+#[pyclass(extends = PyAnnotation, module = "clarirs.annotation", subclass, frozen)]
 pub struct UninitializedAnnotation {}
 
 #[pymethods]
