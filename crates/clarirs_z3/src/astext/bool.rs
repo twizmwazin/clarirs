@@ -221,8 +221,7 @@ impl<'c> AstExtZ3<'c> for BoolAst<'c> {
                         }
                         z3::DeclKind::And
                         | z3::DeclKind::Or
-                        | z3::DeclKind::Xor
-                        | z3::DeclKind::Eq => {
+                        | z3::DeclKind::Xor => {
                             let arg0 = z3::get_app_arg(*z3_ctx, app, 0);
                             let arg1 = z3::get_app_arg(*z3_ctx, app, 1);
 
@@ -237,6 +236,48 @@ impl<'c> AstExtZ3<'c> for BoolAst<'c> {
                                 z3::DeclKind::Xor => ctx.xor(&a, &b),
                                 z3::DeclKind::Eq => ctx.eq_(&a, &b),
                                 _ => unreachable!(),
+                            }
+                        }
+                        z3::DeclKind::Eq => {
+                            let arg0 = z3::get_app_arg(*z3_ctx, app, 0);
+                            let arg1 = z3::get_app_arg(*z3_ctx, app, 1);
+
+                            if let Ok(lhs) = BoolAst::from_z3(ctx, arg0) {
+                                if let Ok(rhs) = BoolAst::from_z3(ctx, arg1) {
+                                    ctx.eq_(&lhs, &rhs)
+                                } else {
+                                    Err(ClarirsError::ConversionError(
+                                        "Eq lhs is bool, rhs is not".to_string(),
+                                    ))
+                                }
+                            } else if let Ok(lhs) = BitVecAst::from_z3(ctx, arg0) {
+                                if let Ok(rhs) = BitVecAst::from_z3(ctx, arg1) {
+                                    ctx.eq_(&lhs, &rhs)
+                                } else {
+                                    Err(ClarirsError::ConversionError(
+                                        "Eq lhs is bv, rhs is not".to_string(),
+                                    ))
+                                }
+                            } else if let Ok(lhs) = FloatAst::from_z3(ctx, arg0) {
+                                if let Ok(rhs) = FloatAst::from_z3(ctx, arg1) {
+                                    ctx.eq_(&lhs, &rhs)
+                                } else {
+                                    Err(ClarirsError::ConversionError(
+                                        "Eq lhs is fp, rhs is not".to_string(),
+                                    ))
+                                }
+                            } else if let Ok(lhs) = StringAst::from_z3(ctx, arg0) {
+                                if let Ok(rhs) = StringAst::from_z3(ctx, arg1) {
+                                    ctx.eq_(&lhs, &rhs)
+                                } else {
+                                    Err(ClarirsError::ConversionError(
+                                        "Eq lhs is string, rhs is not".to_string(),
+                                    ))
+                                }
+                            } else {
+                                Err(ClarirsError::ConversionError(
+                                    "Eq lhs is not a recognized type".to_string(),
+                                ))
                             }
                         }
                         z3::DeclKind::Ite => {
