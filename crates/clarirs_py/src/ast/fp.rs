@@ -276,13 +276,13 @@ impl FP {
     }
 }
 
-    pub fn clear_annotations(self_: Bound<'_, FP>) -> Result<Bound<'_, FP>, ClaripyError> {
-        let mut inner = self_.get().inner.clone();
-        while let FloatOp::Annotated(inner_, _) = inner.op() {
-            inner = inner_.clone();
-        }
-        FP::new(self_.py(), &inner)
+pub fn clear_annotations(self_: Bound<'_, FP>) -> Result<Bound<'_, FP>, ClaripyError> {
+    let mut inner = self_.get().inner.clone();
+    while let FloatOp::Annotated(inner_, _) = inner.op() {
+        inner = inner_.clone();
     }
+    FP::new(self_.py(), &inner)
+}
 
 #[pyfunction(signature = (name, sort, explicit_name = false))]
 pub fn FPS<'py>(
