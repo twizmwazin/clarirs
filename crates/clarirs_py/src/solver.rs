@@ -188,12 +188,11 @@ impl PySolver {
     #[pyo3(signature = (expr, extra_constraints = None, exact = None, signed = false))]
     fn min<'py>(
         &mut self,
-        py: Python<'py>,
         expr: Bound<'py, BV>,
         extra_constraints: Option<Vec<Bound<'py, Bool>>>,
         exact: Option<Bound<'py, PyAny>>,
         signed: bool,
-    ) -> Result<Bound<'py, BV>, ClaripyError> {
+    ) -> Result<BigInt, ClaripyError> {
         let _ = exact; // TODO: Implement approximate solutions
         let _ = signed; // TODO: Implement signed solutions
 
@@ -203,7 +202,13 @@ impl PySolver {
                 solver.add(&expr.get().inner)?;
             }
         }
-        BV::new(py, &solver.min(&expr.get().inner).unwrap())
+        if let BitVecOp::BVV(bv) = solver.min(&expr.get().inner)?.op() {
+            Ok(BigInt::from(bv.to_biguint()))
+        } else {
+            Err(ClaripyError::TypeError(
+                "min: expression must be a bitvector".to_string(),
+            ))
+        }
     }
 
     #[pyo3(signature = (expr, extra_constraints = None, exact = None, signed = false))]
@@ -214,7 +219,7 @@ impl PySolver {
         extra_constraints: Option<Vec<Bound<'py, Bool>>>,
         exact: Option<Bound<'py, PyAny>>,
         signed: bool,
-    ) -> Result<Bound<'py, BV>, ClaripyError> {
+    ) -> Result<BigInt, ClaripyError> {
         let _ = exact; // TODO: Implement approximate solutions
         let _ = signed; // TODO: Implement signedness
 
@@ -224,7 +229,14 @@ impl PySolver {
                 solver.add(&expr.get().inner)?;
             }
         }
-        BV::new(py, &solver.max(&expr.get().inner).unwrap())
+
+        if let BitVecOp::BVV(bv) = solver.max(&expr.get().inner)?.op() {
+            Ok(BigInt::from(bv.to_biguint()))
+        } else {
+            Err(ClaripyError::TypeError(
+                "min: expression must be a bitvector".to_string(),
+            ))
+        }
     }
 }
 
