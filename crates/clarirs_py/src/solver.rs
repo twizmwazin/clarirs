@@ -164,6 +164,92 @@ impl PySolver {
             .collect::<Result<Vec<Vec<Bound<PyAny>>>, pyo3::PyErr>>()
     }
 
+    #[pyo3(signature = (expr, value, extra_constraints = None, exact = None))]
+    fn solution(
+        &self,
+        expr: Bound<Base>,
+        value: Bound<PyAny>,
+        extra_constraints: Option<Vec<Bound<Bool>>>,
+        exact: Option<Bound<PyAny>>,
+    ) -> Result<bool, ClaripyError> {
+        _ = exact; // TODO: Implement approximate solutions
+
+        // Fork the solver for extra constraints
+        let mut solver = self.inner.clone();
+        if let Some(extra_constraints) = extra_constraints {
+            for expr in extra_constraints {
+                solver.add(&expr.get().inner)?;
+            }
+        }
+
+        // Add the solution as a constraint, and check if it is satisfiable
+        if let Ok(bool_ast) = expr.downcast::<Bool>() {
+            if let Ok(value) = value.extract::<CoerceBool>() {
+                solver.add(
+                    &self
+                        .inner
+                        .context()
+                        .eq_(&bool_ast.get().inner, &value.into())?,
+                )?;
+            } else {
+                let value_type = value.get_type().name()?.extract::<String>()?;
+                return Err(ClaripyError::TypeError(format!(
+                    "can't coerce a {} to a bool ast",
+                    value_type
+                )));
+            }
+        } else if let Ok(bv_ast) = expr.downcast::<BV>() {
+            if let Ok(value) = value.extract::<CoerceBV>() {
+                solver.add(&self.inner.context().eq_(
+                    &bv_ast.get().inner,
+                    &value.extract_like(bv_ast.py(), bv_ast.get())?.get().inner,
+                )?)?;
+            } else {
+                let value_type = value.get_type().name()?.extract::<String>()?;
+                return Err(ClaripyError::TypeError(format!(
+                    "can't coerce a {} to a bv ast",
+                    value_type
+                )));
+            }
+        } else if let Ok(fp_ast) = expr.downcast::<FP>() {
+            if let Ok(value) = value.extract::<CoerceFP>() {
+                solver.add(
+                    &self
+                        .inner
+                        .context()
+                        .eq_(&fp_ast.get().inner, &value.into())?,
+                )?;
+            } else {
+                let value_type = value.get_type().name()?.extract::<String>()?;
+                return Err(ClaripyError::TypeError(format!(
+                    "can't coerce a {} to a float ast",
+                    value_type
+                )));
+            }
+        } else if let Ok(string_ast) = expr.downcast::<PyAstString>() {
+            if let Ok(value) = value.extract::<CoerceString>() {
+                solver.add(
+                    &self
+                        .inner
+                        .context()
+                        .eq_(&string_ast.get().inner, &value.into())?,
+                )?;
+            } else {
+                let value_type = value.get_type().name()?.extract::<String>()?;
+                return Err(ClaripyError::TypeError(format!(
+                    "can't coerce a {} to a string ast",
+                    value_type
+                )));
+            }
+        } else {
+            return Err(ClaripyError::TypeError(
+                "expression must be a boolean, bitvector, float, or string".to_string(),
+            ));
+        }
+
+        Ok(solver.satisfiable()?)
+    }
+
     #[pyo3(signature = (expr, extra_constraints = None, exact = None))]
     fn is_true<'py>(
         &mut self,
