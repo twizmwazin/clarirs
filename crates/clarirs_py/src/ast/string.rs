@@ -211,6 +211,14 @@ impl PyAstString {
             .collect())
     }
 
+    pub fn clear_annotations(self_: Bound<'_, PyAstString>) -> Result<Bound<'_, PyAstString>, ClaripyError> {
+        let mut inner = self_.get().inner.clone();
+        while let StringOp::Annotated(inner_, _) = inner.op() {
+            inner = inner_.clone();
+        }
+        PyAstString::new(self_.py(), &inner)
+    }
+
     pub fn __add__<'py>(
         &self,
         py: Python<'py>,

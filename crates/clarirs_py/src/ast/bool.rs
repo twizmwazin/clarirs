@@ -340,6 +340,14 @@ impl Bool {
             .collect())
     }
 
+    pub fn clear_annotations(self_: Bound<'_, Bool>) -> Result<Bound<'_, Bool>, ClaripyError> {
+        let mut inner = self_.get().inner.clone();
+        while let BooleanOp::Annotated(inner_, _) = inner.op() {
+            inner = inner_.clone();
+        }
+        Bool::new(self_.py(), &inner)
+    }
+
     pub fn __invert__<'py>(&self, py: Python<'py>) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(py, &GLOBAL_CONTEXT.not(&self.inner)?)
     }
