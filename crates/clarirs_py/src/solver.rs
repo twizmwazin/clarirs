@@ -12,6 +12,7 @@ pub struct PySolver {
 
 #[pymethods]
 impl PySolver {
+    #[getter]
     fn constraints<'py>(&self, py: Python<'py>) -> Result<Vec<Bound<'py, Bool>>, ClaripyError> {
         self.inner
             .constraints()?
@@ -20,6 +21,7 @@ impl PySolver {
             .collect::<Result<Vec<_>, _>>()
     }
 
+    #[getter]
     fn variables(&self) -> Result<HashSet<String>, ClaripyError> {
         Ok(self.inner.variables()?)
     }

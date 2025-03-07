@@ -8,7 +8,12 @@ pub trait Solver<'c>: Clone + HasContext<'c> {
 
     fn constraints(&self) -> Result<Vec<BoolAst<'c>>, ClarirsError>;
     fn variables(&self) -> Result<HashSet<String>, ClarirsError> {
-        Ok(self.constraints()?.iter().flat_map(|c| c.variables()).cloned().collect())
+        Ok(self
+            .constraints()?
+            .iter()
+            .flat_map(|c| c.variables())
+            .cloned()
+            .collect())
     }
 
     /// Check if the current set of constraints is satisfiable
