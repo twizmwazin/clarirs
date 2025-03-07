@@ -1,7 +1,4 @@
-use std::{
-    any::Any,
-    hash::{DefaultHasher, Hash, Hasher},
-};
+use std::hash::{DefaultHasher, Hash, Hasher};
 
 use pyo3::types::PyTuple;
 
