@@ -17,6 +17,13 @@ impl HasContext<'static> for DynSolver {
 }
 
 impl Solver<'static> for DynSolver {
+    fn constraints(&self) -> Result<Vec<BoolAst<'static>>, ClarirsError> {
+        match self {
+            DynSolver::ConcreteSolver(solver) => solver.constraints(),
+            DynSolver::Z3Solver(solver) => solver.constraints(),
+        }
+    }
+
     fn add(&mut self, constraint: &BoolAst<'static>) -> Result<(), ClarirsError> {
         match self {
             DynSolver::ConcreteSolver(solver) => solver.add(constraint),

@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::{dynsolver::DynSolver, prelude::*};
 use clarirs_z3::Z3Solver;
 use num_bigint::BigInt;
@@ -10,6 +12,18 @@ pub struct PySolver {
 
 #[pymethods]
 impl PySolver {
+    fn constraints<'py>(&self, py: Python<'py>) -> Result<Vec<Bound<'py, Bool>>, ClaripyError> {
+        self.inner
+            .constraints()?
+            .iter()
+            .map(|c| Bool::new(py, c))
+            .collect::<Result<Vec<_>, _>>()
+    }
+
+    fn variables(&self) -> Result<HashSet<String>, ClaripyError> {
+        Ok(self.inner.variables()?)
+    }
+
     #[pyo3(signature = (exprs))]
     fn add<'py>(
         &mut self,
