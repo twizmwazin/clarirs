@@ -1,10 +1,20 @@
-use anyhow::Result;
+use std::collections::HashSet;
 
 use crate::prelude::*;
 
 pub trait Solver<'c>: Clone + HasContext<'c> {
     // Constraint management
     fn add(&mut self, constraint: &BoolAst<'c>) -> Result<(), ClarirsError>;
+
+    fn constraints(&self) -> Result<Vec<BoolAst<'c>>, ClarirsError>;
+    fn variables(&self) -> Result<HashSet<String>, ClarirsError> {
+        Ok(self
+            .constraints()?
+            .iter()
+            .flat_map(|c| c.variables())
+            .cloned()
+            .collect())
+    }
 
     /// Check if the current set of constraints is satisfiable
     fn satisfiable(&mut self) -> Result<bool, ClarirsError>;
@@ -55,6 +65,10 @@ impl<'c> ConcreteSolver<'c> {
 }
 
 impl<'c> Solver<'c> for ConcreteSolver<'c> {
+    fn constraints(&self) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
+        Ok(Vec::new())
+    }
+
     fn add(&mut self, _: &BoolAst<'c>) -> Result<(), ClarirsError> {
         Err(ClarirsError::UnsupportedOperation)
     }
@@ -115,7 +129,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_concrete_solver() -> Result<()> {
+    fn test_concrete_solver() -> Result<(), ClarirsError> {
         let context = Context::new();
         let mut solver = ConcreteSolver::new(&context);
 

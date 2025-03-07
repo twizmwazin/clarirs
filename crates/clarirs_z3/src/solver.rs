@@ -153,6 +153,10 @@ impl<'c> Z3Solver<'c> {
 }
 
 impl<'c> Solver<'c> for Z3Solver<'c> {
+    fn constraints(&self) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
+        Ok(self.assertions.clone())
+    }
+
     fn add(&mut self, constraint: &BoolAst<'c>) -> Result<(), ClarirsError> {
         self.assertions.push(constraint.clone());
         Ok(())
