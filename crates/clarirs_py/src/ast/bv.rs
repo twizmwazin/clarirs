@@ -356,6 +356,14 @@ impl BV {
             .collect())
     }
 
+    pub fn clear_annotations(self_: Bound<'_, BV>) -> Result<Bound<'_, BV>, ClaripyError> {
+        let mut inner = self_.get().inner.clone();
+        while let BitVecOp::Annotated(inner_, _) = inner.op() {
+            inner = inner_.clone();
+        }
+        BV::new(self_.py(), &inner)
+    }
+
     pub fn __add__<'py>(
         &self,
         py: Python<'py>,
