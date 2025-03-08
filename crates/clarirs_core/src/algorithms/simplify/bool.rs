@@ -310,6 +310,9 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
                 BooleanOp::Annotated(arc, annotation) => {
                     if annotation.eliminatable() {
                         arc.simplify()
+                    } else if annotation.relocatable() {
+                        arc.simplify()
+                            .and_then(|simplified| ctx.annotated(&simplified, annotation.clone()))
                     } else {
                         Ok(self.clone())
                     }

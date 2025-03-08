@@ -47,10 +47,25 @@ impl<'c> AstFactory<'c> for Context<'c> {
         op.hash(&mut hasher);
         let hash = hasher.finish();
 
-        let arc = self
+        let mut result = self
             .ast_cache
-            .get_or_insert_with_bv(hash, || Ok(Arc::new(AstNode::new(self, op, hash))))?;
-        Ok(arc)
+            .get_or_insert_with_bv(hash, || Ok(Arc::new(AstNode::new(self, op.clone(), hash))))?;
+
+        // If the op is not Annotation, copy all relocatable annotations from the children
+        if !matches!(op, BitVecOp::Annotated(..)) {
+            result = result
+                .children()
+                .iter()
+                .flat_map(|child| child.get_annotations())
+                .filter(|annotation| annotation.relocatable())
+                .collect::<Vec<Annotation>>()
+                .iter()
+                .try_fold(result, |result, annotation| {
+                    self.make_bitvec(BitVecOp::Annotated(result.clone(), annotation.clone()))
+                })?;
+        }
+
+        Ok(result)
     }
 
     fn make_float(&'c self, op: FloatOp<'c>) -> std::result::Result<FloatAst<'c>, ClarirsError> {
@@ -58,10 +73,25 @@ impl<'c> AstFactory<'c> for Context<'c> {
         op.hash(&mut hasher);
         let hash = hasher.finish();
 
-        let arc = self
-            .ast_cache
-            .get_or_insert_with_float(hash, || Ok(Arc::new(AstNode::new(self, op, hash))))?;
-        Ok(arc)
+        let mut result = self.ast_cache.get_or_insert_with_float(hash, || {
+            Ok(Arc::new(AstNode::new(self, op.clone(), hash)))
+        })?;
+
+        // If the op is not Annotation, copy all relocatable annotations from the children
+        if !matches!(op, FloatOp::Annotated(..)) {
+            result = result
+                .children()
+                .iter()
+                .flat_map(|child| child.get_annotations())
+                .filter(|annotation| annotation.relocatable())
+                .collect::<Vec<Annotation>>()
+                .iter()
+                .try_fold(result, |result, annotation| {
+                    self.make_float(FloatOp::Annotated(result.clone(), annotation.clone()))
+                })?;
+        }
+
+        Ok(result)
     }
 
     fn make_string(&'c self, op: StringOp<'c>) -> std::result::Result<StringAst<'c>, ClarirsError> {
@@ -69,10 +99,25 @@ impl<'c> AstFactory<'c> for Context<'c> {
         op.hash(&mut hasher);
         let hash = hasher.finish();
 
-        let arc = self
-            .ast_cache
-            .get_or_insert_with_string(hash, || Ok(Arc::new(AstNode::new(self, op, hash))))?;
-        Ok(arc)
+        let mut result = self.ast_cache.get_or_insert_with_string(hash, || {
+            Ok(Arc::new(AstNode::new(self, op.clone(), hash)))
+        })?;
+
+        // If the op is not Annotation, copy all relocatable annotations from the children
+        if !matches!(op, StringOp::Annotated(..)) {
+            result = result
+                .children()
+                .iter()
+                .flat_map(|child| child.get_annotations())
+                .filter(|annotation| annotation.relocatable())
+                .collect::<Vec<Annotation>>()
+                .iter()
+                .try_fold(result, |result, annotation| {
+                    self.make_string(StringOp::Annotated(result.clone(), annotation.clone()))
+                })?;
+        }
+
+        Ok(result)
     }
 }
 

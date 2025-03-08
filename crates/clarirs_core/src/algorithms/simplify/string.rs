@@ -76,6 +76,10 @@ impl<'c> Simplify<'c> for StringAst<'c> {
                     StringOp::Annotated(arc, annotation) => {
                         if annotation.eliminatable() {
                             arc.simplify()
+                        } else if annotation.relocatable() {
+                            arc.simplify().and_then(|simplified| {
+                                ctx.annotated(&simplified, annotation.clone())
+                            })
                         } else {
                             Ok(self.clone())
                         }
