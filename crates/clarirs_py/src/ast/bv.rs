@@ -327,7 +327,16 @@ impl BV {
             py,
             &GLOBAL_CONTEXT.annotated(
                 &self.inner,
-                Annotation::new("".to_string(), annotation_bytes, eliminatable, relocatable),
+                Annotation::new(
+                    format!(
+                        "{}.{}",
+                        annotation.get_type().module()?.extract::<String>()?,
+                        annotation.get_type().qualname()?.extract::<String>()?
+                    ),
+                    annotation_bytes,
+                    eliminatable,
+                    relocatable,
+                ),
             )?,
         )
     }
