@@ -26,6 +26,23 @@ impl PySolver {
         Ok(self.inner.variables()?)
     }
 
+    fn branch<'py>(&self, py: Python<'py>) -> Result<Bound<'py, PySolver>, ClaripyError> {
+        match &self.inner {
+            DynSolver::ConcreteSolver(concrete_solver) => Ok(Bound::new(
+                py,
+                PySolver {
+                    inner: DynSolver::ConcreteSolver(concrete_solver.clone()),
+                },
+            )?),
+            DynSolver::Z3Solver(z3_solver) => Ok(Bound::new(
+                py,
+                PySolver {
+                    inner: DynSolver::Z3Solver(z3_solver.clone()),
+                },
+            )?),
+        }
+    }
+
     #[pyo3(signature = (exprs))]
     fn add<'py>(
         &mut self,
