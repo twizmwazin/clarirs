@@ -82,6 +82,27 @@ impl PyFSort {
     }
 }
 
+#[pymethods]
+impl PyFSort {
+    #[getter]
+    pub fn length(&self) -> u32 {
+        self.0.size()
+    }
+
+    #[staticmethod]
+    pub fn from_size(size: u32) -> Result<Self, ClaripyError> {
+        Ok(PyFSort(match size {
+            32 => FSort::f32(),
+            64 => FSort::f64(),
+            _ => {
+                return Err(ClaripyError::InvalidOperation(
+                    "Unsuported float size".to_string(),
+                ));
+            }
+        }))
+    }
+}
+
 impl From<PyFSort> for FSort {
     fn from(val: PyFSort) -> Self {
         val.0
