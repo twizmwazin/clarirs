@@ -74,8 +74,27 @@ impl PySolver {
         Ok(bool_exprs)
     }
 
-    fn satisfiable(&mut self) -> Result<bool, ClaripyError> {
-        Ok(self.inner.satisfiable().unwrap())
+    #[pyo3(signature = (extra_constraints = None, exact = None))]
+    fn satisfiable<'py>(
+        &mut self,
+        extra_constraints: Option<Vec<Bound<'py, Bool>>>,
+        exact: Option<Bound<'py, PyAny>>,
+    ) -> Result<bool, ClaripyError> {
+        let _ = exact; // TODO: Implement approximate solutions
+
+        // If there are no extra constraints, use the original solver
+        if extra_constraints.is_none() {
+            return Ok(self.inner.satisfiable()?);
+        }
+
+        // Otherwise, clone the solver and add the constraints
+        let mut solver = self.inner.clone();
+        for constraint in extra_constraints.unwrap() {
+            solver.add(&constraint.get().inner)?;
+        }
+
+        // Check satisfiability with the extra constraints
+        Ok(solver.satisfiable()?)
     }
 
     #[pyo3(signature = (expr, n, extra_constraints = None, exact = None))]
