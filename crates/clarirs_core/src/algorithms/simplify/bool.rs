@@ -42,7 +42,7 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
                         }
                         (BooleanOp::Not(lhs), BooleanOp::Not(rhs)) => ctx.not(&ctx.and(lhs, rhs)?),
                         _ if arc == arc1 => Ok(arc),
-                        _ => ctx.and(&arc, &arc1),
+                        _ => ctx.or(&arc, &arc1),
                     }
                 }
                 BooleanOp::Xor(arc, arc1) => {
@@ -57,7 +57,7 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
                         }
                         (BooleanOp::Not(lhs), BooleanOp::Not(rhs)) => ctx.not(&ctx.and(lhs, rhs)?),
                         _ if arc == arc1 => ctx.false_(),
-                        _ => ctx.and(&arc, &arc1),
+                        _ => ctx.xor(&arc, &arc1),
                     }
                 }
                 BooleanOp::BoolEq(arc, arc1) => {
@@ -117,7 +117,7 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
                     match (arc.op(), arc1.op()) {
                         (lhs, rhs) if lhs == rhs => ctx.false_(),
                         (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => ctx.boolv(arc > arc1),
-                        _ => ctx.ule(&arc, &arc1),
+                        _ => ctx.ugt(&arc, &arc1),
                     }
                 }
                 BooleanOp::UGE(arc, arc1) => {
@@ -125,7 +125,7 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
                     match (arc.op(), arc1.op()) {
                         (lhs, rhs) if lhs == rhs => ctx.true_(),
                         (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => ctx.boolv(arc >= arc1),
-                        _ => ctx.ule(&arc, &arc1),
+                        _ => ctx.uge(&arc, &arc1),
                     }
                 }
                 BooleanOp::SLT(arc, arc1) => {

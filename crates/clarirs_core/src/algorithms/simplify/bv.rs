@@ -76,7 +76,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                         (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
                             ctx.bvv((value1.clone() + value2.clone())?)
                         }
-                        _ => ctx.and(&arc, &arc1),
+                        _ => ctx.add(&arc, &arc1),
                     }
                 }
                 BitVecOp::Sub(arc, arc1) => {

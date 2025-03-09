@@ -23,7 +23,7 @@ impl<'c> Simplify<'c> for FloatAst<'c> {
                             );
                             ctx.fpv(neg_float)
                         }
-                        _ => Err(ClarirsError::InvalidArguments), // Handle non-float cases
+                        _ => ctx.fp_neg(&arc), // Handle non-concrete cases
                     }
                 }
                 FloatOp::FpAbs(arc) => {
@@ -38,7 +38,7 @@ impl<'c> Simplify<'c> for FloatAst<'c> {
                             );
                             ctx.fpv(abs_float)
                         }
-                        _ => Err(ClarirsError::InvalidArguments), // Handle non-float cases
+                        _ => ctx.fp_abs(&arc), // Handle non-concrete cases
                     }
                 }
                 FloatOp::FpAdd(arc, arc1, fprm) => {
