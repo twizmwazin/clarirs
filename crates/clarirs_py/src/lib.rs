@@ -18,7 +18,7 @@ fn import_submodule<'py>(
     m: &Bound<'py, PyModule>,
     package: &str,
     name: &str,
-    import_func: fn(Python<'py>, &Bound<'py, PyModule>) -> PyResult<()>,
+    import_func: impl FnOnce(Python<'py>, &Bound<'py, PyModule>) -> PyResult<()>,
 ) -> PyResult<()> {
     let submodule = PyModule::new(py, name)?;
     import_func(py, &submodule)?;
@@ -197,13 +197,14 @@ pub fn clarirs(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Compat
 
     // fp
-    let fp = PyModule::new(py, "clarirs.fp")?;
-    fp.add_class::<ast::fp::PyRM>()?;
-    fp.add_class::<ast::fp::PyFSort>()?;
-    fp.add("FSORT_FLOAT", ast::fp::fsort_float())?;
-    fp.add("FSORT_DOUBLE", ast::fp::fsort_double())?;
-    pyo3::py_run!(py, fp, "import sys; sys.modules['clarirs.fp'] = fp");
-    m.add_submodule(&fp)?;
+    import_submodule(py, m, "clarirs", "fp", |py, fp| {
+        fp.add_class::<ast::fp::PyRM>()?;
+        fp.add_class::<ast::fp::PyFSort>()?;
+        fp.add("FSORT_FLOAT", ast::fp::fsort_float())?;
+        fp.add("FSORT_DOUBLE", ast::fp::fsort_double())?;
+        pyo3::py_run!(py, fp, "import sys; sys.modules['clarirs.fp'] = fp");
+        Ok(())
+    })?;
 
     Ok(())
 }
