@@ -175,10 +175,7 @@ impl RegionAnnotation {
         Ok(hasher.finish() as isize)
     }
 
-    fn __eq__(
-        self_: Bound<RegionAnnotation>,
-        other: Bound<PyAny>,
-    ) -> Result<bool, ClaripyError> {
+    fn __eq__(self_: Bound<RegionAnnotation>, other: Bound<PyAny>) -> Result<bool, ClaripyError> {
         // First check if types match
         if let Ok(other) = other.downcast::<RegionAnnotation>() {
             Ok(self_.py_super()?.eq(other)?
@@ -215,9 +212,7 @@ pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
     Ok(())
 }
 
-pub(crate) fn extract_annotation(
-    annotation: Bound<'_, PyAny>,
-) -> Result<Annotation, ClaripyError> {
+pub(crate) fn extract_annotation(annotation: Bound<'_, PyAny>) -> Result<Annotation, ClaripyError> {
     let pickle_dumps = annotation.py().import("pickle")?.getattr("dumps")?;
     if let Ok(annotation) = annotation.downcast_exact::<StridedIntervalAnnotation>() {
         Ok(Annotation::new(
@@ -255,8 +250,7 @@ pub(crate) fn extract_annotation(
     }
 }
 
-
-pub(crate) fn create_pyannotation<'py> (
+pub(crate) fn create_pyannotation<'py>(
     py: Python<'py>,
     annotation: &Annotation,
 ) -> Result<Bound<'py, PyAny>, ClaripyError> {
@@ -265,21 +259,28 @@ pub(crate) fn create_pyannotation<'py> (
             let _ = name; // uneeded
 
             let pickle_loads = py.import("pickle")?.getattr("loads")?;
-            pickle_loads
-                .call1((value,))?
+            pickle_loads.call1((value,))?
         }
-        AnnotationType::StridedInterval { stride, lower_bound, upper_bound } => {
-            Bound::new(py, StridedIntervalAnnotation::new(
+        AnnotationType::StridedInterval {
+            stride,
+            lower_bound,
+            upper_bound,
+        } => Bound::new(
+            py,
+            StridedIntervalAnnotation::new(
                 stride.clone(),
                 lower_bound.clone(),
                 upper_bound.clone(),
-            ))?.into_any()
-        }
-        AnnotationType::Region { region_id, region_base_addr } => {
-            Bound::new(py, RegionAnnotation::new(
-                region_id.clone(),
-                region_base_addr.clone(),
-            ))?.into_any()
-        },
+            ),
+        )?
+        .into_any(),
+        AnnotationType::Region {
+            region_id,
+            region_base_addr,
+        } => Bound::new(
+            py,
+            RegionAnnotation::new(region_id.clone(), region_base_addr.clone()),
+        )?
+        .into_any(),
     })
 }

@@ -1,7 +1,6 @@
 use num_bigint::BigInt;
 use serde::Serialize;
 
-
 /// This struct is a sort of hack to allow us to access data in python
 /// annotations, while supporting unknown annotations.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
@@ -15,7 +14,7 @@ pub enum AnnotationType {
         lower_bound: BigInt,
         upper_bound: BigInt,
     },
-    Region{
+    Region {
         region_id: String,
         region_base_addr: BigInt,
     },
@@ -29,11 +28,7 @@ pub struct Annotation {
 }
 
 impl Annotation {
-    pub fn new(
-        type_: AnnotationType,
-        eliminatable: bool,
-        relocatable: bool,
-    ) -> Self {
+    pub fn new(type_: AnnotationType, eliminatable: bool, relocatable: bool) -> Self {
         Annotation {
             type_,
             eliminatable,
@@ -45,7 +40,7 @@ impl Annotation {
         match self.type_ {
             AnnotationType::Unknown { ref name, .. } => name,
             AnnotationType::StridedInterval { .. } => "StridedIntervalAnnotation",
-            AnnotationType::Region{ .. } => "RegionAnnotation",
+            AnnotationType::Region { .. } => "RegionAnnotation",
         }
     }
 

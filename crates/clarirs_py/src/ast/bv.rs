@@ -1,8 +1,8 @@
 #![allow(non_snake_case)]
 
 use std::iter::once;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::LazyLock;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use clarirs_core::ast::bitvec::{BitVecAstExt, BitVecOpExt};
 use dashmap::DashMap;

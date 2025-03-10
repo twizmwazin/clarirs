@@ -1,14 +1,17 @@
 #![allow(non_snake_case)]
 
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
     LazyLock,
+    atomic::{AtomicUsize, Ordering},
 };
 
 use dashmap::DashMap;
 use pyo3::types::{PyAnyMethods, PyFrozenSet, PyWeakrefReference};
 
-use crate::{annotation::{create_pyannotation, extract_annotation}, prelude::*};
+use crate::{
+    annotation::{create_pyannotation, extract_annotation},
+    prelude::*,
+};
 use clarirs_core::smtlib::ToSmtLib;
 
 static STRINGS_COUNTER: AtomicUsize = AtomicUsize::new(0);
