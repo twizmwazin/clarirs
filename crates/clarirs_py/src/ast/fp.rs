@@ -1,15 +1,15 @@
 #![allow(non_snake_case)]
 
 use std::sync::{
-    LazyLock,
     atomic::{AtomicUsize, Ordering},
+    LazyLock,
 };
 
 use clarirs_core::ast::float::FloatExt;
 use dashmap::DashMap;
-use pyo3::types::{PyBytes, PyFrozenSet, PyWeakrefReference};
+use pyo3::types::{PyFrozenSet, PyWeakrefReference};
 
-use crate::prelude::*;
+use crate::{annotation::{create_pyannotation, extract_annotation}, prelude::*};
 use clarirs_core::smtlib::ToSmtLib;
 
 static FPS_COUNTER: AtomicUsize = AtomicUsize::new(0);
@@ -210,12 +210,12 @@ impl FP {
 
     #[getter]
     pub fn annotations<'py>(&self, py: Python<'py>) -> PyResult<Vec<Bound<'py, PyAny>>> {
-        let pickle_loads = py.import("pickle")?.getattr("loads")?;
-        self.inner
+        Ok(self
+            .inner
             .get_annotations()
             .iter()
-            .map(|a| pickle_loads.call1((PyBytes::new(py, a.value()),)))
-            .collect()
+            .map(|a| create_pyannotation(py, a))
+            .collect::<Result<Vec<Bound<'py, PyAny>>, ClaripyError>>()?)
     }
 
     pub fn hash(&self) -> u64 {
@@ -256,28 +256,9 @@ impl FP {
         py: Python<'py>,
         annotation: Bound<'py, PyAny>,
     ) -> Result<Bound<'py, FP>, ClaripyError> {
-        let pickle_dumps = py.import("pickle")?.getattr("dumps")?;
-        let annotation_bytes = pickle_dumps
-            .call1((&annotation,))?
-            .downcast::<PyBytes>()?
-            .extract::<Vec<u8>>()?;
-        let eliminatable = annotation.getattr("eliminatable")?.extract::<bool>()?;
-        let relocatable = annotation.getattr("relocatable")?.extract::<bool>()?;
         FP::new(
             py,
-            &GLOBAL_CONTEXT.annotated(
-                &self.inner,
-                Annotation::new(
-                    format!(
-                        "{}.{}",
-                        annotation.get_type().module()?.extract::<String>()?,
-                        annotation.get_type().qualname()?.extract::<String>()?
-                    ),
-                    annotation_bytes,
-                    eliminatable,
-                    relocatable,
-                ),
-            )?,
+            &GLOBAL_CONTEXT.annotated(&self.inner, extract_annotation(annotation)?)?,
         )
     }
 
