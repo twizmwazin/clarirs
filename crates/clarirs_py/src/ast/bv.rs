@@ -8,8 +8,9 @@ use clarirs_core::ast::bitvec::{BitVecAstExt, BitVecOpExt};
 use dashmap::DashMap;
 use num_bigint::{BigInt, BigUint};
 use pyo3::exceptions::{PyTypeError, PyValueError};
-use pyo3::types::{PyBytes, PyFrozenSet, PySlice, PyWeakrefReference};
+use pyo3::types::{PyFrozenSet, PySlice, PyWeakrefReference};
 
+use crate::annotation::{create_pyannotation, extract_annotation};
 use crate::ast::{and, not, or, xor};
 use crate::prelude::*;
 use crate::pyslicemethodsext::PySliceMethodsExt;
@@ -220,12 +221,12 @@ impl BV {
 
     #[getter]
     pub fn annotations<'py>(&self, py: Python<'py>) -> PyResult<Vec<Bound<'py, PyAny>>> {
-        let pickle_loads = py.import("pickle")?.getattr("loads")?;
-        self.inner
+        Ok(self
+            .inner
             .get_annotations()
             .iter()
-            .map(|a| pickle_loads.call1((PyBytes::new(py, a.value()),)))
-            .collect()
+            .map(|a| create_pyannotation(py, a))
+            .collect::<Result<Vec<Bound<'py, PyAny>>, ClaripyError>>()?)
     }
 
     pub fn hash(&self) -> u64 {
@@ -316,28 +317,9 @@ impl BV {
         py: Python<'py>,
         annotation: Bound<PyAny>,
     ) -> Result<Bound<'py, BV>, ClaripyError> {
-        let pickle_dumps = py.import("pickle")?.getattr("dumps")?;
-        let annotation_bytes = pickle_dumps
-            .call1((&annotation,))?
-            .downcast::<PyBytes>()?
-            .extract::<Vec<u8>>()?;
-        let eliminatable = annotation.getattr("eliminatable")?.extract::<bool>()?;
-        let relocatable = annotation.getattr("relocatable")?.extract::<bool>()?;
         BV::new(
             py,
-            &GLOBAL_CONTEXT.annotated(
-                &self.inner,
-                Annotation::new(
-                    format!(
-                        "{}.{}",
-                        annotation.get_type().module()?.extract::<String>()?,
-                        annotation.get_type().qualname()?.extract::<String>()?
-                    ),
-                    annotation_bytes,
-                    eliminatable,
-                    relocatable,
-                ),
-            )?,
+            &GLOBAL_CONTEXT.annotated(&self.inner, extract_annotation(annotation)?)?,
         )
     }
 

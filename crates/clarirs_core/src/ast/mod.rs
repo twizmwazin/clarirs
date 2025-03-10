@@ -9,6 +9,6 @@ pub mod node;
 pub mod op;
 pub mod string;
 
-pub use annotation::Annotation;
+pub use annotation::{Annotation, AnnotationType};
 pub use factory::AstFactory;
 pub use node::{AstNode, AstRef};

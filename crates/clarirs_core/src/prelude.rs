@@ -5,7 +5,7 @@ pub use crate::ast::float::{FloatAst, FloatOp};
 pub use crate::ast::node::DynAst;
 pub use crate::ast::op::Op;
 pub use crate::ast::string::{StringAst, StringOp};
-pub use crate::ast::{Annotation, AstFactory, AstNode, AstRef};
+pub use crate::ast::{Annotation, AnnotationType, AstFactory, AstNode, AstRef};
 pub use crate::context::{Context, HasContext};
 pub use crate::error::ClarirsError;
 pub use crate::solver::{ConcreteSolver, Solver};
