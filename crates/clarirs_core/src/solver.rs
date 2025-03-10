@@ -70,7 +70,9 @@ impl<'c> Solver<'c> for ConcreteSolver<'c> {
     }
 
     fn add(&mut self, _: &BoolAst<'c>) -> Result<(), ClarirsError> {
-        Err(ClarirsError::UnsupportedOperation)
+        Err(ClarirsError::UnsupportedOperation(
+            "Concerete solver does not support adding constraints".to_string(),
+        ))
     }
 
     fn satisfiable(&mut self) -> Result<bool, ClarirsError> {
@@ -79,28 +81,36 @@ impl<'c> Solver<'c> for ConcreteSolver<'c> {
 
     fn eval_bool(&mut self, expr: &BoolAst<'c>) -> Result<BoolAst<'c>, ClarirsError> {
         if expr.symbolic() {
-            return Err(ClarirsError::UnsupportedOperation);
+            return Err(ClarirsError::UnsupportedOperation(
+                "Concrete solver does not support symbolic expressions".to_string(),
+            ));
         }
         expr.simplify()
     }
 
     fn eval_bitvec(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
         if expr.symbolic() {
-            return Err(ClarirsError::UnsupportedOperation);
+            return Err(ClarirsError::UnsupportedOperation(
+                "Concrete solver does not support symbolic expressions".to_string(),
+            ));
         }
         expr.simplify()
     }
 
     fn eval_float(&mut self, expr: &FloatAst<'c>) -> Result<FloatAst<'c>, ClarirsError> {
         if expr.symbolic() {
-            return Err(ClarirsError::UnsupportedOperation);
+            return Err(ClarirsError::UnsupportedOperation(
+                "Concrete solver does not support symbolic expressions".to_string(),
+            ));
         }
         expr.simplify()
     }
 
     fn eval_string(&mut self, expr: &StringAst<'c>) -> Result<StringAst<'c>, ClarirsError> {
         if expr.symbolic() {
-            return Err(ClarirsError::UnsupportedOperation);
+            return Err(ClarirsError::UnsupportedOperation(
+                "Concrete solver does not support symbolic expressions".to_string(),
+            ));
         }
         expr.simplify()
     }

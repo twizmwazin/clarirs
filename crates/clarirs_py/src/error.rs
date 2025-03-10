@@ -53,6 +53,7 @@ impl From<ClarirsError> for ClaripyError {
                 ClaripyError::InvalidChopSize { size, bits }
             }
             ClarirsError::TypeError(e) => ClaripyError::TypeError(e),
+            ClarirsError::UnsupportedOperation(e) => ClaripyError::UnsupportedOperation(e),
             _ => ClaripyError::ClarirsError(format!("{}", e)),
         }
     }
