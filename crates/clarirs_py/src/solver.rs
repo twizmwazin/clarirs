@@ -135,8 +135,11 @@ impl PySolver {
                     .unwrap()
                     .clone();
 
-                // Add constraint to exclude this solution
-                solver.add(&solver.context().neq(&bv_value.get().inner, &bv_solution)?)?;
+                // Add constraint to exclude this solution if we aren't using a concrete solver
+                // Kinda a hack, would like to do this in a better way
+                if !matches!(self.inner, DynSolver::ConcreteSolver(_)) {
+                    solver.add(&solver.context().neq(&bv_value.get().inner, &bv_solution)?)?;
+                }
 
                 py_solution
             } else if let Ok(bool_value) = expr.clone().into_any().downcast::<Bool>() {
@@ -147,12 +150,11 @@ impl PySolver {
                     .unwrap()
                     .clone();
 
-                // Add constraint to exclude this solution
-                solver.add(
-                    &solver
-                        .context()
-                        .neq(&bool_value.get().inner, &bool_solution)?,
-                )?;
+                // Add constraint to exclude this solution if we aren't using a concrete solver
+                // Kinda a hack, would like to do this in a better way
+                if !matches!(self.inner, DynSolver::ConcreteSolver(_)) {
+                    solver.add(&solver.context().neq(&bool_value.get().inner, &bool_solution)?)?;
+                }
 
                 py_solution
             } else if let Ok(fp_value) = expr.clone().into_any().downcast::<FP>() {
@@ -163,8 +165,11 @@ impl PySolver {
                     .unwrap()
                     .clone();
 
-                // Add constraint to exclude this solution
-                solver.add(&solver.context().neq(&fp_value.get().inner, &fp_solution)?)?;
+                // Add constraint to exclude this solution if we aren't using a concrete solver
+                // Kinda a hack, would like to do this in a better way
+                if !matches!(self.inner, DynSolver::ConcreteSolver(_)) {
+                    solver.add(&solver.context().neq(&fp_value.get().inner, &fp_solution)?)?;
+                }
 
                 py_solution
             } else if let Ok(string_value) = expr.clone().into_any().downcast::<PyAstString>() {
@@ -175,12 +180,11 @@ impl PySolver {
                     .unwrap()
                     .clone();
 
-                // Add constraint to exclude this solution
-                solver.add(
-                    &solver
-                        .context()
-                        .neq(&string_value.get().inner, &string_solution)?,
-                )?;
+                // Add constraint to exclude this solution if we aren't using a concrete solver
+                // Kinda a hack, would like to do this in a better way
+                if !matches!(self.inner, DynSolver::ConcreteSolver(_)) {
+                    solver.add(&solver.context().neq(&string_value.get().inner, &string_solution)?)?;
+                }
 
                 py_solution
             } else {
