@@ -7,8 +7,8 @@ use thiserror::Error;
 pub enum ClarirsError {
     #[error("Cache lock poisoned")]
     CacheLockPoisoned,
-    #[error("Unsupported operation")]
-    UnsupportedOperation,
+    #[error("Unsupported operation: {0}")]
+    UnsupportedOperation(String),
     #[error("Invalid arguments")]
     InvalidArguments,
     #[error("BitVector too short: {value:?} is too short for length {length}")]
