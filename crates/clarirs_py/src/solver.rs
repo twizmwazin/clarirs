@@ -153,7 +153,11 @@ impl PySolver {
                 // Add constraint to exclude this solution if we aren't using a concrete solver
                 // Kinda a hack, would like to do this in a better way
                 if !matches!(self.inner, DynSolver::ConcreteSolver(_)) {
-                    solver.add(&solver.context().neq(&bool_value.get().inner, &bool_solution)?)?;
+                    solver.add(
+                        &solver
+                            .context()
+                            .neq(&bool_value.get().inner, &bool_solution)?,
+                    )?;
                 }
 
                 py_solution
@@ -183,7 +187,11 @@ impl PySolver {
                 // Add constraint to exclude this solution if we aren't using a concrete solver
                 // Kinda a hack, would like to do this in a better way
                 if !matches!(self.inner, DynSolver::ConcreteSolver(_)) {
-                    solver.add(&solver.context().neq(&string_value.get().inner, &string_solution)?)?;
+                    solver.add(
+                        &solver
+                            .context()
+                            .neq(&string_value.get().inner, &string_solution)?,
+                    )?;
                 }
 
                 py_solution
