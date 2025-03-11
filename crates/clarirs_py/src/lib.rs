@@ -100,6 +100,9 @@ pub fn clarirs(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
         ast::bv::SLE,
         ast::bv::SGT,
         ast::bv::SGE,
+        ast::bv::SI,
+        ast::bv::Union,
+        ast::bv::Intersection,
         // FP
         ast::fp::FPS,
         ast::fp::FPV,

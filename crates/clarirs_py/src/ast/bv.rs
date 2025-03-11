@@ -861,6 +861,31 @@ impl BV {
                 .collect::<Result<Vec<_>, _>>()
         })?
     }
+
+    // VSA Ops
+
+    pub fn union<'py>(
+        &self,
+        py: Python<'py>,
+        other: CoerceBV,
+    ) -> Result<Bound<'py, BV>, ClaripyError> {
+        BV::new(
+            py,
+            &GLOBAL_CONTEXT.union(&self.inner, &other.extract_like(py, self)?.get().inner)?,
+        )
+    }
+
+    pub fn intersection<'py>(
+        &self,
+        py: Python<'py>,
+        other: CoerceBV,
+    ) -> Result<Bound<'py, BV>, ClaripyError> {
+        BV::new(
+            py,
+            &GLOBAL_CONTEXT
+                .intersection(&self.inner, &other.extract_like(py, self)?.get().inner)?,
+        )
+    }
 }
 
 #[pyfunction(signature = (name, size, explicit_name = false))]
@@ -1033,6 +1058,48 @@ binop!(SGE, sge, Bool);
 binop!(Eq_, eq_, Bool);
 binop!(Neq, neq, Bool);
 
+// VSA Stuff
+
+#[pyfunction]
+pub fn SI(
+    py: Python<'_>,
+    bits: u32,
+    stride: BigInt,
+    lower_bound: BigInt,
+    upper_bound: BigInt,
+) -> Result<Bound<'_, BV>, ClaripyError> {
+    BV::new(
+        py,
+        &GLOBAL_CONTEXT.si(bits, stride, lower_bound, upper_bound)?,
+    )
+}
+
+#[pyfunction]
+pub fn Union<'py>(
+    py: Python<'py>,
+    lhs: CoerceBV,
+    rhs: CoerceBV,
+) -> Result<Bound<'py, BV>, ClaripyError> {
+    let (elhs, erhs) = CoerceBV::extract_pair(py, &lhs, &rhs)?;
+    BV::new(
+        py,
+        &GLOBAL_CONTEXT.union(&elhs.get().inner, &erhs.get().inner)?,
+    )
+}
+
+#[pyfunction]
+pub fn Intersection<'py>(
+    py: Python<'py>,
+    lhs: CoerceBV,
+    rhs: CoerceBV,
+) -> Result<Bound<'py, BV>, ClaripyError> {
+    let (elhs, erhs) = CoerceBV::extract_pair(py, &lhs, &rhs)?;
+    BV::new(
+        py,
+        &GLOBAL_CONTEXT.intersection(&elhs.get().inner, &erhs.get().inner)?,
+    )
+}
+
 pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<BV>()?;
 
@@ -1072,6 +1139,9 @@ pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
         SGE,
         Eq_,
         super::r#if,
+        SI,
+        Union,
+        Intersection,
     );
 
     Ok(())

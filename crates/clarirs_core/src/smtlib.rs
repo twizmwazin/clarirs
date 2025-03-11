@@ -146,6 +146,15 @@ impl ToSmtLib for BitVecAst<'_> {
                 else_.to_smtlib()
             ),
             BitVecOp::Annotated(ast, _) => ast.to_smtlib(),
+            BitVecOp::SI(size, stride, lb, ub) => {
+                format!("(vsasi {} {} {} {})", size, stride, lb, ub)
+            }
+            BitVecOp::Union(lhs, rhs) => {
+                format!("(vsaunion {} {})", lhs.to_smtlib(), rhs.to_smtlib())
+            }
+            BitVecOp::Intersection(lhs, rhs) => {
+                format!("(vsaintersection {} {})", lhs.to_smtlib(), rhs.to_smtlib())
+            }
         }
     }
 }

@@ -11,8 +11,7 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
 
         ctx.simplification_cache.get_or_insert_with_bv(hash, || {
             match &self.op() {
-                BitVecOp::BVS(name, width) => ctx.bvs(name.clone(), *width),
-                BitVecOp::BVV(_) => Ok(self.clone()),
+                BitVecOp::BVS(..) | BitVecOp::BVV(..) | BitVecOp::SI(..) => Ok(self.clone()),
                 BitVecOp::Not(ast) => {
                     simplify!(ast);
                     match ast.op() {
@@ -117,7 +116,6 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                         _ => ctx.sdiv(&dividend_ast, &divisor_ast),
                     }
                 }
-
                 BitVecOp::URem(arc, arc1) => {
                     simplify!(arc, arc1);
 
@@ -138,7 +136,6 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                         _ => ctx.srem(&dividend_ast, &divisor_ast),
                     }
                 }
-
                 BitVecOp::Pow(arc, arc1) => {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
@@ -146,7 +143,6 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                         _ => ctx.pow(&arc, &arc1),
                     }
                 }
-
                 BitVecOp::ShL(arc, arc1) => {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
@@ -177,7 +173,6 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                         _ => ctx.lshr(&arc, &arc1),
                     }
                 }
-
                 BitVecOp::AShR(arc, arc1) => {
                     simplify!(arc, arc1);
 
@@ -459,7 +454,6 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                         _ => ctx.strtobv(&arc),
                     }
                 }
-
                 BitVecOp::If(if_, then_, else_) => {
                     simplify!(if_, then_, else_);
 
@@ -491,6 +485,20 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                     } else {
                         Ok(self.clone())
                     }
+                }
+                BitVecOp::Union(lhs, rhs) => {
+                    simplify!(lhs, rhs);
+                    if lhs == rhs {
+                        return Ok(lhs.clone());
+                    }
+                    ctx.union(&lhs, &rhs)
+                }
+                BitVecOp::Intersection(lhs, rhs) => {
+                    simplify!(lhs, rhs);
+                    if lhs == rhs {
+                        return Ok(lhs.clone());
+                    }
+                    ctx.intersection(&lhs, &rhs)
                 }
             }
         })
