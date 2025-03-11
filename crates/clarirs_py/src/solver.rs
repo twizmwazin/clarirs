@@ -402,6 +402,36 @@ impl PySolver {
         Ok(solver.is_false(&expr.get().inner).unwrap())
     }
 
+    #[pyo3(signature = (expr, extra_constraints = None, exact = None))]
+    fn has_true<'py>(
+        &mut self,
+        expr: Bound<Bool>,
+        extra_constraints: Option<Vec<Bound<'py, Bool>>>,
+        exact: Option<Bound<'py, PyAny>>,
+    ) -> Result<bool, ClaripyError> {
+        self.solution(
+            expr.clone().into_super(),
+            true.into_bound_py_any(expr.py())?,
+            extra_constraints,
+            exact,
+        )
+    }
+
+    #[pyo3(signature = (expr, extra_constraints = None, exact = None))]
+    fn has_false<'py>(
+        &mut self,
+        expr: Bound<Bool>,
+        extra_constraints: Option<Vec<Bound<'py, Bool>>>,
+        exact: Option<Bound<'py, PyAny>>,
+    ) -> Result<bool, ClaripyError> {
+        self.solution(
+            expr.clone().into_super(),
+            false.into_bound_py_any(expr.py())?,
+            extra_constraints,
+            exact,
+        )
+    }
+
     #[pyo3(signature = (expr, extra_constraints = None, exact = None, signed = false))]
     fn min<'py>(
         &mut self,
