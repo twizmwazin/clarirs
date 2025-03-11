@@ -1,0 +1,8 @@
+[package]
+name = "clarirs-vsa"
+version = "0.1.0"
+edition = "2024"
+description = "Value Set Analysis for Clarirs"
+
+[dependencies]
+clarirs_core = { path = "../clarirs_core" }

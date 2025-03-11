@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use crate::{dynsolver::DynSolver, prelude::*};
+use clarirs_vsa::VSASolver;
 use clarirs_z3::Z3Solver;
 use num_bigint::BigInt;
 use pyo3::types::PyTuple;
@@ -38,6 +39,12 @@ impl PySolver {
                 py,
                 PySolver {
                     inner: DynSolver::Z3(z3_solver.clone()),
+                },
+            )?),
+            DynSolver::Vsa(vsasolver) => Ok(Bound::new(
+                py,
+                PySolver {
+                    inner: DynSolver::Vsa(vsasolver.clone()),
                 },
             )?),
         }
@@ -477,10 +484,25 @@ impl PyZ3Solver {
     }
 }
 
+#[pyclass(extends = PySolver, name = "VSASolver", module = "clarirs.solver")]
+pub struct PyVSASolver;
+
+#[pymethods]
+impl PyVSASolver {
+    #[new]
+    fn new() -> Result<PyClassInitializer<Self>, ClaripyError> {
+        Ok(PyClassInitializer::from(PySolver {
+            inner: DynSolver::Vsa(VSASolver::new(&GLOBAL_CONTEXT)),
+        })
+        .add_subclass(Self {}))
+    }
+}
+
 pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<PySolver>()?;
     m.add_class::<PyConcreteSolver>()?;
     m.add_class::<PyZ3Solver>()?;
+    m.add_class::<PyVSASolver>()?;
 
     Ok(())
 }
