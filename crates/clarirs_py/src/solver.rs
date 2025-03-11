@@ -28,16 +28,16 @@ impl PySolver {
 
     fn branch<'py>(&self, py: Python<'py>) -> Result<Bound<'py, PySolver>, ClaripyError> {
         match &self.inner {
-            DynSolver::ConcreteSolver(concrete_solver) => Ok(Bound::new(
+            DynSolver::Concrete(concrete_solver) => Ok(Bound::new(
                 py,
                 PySolver {
-                    inner: DynSolver::ConcreteSolver(concrete_solver.clone()),
+                    inner: DynSolver::Concrete(concrete_solver.clone()),
                 },
             )?),
-            DynSolver::Z3Solver(z3_solver) => Ok(Bound::new(
+            DynSolver::Z3(z3_solver) => Ok(Bound::new(
                 py,
                 PySolver {
-                    inner: DynSolver::Z3Solver(z3_solver.clone()),
+                    inner: DynSolver::Z3(z3_solver.clone()),
                 },
             )?),
         }
@@ -137,7 +137,7 @@ impl PySolver {
 
                 // Add constraint to exclude this solution if we aren't using a concrete solver
                 // Kinda a hack, would like to do this in a better way
-                if !matches!(self.inner, DynSolver::ConcreteSolver(_)) {
+                if !matches!(self.inner, DynSolver::Concrete(_)) {
                     solver.add(&solver.context().neq(&bv_value.get().inner, &bv_solution)?)?;
                 }
 
@@ -152,7 +152,7 @@ impl PySolver {
 
                 // Add constraint to exclude this solution if we aren't using a concrete solver
                 // Kinda a hack, would like to do this in a better way
-                if !matches!(self.inner, DynSolver::ConcreteSolver(_)) {
+                if !matches!(self.inner, DynSolver::Concrete(_)) {
                     solver.add(
                         &solver
                             .context()
@@ -171,7 +171,7 @@ impl PySolver {
 
                 // Add constraint to exclude this solution if we aren't using a concrete solver
                 // Kinda a hack, would like to do this in a better way
-                if !matches!(self.inner, DynSolver::ConcreteSolver(_)) {
+                if !matches!(self.inner, DynSolver::Concrete(_)) {
                     solver.add(&solver.context().neq(&fp_value.get().inner, &fp_solution)?)?;
                 }
 
@@ -186,7 +186,7 @@ impl PySolver {
 
                 // Add constraint to exclude this solution if we aren't using a concrete solver
                 // Kinda a hack, would like to do this in a better way
-                if !matches!(self.inner, DynSolver::ConcreteSolver(_)) {
+                if !matches!(self.inner, DynSolver::Concrete(_)) {
                     solver.add(
                         &solver
                             .context()
@@ -457,7 +457,7 @@ impl PyConcreteSolver {
     #[new]
     fn new() -> Result<PyClassInitializer<Self>, ClaripyError> {
         Ok(PyClassInitializer::from(PySolver {
-            inner: DynSolver::ConcreteSolver(ConcreteSolver::new(&GLOBAL_CONTEXT)),
+            inner: DynSolver::Concrete(ConcreteSolver::new(&GLOBAL_CONTEXT)),
         })
         .add_subclass(Self {}))
     }
@@ -471,7 +471,7 @@ impl PyZ3Solver {
     #[new]
     fn new() -> Result<PyClassInitializer<Self>, ClaripyError> {
         Ok(PyClassInitializer::from(PySolver {
-            inner: DynSolver::Z3Solver(Z3Solver::new(&GLOBAL_CONTEXT)),
+            inner: DynSolver::Z3(Z3Solver::new(&GLOBAL_CONTEXT)),
         })
         .add_subclass(Self {}))
     }
