@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::vec::IntoIter;
 
+use num_bigint::BigInt;
 use serde::Serialize;
 
 use crate::prelude::*;
@@ -43,6 +44,11 @@ pub enum BitVecOp<'c> {
     StrToBV(StringAst<'c>),
     If(AstRef<'c, BooleanOp<'c>>, BitVecAst<'c>, BitVecAst<'c>),
     Annotated(BitVecAst<'c>, Annotation),
+
+    // VSA Ops
+    SI(u32, BigInt, BigInt, BigInt),
+    Union(BitVecAst<'c>, BitVecAst<'c>),
+    Intersection(BitVecAst<'c>, BitVecAst<'c>),
 }
 
 pub type BitVecAst<'c> = AstRef<'c, BitVecOp<'c>>;
@@ -218,6 +224,23 @@ impl std::hash::Hash for BitVecOp<'_> {
                 a.hash(state);
                 anno.hash(state);
             }
+            BitVecOp::SI(size, stride, lb, ub) => {
+                33.hash(state);
+                size.hash(state);
+                stride.hash(state);
+                lb.hash(state);
+                ub.hash(state);
+            }
+            BitVecOp::Union(a, b) => {
+                34.hash(state);
+                a.hash(state);
+                b.hash(state);
+            }
+            BitVecOp::Intersection(a, b) => {
+                35.hash(state);
+                a.hash(state);
+                b.hash(state);
+            }
         }
     }
 }
@@ -225,8 +248,7 @@ impl std::hash::Hash for BitVecOp<'_> {
 impl<'c> Op<'c> for BitVecOp<'c> {
     fn child_iter(&self) -> IntoIter<DynAst<'c>> {
         match self {
-            BitVecOp::BVS(..) | BitVecOp::BVV(..) => vec![],
-
+            BitVecOp::BVS(..) | BitVecOp::BVV(..) | BitVecOp::SI(..) => vec![],
             BitVecOp::Not(a)
             | BitVecOp::Neg(a)
             | BitVecOp::Abs(a)
@@ -239,7 +261,6 @@ impl<'c> Op<'c> for BitVecOp<'c> {
             BitVecOp::FpToIEEEBV(a) | BitVecOp::FpToUBV(a, _, _) | BitVecOp::FpToSBV(a, _, _) => {
                 vec![a.into()]
             }
-
             BitVecOp::And(a, b)
             | BitVecOp::Or(a, b)
             | BitVecOp::Xor(a, b)
@@ -256,8 +277,9 @@ impl<'c> Op<'c> for BitVecOp<'c> {
             | BitVecOp::AShR(a, b)
             | BitVecOp::RotateLeft(a, b)
             | BitVecOp::RotateRight(a, b)
-            | BitVecOp::Concat(a, b) => vec![a.into(), b.into()],
-
+            | BitVecOp::Concat(a, b)
+            | BitVecOp::Union(a, b)
+            | BitVecOp::Intersection(a, b) => vec![a.into(), b.into()],
             BitVecOp::StrIndexOf(a, b, c) => vec![a.into(), b.into(), c.into()],
             BitVecOp::If(a, b, c) => vec![a.into(), b.into(), c.into()],
         }
@@ -305,7 +327,7 @@ pub trait BitVecAstExt<'c> {
 impl<'c> BitVecOpExt<'c> for BitVecOp<'c> {
     fn size(&self) -> u32 {
         match self {
-            BitVecOp::BVS(_, size) => *size,
+            BitVecOp::BVS(_, size) | BitVecOp::SI(size, ..) => *size,
             BitVecOp::BVV(bv) => bv.len(),
             BitVecOp::Not(a)
             | BitVecOp::Neg(a)
@@ -328,7 +350,9 @@ impl<'c> BitVecOpExt<'c> for BitVecOp<'c> {
             | BitVecOp::LShR(a, _)
             | BitVecOp::AShR(a, _)
             | BitVecOp::RotateLeft(a, _)
-            | BitVecOp::RotateRight(a, _) => a.size(),
+            | BitVecOp::RotateRight(a, _)
+            | BitVecOp::Union(a, _)
+            | BitVecOp::Intersection(a, _) => a.size(),
             BitVecOp::Extract(_, high, low) => high - low + 1,
             BitVecOp::Concat(a, b) => a.size() + b.size(),
             BitVecOp::ZeroExt(a, ext) | BitVecOp::SignExt(a, ext) => a.size() + ext,

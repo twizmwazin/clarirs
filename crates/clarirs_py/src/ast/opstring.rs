@@ -82,6 +82,9 @@ impl ToOpString for BitVecAst<'static> {
             BitVecOp::StrToBV(..) => "StrToBV".to_string(),
             BitVecOp::If(..) => "If".to_string(),
             BitVecOp::Annotated(child, _) => child.to_opstring(),
+            BitVecOp::SI(..) => "SI".to_string(),
+            BitVecOp::Union(..) => "Union".to_string(),
+            BitVecOp::Intersection(..) => "Intersection".to_string(),
         }
     }
 }

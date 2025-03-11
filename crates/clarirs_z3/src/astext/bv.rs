@@ -190,6 +190,12 @@ impl<'c> AstExtZ3<'c> for BitVecAst<'c> {
                 BitVecOp::StrLen(_) => todo!("StrLen"),
                 BitVecOp::StrIndexOf(..) => todo!("StrIndexOf"),
                 BitVecOp::StrToBV(_) => todo!("StrToBV"),
+                BitVecOp::SI(..) | BitVecOp::Union(..) | BitVecOp::Intersection(..) => {
+                    // These are not supported in Z3
+                    return Err(ClarirsError::ConversionError(
+                        "vsa types are not currently supported in the z3 backend".to_string(),
+                    ));
+                }
             })
             .and_then(|ast| {
                 if ast.is_null() {

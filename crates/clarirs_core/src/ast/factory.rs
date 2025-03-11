@@ -1,4 +1,4 @@
-use num_bigint::BigUint;
+use num_bigint::{BigInt, BigUint};
 
 use super::factory_support::*;
 use crate::error::ClarirsError;
@@ -570,6 +570,34 @@ pub trait AstFactory<'c>: Sized {
         annotation: Annotation,
     ) -> Result<AstRef<'c, Op>, ClarirsError> {
         Op::annotated(self, lhs, annotation)
+    }
+
+    // VSA methods
+
+    fn si(
+        &'c self,
+        size: u32,
+        stride: BigInt,
+        lower_bound: BigInt,
+        upper_bound: BigInt,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::SI(size, stride, lower_bound, upper_bound))
+    }
+
+    fn union(
+        &'c self,
+        lhs: &BitVecAst<'c>,
+        rhs: &BitVecAst<'c>,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::Union(lhs.clone(), rhs.clone()))
+    }
+
+    fn intersection(
+        &'c self,
+        lhs: &BitVecAst<'c>,
+        rhs: &BitVecAst<'c>,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::Intersection(lhs.clone(), rhs.clone()))
     }
 
     // Helper methods
