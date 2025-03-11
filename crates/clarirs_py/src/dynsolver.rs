@@ -1,10 +1,12 @@
 use clarirs_core::prelude::*;
+use clarirs_vsa::VSASolver;
 use clarirs_z3::Z3Solver;
 
 #[derive(Clone)]
 pub(crate) enum DynSolver {
     Concrete(ConcreteSolver<'static>),
     Z3(Z3Solver<'static>),
+    Vsa(VSASolver<'static>),
 }
 
 impl HasContext<'static> for DynSolver {
@@ -12,6 +14,7 @@ impl HasContext<'static> for DynSolver {
         match self {
             DynSolver::Concrete(solver) => solver.context(),
             DynSolver::Z3(solver) => solver.context(),
+            DynSolver::Vsa(solver) => solver.context(),
         }
     }
 }
@@ -21,6 +24,7 @@ impl Solver<'static> for DynSolver {
         match self {
             DynSolver::Concrete(solver) => solver.constraints(),
             DynSolver::Z3(solver) => solver.constraints(),
+            DynSolver::Vsa(solver) => solver.constraints(),
         }
     }
 
@@ -28,6 +32,7 @@ impl Solver<'static> for DynSolver {
         match self {
             DynSolver::Concrete(solver) => solver.add(constraint),
             DynSolver::Z3(solver) => solver.add(constraint),
+            DynSolver::Vsa(solver) => solver.add(constraint),
         }
     }
 
@@ -35,6 +40,7 @@ impl Solver<'static> for DynSolver {
         match self {
             DynSolver::Concrete(solver) => solver.satisfiable(),
             DynSolver::Z3(solver) => solver.satisfiable(),
+            DynSolver::Vsa(solver) => solver.satisfiable(),
         }
     }
 
@@ -42,6 +48,7 @@ impl Solver<'static> for DynSolver {
         match self {
             DynSolver::Concrete(solver) => solver.eval_bool(expr),
             DynSolver::Z3(solver) => solver.eval_bool(expr),
+            DynSolver::Vsa(solver) => solver.eval_bool(expr),
         }
     }
 
@@ -52,6 +59,7 @@ impl Solver<'static> for DynSolver {
         match self {
             DynSolver::Concrete(solver) => solver.eval_bitvec(expr),
             DynSolver::Z3(solver) => solver.eval_bitvec(expr),
+            DynSolver::Vsa(solver) => solver.eval_bitvec(expr),
         }
     }
 
@@ -59,6 +67,7 @@ impl Solver<'static> for DynSolver {
         match self {
             DynSolver::Concrete(solver) => solver.eval_float(expr),
             DynSolver::Z3(solver) => solver.eval_float(expr),
+            DynSolver::Vsa(solver) => solver.eval_float(expr),
         }
     }
 
@@ -69,6 +78,7 @@ impl Solver<'static> for DynSolver {
         match self {
             DynSolver::Concrete(solver) => solver.eval_string(expr),
             DynSolver::Z3(solver) => solver.eval_string(expr),
+            DynSolver::Vsa(solver) => solver.eval_string(expr),
         }
     }
 
@@ -76,6 +86,7 @@ impl Solver<'static> for DynSolver {
         match self {
             DynSolver::Concrete(solver) => solver.is_true(expr),
             DynSolver::Z3(solver) => solver.is_true(expr),
+            DynSolver::Vsa(solver) => solver.is_true(expr),
         }
     }
 
@@ -83,6 +94,7 @@ impl Solver<'static> for DynSolver {
         match self {
             DynSolver::Concrete(solver) => solver.is_false(expr),
             DynSolver::Z3(solver) => solver.is_false(expr),
+            DynSolver::Vsa(solver) => solver.is_false(expr),
         }
     }
 
@@ -90,6 +102,7 @@ impl Solver<'static> for DynSolver {
         match self {
             DynSolver::Concrete(solver) => solver.min(expr),
             DynSolver::Z3(solver) => solver.min(expr),
+            DynSolver::Vsa(solver) => solver.min(expr),
         }
     }
 
@@ -97,6 +110,7 @@ impl Solver<'static> for DynSolver {
         match self {
             DynSolver::Concrete(solver) => solver.max(expr),
             DynSolver::Z3(solver) => solver.max(expr),
+            DynSolver::Vsa(solver) => solver.max(expr),
         }
     }
 }
