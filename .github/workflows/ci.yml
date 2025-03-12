@@ -120,11 +120,11 @@ jobs:
       - name: Run sccache-cache
         uses: mozilla-actions/sccache-action@v0.0.7
 
-      - name: Install Maturin
-        run: pip install maturin
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
       - name: Build Wheel
-        run: maturin build --release -o dist
+        run: uv build
         env:
           SCCACHE_GHA_ENABLED: "true"
           RUSTC_WRAPPER: "sccache"
@@ -141,3 +141,18 @@ jobs:
         with:
           name: wheels-${{ matrix.os }}-py${{ matrix.python-version }}
           path: dist/*.whl
+
+      - name: Run python tests
+        run: uv run pytest \
+          crates/clarirs_py/tests/test_bool_ops.py \
+          crates/clarirs_py/tests/test_bv_ops.py
+        env:
+          SCCACHE_GHA_ENABLED: "true"
+          RUSTC_WRAPPER: "sccache"
+          CMAKE_C_COMPILER_LAUNCHER: "sccache"
+          CMAKE_CXX_COMPILER_LAUNCHER: "sccache"
+          CMAKE_MSVC_DEBUG_INFORMATION_FORMAT: Embedded
+          CMAKE_POLICY_CMP0141: NEW
+          CMAKE_GENERATOR: Ninja
+          CC: "clang"
+          CXX: "clang++"
