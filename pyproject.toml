@@ -9,6 +9,7 @@ dynamic = ["version"]
 
 [tool.maturin]
 manifest-path = "crates/clarirs_py/Cargo.toml"
+include = ["README.md", "LICENSE"]
 
 [dependency-groups]
 dev = [
