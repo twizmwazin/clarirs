@@ -5,6 +5,7 @@ use pyo3::types::PyInt;
 
 use crate::prelude::*;
 
+#[derive(Clone)]
 pub struct CoerceBool<'py>(pub Bound<'py, Bool>);
 
 impl<'py> FromPyObject<'py> for CoerceBool<'py> {
