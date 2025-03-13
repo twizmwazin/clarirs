@@ -837,9 +837,106 @@ impl BV {
         index: u32,
         size: u32,
     ) -> Result<Bound<'py, BV>, ClaripyError> {
-        Extract(py, (index + size) * 8 - 1, index * 8, self_)?
-            .get()
-            .simplify(py)
+        // Calculate pos
+        let bv_size = self_.get().size() as i32;
+        let pos = (bv_size + 7) / 8 - 1 - index as i32;
+
+        // Check if pos is negative
+        if pos < 0 {
+            return Err(PyValueError::new_err(format!(
+                "Incorrect index {}. Your index must be between 0 and {}.",
+                index,
+                bv_size / 8 - 1
+            ))
+            .into());
+        }
+
+        // Handle size = 0
+        if size == 0 {
+            let a = GLOBAL_CONTEXT
+                .bvv_from_biguint_with_size(&BigUint::from(0u32), 0)
+                .map_err(ClaripyError::from)?;
+            return BV::new(py, &a);
+        }
+
+        // Check if index + size is too large (exceeds the number of bytes in the bitvector)
+        let bv_bytes = (bv_size + 7) / 8;
+
+        // Special case: if index is 0 and size is too large, we should just return the first byte
+        if index == 0 && size > bv_bytes as u32 {
+            // Extract the first byte - for a 32-bit value, we want to extract bits 31:24
+            let upper = bv_size - 1;
+            let lower = std::cmp::max(0, bv_size - 8);
+            let extracted = Extract(py, upper as u32, lower as u32, self_)?;
+
+            // If the bitvector is concrete, we can create a BVV with the actual value
+            if let Some(concrete_value) = extracted.get().concrete_value()? {
+                // Create a BVV with the concrete value
+                let result_size = extracted.get().size() as u32;
+                let a = GLOBAL_CONTEXT
+                    .bvv_from_biguint_with_size(&concrete_value, result_size)
+                    .map_err(ClaripyError::from)?;
+                return BV::new(py, &a);
+            }
+
+            return Ok(extracted);
+        }
+
+        // For other cases where index + size is too large, raise an error
+        if index + size > bv_bytes as u32 && pos - size as i32 + 1 < 0 && index > 0 {
+            // This should raise a ClaripyOperationError
+            return Err(ClaripyError::InvalidOperation(format!(
+                "Index {} + size {} exceeds the number of bytes in the bitvector ({})",
+                index, size, bv_bytes
+            )));
+        }
+
+        // Calculate upper and lower bounds for extraction
+        let upper = std::cmp::min(pos * 8 + 7, bv_size - 1) as u32;
+        let lower = std::cmp::max(0, (pos - size as i32 + 1) * 8) as u32;
+
+        // If size is larger than the number of bytes in the bitvector but doesn't exceed the bounds,
+        // we need to handle it specially
+        if size as i32 > bv_bytes && pos >= size as i32 - 1 {
+            // In this case, we should just return the first byte
+            let extracted = Extract(py, upper, std::cmp::max(0, bv_size - 8) as u32, self_)?;
+
+            // If the bitvector is concrete, we can create a BVV with the actual value
+            if let Some(concrete_value) = extracted.get().concrete_value()? {
+                // Create a BVV with the concrete value
+                let result_size = extracted.get().size() as u32;
+                let a = GLOBAL_CONTEXT
+                    .bvv_from_biguint_with_size(&concrete_value, result_size)
+                    .map_err(ClaripyError::from)?;
+                return BV::new(py, &a);
+            }
+
+            return Ok(extracted);
+        }
+
+        // Extract the bytes
+        let extracted = Extract(py, upper, lower, self_)?;
+
+        // Zero-extend if needed
+        let extracted_size = extracted.get().size() as u32;
+        let final_size = if extracted_size % 8 != 0 {
+            let extend_amount = 8 - extracted_size % 8;
+            extracted.get().zero_extend(py, extend_amount)?
+        } else {
+            extracted
+        };
+
+        // If the bitvector is concrete, we can create a BVV with the actual value
+        if let Some(concrete_value) = final_size.get().concrete_value()? {
+            // Create a BVV with the concrete value
+            let result_size = final_size.get().size() as u32;
+            let a = GLOBAL_CONTEXT
+                .bvv_from_biguint_with_size(&concrete_value, result_size)
+                .map_err(ClaripyError::from)?;
+            return BV::new(py, &a);
+        }
+
+        Ok(final_size)
     }
 
     pub fn get_byte<'py>(
