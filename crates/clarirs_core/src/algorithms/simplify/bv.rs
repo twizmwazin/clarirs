@@ -283,12 +283,12 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                             Ok(rhs.clone())
                         }
                         // Extracting a part of the left side
-                        BitVecOp::Concat(lhs, rhs) if *low > rhs.size() => {
-                            Ok(ctx.extract(lhs, *high - rhs.size(), *low - rhs.size())?)
-                        }
+                        BitVecOp::Concat(lhs, rhs) if *low >= rhs.size() => ctx
+                            .extract(lhs, *high - rhs.size(), *low - rhs.size())?
+                            .simplify(),
                         // Extracting a part of the right side
-                        BitVecOp::Concat(lhs, rhs) if *high <= rhs.size() => {
-                            Ok(ctx.extract(rhs, *high, *low)?)
+                        BitVecOp::Concat(lhs, rhs) if *high < rhs.size() => {
+                            ctx.extract(rhs, *high, *low)?.simplify()
                         }
                         // Extracting a part that spans both sides
                         BitVecOp::Concat(lhs, rhs) => {
