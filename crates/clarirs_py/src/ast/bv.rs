@@ -886,6 +886,21 @@ impl BV {
                 .intersection(&self.inner, &other.extract_like(py, self)?.get().inner)?,
         )
     }
+
+    #[getter]
+    pub fn cardinality(_self_: Bound<'_, BV>) -> Result<u32, ClaripyError> {
+        todo!("cardinality")
+    }
+
+    #[getter]
+    pub fn singlevalued(self_: Bound<'_, BV>) -> Result<bool, ClaripyError> {
+        Ok(BV::cardinality(self_)? == 1)
+    }
+
+    #[getter]
+    pub fn multivalued(self_: Bound<'_, BV>) -> Result<bool, ClaripyError> {
+        Ok(BV::cardinality(self_)? > 1)
+    }
 }
 
 #[pyfunction(signature = (name, size, explicit_name = false))]
