@@ -239,6 +239,11 @@ impl Bool {
     }
 
     #[getter]
+    pub fn concrete(&self) -> bool {
+        !self.inner.symbolic()
+    }
+
+    #[getter]
     pub fn annotations<'py>(&self, py: Python<'py>) -> PyResult<Vec<Bound<'py, PyAny>>> {
         Ok(self
             .inner
