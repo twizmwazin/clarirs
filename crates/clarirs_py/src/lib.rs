@@ -11,6 +11,7 @@ pub mod py_err;
 pub mod pyslicemethodsext;
 pub mod solver;
 
+use clarirs_core::algorithms::Replace;
 use prelude::*;
 
 fn import_submodule<'py>(
@@ -54,6 +55,28 @@ fn py_simplify<'py>(
     } else {
         panic!("Unsupported type");
     }
+}
+
+#[pyfunction(name = "replace")]
+fn py_replace<'py>(
+    expr: Bound<'py, Base>,
+    old: Bound<'py, Base>,
+    new: Bound<'py, Base>,
+) -> Result<Bound<'py, Base>, ClaripyError> {
+    Base::from_dynast(
+        expr.py(),
+        Base::to_dynast(expr)?.replace(&Base::to_dynast(old)?, &Base::to_dynast(new)?)?,
+    )
+}
+
+#[pyfunction]
+fn is_true(expr: Bound<'_, Bool>) -> Result<bool, ClaripyError> {
+    Ok(expr.get().inner.simplify()?.is_true())
+}
+
+#[pyfunction]
+fn is_false(expr: Bound<'_, Bool>) -> Result<bool, ClaripyError> {
+    Ok(expr.get().inner.simplify()?.is_false())
 }
 
 #[pymodule]
@@ -196,6 +219,9 @@ pub fn clarirs(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("FSORT_DOUBLE", ast::fp::fsort_double())?;
 
     m.add_function(wrap_pyfunction!(py_simplify, m)?)?;
+    m.add_function(wrap_pyfunction!(py_replace, m)?)?;
+    m.add_function(wrap_pyfunction!(is_true, m)?)?;
+    m.add_function(wrap_pyfunction!(is_false, m)?)?;
 
     // Compat
 
