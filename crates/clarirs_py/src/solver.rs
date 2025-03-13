@@ -84,7 +84,7 @@ impl PySolver {
     #[pyo3(signature = (extra_constraints = None, exact = None))]
     fn satisfiable<'py>(
         &mut self,
-        extra_constraints: Option<Vec<Bound<'py, Bool>>>,
+        extra_constraints: Option<Vec<CoerceBool<'py>>>,
         exact: Option<Bound<'py, PyAny>>,
     ) -> Result<bool, ClaripyError> {
         let _ = exact; // TODO: Implement approximate solutions
@@ -97,7 +97,7 @@ impl PySolver {
         // Otherwise, clone the solver and add the constraints
         let mut solver = self.inner.clone();
         for constraint in extra_constraints.unwrap() {
-            solver.add(&constraint.get().inner)?;
+            solver.add(&constraint.0.get().inner)?;
         }
 
         // Check satisfiability with the extra constraints
@@ -110,7 +110,7 @@ impl PySolver {
         py: Python<'py>,
         expr: Bound<'py, Base>,
         n: u32,
-        extra_constraints: Option<Vec<Bound<'py, Bool>>>,
+        extra_constraints: Option<Vec<CoerceBool<'py>>>,
         exact: Option<Bound<'py, PyAny>>,
     ) -> Result<Vec<Bound<'py, Base>>, ClaripyError> {
         let _ = exact; // TODO: Implement approximate solutions
@@ -122,7 +122,7 @@ impl PySolver {
         let mut solver = self.inner.clone();
         if let Some(extra_constraints) = extra_constraints {
             for constraint in extra_constraints {
-                solver.add(&constraint.get().inner)?;
+                solver.add(&constraint.0.get().inner)?;
             }
         }
 
@@ -219,7 +219,7 @@ impl PySolver {
         py: Python<'py>,
         expr: Bound<'py, Base>,
         n: u32,
-        extra_constraints: Option<Vec<Bound<Bool>>>,
+        extra_constraints: Option<Vec<CoerceBool<'py>>>,
         exact: Option<Bound<'py, PyAny>>,
     ) -> PyResult<Vec<Bound<'py, PyAny>>> {
         self.eval_to_ast(py, expr, n, extra_constraints, exact)?
@@ -269,7 +269,7 @@ impl PySolver {
         py: Python<'py>,
         exprs: Vec<Bound<'py, Base>>,
         n: u32,
-        extra_constraints: Option<Vec<Bound<Bool>>>,
+        extra_constraints: Option<Vec<CoerceBool<'py>>>,
         exact: Option<Bound<'py, PyAny>>,
     ) -> PyResult<Vec<Vec<Bound<'py, PyAny>>>> {
         exprs
@@ -368,7 +368,7 @@ impl PySolver {
     fn is_true<'py>(
         &mut self,
         expr: Bound<Bool>,
-        extra_constraints: Option<Vec<Bound<'py, Bool>>>,
+        extra_constraints: Option<Vec<CoerceBool<'py>>>,
         exact: Option<Bound<'py, PyAny>>,
     ) -> Result<bool, ClaripyError> {
         _ = exact; // TODO: Implement approximate solutions
@@ -377,7 +377,7 @@ impl PySolver {
         let mut solver = self.inner.clone();
         if let Some(extra_constraints) = extra_constraints {
             for expr in extra_constraints {
-                solver.add(&expr.get().inner)?;
+                solver.add(&expr.0.get().inner)?;
             }
         }
         Ok(solver.is_true(&expr.get().inner).unwrap())
@@ -387,7 +387,7 @@ impl PySolver {
     fn is_false<'py>(
         &mut self,
         expr: Bound<Bool>,
-        extra_constraints: Option<Vec<Bound<'py, Bool>>>,
+        extra_constraints: Option<Vec<CoerceBool<'py>>>,
         exact: Option<Bound<'py, PyAny>>,
     ) -> Result<bool, ClaripyError> {
         _ = exact; // TODO: Implement approximate solutions
@@ -396,7 +396,7 @@ impl PySolver {
         let mut solver = self.inner.clone();
         if let Some(extra_constraints) = extra_constraints {
             for expr in extra_constraints {
-                solver.add(&expr.get().inner)?;
+                solver.add(&expr.0.get().inner)?;
             }
         }
         Ok(solver.is_false(&expr.get().inner).unwrap())
@@ -406,13 +406,13 @@ impl PySolver {
     fn has_true<'py>(
         &mut self,
         expr: Bound<Bool>,
-        extra_constraints: Option<Vec<Bound<'py, Bool>>>,
+        extra_constraints: Option<Vec<CoerceBool<'py>>>,
         exact: Option<Bound<'py, PyAny>>,
     ) -> Result<bool, ClaripyError> {
         self.solution(
             expr.clone().into_super(),
             true.into_bound_py_any(expr.py())?,
-            extra_constraints,
+            extra_constraints.map(|constraints| constraints.into_iter().map(|c| c.0).collect()),
             exact,
         )
     }
@@ -421,13 +421,13 @@ impl PySolver {
     fn has_false<'py>(
         &mut self,
         expr: Bound<Bool>,
-        extra_constraints: Option<Vec<Bound<'py, Bool>>>,
+        extra_constraints: Option<Vec<CoerceBool<'py>>>,
         exact: Option<Bound<'py, PyAny>>,
     ) -> Result<bool, ClaripyError> {
         self.solution(
             expr.clone().into_super(),
             false.into_bound_py_any(expr.py())?,
-            extra_constraints,
+            extra_constraints.map(|constraints| constraints.into_iter().map(|c| c.0).collect()),
             exact,
         )
     }
@@ -436,7 +436,7 @@ impl PySolver {
     fn min<'py>(
         &mut self,
         expr: Bound<'py, BV>,
-        extra_constraints: Option<Vec<Bound<'py, Bool>>>,
+        extra_constraints: Option<Vec<CoerceBool<'py>>>,
         exact: Option<Bound<'py, PyAny>>,
         signed: bool,
     ) -> Result<BigInt, ClaripyError> {
@@ -446,7 +446,7 @@ impl PySolver {
         let mut solver = self.inner.clone();
         if let Some(extra_constraints) = extra_constraints {
             for expr in extra_constraints {
-                solver.add(&expr.get().inner)?;
+                solver.add(&expr.0.get().inner)?;
             }
         }
         if let BitVecOp::BVV(bv) = solver.min(&expr.get().inner)?.op() {
@@ -462,7 +462,7 @@ impl PySolver {
     fn max<'py>(
         &mut self,
         expr: Bound<'py, BV>,
-        extra_constraints: Option<Vec<Bound<'py, Bool>>>,
+        extra_constraints: Option<Vec<CoerceBool<'py>>>,
         exact: Option<Bound<'py, PyAny>>,
         signed: bool,
     ) -> Result<BigInt, ClaripyError> {
@@ -472,7 +472,7 @@ impl PySolver {
         let mut solver = self.inner.clone();
         if let Some(extra_constraints) = extra_constraints {
             for expr in extra_constraints {
-                solver.add(&expr.get().inner)?;
+                solver.add(&expr.0.get().inner)?;
             }
         }
 
