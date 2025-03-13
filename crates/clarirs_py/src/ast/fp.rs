@@ -288,14 +288,21 @@ impl FP {
             .cloned()
             .collect())
     }
-}
 
-pub fn clear_annotations(self_: Bound<'_, FP>) -> Result<Bound<'_, FP>, ClaripyError> {
-    let mut inner = self_.get().inner.clone();
-    while let FloatOp::Annotated(inner_, _) = inner.op() {
-        inner = inner_.clone();
+    pub fn clear_annotations(self_: Bound<'_, FP>) -> Result<Bound<'_, FP>, ClaripyError> {
+        let mut inner = self_.get().inner.clone();
+        while let FloatOp::Annotated(inner_, _) = inner.op() {
+            inner = inner_.clone();
+        }
+        FP::new(self_.py(), &inner)
     }
-    FP::new(self_.py(), &inner)
+
+    pub fn raw_to_bv(self_: Bound<'_, FP>) -> Result<Bound<'_, BV>, ClaripyError> {
+        BV::new(
+            self_.py(),
+            &GLOBAL_CONTEXT.fp_to_ieeebv(&self_.get().inner)?,
+        )
+    }
 }
 
 #[pyfunction(signature = (name, sort, explicit_name = false))]

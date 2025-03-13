@@ -355,6 +355,10 @@ impl BV {
         BV::new(self_.py(), &inner)
     }
 
+    pub fn raw_to_bv(self_: Bound<'_, BV>) -> Result<Bound<'_, BV>, ClaripyError> {
+        Ok(self_)
+    }
+
     pub fn __add__<'py>(
         &self,
         py: Python<'py>,
