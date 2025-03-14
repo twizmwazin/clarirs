@@ -19,7 +19,7 @@ pub enum ClaripyError {
     #[error("Failed to extract argument")]
     FailedToExtractArg(PyObject),
     #[error("Python error: {0}")]
-    PythonError(String),
+    PythonError(PyObject),
     #[error("Casting error: {0}")]
     CastingError(String),
     #[error("Invalid argument type: {0}")]
@@ -67,7 +67,7 @@ impl From<&ClarirsError> for ClaripyError {
 
 impl From<PyErr> for ClaripyError {
     fn from(e: PyErr) -> Self {
-        ClaripyError::PythonError(format!("{}", e))
+        Python::with_gil(|py| ClaripyError::PythonError(e.value(py).as_any().clone().unbind()))
     }
 }
 
@@ -90,7 +90,11 @@ impl From<ClaripyError> for PyErr {
                 "BitVector length {} must be a multiple of {}.",
                 size, bits
             )),
+            ClaripyError::InvalidOperation(e) => py_err::ClaripyOperationError::new_err(e),
             ClaripyError::TypeError(e) => py_err::ClaripyTypeError::new_err(e),
+            ClaripyError::PythonError(o) => {
+                Python::with_gil(|py| PyErr::from_value(o.bind(py).clone()))
+            }
             _ => py_err::ClaripyError::new_err(format!("{}", e)),
         }
     }
