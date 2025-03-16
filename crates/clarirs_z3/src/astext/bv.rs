@@ -91,14 +91,6 @@ impl<'c> AstExtZ3<'c> for BitVecAst<'c> {
                     let b = b.to_z3()?;
                     z3::mk_bvsrem(z3_ctx, a.0, b.0).into()
                 }
-                BitVecOp::Pow(_a, _b) => {
-                    // Leaving this one out for right now as it isn't supported
-                    // by Z3, nor in the claripy z3 backend. It seems likely
-                    // that this op was never used (or more likely there is a
-                    // vex pow op and this is used in that, but this op has
-                    // never shown up in a real program or test case).
-                    todo!()
-                }
                 BitVecOp::ShL(a, b) => {
                     let a = a.to_z3()?;
                     let b = b.to_z3()?;

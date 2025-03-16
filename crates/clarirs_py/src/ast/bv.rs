@@ -119,10 +119,6 @@ impl BV {
                     &args[0].downcast_bound::<BV>(py)?.get().inner,
                     &args[1].downcast_bound::<BV>(py)?.get().inner,
                 )?,
-                "__pow__" => GLOBAL_CONTEXT.pow(
-                    &args[0].downcast_bound::<BV>(py)?.get().inner,
-                    &args[1].downcast_bound::<BV>(py)?.get().inner,
-                )?,
                 "__lshift__" => GLOBAL_CONTEXT.shl(
                     &args[0].downcast_bound::<BV>(py)?.get().inner,
                     &args[1].downcast_bound::<BV>(py)?.get().inner,
@@ -457,28 +453,6 @@ impl BV {
         other: CoerceBV,
     ) -> Result<Bound<'py, BV>, ClaripyError> {
         self.__floordiv__(py, other)
-    }
-
-    pub fn __pow__<'py>(
-        &self,
-        py: Python<'py>,
-        other: CoerceBV,
-        _modulo: PyObject,
-    ) -> Result<Bound<'py, BV>, ClaripyError> {
-        // TODO: handle modulo
-        BV::new(
-            py,
-            &GLOBAL_CONTEXT.pow(&self.inner, &other.extract_like(py, self)?.get().inner)?,
-        )
-    }
-
-    pub fn __rpow__<'py>(
-        &self,
-        py: Python<'py>,
-        other: CoerceBV,
-        _modulo: PyObject,
-    ) -> Result<Bound<'py, BV>, ClaripyError> {
-        self.__pow__(py, other, _modulo)
     }
 
     pub fn __mod__<'py>(
@@ -1114,7 +1088,6 @@ binop!(UDiv, udiv, BV);
 binop!(SDiv, sdiv, BV);
 binop!(UMod, urem, BV);
 binop!(SMod, srem, BV);
-binop!(Pow, pow, BV);
 binop!(ShL, shl, BV);
 binop!(LShR, lshr, BV);
 binop!(AShR, ashr, BV);
@@ -1239,7 +1212,6 @@ pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
         SDiv,
         UMod,
         SMod,
-        Pow,
         ShL,
         LShR,
         AShR,

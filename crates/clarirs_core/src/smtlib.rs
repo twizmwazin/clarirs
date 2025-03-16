@@ -95,7 +95,6 @@ impl ToSmtLib for BitVecAst<'_> {
             BitVecOp::SDiv(lhs, rhs) => format!("(bvsdiv {} {})", lhs.to_smtlib(), rhs.to_smtlib()),
             BitVecOp::URem(lhs, rhs) => format!("(bvurem {} {})", lhs.to_smtlib(), rhs.to_smtlib()),
             BitVecOp::SRem(lhs, rhs) => format!("(bvsrem {} {})", lhs.to_smtlib(), rhs.to_smtlib()),
-            BitVecOp::Pow(lhs, rhs) => format!("(bvpow {} {})", lhs.to_smtlib(), rhs.to_smtlib()),
             BitVecOp::ShL(lhs, rhs) => format!("(bvshl {} {})", lhs.to_smtlib(), rhs.to_smtlib()),
             BitVecOp::LShR(lhs, rhs) => format!("(bvlshr {} {})", lhs.to_smtlib(), rhs.to_smtlib()),
             BitVecOp::AShR(lhs, rhs) => format!("(bvashr {} {})", lhs.to_smtlib(), rhs.to_smtlib()),

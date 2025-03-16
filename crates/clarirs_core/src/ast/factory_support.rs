@@ -53,7 +53,6 @@ binop_support_trait!(UDiv, BitVecOp<'c>, make_bitvec);
 binop_support_trait!(SDiv, BitVecOp<'c>, make_bitvec);
 binop_support_trait!(URem, BitVecOp<'c>, make_bitvec);
 binop_support_trait!(SRem, BitVecOp<'c>, make_bitvec);
-binop_support_trait!(Pow, BitVecOp<'c>, make_bitvec);
 
 pub trait SupportsIf<'c>: Op<'c> + Sized {
     fn if_(

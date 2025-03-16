@@ -856,12 +856,6 @@ impl<'c> Replace<'c, BoolAst<'c>> for BitVecAst<'c> {
                 self.context()
                     .make_bitvec(BitVecOp::SRem(a_replaced, b_replaced))
             }
-            BitVecOp::Pow(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Pow(a_replaced, b_replaced))
-            }
             BitVecOp::ShL(a, b) => {
                 let a_replaced = a.replace(from, to)?;
                 let b_replaced = b.replace(from, to)?;
@@ -1053,12 +1047,6 @@ impl<'c> Replace<'c, BitVecAst<'c>> for BitVecAst<'c> {
                     self.context()
                         .make_bitvec(BitVecOp::SRem(a_replaced, b_replaced))
                 }
-                BitVecOp::Pow(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bitvec(BitVecOp::Pow(a_replaced, b_replaced))
-                }
                 BitVecOp::ShL(a, b) => {
                     let a_replaced = a.replace(from, to)?;
                     let b_replaced = b.replace(from, to)?;
@@ -1248,12 +1236,6 @@ impl<'c> Replace<'c, FloatAst<'c>> for BitVecAst<'c> {
                 self.context()
                     .make_bitvec(BitVecOp::SRem(a_replaced, b_replaced))
             }
-            BitVecOp::Pow(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Pow(a_replaced, b_replaced))
-            }
             BitVecOp::ShL(a, b) => {
                 let a_replaced = a.replace(from, to)?;
                 let b_replaced = b.replace(from, to)?;
@@ -1441,12 +1423,6 @@ impl<'c> Replace<'c, StringAst<'c>> for BitVecAst<'c> {
                 let b_replaced = b.replace(from, to)?;
                 self.context()
                     .make_bitvec(BitVecOp::SRem(a_replaced, b_replaced))
-            }
-            BitVecOp::Pow(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Pow(a_replaced, b_replaced))
             }
             BitVecOp::ShL(a, b) => {
                 let a_replaced = a.replace(from, to)?;

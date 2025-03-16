@@ -333,43 +333,6 @@ fn test_srem() -> Result<()> {
 }
 
 #[test]
-fn test_pow() -> Result<()> {
-    let ctx = Context::new();
-
-    let table: Vec<(u64, u64, u64)> = vec![
-        (0, 0, 1),
-        (0, 1, 0),
-        (1, 0, 1),
-        (1, 1, 1),
-        (1, 2, 1),
-        (2, 1, 2),
-        (2, 2, 4),
-        (2, 3, 8),
-        (3, 2, 9),
-        (3, 3, 27),
-        (0, 10, 0),
-        (0, u64::MAX, 0),
-        (1, 10, 1),
-        (1, u64::MAX, 1),
-        (2, 10, 1024),
-        (2, 63, 0x8000_0000_0000_0000),
-        (u64::MAX, 0, 1),
-        (u64::MAX, 1, u64::MAX),
-    ];
-
-    for (a, b, expected) in table {
-        let a = ctx.bvv_prim(a).unwrap();
-        let b = ctx.bvv_prim(b).unwrap();
-        let expected = ctx.bvv_prim(expected).unwrap();
-
-        let result = ctx.pow(&a, &b)?.simplify()?;
-        assert_eq!(result, expected);
-    }
-
-    Ok(())
-}
-
-#[test]
 fn test_and() -> Result<()> {
     let ctx = Context::new();
 
