@@ -63,7 +63,6 @@ impl ToOpString for BitVecAst<'static> {
             BitVecOp::SDiv(..) => "SDiv".to_string(),
             BitVecOp::URem(..) => "__mod__".to_string(),
             BitVecOp::SRem(..) => "SMod".to_string(),
-            BitVecOp::Pow(..) => "__pow__".to_string(),
             BitVecOp::ShL(..) => "__lshift__".to_string(),
             BitVecOp::LShR(..) => "LShR".to_string(),
             BitVecOp::AShR(..) => "__rshift__".to_string(),

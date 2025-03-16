@@ -163,14 +163,6 @@ pub trait AstFactory<'c>: Sized {
         Op::srem(self, lhs, rhs)
     }
 
-    fn pow<Op: SupportsPow<'c>>(
-        &'c self,
-        lhs: &AstRef<'c, Op>,
-        rhs: &AstRef<'c, Op>,
-    ) -> Result<AstRef<'c, Op>, ClarirsError> {
-        Op::pow(self, lhs, rhs)
-    }
-
     fn shl(
         &'c self,
         lhs: &BitVecAst<'c>,

@@ -358,24 +358,6 @@ impl BitVec {
     pub fn ones(length: u32) -> BitVec {
         BitVec::from_biguint_trunc(&((BigUint::from(2u32) << (length as u64)) - 1u32), length)
     }
-
-    // Power function for BitVec
-    pub fn pow(&self, exponent: &BitVec) -> Result<BitVec, BitVecError> {
-        let exp_value = exponent.to_biguint();
-        let mut result = BigUint::from(1u64);
-        let mut base_value = self.to_biguint();
-        let mut exp_value = exp_value.clone();
-
-        while !exp_value.is_zero() {
-            if &exp_value & BigUint::from(1u64) == BigUint::from(1u64) {
-                result *= &base_value;
-            }
-            base_value = &base_value * &base_value;
-            exp_value >>= 1;
-        }
-
-        BitVec::from_biguint(&result, self.len())
-    }
 }
 
 impl Debug for BitVec {

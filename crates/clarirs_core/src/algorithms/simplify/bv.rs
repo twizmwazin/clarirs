@@ -136,13 +136,6 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                         _ => ctx.srem(&dividend_ast, &divisor_ast),
                     }
                 }
-                BitVecOp::Pow(arc, arc1) => {
-                    simplify!(arc, arc1);
-                    match (arc.op(), arc1.op()) {
-                        (BitVecOp::BVV(base), BitVecOp::BVV(exp)) => ctx.bvv(base.pow(exp)?),
-                        _ => ctx.pow(&arc, &arc1),
-                    }
-                }
                 BitVecOp::ShL(arc, arc1) => {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {

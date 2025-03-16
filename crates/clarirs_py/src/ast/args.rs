@@ -92,7 +92,6 @@ impl ExtractPyArgs for BitVecAst<'static> {
             | BitVecOp::SDiv(lhs, rhs)
             | BitVecOp::URem(lhs, rhs)
             | BitVecOp::SRem(lhs, rhs)
-            | BitVecOp::Pow(lhs, rhs)
             | BitVecOp::ShL(lhs, rhs)
             | BitVecOp::LShR(lhs, rhs)
             | BitVecOp::AShR(lhs, rhs)

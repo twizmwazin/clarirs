@@ -102,7 +102,6 @@ pub fn clarirs(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
         ast::bv::SDiv,
         ast::bv::UMod,
         ast::bv::SMod,
-        ast::bv::Pow,
         ast::bv::ShL,
         ast::bv::LShR,
         ast::bv::AShR,

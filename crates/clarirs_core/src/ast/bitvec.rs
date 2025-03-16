@@ -25,7 +25,6 @@ pub enum BitVecOp<'c> {
     SDiv(BitVecAst<'c>, BitVecAst<'c>),
     URem(BitVecAst<'c>, BitVecAst<'c>),
     SRem(BitVecAst<'c>, BitVecAst<'c>),
-    Pow(BitVecAst<'c>, BitVecAst<'c>),
     ShL(BitVecAst<'c>, BitVecAst<'c>),
     LShR(BitVecAst<'c>, BitVecAst<'c>),
     AShR(BitVecAst<'c>, BitVecAst<'c>),
@@ -125,11 +124,6 @@ impl std::hash::Hash for BitVecOp<'_> {
             }
             BitVecOp::SRem(a, b) => {
                 13.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BitVecOp::Pow(a, b) => {
-                14.hash(state);
                 a.hash(state);
                 b.hash(state);
             }
@@ -271,7 +265,6 @@ impl<'c> Op<'c> for BitVecOp<'c> {
             | BitVecOp::SDiv(a, b)
             | BitVecOp::URem(a, b)
             | BitVecOp::SRem(a, b)
-            | BitVecOp::Pow(a, b)
             | BitVecOp::ShL(a, b)
             | BitVecOp::LShR(a, b)
             | BitVecOp::AShR(a, b)
@@ -345,7 +338,6 @@ impl<'c> BitVecOpExt<'c> for BitVecOp<'c> {
             | BitVecOp::SDiv(a, _)
             | BitVecOp::URem(a, _)
             | BitVecOp::SRem(a, _)
-            | BitVecOp::Pow(a, _)
             | BitVecOp::ShL(a, _)
             | BitVecOp::LShR(a, _)
             | BitVecOp::AShR(a, _)

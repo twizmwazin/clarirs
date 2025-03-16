@@ -328,33 +328,4 @@ mod tests {
 
         Ok(())
     }
-
-    #[test]
-    fn test_power() -> Result<(), BitVecError> {
-        // Basic power operation
-        let base = BitVec::from(2u64);
-        let exp = BitVec::from(3u64);
-        let result = base.pow(&exp).unwrap();
-        assert_eq!(result.to_u64().unwrap(), 8);
-
-        // Power with zero exponent
-        let base = BitVec::from(42u64);
-        let exp = BitVec::from(0u64);
-        let result = base.pow(&exp).unwrap();
-        assert_eq!(result.to_u64().unwrap(), 1);
-
-        // Power with one exponent
-        let base = BitVec::from(42u64);
-        let exp = BitVec::from(1u64);
-        let result = base.pow(&exp).unwrap();
-        assert_eq!(result.to_u64().unwrap(), 42);
-
-        // Power with different bit widths
-        let base = BitVec::from_prim_with_size(2u64, 32)?;
-        let exp = BitVec::from_prim_with_size(4u64, 32)?;
-        let result = base.pow(&exp).unwrap();
-        assert_eq!(result.to_u64().unwrap(), 16);
-
-        Ok(())
-    }
 }
