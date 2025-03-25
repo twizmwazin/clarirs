@@ -230,7 +230,7 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
                         // Check if `input_string` starts with `prefix substring`
-                        (StringOp::StringV(input_string), StringOp::StringV(prefix)) => {
+                        (StringOp::StringV(prefix), StringOp::StringV(input_string)) => {
                             ctx.boolv(input_string.starts_with(prefix))
                         }
                         _ => ctx.strprefixof(&arc, &arc1),
@@ -240,7 +240,7 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
                     simplify!(arc, arc1);
                     match (arc.op(), arc1.op()) {
                         // Check if `input_string` ends with `suffix substring`
-                        (StringOp::StringV(input_string), StringOp::StringV(suffix)) => {
+                        (StringOp::StringV(suffix), StringOp::StringV(input_string)) => {
                             ctx.boolv(input_string.ends_with(suffix))
                         }
                         _ => ctx.strsuffixof(&arc, &arc1),
@@ -250,7 +250,11 @@ impl<'c> Simplify<'c> for BoolAst<'c> {
                     simplify!(arc);
                     match arc.op() {
                         StringOp::StringV(input_string) => {
-                            ctx.boolv(input_string.chars().all(|c| c.is_ascii_digit()))
+                            if input_string.is_empty() {
+                                return ctx.boolv(false);
+                            }
+                            // is_numeric() is Unicode-aware and will also return true for non-ASCII numeric characters like Z3
+                            ctx.boolv(input_string.chars().all(|c| c.is_numeric()))
                         }
                         _ => ctx.strisdigit(&arc),
                     }

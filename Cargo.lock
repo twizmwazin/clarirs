@@ -159,6 +159,7 @@ version = "0.1.0"
 dependencies = [
  "clarirs-z3-sys",
  "clarirs_core",
+ "regex",
 ]
 
 [[package]]
