@@ -21,30 +21,6 @@ impl<'c> Simplify<'c> for StringAst<'c> {
                             _ => ctx.strconcat(&arc, &arc1),
                         }
                     }
-                    // StringOp::StrSubstr(arc, arc1, arc2) => {
-                    //     simplify!(arc, arc1, arc2);
-                    //     match (arc.op(), arc1.op(), arc2.op()) {
-                    //         (StringOp::StringV(str), BitVecOp::BVV(start), BitVecOp::BVV(end)) => {
-                    //             // LEFT: Handle the case where start and end are not provided or are negative or out of bounds
-                    //             let start = start.to_usize().unwrap_or(0);
-
-                    //             // Rename end => Length
-                    //             let end = end.to_usize().unwrap_or(str.chars().count());
-
-                    //             // Convert start and length from character-based indices to byte-based indices
-                    //             // Unicode charaters can be multiple bytes long, so we need to convert the indices
-                    //             let char_start =
-                    //                 str.chars().take(start).map(|c| c.len_utf8()).sum();
-                    //             let char_end =
-                    //                 str.chars().take(start + end).map(|c| c.len_utf8()).sum();
-
-                    //             let substring =
-                    //                 str.get(char_start..char_end).unwrap_or("").to_string();
-                    //             ctx.stringv(substring)
-                    //         }
-                    //         _ => ctx.strsubstr(&arc, &arc1, &arc2),
-                    //     }
-                    // }
                     StringOp::StrSubstr(arc, arc1, arc2) => {
                         simplify!(arc, arc1, arc2);
                         match (arc.op(), arc1.op(), arc2.op()) {

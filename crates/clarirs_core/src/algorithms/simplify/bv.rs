@@ -392,7 +392,6 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                             let length = value.chars().count() as u64;
                             ctx.bvv(BitVec::from_prim_with_size(length, 64)?)
                         }
-                        // _ => Err(ClarirsError::InvalidArguments),
                         _ => ctx.strlen(&arc), // Fallback to symbolic
                     }
                 }
@@ -451,12 +450,6 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                                 return ctx.bvv(BitVec::zeros(64));
                             }
 
-                            // // Determine the bit length required to represent the number
-                            // let bit_length = value.bits() as u32;
-
-                            // // Convert the parsed value into a BitVec with the calculated bit length
-                            // let bitvec = BitVec::from_biguint_trunc(&value, bit_length);
-                            // ctx.bvv(bitvec)
                             ctx.bvv(BitVec::from_biguint_trunc(&value, 64))
                         }
                         _ => ctx.strtobv(&arc),
