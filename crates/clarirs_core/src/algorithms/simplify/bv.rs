@@ -388,10 +388,10 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
                     simplify!(arc);
                     match arc.op() {
                         StringOp::StringV(value) => {
-                            let length = value.len() as u64;
+                            // chars().count() returns the number of Unicode scalar values
+                            let length = value.chars().count() as u64;
                             ctx.bvv(BitVec::from_prim_with_size(length, 64)?)
                         }
-                        // _ => Err(ClarirsError::InvalidArguments),
                         _ => ctx.strlen(&arc), // Fallback to symbolic
                     }
                 }
@@ -431,18 +431,26 @@ impl<'c> Simplify<'c> for BitVecAst<'c> {
 
                     match arc.op() {
                         StringOp::StringV(string) => {
+                            if string.is_empty() {
+                                let max_int =
+                                    BigUint::from_str_radix("ffffffffffffffff", 16).unwrap();
+                                return ctx.bvv(BitVec::from_biguint_trunc(&max_int, 64));
+                            }
+
                             // Attempt to parse the string as a decimal integer
                             let value = BigUint::from_str_radix(string, 10)
                                 .or_else(|_| BigUint::from_str_radix(string, 16)) // Try hexadecimal if decimal fails
                                 .or_else(|_| BigUint::from_str_radix(string, 2)) // Try binary if hexadecimal fails
-                                .map_err(|_| ClarirsError::InvalidArguments)?; // Error if parsing fails
+                                .unwrap_or_else(|_| {
+                                    BigUint::from_str_radix("ffffffffffffffff", 16).unwrap()
+                                });
 
-                            // Determine the bit length required to represent the number
-                            let bit_length = value.bits() as u32;
+                            // If the parsed number is too large to fit in 64 bits, return 0.
+                            if value >= BigUint::from(2u64).pow(64) {
+                                return ctx.bvv(BitVec::zeros(64));
+                            }
 
-                            // Convert the parsed value into a BitVec with the calculated bit length
-                            let bitvec = BitVec::from_biguint_trunc(&value, bit_length);
-                            ctx.bvv(bitvec)
+                            ctx.bvv(BitVec::from_biguint_trunc(&value, 64))
                         }
                         _ => ctx.strtobv(&arc),
                     }

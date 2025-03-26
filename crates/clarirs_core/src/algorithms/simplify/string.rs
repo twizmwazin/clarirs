@@ -25,17 +25,28 @@ impl<'c> Simplify<'c> for StringAst<'c> {
                         simplify!(arc, arc1, arc2);
                         match (arc.op(), arc1.op(), arc2.op()) {
                             (
-                                StringOp::StringV(str),
-                                BitVecOp::BVV(start),
-                                BitVecOp::BVV(length),
+                                StringOp::StringV(s),
+                                BitVecOp::BVV(start_bv),
+                                BitVecOp::BVV(length_bv),
                             ) => {
-                                // Convert start and length to isize, then handle them as usize if they are non-negative
-                                let start = start.to_usize().unwrap_or(0).max(0);
-                                let length = length.to_usize().unwrap_or(str.len()).max(0);
-                                let end = start.saturating_add(length).min(str.len());
+                                // Convert the bitvectors to usize indices.
+                                let start = start_bv.to_usize().unwrap_or(0);
+                                let length = length_bv.to_usize().unwrap_or(s.chars().count());
+                                let num_chars = s.chars().count();
 
-                                // Extract the substring safely within bounds
-                                let substring = str.get(start..end).unwrap_or("").to_string();
+                                // If the starting index is out-of-bound (e.g., negative index wrapped to 2^64-1),
+                                // then return an empty string.
+                                if start >= num_chars {
+                                    return ctx.stringv("".to_string());
+                                }
+
+                                // Convert character-based indices to byte-based indices.
+                                let char_start = s.chars().take(start).map(|c| c.len_utf8()).sum();
+                                let char_end =
+                                    s.chars().take(start + length).map(|c| c.len_utf8()).sum();
+
+                                let substring =
+                                    s.get(char_start..char_end).unwrap_or("").to_string();
                                 ctx.stringv(substring)
                             }
                             _ => ctx.strsubstr(&arc, &arc1, &arc2),

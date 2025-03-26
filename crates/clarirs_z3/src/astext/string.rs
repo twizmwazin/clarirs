@@ -1,11 +1,26 @@
 use crate::{Z3_CONTEXT, rc::RcAst};
 use clarirs_core::prelude::*;
 use clarirs_z3_sys::{self as z3};
+use regex::Regex;
 
 use super::AstExtZ3;
 
 fn mk_bv2int(bv: RcAst) -> RcAst {
     Z3_CONTEXT.with(|&z3_ctx| unsafe { RcAst::from(z3::mk_bv2int(z3_ctx, bv.0, false)) })
+}
+
+fn decode_custom_unicode(input: &str) -> String {
+    // Compile the regex pattern that matches "\u{...}"
+    let re = Regex::new(r"\\u\{([0-9a-fA-F]+)\}").unwrap();
+
+    // Replace all matches with the corresponding Unicode character.
+    re.replace_all(input, |caps: &regex::Captures| {
+        // Extract the hexadecimal part from the capture group.
+        let num = u32::from_str_radix(&caps[1], 16).unwrap();
+        // Convert the number to a Unicode character and then to a String.
+        std::char::from_u32(num).unwrap().to_string()
+    })
+    .into_owned()
 }
 
 impl<'c> AstExtZ3<'c> for StringAst<'c> {
@@ -19,8 +34,17 @@ impl<'c> AstExtZ3<'c> for StringAst<'c> {
                     RcAst::from(z3::mk_const(z3_ctx, sym, sort))
                 }
                 StringOp::StringV(s) => {
-                    let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
-                    RcAst::from(z3::mk_string(z3_ctx, s_cstr.as_ptr()))
+                    let mut encoded = String::new();
+                    for ch in s.chars() {
+                        if ch.is_ascii() {
+                            encoded.push(ch);
+                        } else {
+                            let escape = format!("\\u{{{:04X}}}", ch as u32);
+                            encoded.push_str(&escape);
+                        }
+                    }
+                    let cstr = std::ffi::CString::new(encoded).unwrap();
+                    RcAst::from(z3::mk_string(z3_ctx, cstr.as_ptr()))
                 }
                 StringOp::StrConcat(a, b) => {
                     let a = a.to_z3()?;
@@ -77,8 +101,9 @@ impl<'c> AstExtZ3<'c> for StringAst<'c> {
                         // Handle string constants
                         _ if z3::is_string(z3_ctx, *ast) => {
                             let string_ptr = z3::get_string(z3_ctx, *ast);
-                            let string = std::ffi::CStr::from_ptr(string_ptr).to_str().unwrap();
-                            ctx.stringv(string)
+                            let raw_str = std::ffi::CStr::from_ptr(string_ptr).to_str().unwrap();
+                            let decoded_str = decode_custom_unicode(raw_str);
+                            ctx.stringv(decoded_str)
                         }
                         z3::DeclKind::Uninterpreted => {
                             // Verify it's a string
