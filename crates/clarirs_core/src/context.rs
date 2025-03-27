@@ -8,6 +8,7 @@ use std::{
 use crate::{ast::astcache::AstCache, prelude::*};
 
 #[derive(Debug, Default)]
+#[allow(dead_code)] // FIXME: reintroduce simplification cache
 pub struct Context<'c> {
     pub(crate) ast_cache: AstCache<'c>,
     pub(crate) simplification_cache: AstCache<'c>,
