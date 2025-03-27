@@ -39,7 +39,7 @@ jobs:
         uses: seanmiddleditch/gha-setup-ninja@v6
 
       - name: Run sccache-cache
-        uses: mozilla-actions/sccache-action@v0.0.7
+        uses: mozilla-actions/sccache-action@v0.0.8
 
       - name: Clippy Check
         run: cargo clippy --all-features -- -D warnings
@@ -118,7 +118,7 @@ jobs:
         uses: seanmiddleditch/gha-setup-ninja@v6
 
       - name: Run sccache-cache
-        uses: mozilla-actions/sccache-action@v0.0.7
+        uses: mozilla-actions/sccache-action@v0.0.8
 
       - name: Install Maturin
         run: pip install maturin
