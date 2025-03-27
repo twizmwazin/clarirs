@@ -30,6 +30,8 @@ pub enum ClarirsError {
     ConversionError(String),
     #[error("UNSAT")]
     Unsat,
+    #[error("Empty traversal result")]
+    EmptyTraversal,
 }
 
 impl<T> From<PoisonError<T>> for ClarirsError {

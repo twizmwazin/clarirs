@@ -232,6 +232,34 @@ impl<'c> DynAst<'c> {
             _ => None,
         }
     }
+
+    pub fn into_bool(self) -> Option<BoolAst<'c>> {
+        match self {
+            DynAst::Boolean(ast) => Some(ast),
+            _ => None,
+        }
+    }
+
+    pub fn into_bitvec(self) -> Option<BitVecAst<'c>> {
+        match self {
+            DynAst::BitVec(ast) => Some(ast),
+            _ => None,
+        }
+    }
+
+    pub fn into_float(self) -> Option<FloatAst<'c>> {
+        match self {
+            DynAst::Float(ast) => Some(ast),
+            _ => None,
+        }
+    }
+
+    pub fn into_string(self) -> Option<StringAst<'c>> {
+        match self {
+            DynAst::String(ast) => Some(ast),
+            _ => None,
+        }
+    }
 }
 
 impl<'c> From<&BoolAst<'c>> for DynAst<'c> {
