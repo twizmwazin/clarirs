@@ -21,6 +21,8 @@ pub struct AstNode<'c, O: Op<'c>> {
     variables: HashSet<String>,
     #[serde(skip)]
     depth: u32,
+    #[serde(skip)]
+    annotations: Vec<Annotation>,
 }
 
 impl<'c, O> Debug for AstNode<'c, O>
@@ -63,6 +65,7 @@ impl<'c, O: Op<'c> + Serialize> AstNode<'c, O> {
     pub(crate) fn new(ctx: &'c Context<'c>, op: O, hash: u64) -> Self {
         let variables = op.variables();
         let depth = op.depth();
+        let annotations = op.get_annotations();
 
         Self {
             op,
@@ -70,6 +73,7 @@ impl<'c, O: Op<'c> + Serialize> AstNode<'c, O> {
             hash,
             variables,
             depth,
+            annotations,
         }
     }
 
@@ -112,7 +116,7 @@ impl<'c, O: Op<'c>> Op<'c> for AstNode<'c, O> {
     }
 
     fn get_annotations(&self) -> Vec<Annotation> {
-        self.op().get_annotations()
+        self.annotations.clone()
     }
 
     fn check_same_sort(&self, other: &Self) -> bool {

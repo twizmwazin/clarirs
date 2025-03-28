@@ -561,6 +561,10 @@ pub trait AstFactory<'c>: Sized {
         lhs: &AstRef<'c, Op>,
         annotation: Annotation,
     ) -> Result<AstRef<'c, Op>, ClarirsError> {
+        // Check if this annotation is already present
+        if lhs.get_annotations().contains(&annotation) {
+            return Ok(lhs.clone());
+        }
         Op::annotated(self, lhs, annotation)
     }
 
