@@ -25,7 +25,7 @@ use clarirs_core::prelude::*;
 ///
 /// fn example<'c>(ctx: &'c Context<'c>) -> Result<(), ClarirsError> {
 ///     // Create a bitvector value
-///     let bv = ctx.bvv(32, 42u64)?;
+///     let bv = ctx.bvv_prim(42u32)?;
 ///
 ///     // Normalize it for VSA
 ///     let normalized = bv.normalize()?;
