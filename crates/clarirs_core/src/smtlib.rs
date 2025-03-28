@@ -255,3 +255,14 @@ impl ToSmtLib for StringAst<'_> {
         }
     }
 }
+
+impl ToSmtLib for DynAst<'_> {
+    fn to_smtlib(&self) -> String {
+        match self {
+            DynAst::Boolean(ast) => ast.to_smtlib(),
+            DynAst::BitVec(ast) => ast.to_smtlib(),
+            DynAst::Float(ast) => ast.to_smtlib(),
+            DynAst::String(ast) => ast.to_smtlib(),
+        }
+    }
+}
