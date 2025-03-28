@@ -279,8 +279,14 @@ impl<'c> AstExtZ3<'c> for BoolAst<'c> {
                                 ))
                             }
                         }
-                        z3::DeclKind::Ult | z3::DeclKind::Uleq | z3::DeclKind::Ugt | z3::DeclKind::Ugeq
-                        | z3::DeclKind::Slt | z3::DeclKind::Sleq | z3::DeclKind::Sgt | z3::DeclKind::Sgeq => {
+                        z3::DeclKind::Ult
+                        | z3::DeclKind::Uleq
+                        | z3::DeclKind::Ugt
+                        | z3::DeclKind::Ugeq
+                        | z3::DeclKind::Slt
+                        | z3::DeclKind::Sleq
+                        | z3::DeclKind::Sgt
+                        | z3::DeclKind::Sgeq => {
                             let arg0 = z3::get_app_arg(*z3_ctx, app, 0);
                             let arg1 = z3::get_app_arg(*z3_ctx, app, 1);
 
