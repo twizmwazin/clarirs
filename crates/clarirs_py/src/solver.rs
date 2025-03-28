@@ -20,7 +20,6 @@ impl PySolver {
         }))
     }
 
-
     #[getter]
     fn constraints<'py>(&self, py: Python<'py>) -> Result<Vec<Bound<'py, Bool>>, ClaripyError> {
         self.inner
