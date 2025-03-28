@@ -11,7 +11,7 @@ pub mod py_err;
 pub mod pyslicemethodsext;
 pub mod solver;
 
-use clarirs_core::algorithms::Replace;
+use clarirs_core::algorithms::{ExcavateIte, Replace};
 use prelude::*;
 
 fn import_submodule<'py>(
@@ -67,6 +67,14 @@ fn py_replace<'py>(
         expr.py(),
         Base::to_dynast(expr)?.replace(&Base::to_dynast(old)?, &Base::to_dynast(new)?)?,
     )
+}
+
+#[pyfunction(name = "excavate_ite")]
+fn py_excavate_ite<'py>(
+    py: Python<'py>,
+    expr: Bound<'py, Base>,
+) -> Result<Bound<'py, Base>, ClaripyError> {
+    Base::from_dynast(py, Base::to_dynast(expr)?.excavate_ite()?)
 }
 
 #[pyfunction]
@@ -219,6 +227,7 @@ pub fn clarirs(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     m.add_function(wrap_pyfunction!(py_simplify, m)?)?;
     m.add_function(wrap_pyfunction!(py_replace, m)?)?;
+    m.add_function(wrap_pyfunction!(py_excavate_ite, m)?)?;
     m.add_function(wrap_pyfunction!(is_true, m)?)?;
     m.add_function(wrap_pyfunction!(is_false, m)?)?;
     m.add_function(wrap_pyfunction!(ast::bool::ite_cases, m)?)?;
