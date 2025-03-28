@@ -341,22 +341,22 @@ impl<'c> AstExtZ3<'c> for BitVecAst<'c> {
                                             BitVecAst::from_z3(ctx, arg)
                                         }
                                         _ => Err(ClarirsError::ConversionError(
-                                            "unsupported operation".to_string(),
+                                            "expected a Bv2int".to_string(),
                                         )),
                                     }
                                 }
                                 _ => Err(ClarirsError::ConversionError(
-                                    "unsupported operation".to_string(),
+                                    "expected a numeral or bv2int".to_string(),
                                 )),
                             }
                         }
                         _ => Err(ClarirsError::ConversionError(
-                            "unsupported operation".to_string(),
+                            "Failed converting from z3: unknown decl kind for bitvec".to_string(),
                         )),
                     }
                 }
                 _ => Err(ClarirsError::ConversionError(
-                    "unsupported operation".to_string(),
+                    "Failed converting from z3: unknown ast kind for bitvec".to_string(),
                 )),
             }
         })
