@@ -15,6 +15,7 @@ use crate::{
 pub struct Context<'c> {
     pub(crate) ast_cache: AstCache<'c>,
     pub(crate) simplification_cache: AstCache<'c>,
+    pub(crate) excavate_ite_cache: AstCache<'c>,
 }
 
 impl PartialEq for Context<'_> {
