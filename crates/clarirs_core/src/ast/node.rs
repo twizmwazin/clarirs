@@ -205,6 +205,15 @@ impl<'c> Op<'c> for DynAst<'c> {
 }
 
 impl<'c> DynAst<'c> {
+    pub fn inner_hash(&self) -> u64 {
+        match self {
+            DynAst::Boolean(ast) => ast.hash,
+            DynAst::BitVec(ast) => ast.hash,
+            DynAst::Float(ast) => ast.hash,
+            DynAst::String(ast) => ast.hash,
+        }
+    }
+
     pub fn as_bool(&self) -> Option<&BoolAst<'c>> {
         match self {
             DynAst::Boolean(ast) => Some(ast),
@@ -262,9 +271,21 @@ impl<'c> DynAst<'c> {
     }
 }
 
+impl<'c> From<BoolAst<'c>> for DynAst<'c> {
+    fn from(ast: BoolAst<'c>) -> Self {
+        DynAst::Boolean(ast.clone())
+    }
+}
+
 impl<'c> From<&BoolAst<'c>> for DynAst<'c> {
     fn from(ast: &BoolAst<'c>) -> Self {
         DynAst::Boolean(ast.clone())
+    }
+}
+
+impl<'c> From<BitVecAst<'c>> for DynAst<'c> {
+    fn from(ast: BitVecAst<'c>) -> Self {
+        DynAst::BitVec(ast.clone())
     }
 }
 
@@ -274,9 +295,21 @@ impl<'c> From<&BitVecAst<'c>> for DynAst<'c> {
     }
 }
 
+impl<'c> From<FloatAst<'c>> for DynAst<'c> {
+    fn from(ast: FloatAst<'c>) -> Self {
+        DynAst::Float(ast.clone())
+    }
+}
+
 impl<'c> From<&FloatAst<'c>> for DynAst<'c> {
     fn from(ast: &FloatAst<'c>) -> Self {
         DynAst::Float(ast.clone())
+    }
+}
+
+impl<'c> From<StringAst<'c>> for DynAst<'c> {
+    fn from(ast: StringAst<'c>) -> Self {
+        DynAst::String(ast.clone())
     }
 }
 
