@@ -13,6 +13,14 @@ pub struct PySolver {
 
 #[pymethods]
 impl PySolver {
+    #[new]
+    fn new() -> Result<PyClassInitializer<Self>, ClaripyError> {
+        Ok(PyClassInitializer::from(PySolver {
+            inner: DynSolver::Z3(Z3Solver::new(&GLOBAL_CONTEXT)),
+        }))
+    }
+
+
     #[getter]
     fn constraints<'py>(&self, py: Python<'py>) -> Result<Vec<Bound<'py, Bool>>, ClaripyError> {
         self.inner
