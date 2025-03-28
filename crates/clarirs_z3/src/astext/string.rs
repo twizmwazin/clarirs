@@ -161,12 +161,12 @@ impl<'c> AstExtZ3<'c> for StringAst<'c> {
                             ctx.if_(&cond, &then, &else_)
                         }
                         _ => Err(ClarirsError::ConversionError(
-                            "unsupported operation".to_string(),
+                            "Failed converting from z3: unknown decl kind for string".to_string(),
                         )),
                     }
                 }
                 _ => Err(ClarirsError::ConversionError(
-                    "unsupported operation".to_string(),
+                    "Failed converting from z3: unknown ast kind for string".to_string(),
                 )),
             }
         })

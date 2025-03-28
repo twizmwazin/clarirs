@@ -1,3 +1,5 @@
+use std::ffi::CStr;
+
 use crate::{Z3_CONTEXT, rc::RcAst};
 use clarirs_core::prelude::*;
 use clarirs_z3_sys as z3;
@@ -232,7 +234,6 @@ impl<'c> AstExtZ3<'c> for BoolAst<'c> {
                                 z3::DeclKind::And => ctx.and(&a, &b),
                                 z3::DeclKind::Or => ctx.or(&a, &b),
                                 z3::DeclKind::Xor => ctx.xor(&a, &b),
-                                z3::DeclKind::Eq => ctx.eq_(&a, &b),
                                 _ => unreachable!(),
                             }
                         }
@@ -278,6 +279,28 @@ impl<'c> AstExtZ3<'c> for BoolAst<'c> {
                                 ))
                             }
                         }
+                        z3::DeclKind::Ult | z3::DeclKind::Uleq | z3::DeclKind::Ugt | z3::DeclKind::Ugeq
+                        | z3::DeclKind::Slt | z3::DeclKind::Sleq | z3::DeclKind::Sgt | z3::DeclKind::Sgeq => {
+                            let arg0 = z3::get_app_arg(*z3_ctx, app, 0);
+                            let arg1 = z3::get_app_arg(*z3_ctx, app, 1);
+
+                            // Convert both arguments
+                            let a = BitVecAst::from_z3(ctx, arg0)?;
+                            let b = BitVecAst::from_z3(ctx, arg1)?;
+
+                            // Create the appropriate operation
+                            match decl_kind {
+                                z3::DeclKind::Ult => ctx.ult(&a, &b),
+                                z3::DeclKind::Uleq => ctx.ule(&a, &b),
+                                z3::DeclKind::Ugt => ctx.ugt(&a, &b),
+                                z3::DeclKind::Ugeq => ctx.uge(&a, &b),
+                                z3::DeclKind::Slt => ctx.slt(&a, &b),
+                                z3::DeclKind::Sleq => ctx.sle(&a, &b),
+                                z3::DeclKind::Sgt => ctx.sgt(&a, &b),
+                                z3::DeclKind::Sgeq => ctx.sge(&a, &b),
+                                _ => unreachable!(),
+                            }
+                        }
                         z3::DeclKind::Ite => {
                             let cond = z3::get_app_arg(*z3_ctx, app, 0);
                             let then = z3::get_app_arg(*z3_ctx, app, 1);
@@ -301,13 +324,20 @@ impl<'c> AstExtZ3<'c> for BoolAst<'c> {
                             let name = std::ffi::CStr::from_ptr(name).to_str().unwrap();
                             ctx.bools(name)
                         }
-                        _ => Err(ClarirsError::ConversionError(
-                            "unsupported operation".to_string(),
-                        )),
+                        _ => {
+                            let decl_name =
+                                CStr::from_ptr(z3::func_decl_to_string(*z3_ctx, decl) as *mut i8)
+                                    .to_string_lossy();
+
+                            Err(ClarirsError::ConversionError(format!(
+                                "Failed converting from z3: unknown decl kind for bool: {}",
+                                decl_name
+                            )))
+                        }
                     }
                 }
                 _ => Err(ClarirsError::ConversionError(
-                    "unsupported operation".to_string(),
+                    "Failed converting from z3: unknown ast kind for bool".to_string(),
                 )),
             }
         })
