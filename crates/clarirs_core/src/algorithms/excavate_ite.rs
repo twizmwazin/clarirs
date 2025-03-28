@@ -75,8 +75,6 @@ impl<'c> ExcavateIte<'c> for StringAst<'c> {
     }
 }
 
-
-
 mod bitvec;
 mod bool;
 

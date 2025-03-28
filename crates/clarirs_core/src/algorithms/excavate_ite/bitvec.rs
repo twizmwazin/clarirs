@@ -76,11 +76,7 @@ pub(crate) fn excavate_ite<'c>(
                 // Handle case where both sides are If expressions
                 if let BitVecOp::If(_, rhs_then, rhs_else) = rhs.op() {
                     // Prioritize left condition as outer if
-                    Ok(ctx.if_(
-                        cond,
-                        &ctx.xor(then_, rhs_then)?,
-                        &ctx.xor(then_, rhs_else)?,
-                    )?)
+                    Ok(ctx.if_(cond, &ctx.xor(then_, rhs_then)?, &ctx.xor(then_, rhs_else)?)?)
                 } else {
                     Ok(ctx.if_(cond, &ctx.xor(then_, &rhs)?, &ctx.xor(else_, &rhs)?)?)
                 }
@@ -116,11 +112,7 @@ pub(crate) fn excavate_ite<'c>(
                 // Handle case where both sides are If expressions
                 if let BitVecOp::If(_, rhs_then, rhs_else) = rhs.op() {
                     // Prioritize left condition as outer if
-                    Ok(ctx.if_(
-                        cond,
-                        &ctx.add(then_, rhs_then)?,
-                        &ctx.add(then_, rhs_else)?,
-                    )?)
+                    Ok(ctx.if_(cond, &ctx.add(then_, rhs_then)?, &ctx.add(then_, rhs_else)?)?)
                 } else {
                     Ok(ctx.if_(cond, &ctx.add(then_, &rhs)?, &ctx.add(else_, &rhs)?)?)
                 }
@@ -138,11 +130,7 @@ pub(crate) fn excavate_ite<'c>(
                 // Handle case where both sides are If expressions
                 if let BitVecOp::If(_, rhs_then, rhs_else) = rhs.op() {
                     // Prioritize left condition as outer if
-                    Ok(ctx.if_(
-                        cond,
-                        &ctx.sub(then_, rhs_then)?,
-                        &ctx.sub(then_, rhs_else)?,
-                    )?)
+                    Ok(ctx.if_(cond, &ctx.sub(then_, rhs_then)?, &ctx.sub(then_, rhs_else)?)?)
                 } else {
                     Ok(ctx.if_(cond, &ctx.sub(then_, &rhs)?, &ctx.sub(else_, &rhs)?)?)
                 }
@@ -160,11 +148,7 @@ pub(crate) fn excavate_ite<'c>(
                 // Handle case where both sides are If expressions
                 if let BitVecOp::If(_, rhs_then, rhs_else) = rhs.op() {
                     // Prioritize left condition as outer if
-                    Ok(ctx.if_(
-                        cond,
-                        &ctx.mul(then_, rhs_then)?,
-                        &ctx.mul(then_, rhs_else)?,
-                    )?)
+                    Ok(ctx.if_(cond, &ctx.mul(then_, rhs_then)?, &ctx.mul(then_, rhs_else)?)?)
                 } else {
                     Ok(ctx.if_(cond, &ctx.mul(then_, &rhs)?, &ctx.mul(else_, &rhs)?)?)
                 }
@@ -270,11 +254,7 @@ pub(crate) fn excavate_ite<'c>(
                 // Handle case where both sides are If expressions
                 if let BitVecOp::If(_, rhs_then, rhs_else) = rhs.op() {
                     // Prioritize left condition as outer if
-                    Ok(ctx.if_(
-                        cond,
-                        &ctx.shl(then_, rhs_then)?,
-                        &ctx.shl(then_, rhs_else)?,
-                    )?)
+                    Ok(ctx.if_(cond, &ctx.shl(then_, rhs_then)?, &ctx.shl(then_, rhs_else)?)?)
                 } else {
                     Ok(ctx.if_(cond, &ctx.shl(then_, &rhs)?, &ctx.shl(else_, &rhs)?)?)
                 }
@@ -342,10 +322,18 @@ pub(crate) fn excavate_ite<'c>(
                         &ctx.rotate_left(then_, rhs_else)?,
                     )?)
                 } else {
-                    Ok(ctx.if_(cond, &ctx.rotate_left(then_, &rhs)?, &ctx.rotate_left(else_, &rhs)?)?)
+                    Ok(ctx.if_(
+                        cond,
+                        &ctx.rotate_left(then_, &rhs)?,
+                        &ctx.rotate_left(else_, &rhs)?,
+                    )?)
                 }
             } else if let BitVecOp::If(cond, then_, else_) = rhs.op() {
-                Ok(ctx.if_(cond, &ctx.rotate_left(&lhs, then_)?, &ctx.rotate_left(&lhs, else_)?)?)
+                Ok(ctx.if_(
+                    cond,
+                    &ctx.rotate_left(&lhs, then_)?,
+                    &ctx.rotate_left(&lhs, else_)?,
+                )?)
             } else {
                 Ok(ctx.rotate_left(&lhs, &rhs)?)
             }
@@ -364,10 +352,18 @@ pub(crate) fn excavate_ite<'c>(
                         &ctx.rotate_right(then_, rhs_else)?,
                     )?)
                 } else {
-                    Ok(ctx.if_(cond, &ctx.rotate_right(then_, &rhs)?, &ctx.rotate_right(else_, &rhs)?)?)
+                    Ok(ctx.if_(
+                        cond,
+                        &ctx.rotate_right(then_, &rhs)?,
+                        &ctx.rotate_right(else_, &rhs)?,
+                    )?)
                 }
             } else if let BitVecOp::If(cond, then_, else_) = rhs.op() {
-                Ok(ctx.if_(cond, &ctx.rotate_right(&lhs, then_)?, &ctx.rotate_right(&lhs, else_)?)?)
+                Ok(ctx.if_(
+                    cond,
+                    &ctx.rotate_right(&lhs, then_)?,
+                    &ctx.rotate_right(&lhs, else_)?,
+                )?)
             } else {
                 Ok(ctx.rotate_right(&lhs, &rhs)?)
             }
@@ -376,7 +372,11 @@ pub(crate) fn excavate_ite<'c>(
             let ast = extract_bitvec_child!(children, 0);
 
             if let BitVecOp::If(cond, then_, else_) = ast.op() {
-                Ok(ctx.if_(cond, &ctx.zero_ext(then_, *amount)?, &ctx.zero_ext(else_, *amount)?)?)
+                Ok(ctx.if_(
+                    cond,
+                    &ctx.zero_ext(then_, *amount)?,
+                    &ctx.zero_ext(else_, *amount)?,
+                )?)
             } else {
                 Ok(ctx.zero_ext(&ast, *amount)?)
             }
@@ -385,7 +385,11 @@ pub(crate) fn excavate_ite<'c>(
             let ast = extract_bitvec_child!(children, 0);
 
             if let BitVecOp::If(cond, then_, else_) = ast.op() {
-                Ok(ctx.if_(cond, &ctx.sign_ext(then_, *amount)?, &ctx.sign_ext(else_, *amount)?)?)
+                Ok(ctx.if_(
+                    cond,
+                    &ctx.sign_ext(then_, *amount)?,
+                    &ctx.sign_ext(else_, *amount)?,
+                )?)
             } else {
                 Ok(ctx.sign_ext(&ast, *amount)?)
             }
@@ -487,10 +491,18 @@ pub(crate) fn excavate_ite<'c>(
                         &ctx.intersection(then_, rhs_else)?,
                     )?)
                 } else {
-                    Ok(ctx.if_(cond, &ctx.intersection(then_, &rhs)?, &ctx.intersection(else_, &rhs)?)?)
+                    Ok(ctx.if_(
+                        cond,
+                        &ctx.intersection(then_, &rhs)?,
+                        &ctx.intersection(else_, &rhs)?,
+                    )?)
                 }
             } else if let BitVecOp::If(cond, then_, else_) = rhs.op() {
-                Ok(ctx.if_(cond, &ctx.intersection(&lhs, then_)?, &ctx.intersection(&lhs, else_)?)?)
+                Ok(ctx.if_(
+                    cond,
+                    &ctx.intersection(&lhs, then_)?,
+                    &ctx.intersection(&lhs, else_)?,
+                )?)
             } else {
                 Ok(ctx.intersection(&lhs, &rhs)?)
             }
