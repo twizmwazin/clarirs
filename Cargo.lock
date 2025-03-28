@@ -101,6 +101,7 @@ name = "clarirs-vsa"
 version = "0.1.0"
 dependencies = [
  "clarirs_core",
+ "num-bigint",
 ]
 
 [[package]]
