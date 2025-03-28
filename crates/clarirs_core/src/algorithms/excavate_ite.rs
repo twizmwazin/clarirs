@@ -7,15 +7,9 @@ use super::walk_post_order;
 /// This transformation takes an AST containing nested ITE expressions and returns
 /// an equivalent AST where the ITE expressions have been "excavated" (moved up) to the top level.
 ///
-/// For example, if we have an expression like:
-/// ```
-/// a + (if cond then b else c)
-/// ```
+/// For example, if we have an expression like: `a + (if cond then b else c)`
 ///
-/// After excavation, it would become:
-/// ```
-/// if cond then (a + b) else (a + c)
-/// ```
+/// After excavation, it would become: `if cond then (a + b) else (a + c)``
 pub trait ExcavateIte<'c>: Sized {
     /// Transforms the AST by moving ITE expressions to the top level.
     ///
