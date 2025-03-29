@@ -5,7 +5,7 @@ use super::{BitVec, BitVecError};
 use num_bigint::{BigInt, BigUint};
 use num_traits::{ToPrimitive, Zero};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct FSort {
     pub exponent: u32,
     pub mantissa: u32,
@@ -38,7 +38,7 @@ impl FSort {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum FPRM {
     #[default]
     NearestTiesToEven,

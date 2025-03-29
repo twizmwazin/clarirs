@@ -81,7 +81,7 @@ pub struct PyFSort(FSort);
 
 impl PyFSort {
     pub fn new(fsort: &FSort) -> Self {
-        PyFSort(fsort.clone())
+        PyFSort(*fsort)
     }
 }
 
@@ -120,7 +120,7 @@ impl From<FSort> for PyFSort {
 
 impl From<&FSort> for PyFSort {
     fn from(val: &FSort) -> Self {
-        PyFSort(val.clone())
+        PyFSort(*val)
     }
 }
 
