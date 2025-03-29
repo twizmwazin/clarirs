@@ -75,7 +75,7 @@ jobs:
         uses: seanmiddleditch/gha-setup-ninja@v6
 
       - name: Run sccache-cache
-        uses: mozilla-actions/sccache-action@v0.0.7
+        uses: mozilla-actions/sccache-action@7d986dd989559c6ecdb630a3fd2557667be217ad
 
       - name: Build
         run: cargo build --all-features
@@ -118,7 +118,7 @@ jobs:
         uses: seanmiddleditch/gha-setup-ninja@v6
 
       - name: Run sccache-cache
-        uses: mozilla-actions/sccache-action@v0.0.8
+        uses: mozilla-actions/sccache-action@7d986dd989559c6ecdb630a3fd2557667be217ad
 
       - name: Install Maturin
         run: pip install maturin
