@@ -117,12 +117,31 @@ pub(crate) fn simplify_float<'c>(
                 _ => ctx.fp_to_fp(&arc, fsort.clone(), fprm.clone()),
             }
         }
+        FloatOp::BvToFp(_, fsort) => {
+            let arc = extract_bitvec_child!(children, 0);
+            ctx.bv_to_fp(&arc, fsort.clone())
+        }
+        FloatOp::BvToFpSigned(_, fsort, fprm) => {
+            let arc = extract_bitvec_child!(children, 0);
+            match arc.op() {
+                BitVecOp::BVV(bv_val) => {
+                    // Handle conversion from signed bitvector to float
+                    let float_value = Float::from_bigint_with_rounding(
+                        &bv_val.to_bigint(),
+                        fsort.clone(),
+                        fprm.clone(),
+                    )?;
+                    ctx.fpv(float_value)
+                }
+                _ => ctx.bv_to_fp_signed(&arc, fsort.clone(), fprm.clone()),
+            }
+        }
         FloatOp::BvToFpUnsigned(_, fsort, fprm) => {
             let arc = extract_bitvec_child!(children, 0);
             match arc.op() {
                 BitVecOp::BVV(bv_val) => {
                     // Interpret `bv_val` as an unsigned integer and convert to float
-                    let float_value = Float::from_unsigned_biguint_with_rounding(
+                    let float_value = Float::from_biguint_with_rounding(
                         &bv_val.to_biguint(),
                         fsort.clone(),
                         fprm.clone(),

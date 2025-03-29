@@ -206,6 +206,19 @@ impl ToSmtLib for FloatAst<'_> {
                 format!("{:?}", fprm).to_lowercase(),
                 ast.to_smtlib()
             ),
+            FloatOp::BvToFp(ast, fsort) => format!(
+                "((_ to_fp {} {}) {})",
+                fsort.exponent,
+                fsort.mantissa,
+                ast.to_smtlib()
+            ),
+            FloatOp::BvToFpSigned(ast, fsort, fprm) => format!(
+                "((_ to_fp {} {}) {} {})",
+                fsort.exponent,
+                fsort.mantissa,
+                format!("{:?}", fprm).to_lowercase(),
+                ast.to_smtlib()
+            ),
             FloatOp::BvToFpUnsigned(ast, fsort, fprm) => format!(
                 "((_ to_fp_unsigned {} {}) {} {})",
                 fsort.exponent,

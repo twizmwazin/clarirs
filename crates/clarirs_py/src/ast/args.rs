@@ -165,6 +165,8 @@ impl ExtractPyArgs for FloatAst<'static> {
                 Bound::new(py, PyRM::from(rm))?.into_any(),
             ],
             FloatOp::FpToFp(arc, _, _) => vec![FP::new(py, arc)?.into_any()],
+            FloatOp::BvToFp(arc, _) |
+            FloatOp::BvToFpSigned(arc, _, _) |
             FloatOp::BvToFpUnsigned(arc, _, _) => vec![BV::new(py, arc)?.into_any()],
             FloatOp::If(cond, then_, else_) => vec![
                 Bool::new(py, cond)?.into_any(),

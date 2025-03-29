@@ -16,7 +16,13 @@ pub enum FloatOp<'c> {
     FpMul(FloatAst<'c>, FloatAst<'c>, FPRM),
     FpDiv(FloatAst<'c>, FloatAst<'c>, FPRM),
     FpSqrt(FloatAst<'c>, FPRM),
+    /// Transform a float to another float of a different size, preserving the value.
     FpToFp(FloatAst<'c>, FSort, FPRM),
+    /// Transform an IEEE 754 bitvector to a float
+    BvToFp(BitVecAst<'c>, FSort),
+    /// Transform a signed 2's complement bitvector to a float
+    BvToFpSigned(BitVecAst<'c>, FSort, FPRM),
+    /// Transform an unsigned 2's complement bitvector to a float
     BvToFpUnsigned(BitVecAst<'c>, FSort, FPRM),
     If(AstRef<'c, BooleanOp<'c>>, FloatAst<'c>, FloatAst<'c>),
     Annotated(FloatAst<'c>, Annotation),
@@ -80,20 +86,31 @@ impl std::hash::Hash for FloatOp<'_> {
                 sort.hash(state);
                 rm.hash(state);
             }
-            FloatOp::BvToFpUnsigned(a, sort, rm) => {
+            FloatOp::BvToFp(a, sort) => {
                 10.hash(state);
+                a.hash(state);
+                sort.hash(state);
+            }
+            FloatOp::BvToFpSigned(a, sort, rm) => {
+                11.hash(state);
+                a.hash(state);
+                sort.hash(state);
+                rm.hash(state);
+            }
+            FloatOp::BvToFpUnsigned(a, sort, rm) => {
+                12.hash(state);
                 a.hash(state);
                 sort.hash(state);
                 rm.hash(state);
             }
             FloatOp::If(a, b, c) => {
-                11.hash(state);
+                13.hash(state);
                 a.hash(state);
                 b.hash(state);
                 c.hash(state);
             }
             FloatOp::Annotated(a, anno) => {
-                12.hash(state);
+                14.hash(state);
                 a.hash(state);
                 anno.hash(state);
             }
@@ -111,7 +128,9 @@ impl<'c> Op<'c> for FloatOp<'c> {
             | FloatOp::FpSqrt(a, _)
             | FloatOp::FpToFp(a, _, _)
             | FloatOp::Annotated(a, _) => vec![a.into()].into_iter(),
-            FloatOp::BvToFpUnsigned(a, _, _) => vec![a.into()].into_iter(),
+            FloatOp::BvToFp(a, _)
+            | FloatOp::BvToFpSigned(a, _, _)
+            | FloatOp::BvToFpUnsigned(a, _, _) => vec![a.into()].into_iter(),
 
             FloatOp::FpAdd(a, b, _)
             | FloatOp::FpSub(a, b, _)
@@ -168,7 +187,10 @@ impl<'c> FloatExt<'c> for FloatOp<'c> {
             | FloatOp::FpDiv(a, _, _)
             | FloatOp::If(_, a, _)
             | FloatOp::Annotated(a, _) => a.size(),
-            FloatOp::FpToFp(_, sort, _) | FloatOp::BvToFpUnsigned(_, sort, _) => sort.size(),
+            FloatOp::FpToFp(_, sort, _)
+            | FloatOp::BvToFp(_, sort)
+            | FloatOp::BvToFpSigned(_, sort, _)
+            | FloatOp::BvToFpUnsigned(_, sort, _) => sort.size(),
         }
     }
 }
