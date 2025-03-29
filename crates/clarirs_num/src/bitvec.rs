@@ -185,6 +185,30 @@ impl BitVec {
         result
     }
 
+    pub fn to_bigint(&self) -> BigInt {
+        // Convert the BitVec to a BigInt
+        // The internal representation of BitVec uses little-endian word order
+        // (least significant word first)
+        let mut result = BigInt::from(0u32);
+        for (i, &word) in self.words.iter().enumerate() {
+            // Shift each word by its position (64 bits per word)
+            let word_value = BigInt::from(word);
+            let shifted = word_value << (i * 64);
+            result += shifted;
+        }
+
+        // If the most significant bit is set, this is a negative number in two's complement
+        if self.sign() {
+            // Convert from two's complement to negative value
+            // Negative = -(2^length - value)
+            let two_pow_length = BigInt::from(1) << self.length;
+            result = &two_pow_length - &result;
+            result = -result;
+        }
+
+        result
+    }
+
     pub fn from_str(s: &str, length: u32) -> Result<BitVec, BitVecError> {
         let value = BigUint::from_str_radix(s, 10).map_err(|_| BitVecError::BitVectorTooShort {
             value: BigUint::from(0u32),

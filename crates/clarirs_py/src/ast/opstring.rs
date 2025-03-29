@@ -101,6 +101,8 @@ impl ToOpString for FloatAst<'static> {
             FloatOp::FpDiv(..) => "fpDiv".to_string(),
             FloatOp::FpSqrt(..) => "fpSqrt".to_string(),
             FloatOp::FpToFp(..) => "fpToFp".to_string(),
+            FloatOp::BvToFp(..) => "bvToFP".to_string(),
+            FloatOp::BvToFpSigned(..) => "fpToFPSigned".to_string(),
             FloatOp::BvToFpUnsigned(..) => "fpToFPUnsigned".to_string(),
             FloatOp::If(..) => "If".to_string(),
             FloatOp::Annotated(child, _) => child.to_opstring(),

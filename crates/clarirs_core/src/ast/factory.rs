@@ -305,6 +305,23 @@ pub trait AstFactory<'c>: Sized {
         self.make_float(FloatOp::FpToFp(lhs.clone(), sort.into(), rm.into()))
     }
 
+    fn bv_to_fp<FS: Into<FSort>>(
+        &'c self,
+        lhs: &BitVecAst<'c>,
+        sort: FS,
+    ) -> Result<FloatAst<'c>, ClarirsError> {
+        self.make_float(FloatOp::BvToFp(lhs.clone(), sort.into()))
+    }
+
+    fn bv_to_fp_signed<RM: Into<FPRM>, FS: Into<FSort>>(
+        &'c self,
+        lhs: &BitVecAst<'c>,
+        sort: FS,
+        rm: RM,
+    ) -> Result<FloatAst<'c>, ClarirsError> {
+        self.make_float(FloatOp::BvToFpSigned(lhs.clone(), sort.into(), rm.into()))
+    }
+
     fn bv_to_fp_unsigned<RM: Into<FPRM>, FS: Into<FSort>>(
         &'c self,
         lhs: &BitVecAst<'c>,

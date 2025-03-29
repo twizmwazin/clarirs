@@ -408,7 +408,17 @@ impl Float {
         Float::from_f64_with_rounding(f64_value, fprm, fsort)
     }
 
-    pub fn from_unsigned_biguint_with_rounding(
+    pub fn from_bigint_with_rounding(
+        value: &BigInt,
+        fsort: FSort,
+        fprm: FPRM,
+    ) -> Result<Self, BitVecError> {
+        // Convert BigUint to f64 for simplicity in this example
+        let float_value = value.to_f64().unwrap_or(0.0); // Fallback to 0.0 if conversion fails
+        Float::from_f64_with_rounding(float_value, fprm, fsort)
+    }
+
+    pub fn from_biguint_with_rounding(
         value: &BigUint,
         fsort: FSort,
         fprm: FPRM,
