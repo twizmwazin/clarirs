@@ -389,7 +389,7 @@ pub(crate) fn simplify_bv<'c>(
 
                     ctx.bvv(result_bitvec)
                 }
-                _ => ctx.fp_to_ubv(&arc, *bit_size, fprm.clone()), // Fallback for non-concrete values
+                _ => ctx.fp_to_ubv(&arc, *bit_size, *fprm), // Fallback for non-concrete values
             }
         }
         BitVecOp::FpToSBV(_, bit_size, fprm) => {
@@ -407,7 +407,7 @@ pub(crate) fn simplify_bv<'c>(
 
                     ctx.bvv(result_bitvec)
                 }
-                _ => ctx.fp_to_sbv(&arc, *bit_size, fprm.clone()), // Fallback for non-concrete values
+                _ => ctx.fp_to_sbv(&arc, *bit_size, *fprm), // Fallback for non-concrete values
             }
         }
         BitVecOp::StrLen(..) => {

@@ -10,7 +10,7 @@ pub(crate) fn simplify_float<'c>(
     let ctx = ast.context();
 
     match &ast.op() {
-        FloatOp::FPS(name, fsort) => ctx.fps(name.clone(), fsort.clone()),
+        FloatOp::FPS(name, fsort) => ctx.fps(name.clone(), *fsort),
         FloatOp::FPV(float) => ctx.fpv(float.clone()),
 
         FloatOp::FpNeg(..) => {
@@ -49,7 +49,7 @@ pub(crate) fn simplify_float<'c>(
                 (FloatOp::FPV(float1), FloatOp::FPV(float2)) => {
                     ctx.fpv((float1.clone() + float2.clone())?)
                 }
-                _ => ctx.fp_add(&arc, &arc1, fprm.clone()),
+                _ => ctx.fp_add(&arc, &arc1, *fprm),
             }
         }
         FloatOp::FpSub(_, _, fprm) => {
@@ -61,7 +61,7 @@ pub(crate) fn simplify_float<'c>(
                 (FloatOp::FPV(float1), FloatOp::FPV(float2)) => {
                     ctx.fpv((float1.clone() - float2.clone())?)
                 }
-                _ => ctx.fp_sub(&arc, &arc1, fprm.clone()),
+                _ => ctx.fp_sub(&arc, &arc1, *fprm),
             }
         }
         FloatOp::FpMul(_, _, fprm) => {
@@ -73,7 +73,7 @@ pub(crate) fn simplify_float<'c>(
                 (FloatOp::FPV(float1), FloatOp::FPV(float2)) => {
                     ctx.fpv((float1.clone() * float2.clone())?)
                 }
-                _ => ctx.fp_mul(&arc, &arc1, fprm.clone()),
+                _ => ctx.fp_mul(&arc, &arc1, *fprm),
             }
         }
         FloatOp::FpDiv(_, _, fprm) => {
@@ -85,7 +85,7 @@ pub(crate) fn simplify_float<'c>(
                 (FloatOp::FPV(float1), FloatOp::FPV(float2)) => {
                     ctx.fpv((float1.clone() / float2.clone())?)
                 }
-                _ => ctx.fp_div(&arc, &arc1, fprm.clone()),
+                _ => ctx.fp_div(&arc, &arc1, *fprm),
             }
         }
         FloatOp::FpSqrt(_, fprm) => {
@@ -97,43 +97,40 @@ pub(crate) fn simplify_float<'c>(
                         let sqrt_value = float_as_f64.sqrt();
                         ctx.fpv(Float::from_f64_with_rounding(
                             sqrt_value,
-                            fprm.clone(),
+                            *fprm,
                             float_val.fsort(),
                         )?)
                     } else {
                         Err(ClarirsError::InvalidArguments)
                     }
                 }
-                _ => ctx.fp_sqrt(&arc, fprm.clone()),
+                _ => ctx.fp_sqrt(&arc, *fprm),
             }
         }
         FloatOp::FpToFp(_, fsort, fprm) => {
             let arc = extract_float_child!(children, 0);
             match arc.op() {
                 FloatOp::FPV(float_val) => {
-                    let converted_value = float_val.convert_to_format(fsort.clone(), fprm.clone());
+                    let converted_value = float_val.convert_to_format(*fsort, *fprm);
                     ctx.fpv(converted_value?)
                 }
-                _ => ctx.fp_to_fp(&arc, fsort.clone(), fprm.clone()),
+                _ => ctx.fp_to_fp(&arc, *fsort, *fprm),
             }
         }
         FloatOp::BvToFp(_, fsort) => {
             let arc = extract_bitvec_child!(children, 0);
-            ctx.bv_to_fp(&arc, fsort.clone())
+            ctx.bv_to_fp(&arc, *fsort)
         }
         FloatOp::BvToFpSigned(_, fsort, fprm) => {
             let arc = extract_bitvec_child!(children, 0);
             match arc.op() {
                 BitVecOp::BVV(bv_val) => {
                     // Handle conversion from signed bitvector to float
-                    let float_value = Float::from_bigint_with_rounding(
-                        &bv_val.to_bigint(),
-                        fsort.clone(),
-                        fprm.clone(),
-                    )?;
+                    let float_value =
+                        Float::from_bigint_with_rounding(&bv_val.to_bigint(), *fsort, *fprm)?;
                     ctx.fpv(float_value)
                 }
-                _ => ctx.bv_to_fp_signed(&arc, fsort.clone(), fprm.clone()),
+                _ => ctx.bv_to_fp_signed(&arc, *fsort, *fprm),
             }
         }
         FloatOp::BvToFpUnsigned(_, fsort, fprm) => {
@@ -141,14 +138,11 @@ pub(crate) fn simplify_float<'c>(
             match arc.op() {
                 BitVecOp::BVV(bv_val) => {
                     // Interpret `bv_val` as an unsigned integer and convert to float
-                    let float_value = Float::from_biguint_with_rounding(
-                        &bv_val.to_biguint(),
-                        fsort.clone(),
-                        fprm.clone(),
-                    );
+                    let float_value =
+                        Float::from_biguint_with_rounding(&bv_val.to_biguint(), *fsort, *fprm);
                     ctx.fpv(float_value?)
                 }
-                _ => ctx.bv_to_fp_unsigned(&arc, fsort.clone(), fprm.clone()),
+                _ => ctx.bv_to_fp_unsigned(&arc, *fsort, *fprm),
             }
         }
         FloatOp::If(..) => {

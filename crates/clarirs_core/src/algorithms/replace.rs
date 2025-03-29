@@ -918,12 +918,12 @@ impl<'c> Replace<'c, BoolAst<'c>> for BitVecAst<'c> {
             BitVecOp::FpToUBV(a, size, rm) => {
                 let a_replaced = a.replace(from, to)?;
                 self.context()
-                    .make_bitvec(BitVecOp::FpToUBV(a_replaced, *size, rm.clone()))
+                    .make_bitvec(BitVecOp::FpToUBV(a_replaced, *size, *rm))
             }
             BitVecOp::FpToSBV(a, size, rm) => {
                 let a_replaced = a.replace(from, to)?;
                 self.context()
-                    .make_bitvec(BitVecOp::FpToSBV(a_replaced, *size, rm.clone()))
+                    .make_bitvec(BitVecOp::FpToSBV(a_replaced, *size, *rm))
             }
             BitVecOp::StrLen(a) => {
                 let a_replaced = a.replace(from, to)?;
@@ -1109,12 +1109,12 @@ impl<'c> Replace<'c, BitVecAst<'c>> for BitVecAst<'c> {
                 BitVecOp::FpToUBV(a, size, rm) => {
                     let a_replaced = a.replace(from, to)?;
                     self.context()
-                        .make_bitvec(BitVecOp::FpToUBV(a_replaced, *size, rm.clone()))
+                        .make_bitvec(BitVecOp::FpToUBV(a_replaced, *size, *rm))
                 }
                 BitVecOp::FpToSBV(a, size, rm) => {
                     let a_replaced = a.replace(from, to)?;
                     self.context()
-                        .make_bitvec(BitVecOp::FpToSBV(a_replaced, *size, rm.clone()))
+                        .make_bitvec(BitVecOp::FpToSBV(a_replaced, *size, *rm))
                 }
                 BitVecOp::StrLen(a) => {
                     let a_replaced = a.replace(from, to)?;
@@ -1298,12 +1298,12 @@ impl<'c> Replace<'c, FloatAst<'c>> for BitVecAst<'c> {
             BitVecOp::FpToUBV(a, size, rm) => {
                 let a_replaced = a.replace(from, to)?;
                 self.context()
-                    .make_bitvec(BitVecOp::FpToUBV(a_replaced, *size, rm.clone()))
+                    .make_bitvec(BitVecOp::FpToUBV(a_replaced, *size, *rm))
             }
             BitVecOp::FpToSBV(a, size, rm) => {
                 let a_replaced = a.replace(from, to)?;
                 self.context()
-                    .make_bitvec(BitVecOp::FpToSBV(a_replaced, *size, rm.clone()))
+                    .make_bitvec(BitVecOp::FpToSBV(a_replaced, *size, *rm))
             }
             BitVecOp::StrLen(a) => {
                 let a_replaced = a.replace(from, to)?;
@@ -1486,12 +1486,12 @@ impl<'c> Replace<'c, StringAst<'c>> for BitVecAst<'c> {
             BitVecOp::FpToUBV(a, size, rm) => {
                 let a_replaced = a.replace(from, to)?;
                 self.context()
-                    .make_bitvec(BitVecOp::FpToUBV(a_replaced, *size, rm.clone()))
+                    .make_bitvec(BitVecOp::FpToUBV(a_replaced, *size, *rm))
             }
             BitVecOp::FpToSBV(a, size, rm) => {
                 let a_replaced = a.replace(from, to)?;
                 self.context()
-                    .make_bitvec(BitVecOp::FpToSBV(a_replaced, *size, rm.clone()))
+                    .make_bitvec(BitVecOp::FpToSBV(a_replaced, *size, *rm))
             }
             BitVecOp::StrLen(a) => {
                 let a_replaced = a.replace(from, to)?;
@@ -1552,56 +1552,49 @@ impl<'c> Replace<'c, BoolAst<'c>> for FloatAst<'c> {
                 let a_replaced = a.replace(from, to)?;
                 let b_replaced = b.replace(from, to)?;
                 self.context()
-                    .make_float(FloatOp::FpAdd(a_replaced, b_replaced, rm.clone()))
+                    .make_float(FloatOp::FpAdd(a_replaced, b_replaced, *rm))
             }
             FloatOp::FpSub(a, b, rm) => {
                 let a_replaced = a.replace(from, to)?;
                 let b_replaced = b.replace(from, to)?;
                 self.context()
-                    .make_float(FloatOp::FpSub(a_replaced, b_replaced, rm.clone()))
+                    .make_float(FloatOp::FpSub(a_replaced, b_replaced, *rm))
             }
             FloatOp::FpMul(a, b, rm) => {
                 let a_replaced = a.replace(from, to)?;
                 let b_replaced = b.replace(from, to)?;
                 self.context()
-                    .make_float(FloatOp::FpMul(a_replaced, b_replaced, rm.clone()))
+                    .make_float(FloatOp::FpMul(a_replaced, b_replaced, *rm))
             }
             FloatOp::FpDiv(a, b, rm) => {
                 let a_replaced = a.replace(from, to)?;
                 let b_replaced = b.replace(from, to)?;
                 self.context()
-                    .make_float(FloatOp::FpDiv(a_replaced, b_replaced, rm.clone()))
+                    .make_float(FloatOp::FpDiv(a_replaced, b_replaced, *rm))
             }
             FloatOp::FpSqrt(a, rm) => {
                 let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::FpSqrt(a_replaced, rm.clone()))
+                self.context().make_float(FloatOp::FpSqrt(a_replaced, *rm))
             }
             FloatOp::FpToFp(a, sort, rm) => {
                 let a_replaced = a.replace(from, to)?;
                 self.context()
-                    .make_float(FloatOp::FpToFp(a_replaced, sort.clone(), rm.clone()))
+                    .make_float(FloatOp::FpToFp(a_replaced, *sort, *rm))
             }
             FloatOp::BvToFp(a, sort) => {
                 let a_replaced = a.replace(from, to)?;
                 self.context()
-                    .make_float(FloatOp::BvToFp(a_replaced, sort.clone()))
+                    .make_float(FloatOp::BvToFp(a_replaced, *sort))
             }
             FloatOp::BvToFpSigned(a, sort, rm) => {
                 let a_replaced = a.replace(from, to)?;
-                self.context().make_float(FloatOp::BvToFpSigned(
-                    a_replaced,
-                    sort.clone(),
-                    rm.clone(),
-                ))
+                self.context()
+                    .make_float(FloatOp::BvToFpSigned(a_replaced, *sort, *rm))
             }
             FloatOp::BvToFpUnsigned(a, sort, rm) => {
                 let a_replaced = a.replace(from, to)?;
-                self.context().make_float(FloatOp::BvToFpUnsigned(
-                    a_replaced,
-                    sort.clone(),
-                    rm.clone(),
-                ))
+                self.context()
+                    .make_float(FloatOp::BvToFpUnsigned(a_replaced, *sort, *rm))
             }
             FloatOp::If(a, b, c) => {
                 let a_replaced = a.replace(from, to)?;
@@ -1635,56 +1628,49 @@ impl<'c> Replace<'c, BitVecAst<'c>> for FloatAst<'c> {
                 let a_replaced = a.replace(from, to)?;
                 let b_replaced = b.replace(from, to)?;
                 self.context()
-                    .make_float(FloatOp::FpAdd(a_replaced, b_replaced, rm.clone()))
+                    .make_float(FloatOp::FpAdd(a_replaced, b_replaced, *rm))
             }
             FloatOp::FpSub(a, b, rm) => {
                 let a_replaced = a.replace(from, to)?;
                 let b_replaced = b.replace(from, to)?;
                 self.context()
-                    .make_float(FloatOp::FpSub(a_replaced, b_replaced, rm.clone()))
+                    .make_float(FloatOp::FpSub(a_replaced, b_replaced, *rm))
             }
             FloatOp::FpMul(a, b, rm) => {
                 let a_replaced = a.replace(from, to)?;
                 let b_replaced = b.replace(from, to)?;
                 self.context()
-                    .make_float(FloatOp::FpMul(a_replaced, b_replaced, rm.clone()))
+                    .make_float(FloatOp::FpMul(a_replaced, b_replaced, *rm))
             }
             FloatOp::FpDiv(a, b, rm) => {
                 let a_replaced = a.replace(from, to)?;
                 let b_replaced = b.replace(from, to)?;
                 self.context()
-                    .make_float(FloatOp::FpDiv(a_replaced, b_replaced, rm.clone()))
+                    .make_float(FloatOp::FpDiv(a_replaced, b_replaced, *rm))
             }
             FloatOp::FpSqrt(a, rm) => {
                 let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::FpSqrt(a_replaced, rm.clone()))
+                self.context().make_float(FloatOp::FpSqrt(a_replaced, *rm))
             }
             FloatOp::FpToFp(a, sort, rm) => {
                 let a_replaced = a.replace(from, to)?;
                 self.context()
-                    .make_float(FloatOp::FpToFp(a_replaced, sort.clone(), rm.clone()))
+                    .make_float(FloatOp::FpToFp(a_replaced, *sort, *rm))
             }
             FloatOp::BvToFp(a, sort) => {
                 let a_replaced = a.replace(from, to)?;
                 self.context()
-                    .make_float(FloatOp::BvToFp(a_replaced, sort.clone()))
+                    .make_float(FloatOp::BvToFp(a_replaced, *sort))
             }
             FloatOp::BvToFpSigned(a, sort, rm) => {
                 let a_replaced = a.replace(from, to)?;
-                self.context().make_float(FloatOp::BvToFpSigned(
-                    a_replaced,
-                    sort.clone(),
-                    rm.clone(),
-                ))
+                self.context()
+                    .make_float(FloatOp::BvToFpSigned(a_replaced, *sort, *rm))
             }
             FloatOp::BvToFpUnsigned(a, sort, rm) => {
                 let a_replaced = a.replace(from, to)?;
-                self.context().make_float(FloatOp::BvToFpUnsigned(
-                    a_replaced,
-                    sort.clone(),
-                    rm.clone(),
-                ))
+                self.context()
+                    .make_float(FloatOp::BvToFpUnsigned(a_replaced, *sort, *rm))
             }
             FloatOp::If(a, b, c) => {
                 let a_replaced = a.replace(from, to)?;
@@ -1721,56 +1707,49 @@ impl<'c> Replace<'c, FloatAst<'c>> for FloatAst<'c> {
                     let a_replaced = a.replace(from, to)?;
                     let b_replaced = b.replace(from, to)?;
                     self.context()
-                        .make_float(FloatOp::FpAdd(a_replaced, b_replaced, rm.clone()))
+                        .make_float(FloatOp::FpAdd(a_replaced, b_replaced, *rm))
                 }
                 FloatOp::FpSub(a, b, rm) => {
                     let a_replaced = a.replace(from, to)?;
                     let b_replaced = b.replace(from, to)?;
                     self.context()
-                        .make_float(FloatOp::FpSub(a_replaced, b_replaced, rm.clone()))
+                        .make_float(FloatOp::FpSub(a_replaced, b_replaced, *rm))
                 }
                 FloatOp::FpMul(a, b, rm) => {
                     let a_replaced = a.replace(from, to)?;
                     let b_replaced = b.replace(from, to)?;
                     self.context()
-                        .make_float(FloatOp::FpMul(a_replaced, b_replaced, rm.clone()))
+                        .make_float(FloatOp::FpMul(a_replaced, b_replaced, *rm))
                 }
                 FloatOp::FpDiv(a, b, rm) => {
                     let a_replaced = a.replace(from, to)?;
                     let b_replaced = b.replace(from, to)?;
                     self.context()
-                        .make_float(FloatOp::FpDiv(a_replaced, b_replaced, rm.clone()))
+                        .make_float(FloatOp::FpDiv(a_replaced, b_replaced, *rm))
                 }
                 FloatOp::FpSqrt(a, rm) => {
                     let a_replaced = a.replace(from, to)?;
-                    self.context()
-                        .make_float(FloatOp::FpSqrt(a_replaced, rm.clone()))
+                    self.context().make_float(FloatOp::FpSqrt(a_replaced, *rm))
                 }
                 FloatOp::FpToFp(a, sort, rm) => {
                     let a_replaced = a.replace(from, to)?;
                     self.context()
-                        .make_float(FloatOp::FpToFp(a_replaced, sort.clone(), rm.clone()))
+                        .make_float(FloatOp::FpToFp(a_replaced, *sort, *rm))
                 }
                 FloatOp::BvToFp(a, sort) => {
                     let a_replaced = a.replace(from, to)?;
                     self.context()
-                        .make_float(FloatOp::BvToFp(a_replaced, sort.clone()))
+                        .make_float(FloatOp::BvToFp(a_replaced, *sort))
                 }
                 FloatOp::BvToFpSigned(a, sort, rm) => {
                     let a_replaced = a.replace(from, to)?;
-                    self.context().make_float(FloatOp::BvToFpSigned(
-                        a_replaced,
-                        sort.clone(),
-                        rm.clone(),
-                    ))
+                    self.context()
+                        .make_float(FloatOp::BvToFpSigned(a_replaced, *sort, *rm))
                 }
                 FloatOp::BvToFpUnsigned(a, sort, rm) => {
                     let a_replaced = a.replace(from, to)?;
-                    self.context().make_float(FloatOp::BvToFpUnsigned(
-                        a_replaced,
-                        sort.clone(),
-                        rm.clone(),
-                    ))
+                    self.context()
+                        .make_float(FloatOp::BvToFpUnsigned(a_replaced, *sort, *rm))
                 }
                 FloatOp::If(a, b, c) => {
                     let a_replaced = a.replace(from, to)?;
@@ -1805,56 +1784,49 @@ impl<'c> Replace<'c, StringAst<'c>> for FloatAst<'c> {
                 let a_replaced = a.replace(from, to)?;
                 let b_replaced = b.replace(from, to)?;
                 self.context()
-                    .make_float(FloatOp::FpAdd(a_replaced, b_replaced, rm.clone()))
+                    .make_float(FloatOp::FpAdd(a_replaced, b_replaced, *rm))
             }
             FloatOp::FpSub(a, b, rm) => {
                 let a_replaced = a.replace(from, to)?;
                 let b_replaced = b.replace(from, to)?;
                 self.context()
-                    .make_float(FloatOp::FpSub(a_replaced, b_replaced, rm.clone()))
+                    .make_float(FloatOp::FpSub(a_replaced, b_replaced, *rm))
             }
             FloatOp::FpMul(a, b, rm) => {
                 let a_replaced = a.replace(from, to)?;
                 let b_replaced = b.replace(from, to)?;
                 self.context()
-                    .make_float(FloatOp::FpMul(a_replaced, b_replaced, rm.clone()))
+                    .make_float(FloatOp::FpMul(a_replaced, b_replaced, *rm))
             }
             FloatOp::FpDiv(a, b, rm) => {
                 let a_replaced = a.replace(from, to)?;
                 let b_replaced = b.replace(from, to)?;
                 self.context()
-                    .make_float(FloatOp::FpDiv(a_replaced, b_replaced, rm.clone()))
+                    .make_float(FloatOp::FpDiv(a_replaced, b_replaced, *rm))
             }
             FloatOp::FpSqrt(a, rm) => {
                 let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::FpSqrt(a_replaced, rm.clone()))
+                self.context().make_float(FloatOp::FpSqrt(a_replaced, *rm))
             }
             FloatOp::FpToFp(a, sort, rm) => {
                 let a_replaced = a.replace(from, to)?;
                 self.context()
-                    .make_float(FloatOp::FpToFp(a_replaced, sort.clone(), rm.clone()))
+                    .make_float(FloatOp::FpToFp(a_replaced, *sort, *rm))
             }
             FloatOp::BvToFp(a, sort) => {
                 let a_replaced = a.replace(from, to)?;
                 self.context()
-                    .make_float(FloatOp::BvToFp(a_replaced, sort.clone()))
+                    .make_float(FloatOp::BvToFp(a_replaced, *sort))
             }
             FloatOp::BvToFpSigned(a, sort, rm) => {
                 let a_replaced = a.replace(from, to)?;
-                self.context().make_float(FloatOp::BvToFpSigned(
-                    a_replaced,
-                    sort.clone(),
-                    rm.clone(),
-                ))
+                self.context()
+                    .make_float(FloatOp::BvToFpSigned(a_replaced, *sort, *rm))
             }
             FloatOp::BvToFpUnsigned(a, sort, rm) => {
                 let a_replaced = a.replace(from, to)?;
-                self.context().make_float(FloatOp::BvToFpUnsigned(
-                    a_replaced,
-                    sort.clone(),
-                    rm.clone(),
-                ))
+                self.context()
+                    .make_float(FloatOp::BvToFpUnsigned(a_replaced, *sort, *rm))
             }
             FloatOp::If(a, b, c) => {
                 let a_replaced = a.replace(from, to)?;
