@@ -95,15 +95,6 @@ pub(crate) fn excavate_ite<'c>(
                 Ok(ctx.neg(&ast)?)
             }
         }
-        BitVecOp::Abs(..) => {
-            let ast = extract_bitvec_child!(children, 0);
-
-            if let BitVecOp::If(cond, then_, else_) = ast.op() {
-                Ok(ctx.if_(cond, &ctx.abs(then_)?, &ctx.abs(else_)?)?)
-            } else {
-                Ok(ctx.abs(&ast)?)
-            }
-        }
         BitVecOp::Add(..) => {
             let lhs = extract_bitvec_child!(children, 0);
             let rhs = extract_bitvec_child!(children, 1);

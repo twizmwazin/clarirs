@@ -85,7 +85,6 @@ impl Normalize<'_> for BitVecAst<'_> {
             BitVecOp::Or(lhs, rhs) => ctx.or(&lhs.normalize()?, &rhs.normalize()?),
             BitVecOp::Xor(lhs, rhs) => ctx.xor(&lhs.normalize()?, &rhs.normalize()?),
             BitVecOp::Neg(ast) => ctx.neg(&ast.normalize()?),
-            BitVecOp::Abs(ast) => ctx.abs(&ast.normalize()?),
             BitVecOp::Add(lhs, rhs) => ctx.add(&lhs.normalize()?, &rhs.normalize()?),
             BitVecOp::Sub(lhs, rhs) => ctx.sub(&lhs.normalize()?, &rhs.normalize()?),
             BitVecOp::Mul(lhs, rhs) => ctx.mul(&lhs.normalize()?, &rhs.normalize()?),

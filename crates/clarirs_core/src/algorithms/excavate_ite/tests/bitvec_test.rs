@@ -51,31 +51,6 @@ fn test_bitvec_neg_with_ite() {
 }
 
 #[test]
-fn test_bitvec_abs_with_ite() {
-    let ctx = Context::new();
-
-    // Create variables
-    let a = ctx.bvs("a", 32).unwrap();
-    let b = ctx.bvs("b", 32).unwrap();
-    let c = ctx.bools("c").unwrap();
-
-    // Create expression: abs(if c then a else b)
-    let ite = ctx.if_(&c, &a, &b).unwrap();
-    let expr = ctx.abs(&ite).unwrap();
-
-    // Expected result: if c then abs(a) else abs(b)
-    let abs_a = ctx.abs(&a).unwrap();
-    let abs_b = ctx.abs(&b).unwrap();
-    let expected = ctx.if_(&c, &abs_a, &abs_b).unwrap();
-
-    // Excavate ITEs
-    let result = expr.excavate_ite().unwrap();
-
-    // Verify result
-    assert_eq!(result.op(), expected.op());
-}
-
-#[test]
 fn test_bitvec_add_with_ite() {
     let ctx = Context::new();
 

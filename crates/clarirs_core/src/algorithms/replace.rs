@@ -810,10 +810,6 @@ impl<'c> Replace<'c, BoolAst<'c>> for BitVecAst<'c> {
                 let a_replaced = a.replace(from, to)?;
                 self.context().make_bitvec(BitVecOp::Neg(a_replaced))
             }
-            BitVecOp::Abs(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_bitvec(BitVecOp::Abs(a_replaced))
-            }
             BitVecOp::Add(a, b) => {
                 let a_replaced = a.replace(from, to)?;
                 let b_replaced = b.replace(from, to)?;
@@ -1001,10 +997,6 @@ impl<'c> Replace<'c, BitVecAst<'c>> for BitVecAst<'c> {
                     let a_replaced = a.replace(from, to)?;
                     self.context().make_bitvec(BitVecOp::Neg(a_replaced))
                 }
-                BitVecOp::Abs(a) => {
-                    let a_replaced = a.replace(from, to)?;
-                    self.context().make_bitvec(BitVecOp::Abs(a_replaced))
-                }
                 BitVecOp::Add(a, b) => {
                     let a_replaced = a.replace(from, to)?;
                     let b_replaced = b.replace(from, to)?;
@@ -1190,10 +1182,6 @@ impl<'c> Replace<'c, FloatAst<'c>> for BitVecAst<'c> {
                 let a_replaced = a.replace(from, to)?;
                 self.context().make_bitvec(BitVecOp::Neg(a_replaced))
             }
-            BitVecOp::Abs(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_bitvec(BitVecOp::Abs(a_replaced))
-            }
             BitVecOp::Add(a, b) => {
                 let a_replaced = a.replace(from, to)?;
                 let b_replaced = b.replace(from, to)?;
@@ -1377,10 +1365,6 @@ impl<'c> Replace<'c, StringAst<'c>> for BitVecAst<'c> {
             BitVecOp::Neg(a) => {
                 let a_replaced = a.replace(from, to)?;
                 self.context().make_bitvec(BitVecOp::Neg(a_replaced))
-            }
-            BitVecOp::Abs(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_bitvec(BitVecOp::Abs(a_replaced))
             }
             BitVecOp::Add(a, b) => {
                 let a_replaced = a.replace(from, to)?;

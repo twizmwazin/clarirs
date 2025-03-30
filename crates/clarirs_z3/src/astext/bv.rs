@@ -31,16 +31,6 @@ impl<'c> AstExtZ3<'c> for BitVecAst<'c> {
                     let a = a.to_z3()?;
                     z3::mk_bvneg(z3_ctx, a.0).into()
                 }
-                BitVecOp::Abs(a) => self
-                    .context()
-                    .if_(
-                        &self
-                            .context()
-                            .slt(a, &self.context().bvv_prim_with_size(0u8, self.size())?)?,
-                        &self.context().not(a)?,
-                        a,
-                    )?
-                    .to_z3()?,
                 BitVecOp::And(a, b) => {
                     let a = a.to_z3()?;
                     let b = b.to_z3()?;
