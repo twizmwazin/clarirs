@@ -21,16 +21,12 @@ macro_rules! binop {
     }};
 }
 
-pub(crate) use child;
-pub(crate) use unop;
-pub(crate) use binop;
-
 mod bool;
 mod bv;
 mod float;
 mod string;
 
-use clarirs_core::{algorithms::walk_post_order, ast, prelude::*};
+use clarirs_core::{algorithms::walk_post_order, prelude::*};
 use clarirs_z3_sys as z3;
 
 use crate::{Z3_CONTEXT, rc::RcAst};
