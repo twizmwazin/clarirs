@@ -6,348 +6,256 @@ use clarirs_z3_sys as z3;
 
 use super::AstExtZ3;
 
-impl<'c> AstExtZ3<'c> for BoolAst<'c> {
-    fn to_z3(&self) -> Result<RcAst, ClarirsError> {
-        Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            Ok(match self.op() {
-                BooleanOp::BoolS(s) => {
-                    let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
-                    let sym = z3::mk_string_symbol(z3_ctx, s_cstr.as_ptr());
-                    let sort = z3::mk_bool_sort(z3_ctx);
-                    RcAst::from(z3::mk_const(z3_ctx, sym, sort))
-                }
-                BooleanOp::BoolV(b) => if *b {
-                    z3::mk_true(z3_ctx)
-                } else {
-                    z3::mk_false(z3_ctx)
-                }
-                .into(),
-                BooleanOp::Not(a) => {
-                    let a = a.to_z3()?;
-                    z3::mk_not(z3_ctx, a.0).into()
-                }
-                BooleanOp::And(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    let args = [a.0, b.0];
-                    z3::mk_and(z3_ctx, 2, args.as_ptr()).into()
-                }
-                BooleanOp::Or(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    let args = [a.0, b.0];
-                    z3::mk_or(z3_ctx, 2, args.as_ptr()).into()
-                }
-                BooleanOp::Xor(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_xor(z3_ctx, a.0, b.0).into()
-                }
-                BooleanOp::BoolEq(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_eq(z3_ctx, a.0, b.0).into()
-                }
-                BooleanOp::BoolNeq(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    let eq = z3::mk_eq(z3_ctx, a.0, b.0);
-                    z3::mk_not(z3_ctx, eq).into()
-                }
-                BooleanOp::If(cond, then, else_) => {
-                    let cond = cond.to_z3()?;
-                    let then = then.to_z3()?;
-                    let else_ = else_.to_z3()?;
-                    z3::mk_ite(z3_ctx, cond.0, then.0, else_.0).into()
-                }
-                BooleanOp::Annotated(inner, _) => inner.to_z3()?,
+pub(crate) fn to_z3(ast: &BoolAst, children: &[RcAst]) -> Result<RcAst, ClarirsError> {
+    Z3_CONTEXT.with(|&z3_ctx| unsafe {
+        Ok(match ast.op() {
+            BooleanOp::BoolS(s) => {
+                let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
+                let sym = z3::mk_string_symbol(z3_ctx, s_cstr.as_ptr());
+                let sort = z3::mk_bool_sort(z3_ctx);
+                RcAst::from(z3::mk_const(z3_ctx, sym, sort))
+            }
+            BooleanOp::BoolV(b) => if *b {
+                z3::mk_true(z3_ctx)
+            } else {
+                z3::mk_false(z3_ctx)
+            }
+            .into(),
+            BooleanOp::Not(..) => unop!(z3_ctx, children, mk_not),
+            BooleanOp::And(..) => {
+                let args = [child!(children, 0).0, child!(children, 1).0];
+                z3::mk_and(z3_ctx, 2, args.as_ptr()).into()
+            }
+            BooleanOp::Or(..) => {
+                let args = [child!(children, 0).0, child!(children, 1).0];
+                z3::mk_or(z3_ctx, 2, args.as_ptr()).into()
+            }
+            BooleanOp::Xor(..) => binop!(z3_ctx, children, mk_xor),
+            BooleanOp::BoolEq(..) => binop!(z3_ctx, children, mk_eq),
+            BooleanOp::BoolNeq(..) => {
+                let a = child!(children, 0);
+                let b = child!(children, 1);
+                let eq = z3::mk_eq(z3_ctx, a.0, b.0);
+                z3::mk_not(z3_ctx, eq).into()
+            }
+            BooleanOp::If(..) => {
+                let cond = child!(children, 0);
+                let then = child!(children, 1);
+                let else_ = child!(children, 2);
+                z3::mk_ite(z3_ctx, cond.0, then.0, else_.0).into()
+            }
+            BooleanOp::Annotated(..) => child!(children, 0).clone(),
 
-                // BV operations
-                BooleanOp::Eq(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_eq(z3_ctx, a.0, b.0).into()
-                }
-                BooleanOp::Neq(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    let eq = z3::mk_eq(z3_ctx, a.0, b.0);
-                    z3::mk_not(z3_ctx, eq).into()
-                }
-                BooleanOp::ULT(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_bvult(z3_ctx, a.0, b.0).into()
-                }
-                BooleanOp::ULE(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_bvule(z3_ctx, a.0, b.0).into()
-                }
-                BooleanOp::UGT(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_bvugt(z3_ctx, a.0, b.0).into()
-                }
-                BooleanOp::UGE(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_bvuge(z3_ctx, a.0, b.0).into()
-                }
-                BooleanOp::SLT(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_bvslt(z3_ctx, a.0, b.0).into()
-                }
-                BooleanOp::SLE(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_bvsle(z3_ctx, a.0, b.0).into()
-                }
-                BooleanOp::SGT(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_bvsgt(z3_ctx, a.0, b.0).into()
-                }
-                BooleanOp::SGE(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_bvsge(z3_ctx, a.0, b.0).into()
-                }
+            // BV operations
+            BooleanOp::Eq(..) => binop!(z3_ctx, children, mk_eq),
+            BooleanOp::Neq(..) => {
+                let a = child!(children, 0);
+                let b = child!(children, 1);
+                let eq = z3::mk_eq(z3_ctx, a.0, b.0);
+                z3::mk_not(z3_ctx, eq).into()
+            }
+            BooleanOp::ULT(..) => binop!(z3_ctx, children, mk_bvult),
+            BooleanOp::ULE(..) => binop!(z3_ctx, children, mk_bvule),
+            BooleanOp::UGT(..) => binop!(z3_ctx, children, mk_bvugt),
+            BooleanOp::UGE(..) => binop!(z3_ctx, children, mk_bvuge),
+            BooleanOp::SLT(..) => binop!(z3_ctx, children, mk_bvslt),
+            BooleanOp::SLE(..) => binop!(z3_ctx, children, mk_bvsle),
+            BooleanOp::SGT(..) => binop!(z3_ctx, children, mk_bvsgt),
+            BooleanOp::SGE(..) => binop!(z3_ctx, children, mk_bvsge),
 
-                // FP operations
-                BooleanOp::FpEq(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_fpa_eq(z3_ctx, a.0, b.0).into()
-                }
-                BooleanOp::FpNeq(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    let eq = z3::mk_fpa_eq(z3_ctx, a.0, b.0);
-                    z3::mk_not(z3_ctx, eq).into()
-                }
-                BooleanOp::FpLt(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_fpa_lt(z3_ctx, a.0, b.0).into()
-                }
-                BooleanOp::FpLeq(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_fpa_leq(z3_ctx, a.0, b.0).into()
-                }
-                BooleanOp::FpGt(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_fpa_gt(z3_ctx, a.0, b.0).into()
-                }
-                BooleanOp::FpGeq(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_fpa_geq(z3_ctx, a.0, b.0).into()
-                }
-                BooleanOp::FpIsNan(a) => {
-                    let a = a.to_z3()?;
-                    z3::mk_fpa_is_nan(z3_ctx, a.0).into()
-                }
-                BooleanOp::FpIsInf(a) => {
-                    let a = a.to_z3()?;
-                    z3::mk_fpa_is_infinite(z3_ctx, a.0).into()
-                }
+            // FP operations
+            BooleanOp::FpEq(..) => binop!(z3_ctx, children, mk_fpa_eq),
+            BooleanOp::FpNeq(..) => {
+                let a = child!(children, 0);
+                let b = child!(children, 1);
+                let eq = z3::mk_fpa_eq(z3_ctx, a.0, b.0);
+                z3::mk_not(z3_ctx, eq).into()
+            }
+            BooleanOp::FpLt(..) => binop!(z3_ctx, children, mk_fpa_lt),
+            BooleanOp::FpLeq(..) => binop!(z3_ctx, children, mk_fpa_leq),
+            BooleanOp::FpGt(..) => binop!(z3_ctx, children, mk_fpa_gt),
+            BooleanOp::FpGeq(..) => binop!(z3_ctx, children, mk_fpa_geq),
+            BooleanOp::FpIsNan(..) => unop!(z3_ctx, children, mk_fpa_is_nan),
+            BooleanOp::FpIsInf(..) => unop!(z3_ctx, children, mk_fpa_is_infinite),
 
-                // String operations
-                BooleanOp::StrContains(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_seq_contains(z3_ctx, a.0, b.0).into()
-                }
-                BooleanOp::StrPrefixOf(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_seq_prefix(z3_ctx, a.0, b.0).into()
-                }
-                BooleanOp::StrSuffixOf(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_seq_suffix(z3_ctx, a.0, b.0).into()
-                }
-                BooleanOp::StrIsDigit(_) => todo!("StrIsDigit - no direct Z3 equivalent"),
-                BooleanOp::StrEq(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_eq(z3_ctx, a.0, b.0).into()
-                }
-                BooleanOp::StrNeq(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    let eq = z3::mk_eq(z3_ctx, a.0, b.0);
-                    z3::mk_not(z3_ctx, eq).into()
-                }
-            })
-            .and_then(|ast| {
-                if ast.is_null() {
-                    Err(ClarirsError::ConversionError(
-                        "failed to create Z3 AST, got null".to_string(),
-                    ))
-                } else {
-                    Ok(ast)
-                }
-            })
-        })
-    }
-
-    fn from_z3(ctx: &'c Context<'c>, ast: impl Into<RcAst>) -> Result<Self, ClarirsError> {
-        Z3_CONTEXT.with(|z3_ctx| unsafe {
-            let ast = ast.into();
-            let ast_kind = z3::get_ast_kind(*z3_ctx, *ast);
-            match ast_kind {
-                z3::AstKind::App => {
-                    let app = z3::to_app(*z3_ctx, *ast);
-                    let decl = z3::get_app_decl(*z3_ctx, app);
-                    let decl_kind = z3::get_decl_kind(*z3_ctx, decl);
-
-                    match decl_kind {
-                        z3::DeclKind::True => ctx.true_(),
-                        z3::DeclKind::False => ctx.false_(),
-                        z3::DeclKind::Not => {
-                            let arg = z3::get_app_arg(*z3_ctx, app, 0);
-                            let inner = BoolAst::from_z3(ctx, arg)?;
-
-                            // Special case: if the inner expression is a BoolEq, convert to BoolNeq
-                            if let BooleanOp::BoolEq(a, b) = inner.op() {
-                                ctx.neq(a, b)
-                            } else {
-                                ctx.not(&inner)
-                            }
-                        }
-                        z3::DeclKind::And | z3::DeclKind::Or | z3::DeclKind::Xor => {
-                            let arg0 = z3::get_app_arg(*z3_ctx, app, 0);
-                            let arg1 = z3::get_app_arg(*z3_ctx, app, 1);
-
-                            // Convert both arguments
-                            let a = BoolAst::from_z3(ctx, arg0)?;
-                            let b = BoolAst::from_z3(ctx, arg1)?;
-
-                            // Create the appropriate operation
-                            match decl_kind {
-                                z3::DeclKind::And => ctx.and(&a, &b),
-                                z3::DeclKind::Or => ctx.or(&a, &b),
-                                z3::DeclKind::Xor => ctx.xor(&a, &b),
-                                _ => unreachable!(),
-                            }
-                        }
-                        z3::DeclKind::Eq => {
-                            let arg0 = z3::get_app_arg(*z3_ctx, app, 0);
-                            let arg1 = z3::get_app_arg(*z3_ctx, app, 1);
-
-                            if let Ok(lhs) = BoolAst::from_z3(ctx, arg0) {
-                                if let Ok(rhs) = BoolAst::from_z3(ctx, arg1) {
-                                    ctx.eq_(&lhs, &rhs)
-                                } else {
-                                    Err(ClarirsError::ConversionError(
-                                        "Eq lhs is bool, rhs is not".to_string(),
-                                    ))
-                                }
-                            } else if let Ok(lhs) = BitVecAst::from_z3(ctx, arg0) {
-                                if let Ok(rhs) = BitVecAst::from_z3(ctx, arg1) {
-                                    ctx.eq_(&lhs, &rhs)
-                                } else {
-                                    Err(ClarirsError::ConversionError(
-                                        "Eq lhs is bv, rhs is not".to_string(),
-                                    ))
-                                }
-                            } else if let Ok(lhs) = FloatAst::from_z3(ctx, arg0) {
-                                if let Ok(rhs) = FloatAst::from_z3(ctx, arg1) {
-                                    ctx.eq_(&lhs, &rhs)
-                                } else {
-                                    Err(ClarirsError::ConversionError(
-                                        "Eq lhs is fp, rhs is not".to_string(),
-                                    ))
-                                }
-                            } else if let Ok(lhs) = StringAst::from_z3(ctx, arg0) {
-                                if let Ok(rhs) = StringAst::from_z3(ctx, arg1) {
-                                    ctx.eq_(&lhs, &rhs)
-                                } else {
-                                    Err(ClarirsError::ConversionError(
-                                        "Eq lhs is string, rhs is not".to_string(),
-                                    ))
-                                }
-                            } else {
-                                Err(ClarirsError::ConversionError(
-                                    "Eq lhs is not a recognized type".to_string(),
-                                ))
-                            }
-                        }
-                        z3::DeclKind::Ult
-                        | z3::DeclKind::Uleq
-                        | z3::DeclKind::Ugt
-                        | z3::DeclKind::Ugeq
-                        | z3::DeclKind::Slt
-                        | z3::DeclKind::Sleq
-                        | z3::DeclKind::Sgt
-                        | z3::DeclKind::Sgeq => {
-                            let arg0 = z3::get_app_arg(*z3_ctx, app, 0);
-                            let arg1 = z3::get_app_arg(*z3_ctx, app, 1);
-
-                            // Convert both arguments
-                            let a = BitVecAst::from_z3(ctx, arg0)?;
-                            let b = BitVecAst::from_z3(ctx, arg1)?;
-
-                            // Create the appropriate operation
-                            match decl_kind {
-                                z3::DeclKind::Ult => ctx.ult(&a, &b),
-                                z3::DeclKind::Uleq => ctx.ule(&a, &b),
-                                z3::DeclKind::Ugt => ctx.ugt(&a, &b),
-                                z3::DeclKind::Ugeq => ctx.uge(&a, &b),
-                                z3::DeclKind::Slt => ctx.slt(&a, &b),
-                                z3::DeclKind::Sleq => ctx.sle(&a, &b),
-                                z3::DeclKind::Sgt => ctx.sgt(&a, &b),
-                                z3::DeclKind::Sgeq => ctx.sge(&a, &b),
-                                _ => unreachable!(),
-                            }
-                        }
-                        z3::DeclKind::Ite => {
-                            let cond = z3::get_app_arg(*z3_ctx, app, 0);
-                            let then = z3::get_app_arg(*z3_ctx, app, 1);
-                            let else_ = z3::get_app_arg(*z3_ctx, app, 2);
-                            let cond = BoolAst::from_z3(ctx, cond)?;
-                            let then = BoolAst::from_z3(ctx, then)?;
-                            let else_ = BoolAst::from_z3(ctx, else_)?;
-                            ctx.if_(&cond, &then, &else_)
-                        }
-                        z3::DeclKind::Uninterpreted => {
-                            // Verify it's a boolean
-                            let sort = z3::get_sort(*z3_ctx, *ast);
-                            let bool_sort = z3::mk_bool_sort(*z3_ctx);
-                            if sort != bool_sort {
-                                return Err(ClarirsError::ConversionError(
-                                    "expected a boolean".to_string(),
-                                ));
-                            }
-                            let sym = z3::get_decl_name(*z3_ctx, decl);
-                            let name = z3::get_symbol_string(*z3_ctx, sym);
-                            let name = std::ffi::CStr::from_ptr(name).to_str().unwrap();
-                            ctx.bools(name)
-                        }
-                        _ => {
-                            let decl_name =
-                                CStr::from_ptr(z3::func_decl_to_string(*z3_ctx, decl) as *mut i8)
-                                    .to_string_lossy();
-
-                            Err(ClarirsError::ConversionError(format!(
-                                "Failed converting from z3: unknown decl kind for bool: {}",
-                                decl_name
-                            )))
-                        }
-                    }
-                }
-                _ => Err(ClarirsError::ConversionError(
-                    "Failed converting from z3: unknown ast kind for bool".to_string(),
-                )),
+            // String operations
+            BooleanOp::StrContains(..) => binop!(z3_ctx, children, mk_seq_contains),
+            BooleanOp::StrPrefixOf(..) => binop!(z3_ctx, children, mk_seq_prefix),
+            BooleanOp::StrSuffixOf(..) => binop!(z3_ctx, children, mk_seq_suffix),
+            BooleanOp::StrIsDigit(..) => todo!("StrIsDigit - no direct Z3 equivalent"),
+            BooleanOp::StrEq(..) => binop!(z3_ctx, children, mk_eq),
+            BooleanOp::StrNeq(..) => {
+                let a = child!(children, 0);
+                let b = child!(children, 1);
+                let eq = z3::mk_eq(z3_ctx, a.0, b.0);
+                z3::mk_not(z3_ctx, eq).into()
             }
         })
-    }
+        .and_then(|ast| {
+            if ast.is_null() {
+                Err(ClarirsError::ConversionError(
+                    "failed to create Z3 AST, got null".to_string(),
+                ))
+            } else {
+                Ok(ast)
+            }
+        })
+    })
+}
+
+pub(crate) fn from_z3<'c>(
+    ctx: &'c Context<'c>,
+    ast: impl Into<RcAst>,
+) -> Result<BoolAst<'c>, ClarirsError> {
+    Z3_CONTEXT.with(|z3_ctx| unsafe {
+        let ast = ast.into();
+        let ast_kind = z3::get_ast_kind(*z3_ctx, *ast);
+        match ast_kind {
+            z3::AstKind::App => {
+                let app = z3::to_app(*z3_ctx, *ast);
+                let decl = z3::get_app_decl(*z3_ctx, app);
+                let decl_kind = z3::get_decl_kind(*z3_ctx, decl);
+
+                match decl_kind {
+                    z3::DeclKind::True => ctx.true_(),
+                    z3::DeclKind::False => ctx.false_(),
+                    z3::DeclKind::Not => {
+                        let arg = z3::get_app_arg(*z3_ctx, app, 0);
+                        let inner = BoolAst::from_z3(ctx, arg)?;
+
+                        // Special case: if the inner expression is a BoolEq, convert to BoolNeq
+                        if let BooleanOp::BoolEq(a, b) = inner.op() {
+                            ctx.neq(a, b)
+                        } else {
+                            ctx.not(&inner)
+                        }
+                    }
+                    z3::DeclKind::And | z3::DeclKind::Or | z3::DeclKind::Xor => {
+                        let arg0 = z3::get_app_arg(*z3_ctx, app, 0);
+                        let arg1 = z3::get_app_arg(*z3_ctx, app, 1);
+
+                        // Convert both arguments
+                        let a = BoolAst::from_z3(ctx, arg0)?;
+                        let b = BoolAst::from_z3(ctx, arg1)?;
+
+                        // Create the appropriate operation
+                        match decl_kind {
+                            z3::DeclKind::And => ctx.and(&a, &b),
+                            z3::DeclKind::Or => ctx.or(&a, &b),
+                            z3::DeclKind::Xor => ctx.xor(&a, &b),
+                            _ => unreachable!(),
+                        }
+                    }
+                    z3::DeclKind::Eq => {
+                        let arg0 = z3::get_app_arg(*z3_ctx, app, 0);
+                        let arg1 = z3::get_app_arg(*z3_ctx, app, 1);
+
+                        if let Ok(lhs) = BoolAst::from_z3(ctx, arg0) {
+                            if let Ok(rhs) = BoolAst::from_z3(ctx, arg1) {
+                                ctx.eq_(&lhs, &rhs)
+                            } else {
+                                Err(ClarirsError::ConversionError(
+                                    "Eq lhs is bool, rhs is not".to_string(),
+                                ))
+                            }
+                        } else if let Ok(lhs) = BitVecAst::from_z3(ctx, arg0) {
+                            if let Ok(rhs) = BitVecAst::from_z3(ctx, arg1) {
+                                ctx.eq_(&lhs, &rhs)
+                            } else {
+                                Err(ClarirsError::ConversionError(
+                                    "Eq lhs is bv, rhs is not".to_string(),
+                                ))
+                            }
+                        } else if let Ok(lhs) = FloatAst::from_z3(ctx, arg0) {
+                            if let Ok(rhs) = FloatAst::from_z3(ctx, arg1) {
+                                ctx.eq_(&lhs, &rhs)
+                            } else {
+                                Err(ClarirsError::ConversionError(
+                                    "Eq lhs is fp, rhs is not".to_string(),
+                                ))
+                            }
+                        } else if let Ok(lhs) = StringAst::from_z3(ctx, arg0) {
+                            if let Ok(rhs) = StringAst::from_z3(ctx, arg1) {
+                                ctx.eq_(&lhs, &rhs)
+                            } else {
+                                Err(ClarirsError::ConversionError(
+                                    "Eq lhs is string, rhs is not".to_string(),
+                                ))
+                            }
+                        } else {
+                            Err(ClarirsError::ConversionError(
+                                "Eq lhs is not a recognized type".to_string(),
+                            ))
+                        }
+                    }
+                    z3::DeclKind::Ult
+                    | z3::DeclKind::Uleq
+                    | z3::DeclKind::Ugt
+                    | z3::DeclKind::Ugeq
+                    | z3::DeclKind::Slt
+                    | z3::DeclKind::Sleq
+                    | z3::DeclKind::Sgt
+                    | z3::DeclKind::Sgeq => {
+                        let arg0 = z3::get_app_arg(*z3_ctx, app, 0);
+                        let arg1 = z3::get_app_arg(*z3_ctx, app, 1);
+
+                        // Convert both arguments
+                        let a = BitVecAst::from_z3(ctx, arg0)?;
+                        let b = BitVecAst::from_z3(ctx, arg1)?;
+
+                        // Create the appropriate operation
+                        match decl_kind {
+                            z3::DeclKind::Ult => ctx.ult(&a, &b),
+                            z3::DeclKind::Uleq => ctx.ule(&a, &b),
+                            z3::DeclKind::Ugt => ctx.ugt(&a, &b),
+                            z3::DeclKind::Ugeq => ctx.uge(&a, &b),
+                            z3::DeclKind::Slt => ctx.slt(&a, &b),
+                            z3::DeclKind::Sleq => ctx.sle(&a, &b),
+                            z3::DeclKind::Sgt => ctx.sgt(&a, &b),
+                            z3::DeclKind::Sgeq => ctx.sge(&a, &b),
+                            _ => unreachable!(),
+                        }
+                    }
+                    z3::DeclKind::Ite => {
+                        let cond = z3::get_app_arg(*z3_ctx, app, 0);
+                        let then = z3::get_app_arg(*z3_ctx, app, 1);
+                        let else_ = z3::get_app_arg(*z3_ctx, app, 2);
+                        let cond = BoolAst::from_z3(ctx, cond)?;
+                        let then = BoolAst::from_z3(ctx, then)?;
+                        let else_ = BoolAst::from_z3(ctx, else_)?;
+                        ctx.if_(&cond, &then, &else_)
+                    }
+                    z3::DeclKind::Uninterpreted => {
+                        // Verify it's a boolean
+                        let sort = z3::get_sort(*z3_ctx, *ast);
+                        let bool_sort = z3::mk_bool_sort(*z3_ctx);
+                        if sort != bool_sort {
+                            return Err(ClarirsError::ConversionError(
+                                "expected a boolean".to_string(),
+                            ));
+                        }
+                        let sym = z3::get_decl_name(*z3_ctx, decl);
+                        let name = z3::get_symbol_string(*z3_ctx, sym);
+                        let name = std::ffi::CStr::from_ptr(name).to_str().unwrap();
+                        ctx.bools(name)
+                    }
+                    _ => {
+                        let decl_name =
+                            CStr::from_ptr(z3::func_decl_to_string(*z3_ctx, decl) as *mut i8)
+                                .to_string_lossy();
+
+                        Err(ClarirsError::ConversionError(format!(
+                            "Failed converting from z3: unknown decl kind for bool: {}",
+                            decl_name
+                        )))
+                    }
+                }
+            }
+            _ => Err(ClarirsError::ConversionError(
+                "Failed converting from z3: unknown ast kind for bool".to_string(),
+            )),
+        }
+    })
 }
 
 #[cfg(test)]

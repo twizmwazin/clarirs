@@ -7,350 +7,276 @@ use clarirs_z3_sys as z3;
 use super::AstExtZ3;
 use crate::{Z3_CONTEXT, rc::RcAst};
 
-impl<'c> AstExtZ3<'c> for BitVecAst<'c> {
-    fn to_z3(&self) -> Result<RcAst, ClarirsError> {
-        Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            Ok(match self.op() {
-                BitVecOp::BVS(s, w) => {
-                    let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
-                    let sym = z3::mk_string_symbol(z3_ctx, s_cstr.as_ptr());
-                    let sort = z3::mk_bv_sort(z3_ctx, *w);
-                    RcAst::from(z3::mk_const(z3_ctx, sym, sort))
-                }
-                BitVecOp::BVV(v) => {
-                    let sort = z3::mk_bv_sort(z3_ctx, v.len());
-                    let numeral = v.to_biguint().to_string();
-                    let numeral_cstr = std::ffi::CString::new(numeral).unwrap();
-                    z3::mk_numeral(z3_ctx, numeral_cstr.as_ptr(), sort).into()
-                }
-                BitVecOp::Not(a) => {
-                    let a = a.to_z3()?;
-                    z3::mk_bvnot(z3_ctx, a.0).into()
-                }
-                BitVecOp::Neg(a) => {
-                    let a = a.to_z3()?;
-                    z3::mk_bvneg(z3_ctx, a.0).into()
-                }
-                BitVecOp::And(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_bvand(z3_ctx, a.0, b.0).into()
-                }
-                BitVecOp::Or(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_bvor(z3_ctx, a.0, b.0).into()
-                }
-                BitVecOp::Xor(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_bvxor(z3_ctx, a.0, b.0).into()
-                }
-                BitVecOp::Add(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_bvadd(z3_ctx, a.0, b.0).into()
-                }
-                BitVecOp::Sub(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_bvsub(z3_ctx, a.0, b.0).into()
-                }
-                BitVecOp::Mul(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_bvmul(z3_ctx, a.0, b.0).into()
-                }
-                BitVecOp::UDiv(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_bvudiv(z3_ctx, a.0, b.0).into()
-                }
-                BitVecOp::SDiv(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_bvsdiv(z3_ctx, a.0, b.0).into()
-                }
-                BitVecOp::URem(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_bvurem(z3_ctx, a.0, b.0).into()
-                }
-                BitVecOp::SRem(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_bvsrem(z3_ctx, a.0, b.0).into()
-                }
-                BitVecOp::ShL(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_bvshl(z3_ctx, a.0, b.0).into()
-                }
-                BitVecOp::LShR(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_bvlshr(z3_ctx, a.0, b.0).into()
-                }
-                BitVecOp::AShR(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_bvashr(z3_ctx, a.0, b.0).into()
-                }
-                BitVecOp::RotateLeft(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_ext_rotate_left(z3_ctx, a.0, b.0).into()
-                }
-                BitVecOp::RotateRight(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_ext_rotate_right(z3_ctx, a.0, b.0).into()
-                }
-                BitVecOp::ZeroExt(a, i) => {
-                    let a = a.to_z3()?;
-                    z3::mk_zero_ext(z3_ctx, *i, a.0).into()
-                }
-                BitVecOp::SignExt(a, i) => {
-                    let a = a.to_z3()?;
-                    z3::mk_sign_ext(z3_ctx, *i, a.0).into()
-                }
-                BitVecOp::Extract(a, high, low) => {
-                    if high >= &a.size() {
-                        return Err(ClarirsError::ConversionError(
-                            "high index is greater than bitvector size".to_string(),
-                        ));
-                    }
-                    if low >= &a.size() {
-                        return Err(ClarirsError::ConversionError(
-                            "low index is greater than bitvector size".to_string(),
-                        ));
-                    }
-                    if low > high {
-                        return Err(ClarirsError::ConversionError(
-                            "low index is greater than high index".to_string(),
-                        ));
-                    }
-                    let a = a.to_z3()?;
-                    z3::mk_extract(z3_ctx, *high, *low, a.0).into()
-                }
-                BitVecOp::Concat(a, b) => {
-                    let a = a.to_z3()?;
-                    let b = b.to_z3()?;
-                    z3::mk_concat(z3_ctx, a.0, b.0).into()
-                }
-                BitVecOp::Reverse(a) => {
-                    if a.size() == 0 || a.size() % 8 != 0 {
-                        return Err(ClarirsError::ConversionError(
-                            "reverse only supports bitvectors with size multiple of 8".to_string(),
-                        ));
-                    }
-
-                    let bytes = a.chop(8)?;
-                    let reversed = bytes.iter().rev().collect::<Vec<_>>();
-
-                    let mut acc: Option<BitVecAst> = None;
-
-                    for byte in reversed {
-                        acc = match acc {
-                            Some(inner) => Some(self.context().concat(&inner, byte)?),
-                            None => Some(byte.clone()),
-                        };
-                    }
-
-                    acc.unwrap().to_z3()?
-                }
-                BitVecOp::If(cond, then, else_) => {
-                    let cond = cond.to_z3()?;
-                    let then = then.to_z3()?;
-                    let else_ = else_.to_z3()?;
-                    z3::mk_ite(z3_ctx, cond.0, then.0, else_.0).into()
-                }
-                BitVecOp::Annotated(inner, _) => inner.to_z3()?,
-                BitVecOp::FpToIEEEBV(_) => todo!("FpToIEEEBV"),
-                BitVecOp::FpToUBV(..) => todo!("FpToUBV"),
-                BitVecOp::FpToSBV(..) => todo!("FpToSBV"),
-                BitVecOp::StrLen(_) => todo!("StrLen"),
-                BitVecOp::StrIndexOf(..) => todo!("StrIndexOf"),
-                BitVecOp::StrToBV(_) => todo!("StrToBV"),
-                BitVecOp::SI(..) | BitVecOp::Union(..) | BitVecOp::Intersection(..) => {
-                    // These are not supported in Z3
+pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, ClarirsError> {
+    Z3_CONTEXT.with(|&z3_ctx| unsafe {
+        Ok(match ast.op() {
+            BitVecOp::BVS(s, w) => {
+                let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
+                let sym = z3::mk_string_symbol(z3_ctx, s_cstr.as_ptr());
+                let sort = z3::mk_bv_sort(z3_ctx, *w);
+                RcAst::from(z3::mk_const(z3_ctx, sym, sort))
+            }
+            BitVecOp::BVV(v) => {
+                let sort = z3::mk_bv_sort(z3_ctx, v.len());
+                let numeral = v.to_biguint().to_string();
+                let numeral_cstr = std::ffi::CString::new(numeral).unwrap();
+                z3::mk_numeral(z3_ctx, numeral_cstr.as_ptr(), sort).into()
+            }
+            BitVecOp::Not(..) => unop!(z3_ctx, children, mk_bvnot),
+            BitVecOp::Neg(..) => unop!(z3_ctx, children, mk_bvneg),
+            BitVecOp::And(..) => binop!(z3_ctx, children, mk_bvand),
+            BitVecOp::Or(..) => binop!(z3_ctx, children, mk_bvor),
+            BitVecOp::Xor(..) => binop!(z3_ctx, children, mk_bvxor),
+            BitVecOp::Add(..) => binop!(z3_ctx, children, mk_bvadd),
+            BitVecOp::Sub(..) => binop!(z3_ctx, children, mk_bvsub),
+            BitVecOp::Mul(..) => binop!(z3_ctx, children, mk_bvmul),
+            BitVecOp::UDiv(..) => binop!(z3_ctx, children, mk_bvudiv),
+            BitVecOp::SDiv(..) => binop!(z3_ctx, children, mk_bvsdiv),
+            BitVecOp::URem(..) => binop!(z3_ctx, children, mk_bvurem),
+            BitVecOp::SRem(..) => binop!(z3_ctx, children, mk_bvsrem),
+            BitVecOp::ShL(..) => binop!(z3_ctx, children, mk_bvshl),
+            BitVecOp::LShR(..) => binop!(z3_ctx, children, mk_bvlshr),
+            BitVecOp::AShR(..) => binop!(z3_ctx, children, mk_bvashr),
+            BitVecOp::RotateLeft(..) => binop!(z3_ctx, children, mk_ext_rotate_left),
+            BitVecOp::RotateRight(..) => binop!(z3_ctx, children, mk_ext_rotate_right),
+            BitVecOp::ZeroExt(_, i) => z3::mk_zero_ext(z3_ctx, *i, child!(children, 0).0).into(),
+            BitVecOp::SignExt(_, i) => z3::mk_sign_ext(z3_ctx, *i, child!(children, 0).0).into(),
+            BitVecOp::Extract(a, high, low) => {
+                if high >= &a.size() {
                     return Err(ClarirsError::ConversionError(
-                        "vsa types are not currently supported in the z3 backend".to_string(),
+                        "high index is greater than bitvector size".to_string(),
                     ));
                 }
-            })
-            .and_then(|ast| {
-                if ast.is_null() {
-                    Err(ClarirsError::ConversionError(
-                        "failed to create Z3 AST, got null".to_string(),
-                    ))
-                } else {
-                    Ok(ast)
+                if low >= &a.size() {
+                    return Err(ClarirsError::ConversionError(
+                        "low index is greater than bitvector size".to_string(),
+                    ));
                 }
-            })
-        })
-    }
-
-    fn from_z3(ctx: &'c Context<'c>, ast: impl Into<RcAst>) -> Result<Self, ClarirsError> {
-        Z3_CONTEXT.with(|z3_ctx| unsafe {
-            let ast = ast.into();
-            let ast_kind = z3::get_ast_kind(*z3_ctx, *ast);
-            match ast_kind {
-                z3::AstKind::Numeral => {
-                    let numeral_string = z3::get_numeral_string(*z3_ctx, *ast);
-                    let numeral_str = std::ffi::CStr::from_ptr(numeral_string).to_str().unwrap();
-                    let sort = z3::get_sort(*z3_ctx, *ast);
-                    let sort_num = z3::get_bv_sort_size(*z3_ctx, sort);
-                    let biguint = BitVec::from_str(numeral_str, sort_num).unwrap();
-                    ctx.bvv(biguint)
+                if low > high {
+                    return Err(ClarirsError::ConversionError(
+                        "low index is greater than high index".to_string(),
+                    ));
                 }
-                z3::AstKind::App => {
-                    let app = z3::to_app(*z3_ctx, *ast);
-                    let decl = z3::get_app_decl(*z3_ctx, app);
-                    let decl_kind = z3::get_decl_kind(*z3_ctx, decl);
-                    let sort = z3::get_sort(*z3_ctx, *ast);
-                    let width = z3::get_bv_sort_size(*z3_ctx, sort);
-
-                    match decl_kind {
-                        z3::DeclKind::Uninterpreted => {
-                            let sym = z3::get_decl_name(*z3_ctx, decl);
-                            let name = z3::get_symbol_string(*z3_ctx, sym);
-                            let name = std::ffi::CStr::from_ptr(name).to_str().unwrap();
-                            ctx.bvs(name, width as u32)
-                        }
-                        z3::DeclKind::Bnot => {
-                            let arg = z3::get_app_arg(*z3_ctx, app, 0);
-                            let inner = BitVecAst::from_z3(ctx, arg)?;
-                            ctx.not(&inner)
-                        }
-                        z3::DeclKind::Bneg => {
-                            let arg = z3::get_app_arg(*z3_ctx, app, 0);
-                            let inner = BitVecAst::from_z3(ctx, arg)?;
-                            ctx.neg(&inner)
-                        }
-                        z3::DeclKind::Band
-                        | z3::DeclKind::Bor
-                        | z3::DeclKind::Bxor
-                        | z3::DeclKind::Badd
-                        | z3::DeclKind::Bsub
-                        | z3::DeclKind::Bmul
-                        | z3::DeclKind::Budiv
-                        | z3::DeclKind::Bsdiv
-                        | z3::DeclKind::Burem
-                        | z3::DeclKind::Bsrem
-                        | z3::DeclKind::Bshl
-                        | z3::DeclKind::Blshr
-                        | z3::DeclKind::Bashr => {
-                            let arg0 = z3::get_app_arg(*z3_ctx, app, 0);
-                            let arg1 = z3::get_app_arg(*z3_ctx, app, 1);
-                            let a = BitVecAst::from_z3(ctx, arg0)?;
-                            let b = BitVecAst::from_z3(ctx, arg1)?;
-                            match decl_kind {
-                                z3::DeclKind::Band => ctx.and(&a, &b),
-                                z3::DeclKind::Bor => ctx.or(&a, &b),
-                                z3::DeclKind::Bxor => ctx.xor(&a, &b),
-                                z3::DeclKind::Badd => ctx.add(&a, &b),
-                                z3::DeclKind::Bsub => ctx.sub(&a, &b),
-                                z3::DeclKind::Bmul => ctx.mul(&a, &b),
-                                z3::DeclKind::Budiv => ctx.udiv(&a, &b),
-                                z3::DeclKind::Bsdiv => ctx.sdiv(&a, &b),
-                                z3::DeclKind::Burem => ctx.urem(&a, &b),
-                                z3::DeclKind::Bsrem => ctx.srem(&a, &b),
-                                z3::DeclKind::Bshl => ctx.shl(&a, &b),
-                                z3::DeclKind::Blshr => ctx.lshr(&a, &b),
-                                z3::DeclKind::Bashr => ctx.ashr(&a, &b),
-                                _ => unreachable!(),
-                            }
-                        }
-                        z3::DeclKind::ExtRotateLeft | z3::DeclKind::ExtRotateRight => {
-                            let arg0 = z3::get_app_arg(*z3_ctx, app, 0);
-                            let arg1 = z3::get_app_arg(*z3_ctx, app, 1);
-                            let a = BitVecAst::from_z3(ctx, arg0)?;
-                            let b = BitVecAst::from_z3(ctx, arg1)?;
-                            match decl_kind {
-                                z3::DeclKind::ExtRotateLeft => ctx.rotate_left(&a, &b),
-                                z3::DeclKind::ExtRotateRight => ctx.rotate_right(&a, &b),
-                                _ => unreachable!(),
-                            }
-                        }
-                        z3::DeclKind::ZeroExt | z3::DeclKind::SignExt => {
-                            let arg = z3::get_app_arg(*z3_ctx, app, 0);
-                            let inner = BitVecAst::from_z3(ctx, arg)?;
-                            let i = z3::get_decl_int_parameter(*z3_ctx, decl, 0) as u32;
-                            match decl_kind {
-                                z3::DeclKind::ZeroExt => ctx.zero_ext(&inner, i),
-                                z3::DeclKind::SignExt => ctx.sign_ext(&inner, i),
-                                _ => unreachable!(),
-                            }
-                        }
-                        z3::DeclKind::Extract => {
-                            let arg = z3::get_app_arg(*z3_ctx, app, 0);
-                            let inner = BitVecAst::from_z3(ctx, arg)?;
-                            let high = z3::get_decl_int_parameter(*z3_ctx, decl, 0) as u32;
-                            let low = z3::get_decl_int_parameter(*z3_ctx, decl, 1) as u32;
-                            ctx.extract(&inner, high, low)
-                        }
-                        z3::DeclKind::Concat => {
-                            let arg0 = z3::get_app_arg(*z3_ctx, app, 0);
-                            let arg1 = z3::get_app_arg(*z3_ctx, app, 1);
-                            let a = BitVecAst::from_z3(ctx, arg0)?;
-                            let b = BitVecAst::from_z3(ctx, arg1)?;
-                            ctx.concat(&a, &b)
-                        }
-                        z3::DeclKind::Ite => {
-                            let cond = z3::get_app_arg(*z3_ctx, app, 0);
-                            let then = z3::get_app_arg(*z3_ctx, app, 1);
-                            let else_ = z3::get_app_arg(*z3_ctx, app, 2);
-                            let cond = BoolAst::from_z3(ctx, cond)?;
-                            let then = BitVecAst::from_z3(ctx, then)?;
-                            let else_ = BitVecAst::from_z3(ctx, else_)?;
-                            ctx.if_(&cond, &then, &else_)
-                        }
-                        // Special case for bv2int used in string operations
-                        z3::DeclKind::Int2bv => {
-                            let inner_int = z3::get_app_arg(*z3_ctx, app, 0);
-                            let inner_ast_kind = z3::get_ast_kind(*z3_ctx, *ast);
-                            match inner_ast_kind {
-                                z3::AstKind::Numeral => {
-                                    let numeral_string = z3::get_numeral_string(*z3_ctx, inner_int);
-                                    let numeral_str =
-                                        std::ffi::CStr::from_ptr(numeral_string).to_str().unwrap();
-                                    let sort = z3::get_sort(*z3_ctx, inner_int);
-                                    let sort_num = z3::get_bv_sort_size(*z3_ctx, sort);
-                                    let biguint = BitVec::from_str(numeral_str, sort_num).unwrap();
-                                    ctx.bvv(biguint)
-                                }
-                                z3::AstKind::App => {
-                                    let app = z3::to_app(*z3_ctx, inner_int);
-                                    let decl = z3::get_app_decl(*z3_ctx, app);
-                                    let decl_kind = z3::get_decl_kind(*z3_ctx, decl);
-
-                                    match decl_kind {
-                                        z3::DeclKind::Bv2int => {
-                                            let arg = z3::get_app_arg(*z3_ctx, app, 0);
-                                            BitVecAst::from_z3(ctx, arg)
-                                        }
-                                        _ => Err(ClarirsError::ConversionError(
-                                            "expected a Bv2int".to_string(),
-                                        )),
-                                    }
-                                }
-                                _ => Err(ClarirsError::ConversionError(
-                                    "expected a numeral or bv2int".to_string(),
-                                )),
-                            }
-                        }
-                        _ => Err(ClarirsError::ConversionError(
-                            "Failed converting from z3: unknown decl kind for bitvec".to_string(),
-                        )),
-                    }
+                let a = child!(children, 0);
+                z3::mk_extract(z3_ctx, *high, *low, a.0).into()
+            }
+            BitVecOp::Concat(..) => binop!(z3_ctx, children, mk_concat),
+            BitVecOp::Reverse(a) => {
+                if a.size() == 0 || a.size() % 8 != 0 {
+                    return Err(ClarirsError::ConversionError(
+                        "reverse only supports bitvectors with size multiple of 8".to_string(),
+                    ));
                 }
-                _ => Err(ClarirsError::ConversionError(
-                    "Failed converting from z3: unknown ast kind for bitvec".to_string(),
-                )),
+
+                let bytes = a.chop(8)?;
+                let reversed = bytes.iter().rev().collect::<Vec<_>>();
+
+                let mut acc: Option<BitVecAst> = None;
+
+                for byte in reversed {
+                    acc = match acc {
+                        Some(inner) => Some(ast.context().concat(&inner, byte)?),
+                        None => Some(byte.clone()),
+                    };
+                }
+
+                // FIXME: recursion
+                acc.unwrap().to_z3()?
+            }
+            BitVecOp::If(..) => {
+                let cond = child!(children, 0);
+                let then = child!(children, 1);
+                let else_ = child!(children, 2);
+                z3::mk_ite(z3_ctx, cond.0, then.0, else_.0).into()
+            }
+            BitVecOp::Annotated(..) => child!(children, 0).clone(),
+            BitVecOp::FpToIEEEBV(..) => todo!("FpToIEEEBV"),
+            BitVecOp::FpToUBV(..) => todo!("FpToUBV"),
+            BitVecOp::FpToSBV(..) => todo!("FpToSBV"),
+            BitVecOp::StrLen(..) => todo!("StrLen"),
+            BitVecOp::StrIndexOf(..) => todo!("StrIndexOf"),
+            BitVecOp::StrToBV(..) => todo!("StrToBV"),
+            BitVecOp::SI(..) | BitVecOp::Union(..) | BitVecOp::Intersection(..) => {
+                // These are not supported in Z3
+                return Err(ClarirsError::ConversionError(
+                    "vsa types are not currently supported in the z3 backend".to_string(),
+                ));
             }
         })
-    }
+        .and_then(|ast| {
+            if ast.is_null() {
+                Err(ClarirsError::ConversionError(
+                    "failed to create Z3 AST, got null".to_string(),
+                ))
+            } else {
+                Ok(ast)
+            }
+        })
+    })
+}
+
+pub(crate) fn from_z3<'c>(
+    ctx: &'c Context<'c>,
+    ast: impl Into<RcAst>,
+) -> Result<BitVecAst<'c>, ClarirsError> {
+    Z3_CONTEXT.with(|z3_ctx| unsafe {
+        let ast = ast.into();
+        let ast_kind = z3::get_ast_kind(*z3_ctx, *ast);
+        match ast_kind {
+            z3::AstKind::Numeral => {
+                let numeral_string = z3::get_numeral_string(*z3_ctx, *ast);
+                let numeral_str = std::ffi::CStr::from_ptr(numeral_string).to_str().unwrap();
+                let sort = z3::get_sort(*z3_ctx, *ast);
+                let sort_num = z3::get_bv_sort_size(*z3_ctx, sort);
+                let biguint = BitVec::from_str(numeral_str, sort_num).unwrap();
+                ctx.bvv(biguint)
+            }
+            z3::AstKind::App => {
+                let app = z3::to_app(*z3_ctx, *ast);
+                let decl = z3::get_app_decl(*z3_ctx, app);
+                let decl_kind = z3::get_decl_kind(*z3_ctx, decl);
+                let sort = z3::get_sort(*z3_ctx, *ast);
+                let width = z3::get_bv_sort_size(*z3_ctx, sort);
+
+                match decl_kind {
+                    z3::DeclKind::Uninterpreted => {
+                        let sym = z3::get_decl_name(*z3_ctx, decl);
+                        let name = z3::get_symbol_string(*z3_ctx, sym);
+                        let name = std::ffi::CStr::from_ptr(name).to_str().unwrap();
+                        ctx.bvs(name, width as u32)
+                    }
+                    z3::DeclKind::Bnot => {
+                        let arg = z3::get_app_arg(*z3_ctx, app, 0);
+                        let inner = BitVecAst::from_z3(ctx, arg)?;
+                        ctx.not(&inner)
+                    }
+                    z3::DeclKind::Bneg => {
+                        let arg = z3::get_app_arg(*z3_ctx, app, 0);
+                        let inner = BitVecAst::from_z3(ctx, arg)?;
+                        ctx.neg(&inner)
+                    }
+                    z3::DeclKind::Band
+                    | z3::DeclKind::Bor
+                    | z3::DeclKind::Bxor
+                    | z3::DeclKind::Badd
+                    | z3::DeclKind::Bsub
+                    | z3::DeclKind::Bmul
+                    | z3::DeclKind::Budiv
+                    | z3::DeclKind::Bsdiv
+                    | z3::DeclKind::Burem
+                    | z3::DeclKind::Bsrem
+                    | z3::DeclKind::Bshl
+                    | z3::DeclKind::Blshr
+                    | z3::DeclKind::Bashr => {
+                        let arg0 = z3::get_app_arg(*z3_ctx, app, 0);
+                        let arg1 = z3::get_app_arg(*z3_ctx, app, 1);
+                        let a = BitVecAst::from_z3(ctx, arg0)?;
+                        let b = BitVecAst::from_z3(ctx, arg1)?;
+                        match decl_kind {
+                            z3::DeclKind::Band => ctx.and(&a, &b),
+                            z3::DeclKind::Bor => ctx.or(&a, &b),
+                            z3::DeclKind::Bxor => ctx.xor(&a, &b),
+                            z3::DeclKind::Badd => ctx.add(&a, &b),
+                            z3::DeclKind::Bsub => ctx.sub(&a, &b),
+                            z3::DeclKind::Bmul => ctx.mul(&a, &b),
+                            z3::DeclKind::Budiv => ctx.udiv(&a, &b),
+                            z3::DeclKind::Bsdiv => ctx.sdiv(&a, &b),
+                            z3::DeclKind::Burem => ctx.urem(&a, &b),
+                            z3::DeclKind::Bsrem => ctx.srem(&a, &b),
+                            z3::DeclKind::Bshl => ctx.shl(&a, &b),
+                            z3::DeclKind::Blshr => ctx.lshr(&a, &b),
+                            z3::DeclKind::Bashr => ctx.ashr(&a, &b),
+                            _ => unreachable!(),
+                        }
+                    }
+                    z3::DeclKind::ExtRotateLeft | z3::DeclKind::ExtRotateRight => {
+                        let arg0 = z3::get_app_arg(*z3_ctx, app, 0);
+                        let arg1 = z3::get_app_arg(*z3_ctx, app, 1);
+                        let a = BitVecAst::from_z3(ctx, arg0)?;
+                        let b = BitVecAst::from_z3(ctx, arg1)?;
+                        match decl_kind {
+                            z3::DeclKind::ExtRotateLeft => ctx.rotate_left(&a, &b),
+                            z3::DeclKind::ExtRotateRight => ctx.rotate_right(&a, &b),
+                            _ => unreachable!(),
+                        }
+                    }
+                    z3::DeclKind::ZeroExt | z3::DeclKind::SignExt => {
+                        let arg = z3::get_app_arg(*z3_ctx, app, 0);
+                        let inner = BitVecAst::from_z3(ctx, arg)?;
+                        let i = z3::get_decl_int_parameter(*z3_ctx, decl, 0) as u32;
+                        match decl_kind {
+                            z3::DeclKind::ZeroExt => ctx.zero_ext(&inner, i),
+                            z3::DeclKind::SignExt => ctx.sign_ext(&inner, i),
+                            _ => unreachable!(),
+                        }
+                    }
+                    z3::DeclKind::Extract => {
+                        let arg = z3::get_app_arg(*z3_ctx, app, 0);
+                        let inner = BitVecAst::from_z3(ctx, arg)?;
+                        let high = z3::get_decl_int_parameter(*z3_ctx, decl, 0) as u32;
+                        let low = z3::get_decl_int_parameter(*z3_ctx, decl, 1) as u32;
+                        ctx.extract(&inner, high, low)
+                    }
+                    z3::DeclKind::Concat => {
+                        let arg0 = z3::get_app_arg(*z3_ctx, app, 0);
+                        let arg1 = z3::get_app_arg(*z3_ctx, app, 1);
+                        let a = BitVecAst::from_z3(ctx, arg0)?;
+                        let b = BitVecAst::from_z3(ctx, arg1)?;
+                        ctx.concat(&a, &b)
+                    }
+                    z3::DeclKind::Ite => {
+                        let cond = z3::get_app_arg(*z3_ctx, app, 0);
+                        let then = z3::get_app_arg(*z3_ctx, app, 1);
+                        let else_ = z3::get_app_arg(*z3_ctx, app, 2);
+                        let cond = BoolAst::from_z3(ctx, cond)?;
+                        let then = BitVecAst::from_z3(ctx, then)?;
+                        let else_ = BitVecAst::from_z3(ctx, else_)?;
+                        ctx.if_(&cond, &then, &else_)
+                    }
+                    // Special case for bv2int used in string operations
+                    z3::DeclKind::Int2bv => {
+                        let inner_int = z3::get_app_arg(*z3_ctx, app, 0);
+                        let inner_ast_kind = z3::get_ast_kind(*z3_ctx, *ast);
+                        match inner_ast_kind {
+                            z3::AstKind::Numeral => {
+                                let numeral_string = z3::get_numeral_string(*z3_ctx, inner_int);
+                                let numeral_str =
+                                    std::ffi::CStr::from_ptr(numeral_string).to_str().unwrap();
+                                let sort = z3::get_sort(*z3_ctx, inner_int);
+                                let sort_num = z3::get_bv_sort_size(*z3_ctx, sort);
+                                let biguint = BitVec::from_str(numeral_str, sort_num).unwrap();
+                                ctx.bvv(biguint)
+                            }
+                            z3::AstKind::App => {
+                                let app = z3::to_app(*z3_ctx, inner_int);
+                                let decl = z3::get_app_decl(*z3_ctx, app);
+                                let decl_kind = z3::get_decl_kind(*z3_ctx, decl);
+
+                                match decl_kind {
+                                    z3::DeclKind::Bv2int => {
+                                        let arg = z3::get_app_arg(*z3_ctx, app, 0);
+                                        BitVecAst::from_z3(ctx, arg)
+                                    }
+                                    _ => Err(ClarirsError::ConversionError(
+                                        "expected a Bv2int".to_string(),
+                                    )),
+                                }
+                            }
+                            _ => Err(ClarirsError::ConversionError(
+                                "expected a numeral or bv2int".to_string(),
+                            )),
+                        }
+                    }
+                    _ => Err(ClarirsError::ConversionError(
+                        "Failed converting from z3: unknown decl kind for bitvec".to_string(),
+                    )),
+                }
+            }
+            _ => Err(ClarirsError::ConversionError(
+                "Failed converting from z3: unknown ast kind for bitvec".to_string(),
+            )),
+        }
+    })
 }
 
 #[cfg(test)]
