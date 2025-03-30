@@ -5,7 +5,7 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
 };
 
-use clarirs_core::ast::float::FloatExt;
+use clarirs_core::ast::float::{FloatExt, FloatOpExt};
 use dashmap::DashMap;
 use pyo3::types::{PyFrozenSet, PyWeakrefReference};
 
@@ -306,6 +306,21 @@ impl FP {
         BV::new(
             self_.py(),
             &GLOBAL_CONTEXT.fp_to_ieeebv(&self_.get().inner)?,
+        )
+    }
+
+    pub fn raw_to_fp(self_: Bound<'_, FP>) -> Result<Bound<'_, FP>, ClaripyError> {
+        Ok(self_)
+    }
+
+    pub fn to_bv(self_: Bound<'_, FP>) -> Result<Bound<'_, BV>, ClaripyError> {
+        BV::new(
+            self_.py(),
+            &GLOBAL_CONTEXT.fp_to_sbv(
+                &self_.get().inner,
+                self_.get().inner.sort().size(),
+                FPRM::default(),
+            )?,
         )
     }
 }

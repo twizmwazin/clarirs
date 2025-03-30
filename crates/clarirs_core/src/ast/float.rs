@@ -200,3 +200,35 @@ impl<'c> FloatExt<'c> for FloatAst<'c> {
         self.op().size()
     }
 }
+
+pub trait FloatOpExt<'c> {
+    fn sort(&self) -> FSort;
+}
+
+impl<'c> FloatOpExt<'c> for FloatOp<'c> {
+    fn sort(&self) -> FSort {
+        match self {
+            FloatOp::FPS(_, sort) => *sort,
+            FloatOp::FPV(value) => value.fsort(),
+            FloatOp::FpNeg(a)
+            | FloatOp::FpAbs(a)
+            | FloatOp::FpSqrt(a, _)
+            | FloatOp::FpAdd(a, _, _)
+            | FloatOp::FpSub(a, _, _)
+            | FloatOp::FpMul(a, _, _)
+            | FloatOp::FpDiv(a, _, _)
+            | FloatOp::If(_, a, _)
+            | FloatOp::Annotated(a, _) => a.sort(),
+            FloatOp::FpToFp(_, sort, _)
+            | FloatOp::BvToFp(_, sort)
+            | FloatOp::BvToFpSigned(_, sort, _)
+            | FloatOp::BvToFpUnsigned(_, sort, _) => *sort,
+        }
+    }
+}
+
+impl<'c> FloatOpExt<'c> for FloatAst<'c> {
+    fn sort(&self) -> FSort {
+        self.op().sort()
+    }
+}
