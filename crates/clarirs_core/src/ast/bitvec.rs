@@ -17,7 +17,6 @@ pub enum BitVecOp<'c> {
     Or(BitVecAst<'c>, BitVecAst<'c>),
     Xor(BitVecAst<'c>, BitVecAst<'c>),
     Neg(BitVecAst<'c>),
-    Abs(BitVecAst<'c>),
     Add(BitVecAst<'c>, BitVecAst<'c>),
     Sub(BitVecAst<'c>, BitVecAst<'c>),
     Mul(BitVecAst<'c>, BitVecAst<'c>),
@@ -85,10 +84,6 @@ impl std::hash::Hash for BitVecOp<'_> {
                 b.hash(state);
             }
             BitVecOp::Neg(a) => {
-                6.hash(state);
-                a.hash(state);
-            }
-            BitVecOp::Abs(a) => {
                 6.hash(state);
                 a.hash(state);
             }
@@ -245,7 +240,6 @@ impl<'c> Op<'c> for BitVecOp<'c> {
             BitVecOp::BVS(..) | BitVecOp::BVV(..) | BitVecOp::SI(..) => vec![],
             BitVecOp::Not(a)
             | BitVecOp::Neg(a)
-            | BitVecOp::Abs(a)
             | BitVecOp::Reverse(a)
             | BitVecOp::ZeroExt(a, _)
             | BitVecOp::SignExt(a, _)
@@ -324,7 +318,6 @@ impl<'c> BitVecOpExt<'c> for BitVecOp<'c> {
             BitVecOp::BVV(bv) => bv.len(),
             BitVecOp::Not(a)
             | BitVecOp::Neg(a)
-            | BitVecOp::Abs(a)
             | BitVecOp::Reverse(a)
             | BitVecOp::If(_, a, _)
             | BitVecOp::Annotated(a, _) => a.size(),

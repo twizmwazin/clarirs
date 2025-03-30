@@ -21,7 +21,6 @@ macro_rules! uniop_support_trait {
 }
 
 uniop_support_trait!(Not, BooleanOp<'c>, make_bool, BitVecOp<'c>, make_bitvec);
-uniop_support_trait!(Abs, BitVecOp<'c>, make_bitvec);
 
 macro_rules! binop_support_trait {
     ($name:ident, $($impler:ty, $factory_func:ident),*) => {

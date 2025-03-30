@@ -67,22 +67,6 @@ pub(crate) fn simplify_bv<'c>(
                 _ => ctx.neg(&arc),
             }
         }
-        BitVecOp::Abs(..) => {
-            let arc = extract_bitvec_child!(children, 0);
-            match arc.op() {
-                BitVecOp::BVV(value) => {
-                    // Check if the value is negative by examining the sign bit
-                    if value.sign() {
-                        // If negative, return the negated value
-                        ctx.bvv((-value.clone())?)
-                    } else {
-                        // If positive, return the value as-is
-                        ctx.bvv(value.clone())
-                    }
-                }
-                _ => ctx.abs(&arc),
-            }
-        }
         BitVecOp::Add(..) => {
             let (arc, arc1) = (
                 extract_bitvec_child!(children, 0),
