@@ -360,6 +360,27 @@ impl BV {
         Ok(self_)
     }
 
+    pub fn raw_to_fp(self_: Bound<'_, BV>) -> Result<Bound<'_, FP>, ClaripyError> {
+        let ctx = self_.get().inner.context();
+        match self_.get().size() {
+            32 => Ok(FP::new(
+                self_.py(),
+                &ctx.bv_to_fp(&self_.get().inner, FSort::f32())?,
+            )?),
+            64 => Ok(FP::new(
+                self_.py(),
+                &ctx.bv_to_fp(&self_.get().inner, FSort::f64())?,
+            )?),
+            _ => Err(ClaripyError::InvalidOperation(
+                "Cannot convert BV to FP".to_string(),
+            )),
+        }
+    }
+
+    pub fn to_bv(self_: Bound<'_, BV>) -> Result<Bound<'_, BV>, ClaripyError> {
+        Ok(self_)
+    }
+
     pub fn __add__<'py>(
         &self,
         py: Python<'py>,
