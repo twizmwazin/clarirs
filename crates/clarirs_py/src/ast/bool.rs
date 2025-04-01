@@ -7,7 +7,6 @@ use std::sync::atomic::Ordering;
 use ast::args::ExtractPyArgs;
 use dashmap::DashMap;
 use pyo3::exceptions::PyValueError;
-use pyo3::types::PyList;
 use pyo3::types::PyTuple;
 use pyo3::types::{PyDict, PyFrozenSet, PyWeakrefMethods, PyWeakrefReference};
 
@@ -465,16 +464,14 @@ pub fn false_op(py: Python<'_>) -> Result<Bound<'_, Bool>, ClaripyError> {
 #[pyfunction]
 pub fn ite_cases<'py>(
     py: Python<'py>,
-    cases: Bound<'py, PyList>,
+    cases: Vec<Bound<'py, PyAny>>,
     default: Bound<'py, PyAny>,
 ) -> PyResult<Bound<'py, PyAny>> {
     let mut sofar = default;
 
     // Process cases in reverse order
-    let cases_len = cases.len();
-    for i in (0..cases_len).rev() {
-        let case = cases.get_item(i)?;
-        let tuple = case.downcast::<PyTuple>()?;
+    for i in cases.iter().rev() {
+        let tuple = i.downcast::<PyTuple>()?;
         if tuple.len() != 2 {
             return Err(PyValueError::new_err(
                 "Each case must be a (condition, value) tuple",
@@ -512,14 +509,14 @@ pub fn ite_dict<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     // For small dictionaries, just use ite_cases
     if d.len() <= 4 {
-        let cases = PyList::empty(py);
+        let mut cases = Vec::new();
         for (k, v) in d.iter() {
             let cond = i.call_method1("__eq__", (k.clone(),))?;
             let tuple = PyTuple::new(py, &[cond, v])?;
-            cases.append(tuple)?;
+            cases.push(tuple.into_any());
         }
 
-        return ite_cases(py, Py::from(cases).bind(py).clone(), default);
+        return ite_cases(py, cases, default);
     }
 
     // Binary search
