@@ -1,6 +1,7 @@
 pub mod algorithms;
 pub mod ast;
 pub mod cache;
+pub mod childvecext;
 pub mod context;
 pub mod error;
 pub mod prelude;
