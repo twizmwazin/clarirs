@@ -202,3 +202,18 @@ impl Normalize<'_> for BoolAst<'_> {
         }
     }
 }
+
+impl Normalize<'_> for DynAst<'_> {
+    fn normalize(&self) -> Result<Self, ClarirsError> {
+        match self {
+            DynAst::BitVec(ast) => ast.normalize().map(DynAst::BitVec),
+            DynAst::Boolean(ast) => ast.normalize().map(DynAst::Boolean),
+            DynAst::Float(_) => Err(ClarirsError::UnsupportedOperation(
+                "Floating point operations are not supported in VSA".to_string(),
+            )),
+            DynAst::String(_) => Err(ClarirsError::UnsupportedOperation(
+                "String operations are not supported in VSA".to_string(),
+            )),
+        }
+    }
+}
