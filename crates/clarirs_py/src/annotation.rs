@@ -1,286 +1,247 @@
-use std::hash::{DefaultHasher, Hash, Hasher};
+use std::{ffi::CString, mem::discriminant, str::FromStr};
 
 use num_bigint::BigInt;
-use pyo3::types::PyTuple;
+use pyo3::types::PyType;
 
 use crate::prelude::*;
 
-#[pyclass(name = "Annotation", module = "clarirs.annotation", subclass, frozen)]
-pub struct PyAnnotation {
-    #[pyo3(get)]
-    eliminatable: bool,
-    #[pyo3(get)]
-    relocatable: bool,
+// This isn't actually exported in python, but it makes more sense to go here
+// than anywhere else
+pub struct PyAnnotationType(AnnotationType);
+
+impl PyAnnotationType {
+    pub fn new(type_: AnnotationType) -> Self {
+        PyAnnotationType(type_)
+    }
+
+    pub fn matches(&self, other: &AnnotationType) -> bool {
+        match (&self.0, other) {
+            // In the unknown case, we need to compare the name field
+            (
+                AnnotationType::Unknown { name: name1, .. },
+                AnnotationType::Unknown { name: name2, .. },
+            ) => name1 == name2,
+            // In the other cases, we can just compare the discriminants
+            (..) => discriminant(&self.0) == discriminant(other),
+        }
+    }
 }
 
-#[pymethods]
+impl From<AnnotationType> for PyAnnotationType {
+    fn from(annotation_type: AnnotationType) -> Self {
+        PyAnnotationType(annotation_type)
+    }
+}
+
+impl From<PyAnnotationType> for AnnotationType {
+    fn from(py_annotation_type: PyAnnotationType) -> Self {
+        py_annotation_type.0
+    }
+}
+
+impl<'py> FromPyObject<'py> for PyAnnotationType {
+    fn extract_bound(anno_type: &Bound<'py, PyAny>) -> PyResult<Self> {
+        let anno_type = anno_type.downcast::<PyType>()?;
+        let anno_type_module_name = anno_type.getattr("__module__")?.extract::<String>()?;
+        let anno_type_class_name = anno_type
+            .getattr("__class__")?
+            .getattr("__name__")?
+            .extract::<String>()?;
+
+        Ok(match (
+            anno_type_module_name.as_str(),
+            anno_type_class_name.as_str(),
+        ) {
+            ("clarirs.annotation", "SimplificationAvoidanceAnnotation") => {
+                AnnotationType::SimplificationAvoidance
+            }
+            ("clarirs.annotation", "StridedIntervalAnnotation") => {
+                AnnotationType::StridedInterval {
+                    stride: BigInt::from(0),
+                    lower_bound: BigInt::from(0),
+                    upper_bound: BigInt::from(0),
+                }
+            }
+            ("clarirs.annotation", "RegionAnnotation") => AnnotationType::Region {
+                region_id: String::new(),
+                region_base_addr: BigInt::from(0),
+            },
+            ("clarirs.annotation", "UninitializedAnnotation") => AnnotationType::Uninitialized,
+            (anno_module_name, anno_class_name) => AnnotationType::Unknown {
+                name: format!("{}:{}", anno_module_name, anno_class_name),
+                value: Vec::new(),
+            },
+        }
+        .into())
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct PyAnnotation(pub Annotation);
+
 impl PyAnnotation {
-    #[new]
-    fn new(eliminatable: bool, relocatable: bool) -> PyClassInitializer<Self> {
-        PyClassInitializer::from(PyAnnotation {
-            eliminatable,
-            relocatable,
-        })
-    }
-
-    fn __getnewargs__(&self) -> PyResult<(bool, bool)> {
-        Ok((self.eliminatable, self.relocatable))
-    }
-
-    fn __hash__(self_: Bound<PyAnnotation>) -> Result<isize, ClaripyError> {
-        let mut hasher = DefaultHasher::new();
-
-        self_.get_type().name()?.hash()?.hash(&mut hasher);
-        self_.get().eliminatable.hash(&mut hasher);
-        self_.get().relocatable.hash(&mut hasher);
-
-        Ok(hasher.finish() as isize)
-    }
-
-    fn __eq__(self_: Bound<PyAnnotation>, other: Bound<PyAny>) -> PyResult<bool> {
-        if let Ok(other) = other.downcast::<PyAnnotation>() {
-            Ok(self_.get_type().name()?.extract::<String>()?
-                == other.get_type().name()?.extract::<String>()?
-                && self_.get().eliminatable == other.get().eliminatable
-                && self_.get().relocatable == other.get().relocatable)
-        } else {
-            Ok(false)
-        }
+    pub fn new(type_: AnnotationType, eliminatable: bool, relocatable: bool) -> Self {
+        PyAnnotation(Annotation::new(type_, eliminatable, relocatable))
     }
 }
 
-#[pyclass(extends = PyAnnotation, module = "clarirs.annotation", subclass, frozen)]
-pub struct SimplificationAvoidanceAnnotation {}
-
-#[pymethods]
-impl SimplificationAvoidanceAnnotation {
-    #[new]
-    fn new() -> PyClassInitializer<Self> {
-        PyAnnotation::new(false, false).add_subclass(SimplificationAvoidanceAnnotation {})
-    }
-
-    fn __getnewargs__<'py>(&self, py: Python<'py>) -> Bound<'py, PyTuple> {
-        PyTuple::empty(py)
+impl From<Annotation> for PyAnnotation {
+    fn from(annotation: Annotation) -> Self {
+        PyAnnotation(annotation)
     }
 }
 
-#[pyclass(extends = PyAnnotation, module = "clarirs.annotation", subclass, frozen)]
-pub struct StridedIntervalAnnotation {
-    #[pyo3(get)]
-    stride: BigInt,
-    #[pyo3(get)]
-    lower_bound: BigInt,
-    #[pyo3(get)]
-    upper_bound: BigInt,
+impl From<PyAnnotation> for Annotation {
+    fn from(py_annotation: PyAnnotation) -> Self {
+        py_annotation.0
+    }
 }
 
-#[pymethods]
-impl StridedIntervalAnnotation {
-    #[new]
-    #[pyo3(signature = (stride, lower_bound, upper_bound))]
-    fn new(stride: BigInt, lower_bound: BigInt, upper_bound: BigInt) -> PyClassInitializer<Self> {
-        PyAnnotation::new(false, false).add_subclass(StridedIntervalAnnotation {
-            stride,
-            lower_bound,
-            upper_bound,
-        })
-    }
+impl FromPyObject<'_> for PyAnnotation {
+    fn extract_bound(annotation: &Bound<'_, PyAny>) -> PyResult<Self> {
+        let pickle_dumps = annotation.py().import("pickle")?.getattr("dumps")?;
+        let anno_module_name = annotation.getattr("__module__")?.extract::<String>()?;
+        let anno_class_name = annotation
+            .getattr("__class__")?
+            .getattr("__name__")?
+            .extract::<String>()?;
 
-    fn __getnewargs__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
-        PyTuple::new(
-            py,
-            &[
-                self.stride.clone(),
-                self.lower_bound.clone(),
-                self.upper_bound.clone(),
-            ],
+        Ok(
+            match (anno_module_name.as_str(), anno_class_name.as_str()) {
+                ("clarirs.annotation", "SimplificationAvoidanceAnnotation") => {
+                    PyAnnotation::new(AnnotationType::SimplificationAvoidance, false, false)
+                }
+                ("clarirs.annotation", "StridedIntervalAnnotation") => {
+                    let stride = annotation.getattr("stride")?.extract::<BigInt>()?;
+                    let lower_bound = annotation.getattr("lower_bound")?.extract::<BigInt>()?;
+                    let upper_bound = annotation.getattr("upper_bound")?.extract::<BigInt>()?;
+
+                    PyAnnotation::new(
+                        AnnotationType::StridedInterval {
+                            stride,
+                            lower_bound,
+                            upper_bound,
+                        },
+                        false,
+                        false,
+                    )
+                }
+                ("clarirs.annotation", "RegionAnnotation") => {
+                    let region_id = annotation.getattr("region_id")?.extract::<String>()?;
+                    let region_base_addr = annotation
+                        .getattr("region_base_addr")?
+                        .extract::<BigInt>()?;
+
+                    PyAnnotation::new(
+                        AnnotationType::Region {
+                            region_id,
+                            region_base_addr,
+                        },
+                        false,
+                        false,
+                    )
+                }
+                ("clarirs.annotation", "UninitializedAnnotation") => {
+                    PyAnnotation::new(AnnotationType::Uninitialized, false, true)
+                }
+                (anno_module_name, anno_class_name) => PyAnnotation::new(
+                    AnnotationType::Unknown {
+                        name: format!("{}:{}", anno_module_name, anno_class_name),
+                        value: pickle_dumps.call1((annotation,))?.extract::<Vec<u8>>()?,
+                    },
+                    false,
+                    false,
+                ),
+            },
         )
     }
-
-    fn __str__(&self) -> String {
-        format!(
-            "SI(stride={}, lower_bound={}, upper_bound={})",
-            self.stride, self.lower_bound, self.upper_bound
-        )
-    }
-
-    fn __hash__(self_: Bound<StridedIntervalAnnotation>) -> Result<isize, ClaripyError> {
-        let mut hasher = DefaultHasher::new();
-
-        // Hash the parent class attributes
-        self_.py_super()?.hash()?.hash(&mut hasher);
-
-        // Hash the SI-specific attributes
-        self_.get().stride.hash(&mut hasher);
-        self_.get().lower_bound.hash(&mut hasher);
-        self_.get().upper_bound.hash(&mut hasher);
-
-        Ok(hasher.finish() as isize)
-    }
-
-    fn __eq__(
-        self_: Bound<StridedIntervalAnnotation>,
-        other: Bound<PyAny>,
-    ) -> Result<bool, ClaripyError> {
-        // First check if types match
-        if let Ok(other) = other.downcast::<StridedIntervalAnnotation>() {
-            Ok(self_.py_super()?.eq(other)?
-                && self_.get().stride == other.get().stride
-                && self_.get().lower_bound == other.get().lower_bound
-                && self_.get().upper_bound == other.get().upper_bound)
-        } else {
-            Ok(false)
-        }
-    }
 }
 
-#[pyclass(extends = PyAnnotation, module = "clarirs.annotation", subclass, frozen)]
-pub struct RegionAnnotation {
-    #[pyo3(get)]
-    region_id: String,
-    #[pyo3(get)]
-    region_base_addr: BigInt,
-}
+impl<'py> IntoPyObject<'py> for PyAnnotation {
+    type Target = PyAny;
+    type Output = Bound<'py, PyAny>;
+    type Error = ClaripyError;
 
-#[pymethods]
-impl RegionAnnotation {
-    #[new]
-    fn new(region_id: String, region_base_addr: BigInt) -> PyClassInitializer<Self> {
-        PyAnnotation::new(false, false).add_subclass(RegionAnnotation {
-            region_id,
-            region_base_addr,
-        })
-    }
-
-    fn __getnewargs__<'py>(&self, py: Python<'py>) -> Result<Bound<'py, PyTuple>, ClaripyError> {
-        Ok(PyTuple::new(
-            py,
-            &[
-                self.region_id.clone().into_bound_py_any(py)?,
-                self.region_base_addr.clone().into_bound_py_any(py)?,
-            ],
-        )?)
-    }
-
-    fn __hash__(self_: Bound<RegionAnnotation>) -> Result<isize, ClaripyError> {
-        let mut hasher = DefaultHasher::new();
-
-        // Hash the parent class attributes
-        self_.py_super()?.hash()?.hash(&mut hasher);
-
-        // Hash the RegionAnnotation-specific attributes
-        self_.get().region_id.hash(&mut hasher);
-        self_.get().region_base_addr.hash(&mut hasher);
-
-        Ok(hasher.finish() as isize)
-    }
-
-    fn __eq__(self_: Bound<RegionAnnotation>, other: Bound<PyAny>) -> Result<bool, ClaripyError> {
-        // First check if types match
-        if let Ok(other) = other.downcast::<RegionAnnotation>() {
-            Ok(self_.py_super()?.eq(other)?
-                && self_.get().region_id == other.get().region_id
-                && self_.get().region_base_addr == other.get().region_base_addr)
-        } else {
-            Ok(false)
-        }
-    }
-}
-
-#[pyclass(extends = PyAnnotation, module = "clarirs.annotation", subclass, frozen)]
-pub struct UninitializedAnnotation {}
-
-#[pymethods]
-impl UninitializedAnnotation {
-    #[new]
-    fn new() -> PyClassInitializer<Self> {
-        PyAnnotation::new(false, true).add_subclass(UninitializedAnnotation {})
-    }
-
-    fn __getnewargs__<'py>(&self, py: Python<'py>) -> Bound<'py, PyTuple> {
-        PyTuple::empty(py)
-    }
-}
-
-pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
-    m.add_class::<PyAnnotation>()?;
-    m.add_class::<SimplificationAvoidanceAnnotation>()?;
-    m.add_class::<StridedIntervalAnnotation>()?;
-    m.add_class::<RegionAnnotation>()?;
-    m.add_class::<UninitializedAnnotation>()?;
-
-    Ok(())
-}
-
-pub(crate) fn extract_annotation(annotation: Bound<'_, PyAny>) -> Result<Annotation, ClaripyError> {
-    let pickle_dumps = annotation.py().import("pickle")?.getattr("dumps")?;
-    if let Ok(annotation) = annotation.downcast_exact::<StridedIntervalAnnotation>() {
-        Ok(Annotation::new(
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+        Ok(match self.0.type_() {
+            AnnotationType::Unknown { name: _, value } => {
+                let pickle_loads = py.import("pickle")?.getattr("loads")?;
+                pickle_loads.call1((value,))?
+            }
+            AnnotationType::SimplificationAvoidance => {
+                let module = py.import("clarirs.annotation")?;
+                module
+                    .getattr("SimplificationAvoidanceAnnotation")?
+                    .call1(())?
+            }
             AnnotationType::StridedInterval {
-                stride: annotation.get().stride.clone(),
-                lower_bound: annotation.get().lower_bound.clone(),
-                upper_bound: annotation.get().upper_bound.clone(),
-            },
-            false,
-            false,
-        ))
-    } else if let Ok(annotation) = annotation.downcast_exact::<RegionAnnotation>() {
-        Ok(Annotation::new(
+                stride,
+                lower_bound,
+                upper_bound,
+            } => {
+                let module = py.import("clarirs.annotation")?;
+                module.getattr("StridedIntervalAnnotation")?.call1((
+                    stride,
+                    lower_bound,
+                    upper_bound,
+                ))?
+            }
             AnnotationType::Region {
-                region_id: annotation.get().region_id.clone(),
-                region_base_addr: annotation.get().region_base_addr.clone(),
-            },
-            false,
-            false,
-        ))
-    } else if let Ok(annotation) = annotation.downcast::<PyAnnotation>() {
-        Ok(Annotation::new(
-            AnnotationType::Unknown {
-                name: annotation.get_type().name()?.extract::<String>()?,
-                value: pickle_dumps.call1((annotation,))?.extract::<Vec<u8>>()?,
-            },
-            annotation.get().eliminatable,
-            annotation.get().relocatable,
-        ))
-    } else {
-        Err(ClaripyError::TypeError(format!(
-            "Unsupported annotation type: {:?}",
-            annotation.get_type().name()?
-        )))
+                region_id,
+                region_base_addr,
+            } => {
+                let module = py.import("clarirs.annotation")?;
+                module
+                    .getattr("RegionAnnotation")?
+                    .call1((region_id, region_base_addr))?
+            }
+            AnnotationType::Uninitialized => {
+                let module = py.import("clarirs.annotation")?;
+                module.getattr("UninitializedAnnotation")?.call1(())?
+            }
+        })
     }
 }
 
-pub(crate) fn create_pyannotation<'py>(
-    py: Python<'py>,
-    annotation: &Annotation,
-) -> Result<Bound<'py, PyAny>, ClaripyError> {
-    Ok(match annotation.type_() {
-        AnnotationType::Unknown { name, value } => {
-            let _ = name; // uneeded
+// This feels wrong, but it's the only way to get normal classes for compatible
+// subclassing behavior in Python.
+static MODULE_CODE: &str = r#"
+class Annotation:
+    relocatable = True
+    eliminatable = True
 
-            let pickle_loads = py.import("pickle")?.getattr("loads")?;
-            pickle_loads.call1((value,))?
-        }
-        AnnotationType::StridedInterval {
-            stride,
-            lower_bound,
-            upper_bound,
-        } => Bound::new(
-            py,
-            StridedIntervalAnnotation::new(
-                stride.clone(),
-                lower_bound.clone(),
-                upper_bound.clone(),
-            ),
-        )?
-        .into_any(),
-        AnnotationType::Region {
-            region_id,
-            region_base_addr,
-        } => Bound::new(
-            py,
-            RegionAnnotation::new(region_id.clone(), region_base_addr.clone()),
-        )?
-        .into_any(),
-    })
+class SimplificationAvoidanceAnnotation(Annotation):
+    relocatable = False
+    eliminatable = False
+
+class StridedIntervalAnnotation(Annotation):
+    relocatable = False
+    eliminatable = False
+
+    def __init__(self, stride, lower_bound, upper_bound):
+        self.stride = stride
+        self.lower_bound = lower_bound
+        self.upper_bound = upper_bound
+
+class RegionAnnotation(Annotation):
+    relocatable = False
+    eliminatable = False
+
+    def __init__(self, region_id, region_base_addr):
+        self.region_id = region_id
+        self.region_base_addr = region_base_addr
+
+class UninitializedAnnotation(Annotation):
+    relocatable = True
+    eliminatable = False
+"#;
+
+pub(crate) fn build_module(py: Python<'_>) -> PyResult<Bound<'_, PyModule>> {
+    let module = PyModule::from_code(
+        py,
+        &CString::from_str(MODULE_CODE)?,
+        &CString::from_str("annotation.py")?,
+        &CString::from_str("clarirs.annotation")?,
+    )?;
+    Ok(module)
 }
