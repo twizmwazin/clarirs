@@ -70,9 +70,7 @@ impl<'c> Solver<'c> for ConcreteSolver<'c> {
     }
 
     fn add(&mut self, _: &BoolAst<'c>) -> Result<(), ClarirsError> {
-        Err(ClarirsError::UnsupportedOperation(
-            "Concerete solver does not support adding constraints".to_string(),
-        ))
+        Ok(())
     }
 
     fn satisfiable(&mut self) -> Result<bool, ClarirsError> {
