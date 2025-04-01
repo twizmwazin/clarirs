@@ -21,6 +21,18 @@ impl PySolver {
         }))
     }
 
+    fn blank_copy(&self) -> Result<PySolver, ClaripyError> {
+        Ok(PySolver {
+            inner: match &self.inner {
+                DynSolver::Concrete(..) => {
+                    DynSolver::Concrete(ConcreteSolver::new(&GLOBAL_CONTEXT))
+                }
+                DynSolver::Z3(..) => DynSolver::Z3(Z3Solver::new(&GLOBAL_CONTEXT)),
+                DynSolver::Vsa(..) => DynSolver::Vsa(VSASolver::new(&GLOBAL_CONTEXT)),
+            },
+        })
+    }
+
     #[getter]
     fn constraints<'py>(&self, py: Python<'py>) -> Result<Vec<Bound<'py, Bool>>, ClaripyError> {
         self.inner
