@@ -7,7 +7,6 @@ use std::sync::atomic::Ordering;
 use ast::args::ExtractPyArgs;
 use dashmap::DashMap;
 use pyo3::exceptions::PyValueError;
-use pyo3::types::PyList;
 use pyo3::types::PyTuple;
 use pyo3::types::{PyDict, PyFrozenSet, PyWeakrefMethods, PyWeakrefReference};
 
