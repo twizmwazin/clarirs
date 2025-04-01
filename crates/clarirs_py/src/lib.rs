@@ -35,6 +35,27 @@ fn import_submodule<'py>(
     Ok(())
 }
 
+fn add_submodule<'py>(
+    py: Python<'py>,
+    m: &Bound<'py, PyModule>,
+    package: &str,
+    name: &str,
+    build_func: impl FnOnce(Python<'py>) -> PyResult<Bound<'py, PyModule>>,
+) -> PyResult<Bound<'py, PyModule>> {
+    let submodule = build_func(py)?;
+    pyo3::py_run!(
+        py,
+        submodule,
+        &format!(
+            "import sys; sys.modules['{}.{}'] = submodule",
+            package, name
+        )
+    );
+    m.add_submodule(&submodule)?;
+    m.add(name, submodule.clone())?;
+    Ok(submodule)
+}
+
 #[pyfunction(name = "simplify")]
 fn py_simplify<'py>(
     py: Python<'py>,
@@ -89,7 +110,7 @@ fn is_false(expr: Bound<'_, Bool>) -> Result<bool, ClaripyError> {
 
 #[pymodule]
 pub fn clarirs(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
-    import_submodule(py, m, "clarirs", "annotation", annotation::import)?;
+    let annotation = add_submodule(py, m, "clarirs", "annotation", annotation::build_module)?;
     import_submodule(py, m, "clarirs", "ast", ast::import)?;
     import_submodule(py, m, "clarirs", "solver", solver::import)?;
 
@@ -190,10 +211,20 @@ pub fn clarirs(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<ast::fp::FP>()?;
     m.add_class::<ast::string::PyAstString>()?;
 
-    m.add_class::<annotation::PyAnnotation>()?;
-    m.add_class::<annotation::SimplificationAvoidanceAnnotation>()?;
-    m.add_class::<annotation::RegionAnnotation>()?;
-    m.add_class::<annotation::UninitializedAnnotation>()?;
+    m.add("Annotation", annotation.getattr("Annotation")?)?;
+    m.add(
+        "SimplificationAvoidanceAnnotation",
+        annotation.getattr("SimplificationAvoidanceAnnotation")?,
+    )?;
+    m.add(
+        "StridedIntervalAnnotation",
+        annotation.getattr("StridedIntervalAnnotation")?,
+    )?;
+    m.add("RegionAnnotation", annotation.getattr("RegionAnnotation")?)?;
+    m.add(
+        "UninitializedAnnotation",
+        annotation.getattr("UninitializedAnnotation")?,
+    )?;
 
     m.add("ClaripyError", py.get_type::<py_err::ClaripyError>())?;
     m.add(
