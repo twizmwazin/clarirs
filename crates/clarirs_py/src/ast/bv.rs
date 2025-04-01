@@ -5,12 +5,12 @@ use std::sync::LazyLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use clarirs_core::ast::bitvec::{BitVecAstExt, BitVecOpExt};
+use clarirs_vsa::cardinality;
 use dashmap::DashMap;
 use num_bigint::{BigInt, BigUint};
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::types::{PyFrozenSet, PySlice, PyWeakrefReference};
 
-use crate::annotation::{create_pyannotation, extract_annotation};
 use crate::ast::{and, not, or, xor};
 use crate::prelude::*;
 use crate::pyslicemethodsext::PySliceMethodsExt;
@@ -220,13 +220,14 @@ impl BV {
     }
 
     #[getter]
-    pub fn annotations<'py>(&self, py: Python<'py>) -> PyResult<Vec<Bound<'py, PyAny>>> {
+    pub fn annotations(&self) -> PyResult<Vec<PyAnnotation>> {
         Ok(self
             .inner
             .get_annotations()
             .iter()
-            .map(|a| create_pyannotation(py, a))
-            .collect::<Result<Vec<Bound<'py, PyAny>>, ClaripyError>>()?)
+            .cloned()
+            .map(PyAnnotation::from)
+            .collect())
     }
 
     pub fn hash(&self) -> u64 {
@@ -312,38 +313,40 @@ impl BV {
         }
     }
 
+    #[pyo3(signature = (*annotations))]
     pub fn annotate<'py>(
         &self,
         py: Python<'py>,
-        annotation: Bound<PyAny>,
+        annotations: Vec<PyAnnotation>,
     ) -> Result<Bound<'py, BV>, ClaripyError> {
         BV::new(
             py,
-            &GLOBAL_CONTEXT.annotated(&self.inner, extract_annotation(annotation)?)?,
+            &annotations
+                .iter()
+                .try_fold(self.inner.clone(), |acc, annotation| {
+                    GLOBAL_CONTEXT.annotated(&acc, annotation.0.clone())
+                })?,
         )
     }
 
-    pub fn has_annotation_type<'py>(
+    pub fn has_annotation_type(
         &self,
-        py: Python<'py>,
-        annotation_type: Bound<'py, PyAny>,
+        annotation_type: PyAnnotationType,
     ) -> Result<bool, ClaripyError> {
         Ok(self
-            .annotations(py)?
+            .annotations()?
             .iter()
-            .any(|annotation| annotation.is_instance(&annotation_type).unwrap_or(false)))
+            .any(|annotation| annotation_type.matches(annotation.0.type_())))
     }
 
-    pub fn get_annotations_by_type<'py>(
+    pub fn get_annotations_by_type(
         &self,
-        py: Python<'py>,
-        annotation_type: Bound<'py, PyAny>,
-    ) -> Result<Vec<Bound<'py, PyAny>>, ClaripyError> {
+        annotation_type: PyAnnotationType,
+    ) -> Result<Vec<PyAnnotation>, ClaripyError> {
         Ok(self
-            .annotations(py)?
-            .iter()
-            .filter(|annotation| annotation.is_instance(&annotation_type).unwrap_or(false))
-            .cloned()
+            .annotations()?
+            .into_iter()
+            .filter(|annotation| annotation_type.matches(annotation.0.type_()))
             .collect())
     }
 

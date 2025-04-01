@@ -9,6 +9,7 @@ pub enum AnnotationType {
         name: String,
         value: Vec<u8>,
     },
+    SimplificationAvoidance,
     StridedInterval {
         stride: BigInt,
         lower_bound: BigInt,
@@ -18,6 +19,7 @@ pub enum AnnotationType {
         region_id: String,
         region_base_addr: BigInt,
     },
+    Uninitialized,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
@@ -39,8 +41,10 @@ impl Annotation {
     pub fn name(&self) -> &str {
         match self.type_ {
             AnnotationType::Unknown { ref name, .. } => name,
+            AnnotationType::SimplificationAvoidance => "SimplificationAvoidanceAnnotation",
             AnnotationType::StridedInterval { .. } => "StridedIntervalAnnotation",
             AnnotationType::Region { .. } => "RegionAnnotation",
+            AnnotationType::Uninitialized => "UninitializedAnnotation",
         }
     }
 
