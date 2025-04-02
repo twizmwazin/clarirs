@@ -1187,6 +1187,31 @@ pub fn SI(
 }
 
 #[pyfunction]
+pub fn VS<'py>(
+    py: Python<'py>,
+    bits: u32,
+    region_id: String,
+    region_base_addr: BigInt,
+    value: CoerceBV,
+) -> Result<Bound<'py, BV>, ClaripyError> {
+    let value = value.extract(py, bits)?;
+    BV::new(
+        py,
+        &GLOBAL_CONTEXT.annotated(
+            &value.get().inner,
+            Annotation::new(
+                AnnotationType::Region {
+                    region_id,
+                    region_base_addr,
+                },
+                false,
+                false,
+            ),
+        )?,
+    )
+}
+
+#[pyfunction]
 pub fn Union<'py>(
     py: Python<'py>,
     lhs: CoerceBV,
@@ -1251,6 +1276,7 @@ pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
         Eq_,
         super::r#if,
         SI,
+        VS,
         Union,
         Intersection,
     );
