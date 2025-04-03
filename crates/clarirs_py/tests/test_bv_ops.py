@@ -25,8 +25,8 @@ class TestBVOperations(unittest.TestCase):
         self.bv_int_min = claripy.BVV(-0x80000000, 32)  # Minimum signed 32-bit integer
         self.bv_pow2 = claripy.BVV(1 << 16, 32)  # Power of 2 for division tests
 
-        self.z3 = claripy.solver.Z3Solver()
-        self.concrete = claripy.solver.ConcreteSolver()
+        self.z3 = claripy.solver.SolverZ3()
+        self.concrete = claripy.solver.SolverConcrete()
 
     def _check_equal(self, expr, expected):
         """

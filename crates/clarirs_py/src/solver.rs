@@ -529,7 +529,7 @@ impl PySolver {
     }
 }
 
-#[pyclass(extends = PySolver, name = "ConcreteSolver", module = "clarirs.solver")]
+#[pyclass(extends = PySolver, name = "SolverConcrete", module = "clarirs.solver")]
 pub struct PyConcreteSolver;
 
 #[pymethods]
@@ -543,7 +543,7 @@ impl PyConcreteSolver {
     }
 }
 
-#[pyclass(extends = PySolver, name = "Z3Solver", module = "clarirs.solver")]
+#[pyclass(extends = PySolver, name = "SolverZ3", module = "clarirs.solver")]
 pub struct PyZ3Solver;
 
 #[pymethods]
@@ -557,7 +557,7 @@ impl PyZ3Solver {
     }
 }
 
-#[pyclass(extends = PySolver, name = "VSASolver", module = "clarirs.solver")]
+#[pyclass(extends = PySolver, name = "SolverVSA", module = "clarirs.solver")]
 pub struct PyVSASolver;
 
 #[pymethods]
