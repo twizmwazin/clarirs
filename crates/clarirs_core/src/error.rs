@@ -13,7 +13,7 @@ pub enum ClarirsError {
     InvalidArguments,
     #[error("Invalid arguments: {0}")]
     InvalidArgumentsWithMessage(String),
-    #[error("BitVector too short: {value:?} is too short for length {length}")]
+    #[error("BitVector too short: {length} bits is too short for value {value}")]
     BitVectorTooShort {
         value: num_bigint::BigUint,
         length: u32,

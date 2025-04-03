@@ -21,7 +21,7 @@ use num_traits::One;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Error)]
 pub enum BitVecError {
-    #[error("BitVector too short: {length} is too short for value {value}")]
+    #[error("BitVector too short: {length} bits is too short for value {value}")]
     BitVectorTooShort { value: BigUint, length: u32 },
     #[error("BitVector not bite-sized: {length:?} is not a multiple of 8")]
     BitVectorNotByteSized { length: u32 },
