@@ -74,12 +74,7 @@ impl Normalize<'_> for BitVecAst<'_> {
             BitVecOp::BVS(_, _) => Err(ClarirsError::UnsupportedOperation(
                 "VSA expects BVS to have an SI annotation".to_string(),
             )),
-            BitVecOp::BVV(bv) => ctx.si(
-                bv.len(),
-                1u32.into(),
-                bv.to_biguint(),
-                bv.to_biguint(),
-            ),
+            BitVecOp::BVV(bv) => ctx.si(bv.len(), 1u32.into(), bv.to_biguint(), bv.to_biguint()),
             BitVecOp::Not(ast) => ctx.not(&ast.normalize()?),
             BitVecOp::And(lhs, rhs) => ctx.and(&lhs.normalize()?, &rhs.normalize()?),
             BitVecOp::Or(lhs, rhs) => ctx.or(&lhs.normalize()?, &rhs.normalize()?),
