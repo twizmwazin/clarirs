@@ -19,8 +19,8 @@ class TestBoolOperations(unittest.TestCase):
         self.bv_sym = claripy.BVS("z", 32)
 
         # Initialize frontends
-        self.z3 = claripy.solver.Z3Solver()
-        self.concrete = claripy.solver.ConcreteSolver()
+        self.z3 = claripy.solver.SolverZ3()
+        self.concrete = claripy.solver.SolverConcrete()
 
     def _check_equal(self, expr, expected):
         """Helper to check equality of Bool expressions"""
@@ -186,7 +186,7 @@ class TestBoolOperations(unittest.TestCase):
         # Same true/false values
         result = claripy.If(self.bool_sym, self.bv1, self.bv1)
         # Use Z3 to evaluate symbolic result
-        z3_solver = claripy.solver.Z3Solver()
+        z3_solver = claripy.solver.SolverZ3()
 
         # Create a constraint to resolve the symbolic condition
         z3_solver.add(self.bool_sym == True)
