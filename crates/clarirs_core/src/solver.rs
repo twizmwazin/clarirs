@@ -42,6 +42,138 @@ pub trait Solver<'c>: Clone + HasContext<'c> {
     /// Get the maximum value of an expression in the current model. If the constraints are
     /// unsatisfiable, an error is returned.
     fn max(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError>;
+
+    /// Find multiple solutions for a boolean expression
+    fn eval_bool_n(
+        &mut self,
+        expr: &BoolAst<'c>,
+        n: u32,
+    ) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
+        let mut results = Vec::new();
+        let mut solver = self.clone();
+
+        // Try to find up to n solutions
+        for _ in 0..n {
+            // Check if solver is still satisfiable
+            if !solver.satisfiable()? {
+                break; // No more solutions
+            }
+
+            // Get current solution
+            let solution = solver.eval_bool(expr)?;
+            results.push(solution.clone());
+
+            // Add constraint to exclude this solution for next iteration
+            // Don't do this for concrete solvers which don't support constraints
+            if let Ok(()) = solver.add(&solver.context().neq(expr, &solution)?) {
+                // Successfully added constraint, continue to next iteration
+            } else {
+                // If we can't add constraints, we can only get one solution
+                break;
+            }
+        }
+
+        Ok(results)
+    }
+
+    /// Find multiple solutions for a bitvector expression
+    fn eval_bitvec_n(
+        &mut self,
+        expr: &BitVecAst<'c>,
+        n: u32,
+    ) -> Result<Vec<BitVecAst<'c>>, ClarirsError> {
+        let mut results = Vec::new();
+        let mut solver = self.clone();
+
+        // Try to find up to n solutions
+        for _ in 0..n {
+            // Check if solver is still satisfiable
+            if !solver.satisfiable()? {
+                break; // No more solutions
+            }
+
+            // Get current solution
+            let solution = solver.eval_bitvec(expr)?;
+            results.push(solution.clone());
+
+            // Add constraint to exclude this solution for next iteration
+            // Don't do this for concrete solvers which don't support constraints
+            if let Ok(()) = solver.add(&solver.context().neq(expr, &solution)?) {
+                // Successfully added constraint, continue to next iteration
+            } else {
+                // If we can't add constraints, we can only get one solution
+                break;
+            }
+        }
+
+        Ok(results)
+    }
+
+    /// Find multiple solutions for a float expression
+    fn eval_float_n(
+        &mut self,
+        expr: &FloatAst<'c>,
+        n: u32,
+    ) -> Result<Vec<FloatAst<'c>>, ClarirsError> {
+        let mut results = Vec::new();
+        let mut solver = self.clone();
+
+        // Try to find up to n solutions
+        for _ in 0..n {
+            // Check if solver is still satisfiable
+            if !solver.satisfiable()? {
+                break; // No more solutions
+            }
+
+            // Get current solution
+            let solution = solver.eval_float(expr)?;
+            results.push(solution.clone());
+
+            // Add constraint to exclude this solution for next iteration
+            // Don't do this for concrete solvers which don't support constraints
+            if let Ok(()) = solver.add(&solver.context().neq(expr, &solution)?) {
+                // Successfully added constraint, continue to next iteration
+            } else {
+                // If we can't add constraints, we can only get one solution
+                break;
+            }
+        }
+
+        Ok(results)
+    }
+
+    /// Find multiple solutions for a string expression
+    fn eval_string_n(
+        &mut self,
+        expr: &StringAst<'c>,
+        n: u32,
+    ) -> Result<Vec<StringAst<'c>>, ClarirsError> {
+        let mut results = Vec::new();
+        let mut solver = self.clone();
+
+        // Try to find up to n solutions
+        for _ in 0..n {
+            // Check if solver is still satisfiable
+            if !solver.satisfiable()? {
+                break; // No more solutions
+            }
+
+            // Get current solution
+            let solution = solver.eval_string(expr)?;
+            results.push(solution.clone());
+
+            // Add constraint to exclude this solution for next iteration
+            // Don't do this for concrete solvers which don't support constraints
+            if let Ok(()) = solver.add(&solver.context().neq(expr, &solution)?) {
+                // Successfully added constraint, continue to next iteration
+            } else {
+                // If we can't add constraints, we can only get one solution
+                break;
+            }
+        }
+
+        Ok(results)
+    }
 }
 
 /// A concrete solver. This solver is used to evaluate expressions in a concrete
