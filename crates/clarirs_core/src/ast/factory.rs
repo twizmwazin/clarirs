@@ -583,9 +583,9 @@ pub trait AstFactory<'c>: Sized {
     fn si(
         &'c self,
         size: u32,
-        stride: BigInt,
-        lower_bound: BigInt,
-        upper_bound: BigInt,
+        stride: BigUint,
+        lower_bound: BigUint,
+        upper_bound: BigUint,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
         self.make_bitvec(BitVecOp::SI(size, stride, lower_bound, upper_bound))
     }

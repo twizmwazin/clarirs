@@ -1176,9 +1176,9 @@ binop!(Neq, neq, Bool);
 pub fn SI(
     py: Python<'_>,
     bits: u32,
-    stride: BigInt,
-    lower_bound: BigInt,
-    upper_bound: BigInt,
+    stride: BigUint,
+    lower_bound: BigUint,
+    upper_bound: BigUint,
 ) -> Result<Bound<'_, BV>, ClaripyError> {
     BV::new(
         py,
@@ -1191,7 +1191,7 @@ pub fn VS<'py>(
     py: Python<'py>,
     bits: u32,
     region_id: String,
-    region_base_addr: BigInt,
+    region_base_addr: BigUint,
     value: CoerceBV,
 ) -> Result<Bound<'py, BV>, ClaripyError> {
     let value = value.extract(py, bits)?;

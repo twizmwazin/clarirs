@@ -1,4 +1,4 @@
-use num_bigint::BigInt;
+use num_bigint::BigUint;
 use serde::Serialize;
 
 /// This struct is a sort of hack to allow us to access data in python
@@ -11,13 +11,13 @@ pub enum AnnotationType {
     },
     SimplificationAvoidance,
     StridedInterval {
-        stride: BigInt,
-        lower_bound: BigInt,
-        upper_bound: BigInt,
+        stride: BigUint,
+        lower_bound: BigUint,
+        upper_bound: BigUint,
     },
     Region {
         region_id: String,
-        region_base_addr: BigInt,
+        region_base_addr: BigUint,
     },
     Uninitialized,
 }

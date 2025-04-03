@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::vec::IntoIter;
 
-use num_bigint::BigInt;
+use num_bigint::BigUint;
 use serde::Serialize;
 
 use crate::prelude::*;
@@ -44,7 +44,7 @@ pub enum BitVecOp<'c> {
     Annotated(BitVecAst<'c>, Annotation),
 
     // VSA Ops
-    SI(u32, BigInt, BigInt, BigInt),
+    SI(u32, BigUint, BigUint, BigUint),
     Union(BitVecAst<'c>, BitVecAst<'c>),
     Intersection(BitVecAst<'c>, BitVecAst<'c>),
 }

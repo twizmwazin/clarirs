@@ -1,6 +1,6 @@
 use std::{ffi::CString, mem::discriminant, str::FromStr};
 
-use num_bigint::BigInt;
+use num_bigint::BigUint;
 use pyo3::types::PyType;
 
 use crate::prelude::*;
@@ -57,14 +57,14 @@ impl<'py> FromPyObject<'py> for PyAnnotationType {
             }
             ("clarirs.annotation", "StridedIntervalAnnotation") => {
                 AnnotationType::StridedInterval {
-                    stride: BigInt::from(0),
-                    lower_bound: BigInt::from(0),
-                    upper_bound: BigInt::from(0),
+                    stride: BigUint::from(0u32),
+                    lower_bound: BigUint::from(0u32),
+                    upper_bound: BigUint::from(0u32),
                 }
             }
             ("clarirs.annotation", "RegionAnnotation") => AnnotationType::Region {
                 region_id: String::new(),
-                region_base_addr: BigInt::from(0),
+                region_base_addr: BigUint::from(0u32),
             },
             ("clarirs.annotation", "UninitializedAnnotation") => AnnotationType::Uninitialized,
             (anno_module_name, anno_class_name) => AnnotationType::Unknown {
@@ -112,9 +112,9 @@ impl FromPyObject<'_> for PyAnnotation {
                     PyAnnotation::new(AnnotationType::SimplificationAvoidance, false, false)
                 }
                 ("clarirs.annotation", "StridedIntervalAnnotation") => {
-                    let stride = annotation.getattr("stride")?.extract::<BigInt>()?;
-                    let lower_bound = annotation.getattr("lower_bound")?.extract::<BigInt>()?;
-                    let upper_bound = annotation.getattr("upper_bound")?.extract::<BigInt>()?;
+                    let stride = annotation.getattr("stride")?.extract::<BigUint>()?;
+                    let lower_bound = annotation.getattr("lower_bound")?.extract::<BigUint>()?;
+                    let upper_bound = annotation.getattr("upper_bound")?.extract::<BigUint>()?;
 
                     PyAnnotation::new(
                         AnnotationType::StridedInterval {
@@ -130,7 +130,7 @@ impl FromPyObject<'_> for PyAnnotation {
                     let region_id = annotation.getattr("region_id")?.extract::<String>()?;
                     let region_base_addr = annotation
                         .getattr("region_base_addr")?
-                        .extract::<BigInt>()?;
+                        .extract::<BigUint>()?;
 
                     PyAnnotation::new(
                         AnnotationType::Region {
