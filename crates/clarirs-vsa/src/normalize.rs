@@ -77,8 +77,8 @@ impl Normalize<'_> for BitVecAst<'_> {
             BitVecOp::BVV(bv) => ctx.si(
                 bv.len(),
                 1u32.into(),
-                bv.to_biguint().into(),
-                bv.to_biguint().into(),
+                bv.to_biguint(),
+                bv.to_biguint(),
             ),
             BitVecOp::Not(ast) => ctx.not(&ast.normalize()?),
             BitVecOp::And(lhs, rhs) => ctx.and(&lhs.normalize()?, &rhs.normalize()?),
