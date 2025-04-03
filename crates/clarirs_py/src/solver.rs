@@ -135,9 +135,6 @@ impl PySolver {
     ) -> Result<Vec<Bound<'py, Base>>, ClaripyError> {
         let _ = exact; // TODO: Implement approximate solutions
 
-        // Create a vector to store solutions
-        let mut results = Vec::new();
-
         // Fork the solver for extra constraints
         let mut solver = self.inner.clone();
         if let Some(extra_constraints) = extra_constraints {
@@ -146,91 +143,62 @@ impl PySolver {
             }
         }
 
-        // Loop to find up to n solutions
-        for _ in 0..n {
-            // Check if solver is still satisfiable
-            if !solver.satisfiable()? {
-                break; // No more solutions
-            }
+        // Get multiple solutions based on expression type
+        if let Ok(bv_value) = expr.clone().into_any().downcast::<BV>() {
+            // Use the new multi-solution trait method
+            let solutions = solver.eval_bitvec_n(&bv_value.get().inner, n)?;
+            let py_solutions = solutions
+                .into_iter()
+                .map(|sol| BV::new(py, &sol))
+                .collect::<Result<Vec<_>, _>>()?;
 
-            // Get a solution based on expression type
-            let solution = if let Ok(bv_value) = expr.clone().into_any().downcast::<BV>() {
-                let bv_solution = solver.eval_bitvec(&bv_value.get().inner)?;
-                let py_solution = BV::new(py, &bv_solution)?
-                    .into_any()
-                    .downcast::<Base>()
-                    .unwrap()
-                    .clone();
+            // Convert to Base type
+            Ok(py_solutions
+                .into_iter()
+                .map(|sol| sol.into_any().downcast::<Base>().unwrap().clone())
+                .collect())
+        } else if let Ok(bool_value) = expr.clone().into_any().downcast::<Bool>() {
+            // Use the new multi-solution trait method
+            let solutions = solver.eval_bool_n(&bool_value.get().inner, n)?;
+            let py_solutions = solutions
+                .into_iter()
+                .map(|sol| Bool::new(py, &sol))
+                .collect::<Result<Vec<_>, _>>()?;
 
-                // Add constraint to exclude this solution if we aren't using a concrete solver
-                // Kinda a hack, would like to do this in a better way
-                if !matches!(self.inner, DynSolver::Concrete(_)) {
-                    solver.add(&solver.context().neq(&bv_value.get().inner, &bv_solution)?)?;
-                }
+            // Convert to Base type
+            Ok(py_solutions
+                .into_iter()
+                .map(|sol| sol.into_any().downcast::<Base>().unwrap().clone())
+                .collect())
+        } else if let Ok(fp_value) = expr.clone().into_any().downcast::<FP>() {
+            // Use the new multi-solution trait method
+            let solutions = solver.eval_float_n(&fp_value.get().inner, n)?;
+            let py_solutions = solutions
+                .into_iter()
+                .map(|sol| FP::new(py, &sol))
+                .collect::<Result<Vec<_>, _>>()?;
 
-                py_solution
-            } else if let Ok(bool_value) = expr.clone().into_any().downcast::<Bool>() {
-                let bool_solution = solver.eval_bool(&bool_value.get().inner)?;
-                let py_solution = Bool::new(py, &bool_solution)?
-                    .into_any()
-                    .downcast::<Base>()
-                    .unwrap()
-                    .clone();
+            // Convert to Base type
+            Ok(py_solutions
+                .into_iter()
+                .map(|sol| sol.into_any().downcast::<Base>().unwrap().clone())
+                .collect())
+        } else if let Ok(string_value) = expr.clone().into_any().downcast::<PyAstString>() {
+            // Use the new multi-solution trait method
+            let solutions = solver.eval_string_n(&string_value.get().inner, n)?;
+            let py_solutions = solutions
+                .into_iter()
+                .map(|sol| PyAstString::new(py, &sol))
+                .collect::<Result<Vec<_>, _>>()?;
 
-                // Add constraint to exclude this solution if we aren't using a concrete solver
-                // Kinda a hack, would like to do this in a better way
-                if !matches!(self.inner, DynSolver::Concrete(_)) {
-                    solver.add(
-                        &solver
-                            .context()
-                            .neq(&bool_value.get().inner, &bool_solution)?,
-                    )?;
-                }
-
-                py_solution
-            } else if let Ok(fp_value) = expr.clone().into_any().downcast::<FP>() {
-                let fp_solution = solver.eval_float(&fp_value.get().inner)?;
-                let py_solution = FP::new(py, &fp_solution)?
-                    .into_any()
-                    .downcast::<Base>()
-                    .unwrap()
-                    .clone();
-
-                // Add constraint to exclude this solution if we aren't using a concrete solver
-                // Kinda a hack, would like to do this in a better way
-                if !matches!(self.inner, DynSolver::Concrete(_)) {
-                    solver.add(&solver.context().neq(&fp_value.get().inner, &fp_solution)?)?;
-                }
-
-                py_solution
-            } else if let Ok(string_value) = expr.clone().into_any().downcast::<PyAstString>() {
-                let string_solution = solver.eval_string(&string_value.get().inner)?;
-                let py_solution = PyAstString::new(py, &string_solution)?
-                    .into_any()
-                    .downcast::<Base>()
-                    .unwrap()
-                    .clone();
-
-                // Add constraint to exclude this solution if we aren't using a concrete solver
-                // Kinda a hack, would like to do this in a better way
-                if !matches!(self.inner, DynSolver::Concrete(_)) {
-                    solver.add(
-                        &solver
-                            .context()
-                            .neq(&string_value.get().inner, &string_solution)?,
-                    )?;
-                }
-
-                py_solution
-            } else {
-                return Err(ClaripyError::TypeError("Unsupported type".to_string()));
-            };
-
-            // Add solution to results
-            results.push(solution);
+            // Convert to Base type
+            Ok(py_solutions
+                .into_iter()
+                .map(|sol| sol.into_any().downcast::<Base>().unwrap().clone())
+                .collect())
+        } else {
+            return Err(ClaripyError::TypeError("Unsupported type".to_string()));
         }
-
-        Ok(results)
     }
 
     #[pyo3(signature = (expr, n, extra_constraints = None, exact = None))]
