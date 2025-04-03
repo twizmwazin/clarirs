@@ -72,12 +72,7 @@ impl Normalize<'_> for BitVecAst<'_> {
 
         match self.op() {
             BitVecOp::BVS(_, _) => Ok(self.clone()),
-            BitVecOp::BVV(bv) => ctx.si(
-                bv.len(),
-                1u32.into(),
-                bv.to_biguint().into(),
-                bv.to_biguint().into(),
-            ),
+            BitVecOp::BVV(bv) => ctx.si(bv.len(), 1u32.into(), bv.to_biguint(), bv.to_biguint()),
             BitVecOp::Not(ast) => ctx.not(&ast.normalize()?),
             BitVecOp::And(lhs, rhs) => ctx.and(&lhs.normalize()?, &rhs.normalize()?),
             BitVecOp::Or(lhs, rhs) => ctx.or(&lhs.normalize()?, &rhs.normalize()?),

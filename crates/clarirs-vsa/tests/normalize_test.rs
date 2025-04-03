@@ -1,7 +1,6 @@
 use clarirs_core::ast::annotation::{Annotation, AnnotationType};
 use clarirs_core::prelude::*;
 use clarirs_vsa::normalize::Normalize;
-use num_bigint::BigInt;
 
 #[test]
 fn test_normalize_bvv() {
@@ -17,9 +16,9 @@ fn test_normalize_bvv() {
     match normalized.op() {
         BitVecOp::SI(size, stride, lower, upper) => {
             assert_eq!(*size, 64); // bvv_prim creates a 64-bit bitvector by default
-            assert_eq!(*stride, BigInt::from(1u32));
-            assert_eq!(*lower, BigInt::from(42u64));
-            assert_eq!(*upper, BigInt::from(42u64));
+            assert_eq!(*stride, 1u32.into());
+            assert_eq!(*lower, 42u64.into());
+            assert_eq!(*upper, 42u64.into());
         }
         _ => panic!("Expected SI, got {:?}", normalized.op()),
     }
@@ -50,9 +49,9 @@ fn test_normalize_si_annotation() {
     // Create an SI annotation
     let annotation = Annotation::new(
         AnnotationType::StridedInterval {
-            stride: BigInt::from(2u32),
-            lower_bound: BigInt::from(10u32),
-            upper_bound: BigInt::from(20u32),
+            stride: 2u32.into(),
+            lower_bound: 10u32.into(),
+            upper_bound: 20u32.into(),
         },
         true,  // eliminatable
         false, // relocatable
@@ -68,9 +67,9 @@ fn test_normalize_si_annotation() {
     match normalized.op() {
         BitVecOp::SI(size, stride, lower, upper) => {
             assert_eq!(*size, 32);
-            assert_eq!(*stride, BigInt::from(2u32));
-            assert_eq!(*lower, BigInt::from(10u32));
-            assert_eq!(*upper, BigInt::from(20u32));
+            assert_eq!(*stride, 2u32.into());
+            assert_eq!(*lower, 10u32.into());
+            assert_eq!(*upper, 20u32.into());
         }
         _ => panic!("Expected SI, got {:?}", normalized.op()),
     }
@@ -276,9 +275,9 @@ fn test_normalize_si_preserved() {
     match normalized.op() {
         BitVecOp::SI(size, stride, lower, upper) => {
             assert_eq!(*size, 32);
-            assert_eq!(*stride, BigInt::from(2u32));
-            assert_eq!(*lower, BigInt::from(10u32));
-            assert_eq!(*upper, BigInt::from(20u32));
+            assert_eq!(*stride, 2u32.into());
+            assert_eq!(*lower, 10u32.into());
+            assert_eq!(*upper, 20u32.into());
         }
         _ => panic!("Expected SI, got {:?}", normalized.op()),
     }
