@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use clarirs_core::ast::bitvec::{BitVecAstExt, BitVecOpExt};
 use dashmap::DashMap;
-use num_bigint::{BigInt, BigUint};
+use num_bigint::{BigInt, BigUint, Sign};
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::types::{PyFrozenSet, PySlice, PyWeakrefReference};
 
@@ -1177,9 +1177,27 @@ pub fn SI(
     py: Python<'_>,
     bits: u32,
     stride: BigUint,
-    lower_bound: BigUint,
-    upper_bound: BigUint,
+    lower_bound: BigInt,
+    upper_bound: BigInt,
 ) -> Result<Bound<'_, BV>, ClaripyError> {
+    // Convert potentially negative bounds to unsigned values in the bitvector's domain
+    let modulus = BigInt::from(1) << bits;
+    let lower_bound = if lower_bound.sign() == Sign::Minus {
+        lower_bound + modulus.clone()
+    } else {
+        lower_bound
+    }
+    .to_biguint()
+    .expect("lower_bound conversion failed");
+
+    let upper_bound = if upper_bound.sign() == Sign::Minus {
+        upper_bound + modulus
+    } else {
+        upper_bound
+    }
+    .to_biguint()
+    .expect("upper_bound conversion failed");
+
     BV::new(
         py,
         &GLOBAL_CONTEXT.si(bits, stride, lower_bound, upper_bound)?,
