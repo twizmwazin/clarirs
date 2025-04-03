@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use clarirs_core::ast::bitvec::{BitVecAstExt, BitVecOpExt};
 use dashmap::DashMap;
-use num_bigint::{BigInt, BigUint};
+use num_bigint::{BigInt, BigUint, Sign};
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::types::{PyFrozenSet, PySlice, PyWeakrefReference};
 
