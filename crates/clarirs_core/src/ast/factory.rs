@@ -1,4 +1,4 @@
-use num_bigint::{BigInt, BigUint};
+use num_bigint::BigUint;
 
 use super::factory_support::*;
 use crate::error::ClarirsError;
