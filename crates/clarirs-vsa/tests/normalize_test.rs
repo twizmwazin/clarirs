@@ -26,21 +26,18 @@ fn test_normalize_bvv() {
 }
 
 #[test]
-fn test_normalize_bvs_error() {
+fn test_normalize_bvs() {
     let ctx = Context::new();
 
-    // Create a BVS (symbolic bitvector) without SI annotation
     let bvs = ctx.bvs("x", 32).unwrap();
 
-    // Normalization should fail because BVS needs SI annotation
+    // Normalization should return the BVS itself
     let result = bvs.normalize();
-    assert!(result.is_err());
+    assert!(result.is_ok());
 
-    if let Err(ClarirsError::UnsupportedOperation(msg)) = result {
-        assert!(msg.contains("VSA expects BVS to have an SI annotation"));
-    } else {
-        panic!("Expected UnsupportedOperation error");
-    }
+    // Check that the normalized result is the same as the original BVS
+    let normalized = result.unwrap();
+    assert_eq!(normalized, bvs);
 }
 
 #[test]
