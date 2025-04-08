@@ -30,8 +30,8 @@ class TestGetBytes(unittest.TestCase):
         self.sym_x = clarirs.BVS("x", 32)  # Symbolic 32-bit value
 
         # Set up solvers for checking results
-        self.z3 = clarirs.solver.SolverZ3()
-        self.concrete = clarirs.solver.SolverConcrete()
+        self.z3 = clarirs.SolverZ3()
+        self.concrete = clarirs.SolverConcrete()
 
     def _check_equal(self, expr, expected):
         """

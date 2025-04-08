@@ -14,7 +14,7 @@ class TestVSABoolOperations(unittest.TestCase):
     def setUp(self):
         """Set up common test values and solvers."""
         # Create VSA solver
-        self.solver = clarirs.solver.SolverVSA()
+        self.solver = clarirs.SolverVSA()
 
         # Create concrete boolean values
         self.true_val = clarirs.BoolV(True)

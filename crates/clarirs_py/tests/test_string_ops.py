@@ -43,8 +43,8 @@ class TestStringOperations(unittest.TestCase):
         self.str_symbolic = claripy.StringS("sym_str")
 
         # Setup solvers
-        self.z3 = claripy.solver.SolverZ3()
-        self.concrete = claripy.solver.SolverConcrete()
+        self.z3 = claripy.SolverZ3()
+        self.concrete = claripy.SolverConcrete()
 
     def _check_equal(self, expr, expected):
         """
