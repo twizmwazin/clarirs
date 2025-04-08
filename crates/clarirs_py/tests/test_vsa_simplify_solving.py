@@ -13,7 +13,7 @@ class TestVSASimplificationAndSolving(unittest.TestCase):
     def setUp(self):
         """Set up common test values and solvers."""
         # Create VSA solver
-        self.solver = clarirs.solver.SolverVSA()
+        self.solver = clarirs.SolverVSA()
 
         # Create concrete BVs
         self.bv_0 = clarirs.BVV(0, 32)

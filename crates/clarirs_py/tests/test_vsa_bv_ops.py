@@ -13,7 +13,7 @@ class TestVSABVOperations(unittest.TestCase):
     def setUp(self):
         """Set up common test values and solvers."""
         # Create VSA solver
-        self.solver = clarirs.solver.SolverVSA()
+        self.solver = clarirs.SolverVSA()
 
         # Create concrete BVs
         self.bv_0 = clarirs.BVV(0, 32)
@@ -592,7 +592,7 @@ class TestVSAPrecisionLoss(unittest.TestCase):
     def setUp(self):
         """Set up common test values and solvers for precision loss tests."""
         # Create VSA solver
-        self.solver = clarirs.solver.SolverVSA()
+        self.solver = clarirs.SolverVSA()
 
         # Create strided intervals
         self.si_narrow = clarirs.SI(bits=32, stride=1, lower_bound=10, upper_bound=20)

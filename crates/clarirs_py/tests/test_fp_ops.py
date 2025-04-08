@@ -20,8 +20,8 @@ class TestFPOperations(unittest.TestCase):
         # Add a subnormal number
         self.fp_subnormal = claripy.FPV(1e-40, FSORT_FLOAT)
 
-        self.z3 = claripy.solver.SolverZ3()
-        self.concrete = claripy.solver.SolverConcrete()
+        self.z3 = claripy.SolverZ3()
+        self.concrete = claripy.SolverConcrete()
 
     def _check_equal(self, expr, expected):
         """Helper to check equality of FP expressions"""
