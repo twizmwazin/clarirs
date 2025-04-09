@@ -865,3 +865,91 @@ fn test_extract_concat() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_identity_simplifications() -> anyhow::Result<()> {
+    let ctx = Context::new();
+
+    let x = ctx.bvs("x", 64)?;
+
+    let zero = ctx.bvv_prim(0u64)?;
+    let one = ctx.bvv_prim(1u64)?;
+    let all_ones = ctx.bvv_prim(u64::MAX)?;
+
+    // AND identities
+    let simplified = ctx.and(&x, &zero)?.simplify()?;
+    assert_eq!(simplified, zero);
+
+    let simplified = ctx.and(&zero, &x)?.simplify()?;
+    assert_eq!(simplified, zero);
+
+    let simplified = ctx.and(&x, &all_ones)?.simplify()?;
+    assert_eq!(simplified, x);
+
+    let simplified = ctx.and(&all_ones, &x)?.simplify()?;
+    assert_eq!(simplified, x);
+
+    // OR identities
+    let simplified = ctx.or(&x, &zero)?.simplify()?;
+    assert_eq!(simplified, x);
+
+    let simplified = ctx.or(&zero, &x)?.simplify()?;
+    assert_eq!(simplified, x);
+
+    let simplified = ctx.or(&x, &all_ones)?.simplify()?;
+    assert_eq!(simplified, all_ones);
+
+    let simplified = ctx.or(&all_ones, &x)?.simplify()?;
+    assert_eq!(simplified, all_ones);
+
+    // XOR identities
+    let simplified = ctx.xor(&x, &zero)?.simplify()?;
+    assert_eq!(simplified, x);
+
+    let simplified = ctx.xor(&zero, &x)?.simplify()?;
+    assert_eq!(simplified, x);
+
+    let simplified = ctx.xor(&x, &all_ones)?.simplify()?;
+    let not_x = ctx.not(&x)?.simplify()?;
+    assert_eq!(simplified, not_x);
+
+    let simplified = ctx.xor(&all_ones, &x)?.simplify()?;
+    assert_eq!(simplified, not_x);
+
+    // ADD identities
+    let simplified = ctx.add(&x, &zero)?.simplify()?;
+    assert_eq!(simplified, x);
+
+    let simplified = ctx.add(&zero, &x)?.simplify()?;
+    assert_eq!(simplified, x);
+
+    // SUB identities
+    let simplified = ctx.sub(&x, &zero)?.simplify()?;
+    assert_eq!(simplified, x);
+
+    let simplified = ctx.sub(&x, &x)?.simplify()?;
+    assert_eq!(simplified, zero);
+
+    // MUL identities
+    let simplified = ctx.mul(&x, &zero)?.simplify()?;
+    assert_eq!(simplified, zero);
+
+    let simplified = ctx.mul(&zero, &x)?.simplify()?;
+    assert_eq!(simplified, zero);
+
+    let simplified = ctx.mul(&x, &one)?.simplify()?;
+    assert_eq!(simplified, x);
+
+    let simplified = ctx.mul(&one, &x)?.simplify()?;
+    assert_eq!(simplified, x);
+
+    // UDIV identities
+    let simplified = ctx.udiv(&x, &one)?.simplify()?;
+    assert_eq!(simplified, x);
+
+    // SDIV identities
+    let simplified = ctx.sdiv(&x, &one)?.simplify()?;
+    assert_eq!(simplified, x);
+
+    Ok(())
+}

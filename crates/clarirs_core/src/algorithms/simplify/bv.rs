@@ -33,6 +33,10 @@ pub(crate) fn simplify_bv<'c>(
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
                     ctx.bvv((value1.clone() & value2.clone())?)
                 }
+                (BitVecOp::BVV(v), _) if v.is_zero() => ctx.bvv(v.clone()),
+                (_, BitVecOp::BVV(v)) if v.is_zero() => ctx.bvv(v.clone()),
+                (BitVecOp::BVV(v), _) if v.is_all_ones() => Ok(arc1.clone()),
+                (_, BitVecOp::BVV(v)) if v.is_all_ones() => Ok(arc.clone()),
                 _ => ctx.and(&arc, &arc1),
             }
         }
@@ -45,6 +49,10 @@ pub(crate) fn simplify_bv<'c>(
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
                     ctx.bvv((value1.clone() | value2.clone())?)
                 }
+                (BitVecOp::BVV(v), _) if v.is_zero() => Ok(arc1.clone()),
+                (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
+                (BitVecOp::BVV(v), _) if v.is_all_ones() => ctx.bvv(v.clone()),
+                (_, BitVecOp::BVV(v)) if v.is_all_ones() => ctx.bvv(v.clone()),
                 _ => ctx.or(&arc, &arc1),
             }
         }
@@ -57,6 +65,10 @@ pub(crate) fn simplify_bv<'c>(
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
                     ctx.bvv((value1.clone() ^ value2.clone())?)
                 }
+                (BitVecOp::BVV(v), _) if v.is_zero() => Ok(arc1.clone()),
+                (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
+                (BitVecOp::BVV(v), _) if v.is_all_ones() => ctx.not(&arc1),
+                (_, BitVecOp::BVV(v)) if v.is_all_ones() => ctx.not(&arc),
                 _ => ctx.xor(&arc, &arc1),
             }
         }
@@ -76,6 +88,8 @@ pub(crate) fn simplify_bv<'c>(
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
                     ctx.bvv((value1.clone() + value2.clone())?)
                 }
+                (BitVecOp::BVV(v), _) if v.is_zero() => Ok(arc1.clone()),
+                (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
                 _ => ctx.add(&arc, &arc1),
             }
         }
@@ -88,6 +102,8 @@ pub(crate) fn simplify_bv<'c>(
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
                     ctx.bvv((value1.clone() - value2.clone())?)
                 }
+                (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
+                (lhs_op, rhs_op) if lhs_op == rhs_op => ctx.bvv(BitVec::zeros(arc.size())),
                 _ => ctx.sub(&arc, &arc1),
             }
         }
@@ -100,6 +116,10 @@ pub(crate) fn simplify_bv<'c>(
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
                     ctx.bvv((value1.clone() * value2.clone())?)
                 }
+                (BitVecOp::BVV(v), _) if v.is_zero() => ctx.bvv(v.clone()),
+                (_, BitVecOp::BVV(v)) if v.is_zero() => ctx.bvv(v.clone()),
+                (BitVecOp::BVV(v), _) if v.to_u64() == Some(1) => Ok(arc1.clone()),
+                (_, BitVecOp::BVV(v)) if v.to_u64() == Some(1) => Ok(arc.clone()),
                 _ => ctx.mul(&arc, &arc1),
             }
         }
@@ -112,6 +132,7 @@ pub(crate) fn simplify_bv<'c>(
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
                     ctx.bvv((value1.clone() / value2.clone())?)
                 }
+                (_, BitVecOp::BVV(v)) if v.to_u64() == Some(1) => Ok(arc.clone()),
                 _ => ctx.udiv(&arc, &arc1),
             }
         }
@@ -124,6 +145,7 @@ pub(crate) fn simplify_bv<'c>(
                 (BitVecOp::BVV(dividend_val), BitVecOp::BVV(divisor_val)) => {
                     ctx.bvv((dividend_val.sdiv(divisor_val))?)
                 }
+                (_, BitVecOp::BVV(v)) if v.to_u64() == Some(1) => Ok(dividend_ast.clone()),
                 _ => ctx.sdiv(&dividend_ast, &divisor_ast),
             }
         }

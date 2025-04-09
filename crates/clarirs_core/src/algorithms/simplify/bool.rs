@@ -36,6 +36,8 @@ pub(crate) fn simplify_bool<'c>(
                     ctx.make_bool(v.clone())
                 }
                 (BooleanOp::BoolV(false), _) | (_, BooleanOp::BoolV(false)) => ctx.false_(),
+                (BooleanOp::Not(lhs), rhs) if lhs.op() == rhs => ctx.false_(),
+                (lhs, BooleanOp::Not(rhs)) if lhs == rhs.op() => ctx.false_(),
                 (BooleanOp::Not(lhs), BooleanOp::Not(rhs)) => ctx.not(&ctx.or(lhs, rhs)?),
                 _ if arc == arc1 => Ok(arc),
                 _ => ctx.and(&arc, &arc1),
@@ -53,6 +55,8 @@ pub(crate) fn simplify_bool<'c>(
                 (BooleanOp::BoolV(false), v) | (v, BooleanOp::BoolV(false)) => {
                     ctx.make_bool(v.clone())
                 }
+                (BooleanOp::Not(lhs), rhs) if lhs.op() == rhs => ctx.true_(),
+                (lhs, BooleanOp::Not(rhs)) if lhs == rhs.op() => ctx.true_(),
                 (BooleanOp::Not(lhs), BooleanOp::Not(rhs)) => ctx.not(&ctx.and(lhs, rhs)?),
                 _ if arc == arc1 => Ok(arc),
                 _ => ctx.or(&arc, &arc1),
@@ -72,6 +76,8 @@ pub(crate) fn simplify_bool<'c>(
                 (BooleanOp::BoolV(false), v) | (v, BooleanOp::BoolV(false)) => {
                     ctx.make_bool(v.clone())
                 }
+                (BooleanOp::Not(lhs), rhs) if lhs.op() == rhs => ctx.true_(),
+                (lhs, BooleanOp::Not(rhs)) if lhs == rhs.op() => ctx.true_(),
                 (BooleanOp::Not(lhs), BooleanOp::Not(rhs)) => ctx.not(&ctx.and(lhs, rhs)?),
                 _ if arc == arc1 => ctx.false_(),
                 _ => ctx.xor(&arc, &arc1),

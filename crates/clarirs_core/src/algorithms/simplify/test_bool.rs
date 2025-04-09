@@ -424,3 +424,34 @@ fn test_sge() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_boolean_identity_simplifications() -> Result<()> {
+    let ctx = Context::new();
+
+    let x = ctx.bools("x")?;
+    let not_x = ctx.not(&x)?.simplify()?;
+
+    // x && !x == false
+    let simplified = ctx.and(&x, &not_x)?.simplify()?;
+    assert_eq!(simplified, ctx.false_()?);
+
+    let simplified = ctx.and(&not_x, &x)?.simplify()?;
+    assert_eq!(simplified, ctx.false_()?);
+
+    // x || !x == true
+    let simplified = ctx.or(&x, &not_x)?.simplify()?;
+    assert_eq!(simplified, ctx.true_()?);
+
+    let simplified = ctx.or(&not_x, &x)?.simplify()?;
+    assert_eq!(simplified, ctx.true_()?);
+
+    // x ^ !x == true
+    let simplified = ctx.xor(&x, &not_x)?.simplify()?;
+    assert_eq!(simplified, ctx.true_()?);
+
+    let simplified = ctx.xor(&not_x, &x)?.simplify()?;
+    assert_eq!(simplified, ctx.true_()?);
+
+    Ok(())
+}
