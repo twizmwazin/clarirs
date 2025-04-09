@@ -128,6 +128,7 @@ pub(crate) fn simplify_bool<'c>(
             );
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => ctx.boolv(arc != arc1),
+                (lhs, rhs) if lhs == rhs => ctx.false_(),
                 _ => ctx.neq(&arc, &arc1),
             }
         }
