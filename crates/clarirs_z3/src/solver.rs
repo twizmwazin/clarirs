@@ -864,7 +864,7 @@ mod tests {
             // x must be greater than -5 (signed)
             // y must be less than 10 (signed)
             // x + y must be even (lowest bit is 0)
-            
+
             // -5 in 8-bit two's complement is 0xfb (251 in unsigned)
             let neg_five = ctx.bvv_prim(0xfbu8)?;
             let ten = ctx.bvv_prim(10u8)?;
@@ -902,7 +902,7 @@ mod tests {
             // y must be greater than -20 (signed)
             // x must be greater than y (signed)
             let hundred = ctx.bvv_prim(100u8)?;
-            
+
             // -20 in 8-bit two's complement is 0xec (236 in unsigned)
             let neg_twenty = ctx.bvv_prim(0xecu8)?;
 
