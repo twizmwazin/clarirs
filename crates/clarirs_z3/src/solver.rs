@@ -1,6 +1,7 @@
 use crate::Z3_CONTEXT;
 use crate::astext::AstExtZ3;
 use crate::rc::{RcModel, RcOptimize, RcSolver};
+use clarirs_core::ast::bitvec::BitVecOpExt;
 use clarirs_core::prelude::*;
 use clarirs_z3_sys as z3;
 
@@ -211,7 +212,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         Ok(expr.concrete() && expr.is_false())
     }
 
-    fn min(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn min_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
         let optimize = self.mk_filled_optimize()?;
         Z3_CONTEXT.with(|&z3_ctx| unsafe {
             z3::optimize_minimize(z3_ctx, *optimize, *expr.to_z3()?);
@@ -228,10 +229,102 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         })
     }
 
-    fn max(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn max_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
         let optimize = self.mk_filled_optimize()?;
         Z3_CONTEXT.with(|&z3_ctx| unsafe {
             z3::optimize_maximize(z3_ctx, *optimize, *expr.to_z3()?);
+            if z3::optimize_check(z3_ctx, *optimize, 0, std::ptr::null_mut()) != z3::Lbool::True {
+                return Err(ClarirsError::Unsat);
+            }
+
+            let model = RcModel::from(z3::optimize_get_model(z3_ctx, *optimize));
+            let result = Z3Solver::eval_expr_with_model(*model, &DynAst::from(expr))?;
+            match result {
+                DynAst::BitVec(ast) => Ok(ast),
+                _ => unreachable!(),
+            }
+        })
+    }
+
+    fn min_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        let optimize = self.mk_filled_optimize()?;
+        Z3_CONTEXT.with(|&z3_ctx| unsafe {
+            // Get the size of the bitvector
+            let size = expr.size();
+
+            // For signed minimization, the sign bit should be 1 (for negative numbers)
+            // Extract the sign bit
+            let sign_bit = self.ctx.extract(expr, size - 1, size - 1)?;
+            let one_bit = self.ctx.bvv_prim_with_size(1u64, 1)?;
+
+            // Create a target variable equal to the expression
+            let target_name = format!("min_signed_target_{}", size);
+            let target = self.ctx.bvs(&target_name, size)?;
+            let equality = self.ctx.eq_(&target, expr)?;
+            z3::optimize_assert(z3_ctx, *optimize, *equality.to_z3()?);
+
+            // First, maximize the sign bit with a high weight
+            // This will prefer negative numbers (sign bit = 1) over positive ones
+            let sign_equality = self.ctx.eq_(&sign_bit, &one_bit)?;
+            let weight = std::ffi::CString::new("1000000").unwrap();
+            z3::optimize_assert_soft(
+                z3_ctx,
+                *optimize,
+                *sign_equality.to_z3()?,
+                weight.as_ptr(),
+                std::ptr::null_mut(),
+            );
+
+            // Then minimize the target value (with lower weight)
+            // This will find the smallest value among those with the preferred sign bit
+            z3::optimize_minimize(z3_ctx, *optimize, *target.to_z3()?);
+
+            if z3::optimize_check(z3_ctx, *optimize, 0, std::ptr::null_mut()) != z3::Lbool::True {
+                return Err(ClarirsError::Unsat);
+            }
+
+            let model = RcModel::from(z3::optimize_get_model(z3_ctx, *optimize));
+            let result = Z3Solver::eval_expr_with_model(*model, &DynAst::from(expr))?;
+            match result {
+                DynAst::BitVec(ast) => Ok(ast),
+                _ => unreachable!(),
+            }
+        })
+    }
+
+    fn max_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        let optimize = self.mk_filled_optimize()?;
+        Z3_CONTEXT.with(|&z3_ctx| unsafe {
+            // Get the size of the bitvector
+            let size = expr.size();
+
+            // For signed maximization, the sign bit should be 0 (for positive numbers)
+            // Extract the sign bit
+            let sign_bit = self.ctx.extract(expr, size - 1, size - 1)?;
+            let zero_bit = self.ctx.bvv_prim_with_size(0u64, 1)?;
+
+            // Create a target variable equal to the expression
+            let target_name = format!("max_signed_target_{}", size);
+            let target = self.ctx.bvs(&target_name, size)?;
+            let equality = self.ctx.eq_(&target, expr)?;
+            z3::optimize_assert(z3_ctx, *optimize, *equality.to_z3()?);
+
+            // First, maximize making the sign bit 0 with a high weight
+            // This will prefer positive numbers (sign bit = 0) over negative ones
+            let sign_equality = self.ctx.eq_(&sign_bit, &zero_bit)?;
+            let weight = std::ffi::CString::new("1000000").unwrap();
+            z3::optimize_assert_soft(
+                z3_ctx,
+                *optimize,
+                *sign_equality.to_z3()?,
+                weight.as_ptr(),
+                std::ptr::null_mut(),
+            );
+
+            // Then maximize the target value (with lower weight)
+            // This will find the largest value among those with the preferred sign bit
+            z3::optimize_maximize(z3_ctx, *optimize, *target.to_z3()?);
+
             if z3::optimize_check(z3_ctx, *optimize, 0, std::ptr::null_mut()) != z3::Lbool::True {
                 return Err(ClarirsError::Unsat);
             }
@@ -537,6 +630,340 @@ mod tests {
 
             let result = solver.eval_bool(&ctx.if_(&c, &x, &y)?)?;
             assert!(result.is_true());
+
+            Ok(())
+        }
+    }
+
+    mod test_bitvec_optimize {
+        use super::*;
+
+        #[test]
+        fn test_min_unsigned_concrete() -> Result<(), ClarirsError> {
+            let ctx = Context::new();
+            let mut solver = Z3Solver::new(&ctx);
+
+            // Using a concrete value should return the same value
+            let bv = ctx.bvv_prim(42u64)?;
+            let result = solver.min_unsigned(&bv)?;
+
+            assert_eq!(result, bv);
+
+            Ok(())
+        }
+
+        #[test]
+        fn test_max_unsigned_concrete() -> Result<(), ClarirsError> {
+            let ctx = Context::new();
+            let mut solver = Z3Solver::new(&ctx);
+
+            // Using a concrete value should return the same value
+            let bv = ctx.bvv_prim(42u64)?;
+            let result = solver.max_unsigned(&bv)?;
+
+            assert_eq!(result, bv);
+
+            Ok(())
+        }
+
+        #[test]
+        fn test_min_unsigned_constrained() -> Result<(), ClarirsError> {
+            let ctx = Context::new();
+            let mut solver = Z3Solver::new(&ctx);
+
+            // Create a variable with constraints
+            let x = ctx.bvs("x", 64)?;
+
+            // Add constraints: 10 <= x <= 20
+            let lower_bound = ctx.bvv_prim(10u64)?;
+            let upper_bound = ctx.bvv_prim(20u64)?;
+
+            solver.add(&ctx.uge(&x, &lower_bound)?)?;
+            solver.add(&ctx.ule(&x, &upper_bound)?)?;
+
+            // Min value should be 10
+            let result = solver.min_unsigned(&x)?;
+            assert_eq!(result, lower_bound);
+
+            Ok(())
+        }
+
+        #[test]
+        fn test_max_unsigned_constrained() -> Result<(), ClarirsError> {
+            let ctx = Context::new();
+            let mut solver = Z3Solver::new(&ctx);
+
+            // Create a variable with constraints
+            let x = ctx.bvs("x", 64)?;
+
+            // Add constraints: 10 <= x <= 20
+            let lower_bound = ctx.bvv_prim(10u64)?;
+            let upper_bound = ctx.bvv_prim(20u64)?;
+
+            solver.add(&ctx.uge(&x, &lower_bound)?)?;
+            solver.add(&ctx.ule(&x, &upper_bound)?)?;
+
+            // Max value should be 20
+            let result = solver.max_unsigned(&x)?;
+            assert_eq!(result, upper_bound);
+
+            Ok(())
+        }
+
+        #[test]
+        fn test_min_unsigned_complex() -> Result<(), ClarirsError> {
+            let ctx = Context::new();
+            let mut solver = Z3Solver::new(&ctx);
+
+            // Create variables
+            let x = ctx.bvs("x", 8)?;
+            let y = ctx.bvs("y", 8)?;
+
+            // Add constraints:
+            // x must be greater than 5
+            // y must be less than 10
+            // x + y must be even (lowest bit is 0)
+            let five = ctx.bvv_prim(5u8)?;
+            let ten = ctx.bvv_prim(10u8)?;
+
+            solver.add(&ctx.ugt(&x, &five)?)?;
+            solver.add(&ctx.ult(&y, &ten)?)?;
+
+            // x + y must be even
+            let sum = ctx.add(&x, &y)?;
+            let zero = ctx.bvv_prim_with_size(0u64, 1)?;
+            solver.add(&ctx.eq_(&ctx.extract(&sum, 0, 0)?, &zero)?)?;
+
+            // Find min value of x
+            let result = solver.min_unsigned(&x)?;
+
+            // Min value should be 6
+            // Because x > 5, and if x = 6 and y = 0, then 6+0=6 which is even
+            let six = ctx.bvv_prim(6u8)?;
+            assert_eq!(result, six);
+
+            Ok(())
+        }
+
+        #[test]
+        fn test_max_unsigned_complex() -> Result<(), ClarirsError> {
+            let ctx = Context::new();
+            let mut solver = Z3Solver::new(&ctx);
+
+            // Create variables
+            let x = ctx.bvs("x", 8)?;
+            let y = ctx.bvs("y", 8)?;
+
+            // Add constraints:
+            // x must be less than 100
+            // y must be greater than 20
+            // x must be greater than y
+            let hundred = ctx.bvv_prim(100u8)?;
+            let twenty = ctx.bvv_prim(20u8)?;
+
+            solver.add(&ctx.ult(&x, &hundred)?)?;
+            solver.add(&ctx.ugt(&y, &twenty)?)?;
+            solver.add(&ctx.ugt(&x, &y)?)?;
+
+            // Find max value of x
+            let result = solver.max_unsigned(&x)?;
+
+            // Max value should be 99 (since x < 100)
+            let ninety_nine = ctx.bvv_prim(99u8)?;
+            assert_eq!(result, ninety_nine);
+
+            Ok(())
+        }
+
+        // Tests for signed bitvector operations
+
+        #[test]
+        fn test_min_signed_concrete() -> Result<(), ClarirsError> {
+            let ctx = Context::new();
+            let mut solver = Z3Solver::new(&ctx);
+
+            // Using a concrete value should return the same value
+            let bv = ctx.bvv_prim(42u64)?;
+            let result = solver.min_signed(&bv)?;
+
+            assert_eq!(result, bv);
+
+            Ok(())
+        }
+
+        #[test]
+        fn test_max_signed_concrete() -> Result<(), ClarirsError> {
+            let ctx = Context::new();
+            let mut solver = Z3Solver::new(&ctx);
+
+            // Using a concrete value should return the same value
+            let bv = ctx.bvv_prim(42u64)?;
+            let result = solver.max_signed(&bv)?;
+
+            assert_eq!(result, bv);
+
+            Ok(())
+        }
+
+        #[test]
+        fn test_min_signed_constrained() -> Result<(), ClarirsError> {
+            let ctx = Context::new();
+            let mut solver = Z3Solver::new(&ctx);
+
+            // Create a variable with constraints
+            let x = ctx.bvs("x", 64)?;
+
+            // Add constraints: -10 <= x <= 20 (in signed interpretation)
+            // -10 in 64-bit two's complement is 0xfffffffffffffff6
+            let lower_bound = ctx.bvv_prim(0xfffffffffffffff6u64)?;
+            let upper_bound = ctx.bvv_prim(20u64)?;
+
+            solver.add(&ctx.sge(&x, &lower_bound)?)?;
+            solver.add(&ctx.sle(&x, &upper_bound)?)?;
+
+            // Min value should be -10
+            let result = solver.min_signed(&x)?;
+            assert_eq!(result, lower_bound);
+
+            Ok(())
+        }
+
+        #[test]
+        fn test_max_signed_constrained() -> Result<(), ClarirsError> {
+            let ctx = Context::new();
+            let mut solver = Z3Solver::new(&ctx);
+
+            // Create a variable with constraints
+            let x = ctx.bvs("x", 64)?;
+
+            // Add constraints: -10 <= x <= 20 (in signed interpretation)
+            // -10 in 64-bit two's complement is 0xfffffffffffffff6
+            let lower_bound = ctx.bvv_prim(0xfffffffffffffff6u64)?;
+            let upper_bound = ctx.bvv_prim(20u64)?;
+
+            solver.add(&ctx.sge(&x, &lower_bound)?)?;
+            solver.add(&ctx.sle(&x, &upper_bound)?)?;
+
+            // Max value should be 20
+            let result = solver.max_signed(&x)?;
+            assert_eq!(result, upper_bound);
+
+            Ok(())
+        }
+
+        #[test]
+        fn test_min_signed_complex() -> Result<(), ClarirsError> {
+            let ctx = Context::new();
+            let mut solver = Z3Solver::new(&ctx);
+
+            // Create variables
+            let x = ctx.bvs("x", 8)?;
+            let y = ctx.bvs("y", 8)?;
+
+            // Add constraints:
+            // x must be greater than -5 (signed)
+            // y must be less than 10 (signed)
+            // x + y must be even (lowest bit is 0)
+            
+            // -5 in 8-bit two's complement is 0xfb (251 in unsigned)
+            let neg_five = ctx.bvv_prim(0xfbu8)?;
+            let ten = ctx.bvv_prim(10u8)?;
+
+            solver.add(&ctx.sgt(&x, &neg_five)?)?;
+            solver.add(&ctx.slt(&y, &ten)?)?;
+
+            // x + y must be even
+            let sum = ctx.add(&x, &y)?;
+            let zero = ctx.bvv_prim_with_size(0u64, 1)?;
+            solver.add(&ctx.eq_(&ctx.extract(&sum, 0, 0)?, &zero)?)?;
+
+            // Find min value of x
+            let result = solver.min_signed(&x)?;
+
+            // Min value should be -4 (0xfc in 8-bit two's complement)
+            // Because x > -5, and if x = -4 and y = 0, then -4+0=-4 which is even
+            let neg_four = ctx.bvv_prim(0xfcu8)?;
+            assert_eq!(result, neg_four);
+
+            Ok(())
+        }
+
+        #[test]
+        fn test_max_signed_complex() -> Result<(), ClarirsError> {
+            let ctx = Context::new();
+            let mut solver = Z3Solver::new(&ctx);
+
+            // Create variables
+            let x = ctx.bvs("x", 8)?;
+            let y = ctx.bvs("y", 8)?;
+
+            // Add constraints:
+            // x must be less than 100 (signed)
+            // y must be greater than -20 (signed)
+            // x must be greater than y (signed)
+            let hundred = ctx.bvv_prim(100u8)?;
+            
+            // -20 in 8-bit two's complement is 0xec (236 in unsigned)
+            let neg_twenty = ctx.bvv_prim(0xecu8)?;
+
+            solver.add(&ctx.slt(&x, &hundred)?)?;
+            solver.add(&ctx.sgt(&y, &neg_twenty)?)?;
+            solver.add(&ctx.sgt(&x, &y)?)?;
+
+            // Find max value of x
+            let result = solver.max_signed(&x)?;
+
+            // Max value should be 99 (since x < 100)
+            let ninety_nine = ctx.bvv_prim(99u8)?;
+            assert_eq!(result, ninety_nine);
+
+            Ok(())
+        }
+
+        #[test]
+        fn test_min_signed_negative_range() -> Result<(), ClarirsError> {
+            let ctx = Context::new();
+            let mut solver = Z3Solver::new(&ctx);
+
+            // Create a variable with constraints
+            let x = ctx.bvs("x", 8)?;
+
+            // Add constraints: -100 <= x <= -10 (in signed interpretation)
+            // -100 in 8-bit two's complement is 0x9c (156 in unsigned)
+            // -10 in 8-bit two's complement is 0xf6 (246 in unsigned)
+            let lower_bound = ctx.bvv_prim(0x9cu8)?;
+            let upper_bound = ctx.bvv_prim(0xf6u8)?;
+
+            solver.add(&ctx.sge(&x, &lower_bound)?)?;
+            solver.add(&ctx.sle(&x, &upper_bound)?)?;
+
+            // Min value should be -100
+            let result = solver.min_signed(&x)?;
+            assert_eq!(result, lower_bound);
+
+            Ok(())
+        }
+
+        #[test]
+        fn test_max_signed_negative_range() -> Result<(), ClarirsError> {
+            let ctx = Context::new();
+            let mut solver = Z3Solver::new(&ctx);
+
+            // Create a variable with constraints
+            let x = ctx.bvs("x", 8)?;
+
+            // Add constraints: -100 <= x <= -10 (in signed interpretation)
+            // -100 in 8-bit two's complement is 0x9c (156 in unsigned)
+            // -10 in 8-bit two's complement is 0xf6 (246 in unsigned)
+            let lower_bound = ctx.bvv_prim(0x9cu8)?;
+            let upper_bound = ctx.bvv_prim(0xf6u8)?;
+
+            solver.add(&ctx.sge(&x, &lower_bound)?)?;
+            solver.add(&ctx.sle(&x, &upper_bound)?)?;
+
+            // Max value should be -10
+            let result = solver.max_signed(&x)?;
+            assert_eq!(result, upper_bound);
 
             Ok(())
         }
