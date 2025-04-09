@@ -20,6 +20,7 @@ impl<'c> HasContext<'c> for VSASolver<'c> {
 }
 
 impl<'c> Solver<'c> for VSASolver<'c> {
+
     fn constraints(&self) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
         Ok(vec![])
     }
@@ -34,20 +35,36 @@ impl<'c> Solver<'c> for VSASolver<'c> {
         Ok(true)
     }
 
-    fn eval_bool(&mut self, _expr: &BoolAst<'c>) -> Result<BoolAst<'c>, ClarirsError> {
-        todo!("Implement eval_bool for VSASolver")
+    fn eval_bool_n(
+        &mut self,
+        _expr: &BoolAst<'c>,
+        _n: u32,
+    ) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
+        todo!("Implement eval_bool_n for VSASolver")
     }
 
-    fn eval_bitvec(&mut self, _expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        todo!("Implement eval_bitvec for VSASolver")
+    fn eval_bitvec_n(
+        &mut self,
+        _expr: &BitVecAst<'c>,
+        _n: u32,
+    ) -> Result<Vec<BitVecAst<'c>>, ClarirsError> {
+        todo!("Implement eval_bitvec_n for VSASolver")
     }
 
-    fn eval_float(&mut self, _expr: &FloatAst<'c>) -> Result<FloatAst<'c>, ClarirsError> {
-        todo!("Implement eval_float for VSASolver")
+    fn eval_float_n(
+        &mut self,
+        _expr: &FloatAst<'c>,
+        _n: u32,
+    ) -> Result<Vec<FloatAst<'c>>, ClarirsError> {
+        todo!("Implement eval_float_n for VSASolver")
     }
 
-    fn eval_string(&mut self, _expr: &StringAst<'c>) -> Result<StringAst<'c>, ClarirsError> {
-        todo!("Implement eval_string for VSASolver")
+    fn eval_string_n(
+        &mut self,
+        _expr: &StringAst<'c>,
+        _n: u32,
+    ) -> Result<Vec<StringAst<'c>>, ClarirsError> {
+        todo!("Implement eval_string_n for VSASolver")
     }
 
     fn is_true(&mut self, _expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
