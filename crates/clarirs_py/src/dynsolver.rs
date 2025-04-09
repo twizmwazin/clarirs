@@ -98,7 +98,10 @@ impl Solver<'static> for DynSolver {
         }
     }
 
-    fn min_unsigned(&mut self, expr: &BitVecAst<'static>) -> Result<BitVecAst<'static>, ClarirsError> {
+    fn min_unsigned(
+        &mut self,
+        expr: &BitVecAst<'static>,
+    ) -> Result<BitVecAst<'static>, ClarirsError> {
         match self {
             DynSolver::Concrete(solver) => solver.min_unsigned(expr),
             DynSolver::Z3(solver) => solver.min_unsigned(expr),
@@ -106,7 +109,10 @@ impl Solver<'static> for DynSolver {
         }
     }
 
-    fn max_unsigned(&mut self, expr: &BitVecAst<'static>) -> Result<BitVecAst<'static>, ClarirsError> {
+    fn max_unsigned(
+        &mut self,
+        expr: &BitVecAst<'static>,
+    ) -> Result<BitVecAst<'static>, ClarirsError> {
         match self {
             DynSolver::Concrete(solver) => solver.max_unsigned(expr),
             DynSolver::Z3(solver) => solver.max_unsigned(expr),
@@ -114,7 +120,10 @@ impl Solver<'static> for DynSolver {
         }
     }
 
-    fn min_signed(&mut self, expr: &BitVecAst<'static>) -> Result<BitVecAst<'static>, ClarirsError> {
+    fn min_signed(
+        &mut self,
+        expr: &BitVecAst<'static>,
+    ) -> Result<BitVecAst<'static>, ClarirsError> {
         match self {
             DynSolver::Concrete(solver) => solver.min_signed(expr),
             DynSolver::Z3(solver) => solver.min_signed(expr),
@@ -122,7 +131,10 @@ impl Solver<'static> for DynSolver {
         }
     }
 
-    fn max_signed(&mut self, expr: &BitVecAst<'static>) -> Result<BitVecAst<'static>, ClarirsError> {
+    fn max_signed(
+        &mut self,
+        expr: &BitVecAst<'static>,
+    ) -> Result<BitVecAst<'static>, ClarirsError> {
         match self {
             DynSolver::Concrete(solver) => solver.max_signed(expr),
             DynSolver::Z3(solver) => solver.max_signed(expr),

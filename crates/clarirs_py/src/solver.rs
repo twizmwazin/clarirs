@@ -505,7 +505,6 @@ impl PySolver {
                 "max: expression must be a bitvector".to_string(),
             ))
         }
-
     }
 
     #[pyo3(signature = (expr, extra_constraints = None, exact = None, signed = false))]

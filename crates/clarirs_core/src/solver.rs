@@ -276,7 +276,6 @@ impl<'c> Solver<'c> for ConcreteSolver<'c> {
     fn max_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
         self.eval_bitvec(expr)
     }
-
 }
 
 #[cfg(test)]
