@@ -24,27 +24,19 @@ pub trait Solver<'c>: Clone + HasContext<'c> {
     /// If the constraints are unsatisfiable, an error is returned.
     fn eval_bool(&mut self, expr: &BoolAst<'c>) -> Result<BoolAst<'c>, ClarirsError> {
         let mut results = self.eval_bool_n(expr, 1)?;
-        results
-            .pop()
-            .ok_or(ClarirsError::Unsat)
+        results.pop().ok_or(ClarirsError::Unsat)
     }
     fn eval_bitvec(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
         let mut results = self.eval_bitvec_n(expr, 1)?;
-        results
-            .pop()
-            .ok_or(ClarirsError::Unsat)
+        results.pop().ok_or(ClarirsError::Unsat)
     }
     fn eval_float(&mut self, expr: &FloatAst<'c>) -> Result<FloatAst<'c>, ClarirsError> {
         let mut results = self.eval_float_n(expr, 1)?;
-        results
-            .pop()
-            .ok_or(ClarirsError::Unsat)
+        results.pop().ok_or(ClarirsError::Unsat)
     }
     fn eval_string(&mut self, expr: &StringAst<'c>) -> Result<StringAst<'c>, ClarirsError> {
         let mut results = self.eval_string_n(expr, 1)?;
-        results
-            .pop()
-            .ok_or(ClarirsError::Unsat)
+        results.pop().ok_or(ClarirsError::Unsat)
     }
 
     /// Check if an expression is true in the current model. If the constraints are unsatisfiable, an
@@ -72,11 +64,8 @@ pub trait Solver<'c>: Clone + HasContext<'c> {
     fn max_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError>;
 
     /// Find multiple solutions for a boolean expression
-    fn eval_bool_n(
-        &mut self,
-        expr: &BoolAst<'c>,
-        n: u32,
-    ) -> Result<Vec<BoolAst<'c>>, ClarirsError>;
+    fn eval_bool_n(&mut self, expr: &BoolAst<'c>, n: u32)
+    -> Result<Vec<BoolAst<'c>>, ClarirsError>;
 
     /// Find multiple solutions for a bitvector expression
     fn eval_bitvec_n(

@@ -20,7 +20,6 @@ impl<'c> HasContext<'c> for VSASolver<'c> {
 }
 
 impl<'c> Solver<'c> for VSASolver<'c> {
-
     fn constraints(&self) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
         Ok(vec![])
     }
