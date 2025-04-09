@@ -22,10 +22,22 @@ pub trait Solver<'c>: Clone + HasContext<'c> {
     /// Evaluate an expression in the current model.
     ///
     /// If the constraints are unsatisfiable, an error is returned.
-    fn eval_bool(&mut self, expr: &BoolAst<'c>) -> Result<BoolAst<'c>, ClarirsError>;
-    fn eval_bitvec(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError>;
-    fn eval_float(&mut self, expr: &FloatAst<'c>) -> Result<FloatAst<'c>, ClarirsError>;
-    fn eval_string(&mut self, expr: &StringAst<'c>) -> Result<StringAst<'c>, ClarirsError>;
+    fn eval_bool(&mut self, expr: &BoolAst<'c>) -> Result<BoolAst<'c>, ClarirsError> {
+        let mut results = self.eval_bool_n(expr, 1)?;
+        results.pop().ok_or(ClarirsError::Unsat)
+    }
+    fn eval_bitvec(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        let mut results = self.eval_bitvec_n(expr, 1)?;
+        results.pop().ok_or(ClarirsError::Unsat)
+    }
+    fn eval_float(&mut self, expr: &FloatAst<'c>) -> Result<FloatAst<'c>, ClarirsError> {
+        let mut results = self.eval_float_n(expr, 1)?;
+        results.pop().ok_or(ClarirsError::Unsat)
+    }
+    fn eval_string(&mut self, expr: &StringAst<'c>) -> Result<StringAst<'c>, ClarirsError> {
+        let mut results = self.eval_string_n(expr, 1)?;
+        results.pop().ok_or(ClarirsError::Unsat)
+    }
 
     /// Check if an expression is true in the current model. If the constraints are unsatisfiable, an
     /// error is returned. Equivalent to `eval(expr) == ctx.true_()`
@@ -52,136 +64,29 @@ pub trait Solver<'c>: Clone + HasContext<'c> {
     fn max_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError>;
 
     /// Find multiple solutions for a boolean expression
-    fn eval_bool_n(
-        &mut self,
-        expr: &BoolAst<'c>,
-        n: u32,
-    ) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
-        let mut results = Vec::new();
-        let mut solver = self.clone();
-
-        // Try to find up to n solutions
-        for _ in 0..n {
-            // Check if solver is still satisfiable
-            if !solver.satisfiable()? {
-                break; // No more solutions
-            }
-
-            // Get current solution
-            let solution = solver.eval_bool(expr)?;
-            results.push(solution.clone());
-
-            // Add constraint to exclude this solution for next iteration
-            // Don't do this for concrete solvers which don't support constraints
-            if let Ok(()) = solver.add(&solver.context().neq(expr, &solution)?) {
-                // Successfully added constraint, continue to next iteration
-            } else {
-                // If we can't add constraints, we can only get one solution
-                break;
-            }
-        }
-
-        Ok(results)
-    }
+    fn eval_bool_n(&mut self, expr: &BoolAst<'c>, n: u32)
+    -> Result<Vec<BoolAst<'c>>, ClarirsError>;
 
     /// Find multiple solutions for a bitvector expression
     fn eval_bitvec_n(
         &mut self,
         expr: &BitVecAst<'c>,
         n: u32,
-    ) -> Result<Vec<BitVecAst<'c>>, ClarirsError> {
-        let mut results = Vec::new();
-        let mut solver = self.clone();
-
-        // Try to find up to n solutions
-        for _ in 0..n {
-            // Check if solver is still satisfiable
-            if !solver.satisfiable()? {
-                break; // No more solutions
-            }
-
-            // Get current solution
-            let solution = solver.eval_bitvec(expr)?;
-            results.push(solution.clone());
-
-            // Add constraint to exclude this solution for next iteration
-            // Don't do this for concrete solvers which don't support constraints
-            if let Ok(()) = solver.add(&solver.context().neq(expr, &solution)?) {
-                // Successfully added constraint, continue to next iteration
-            } else {
-                // If we can't add constraints, we can only get one solution
-                break;
-            }
-        }
-
-        Ok(results)
-    }
+    ) -> Result<Vec<BitVecAst<'c>>, ClarirsError>;
 
     /// Find multiple solutions for a float expression
     fn eval_float_n(
         &mut self,
         expr: &FloatAst<'c>,
         n: u32,
-    ) -> Result<Vec<FloatAst<'c>>, ClarirsError> {
-        let mut results = Vec::new();
-        let mut solver = self.clone();
-
-        // Try to find up to n solutions
-        for _ in 0..n {
-            // Check if solver is still satisfiable
-            if !solver.satisfiable()? {
-                break; // No more solutions
-            }
-
-            // Get current solution
-            let solution = solver.eval_float(expr)?;
-            results.push(solution.clone());
-
-            // Add constraint to exclude this solution for next iteration
-            // Don't do this for concrete solvers which don't support constraints
-            if let Ok(()) = solver.add(&solver.context().neq(expr, &solution)?) {
-                // Successfully added constraint, continue to next iteration
-            } else {
-                // If we can't add constraints, we can only get one solution
-                break;
-            }
-        }
-
-        Ok(results)
-    }
+    ) -> Result<Vec<FloatAst<'c>>, ClarirsError>;
 
     /// Find multiple solutions for a string expression
     fn eval_string_n(
         &mut self,
         expr: &StringAst<'c>,
         n: u32,
-    ) -> Result<Vec<StringAst<'c>>, ClarirsError> {
-        let mut results = Vec::new();
-        let mut solver = self.clone();
-
-        // Try to find up to n solutions
-        for _ in 0..n {
-            // Check if solver is still satisfiable
-            if !solver.satisfiable()? {
-                break; // No more solutions
-            }
-
-            // Get current solution
-            let solution = solver.eval_string(expr)?;
-            results.push(solution.clone());
-
-            // Add constraint to exclude this solution for next iteration
-            // Don't do this for concrete solvers which don't support constraints
-            if let Ok(()) = solver.add(&solver.context().neq(expr, &solution)?) {
-                // Successfully added constraint, continue to next iteration
-            } else {
-                // If we can't add constraints, we can only get one solution
-                break;
-            }
-        }
-
-        Ok(results)
-    }
+    ) -> Result<Vec<StringAst<'c>>, ClarirsError>;
 }
 
 /// A concrete solver. This solver is used to evaluate expressions in a concrete
@@ -205,6 +110,53 @@ impl<'c> ConcreteSolver<'c> {
 }
 
 impl<'c> Solver<'c> for ConcreteSolver<'c> {
+    fn eval_bool_n(
+        &mut self,
+        expr: &BoolAst<'c>,
+        n: u32,
+    ) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
+        if n == 0 {
+            return Ok(Vec::new());
+        }
+        let val = self.eval_bool(expr)?;
+        Ok(vec![val])
+    }
+
+    fn eval_bitvec_n(
+        &mut self,
+        expr: &BitVecAst<'c>,
+        n: u32,
+    ) -> Result<Vec<BitVecAst<'c>>, ClarirsError> {
+        if n == 0 {
+            return Ok(Vec::new());
+        }
+        let val = self.eval_bitvec(expr)?;
+        Ok(vec![val])
+    }
+
+    fn eval_float_n(
+        &mut self,
+        expr: &FloatAst<'c>,
+        n: u32,
+    ) -> Result<Vec<FloatAst<'c>>, ClarirsError> {
+        if n == 0 {
+            return Ok(Vec::new());
+        }
+        let val = self.eval_float(expr)?;
+        Ok(vec![val])
+    }
+
+    fn eval_string_n(
+        &mut self,
+        expr: &StringAst<'c>,
+        n: u32,
+    ) -> Result<Vec<StringAst<'c>>, ClarirsError> {
+        if n == 0 {
+            return Ok(Vec::new());
+        }
+        let val = self.eval_string(expr)?;
+        Ok(vec![val])
+    }
     fn constraints(&self) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
         Ok(Vec::new())
     }

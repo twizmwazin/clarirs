@@ -154,6 +154,105 @@ impl<'c> Z3Solver<'c> {
 }
 
 impl<'c> Solver<'c> for Z3Solver<'c> {
+    fn eval_bool_n(
+        &mut self,
+        expr: &BoolAst<'c>,
+        n: u32,
+    ) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
+        let mut results = Vec::new();
+        let mut solver = self.clone();
+
+        for _ in 0..n {
+            if !solver.satisfiable()? {
+                break;
+            }
+
+            let solution = solver.eval_bool(expr)?;
+            results.push(solution.clone());
+
+            if let Ok(()) = solver.add(&solver.context().neq(expr, &solution)?) {
+            } else {
+                break;
+            }
+        }
+
+        Ok(results)
+    }
+
+    fn eval_bitvec_n(
+        &mut self,
+        expr: &BitVecAst<'c>,
+        n: u32,
+    ) -> Result<Vec<BitVecAst<'c>>, ClarirsError> {
+        let mut results = Vec::new();
+        let mut solver = self.clone();
+
+        for _ in 0..n {
+            if !solver.satisfiable()? {
+                break;
+            }
+
+            let solution = solver.eval_bitvec(expr)?;
+            results.push(solution.clone());
+
+            if let Ok(()) = solver.add(&solver.context().neq(expr, &solution)?) {
+            } else {
+                break;
+            }
+        }
+
+        Ok(results)
+    }
+
+    fn eval_float_n(
+        &mut self,
+        expr: &FloatAst<'c>,
+        n: u32,
+    ) -> Result<Vec<FloatAst<'c>>, ClarirsError> {
+        let mut results = Vec::new();
+        let mut solver = self.clone();
+
+        for _ in 0..n {
+            if !solver.satisfiable()? {
+                break;
+            }
+
+            let solution = solver.eval_float(expr)?;
+            results.push(solution.clone());
+
+            if let Ok(()) = solver.add(&solver.context().neq(expr, &solution)?) {
+            } else {
+                break;
+            }
+        }
+
+        Ok(results)
+    }
+
+    fn eval_string_n(
+        &mut self,
+        expr: &StringAst<'c>,
+        n: u32,
+    ) -> Result<Vec<StringAst<'c>>, ClarirsError> {
+        let mut results = Vec::new();
+        let mut solver = self.clone();
+
+        for _ in 0..n {
+            if !solver.satisfiable()? {
+                break;
+            }
+
+            let solution = solver.eval_string(expr)?;
+            results.push(solution.clone());
+
+            if let Ok(()) = solver.add(&solver.context().neq(expr, &solution)?) {
+            } else {
+                break;
+            }
+        }
+
+        Ok(results)
+    }
     fn constraints(&self) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
         Ok(self.assertions.clone())
     }
