@@ -35,13 +35,21 @@ pub trait Solver<'c>: Clone + HasContext<'c> {
     /// error is returned. Equivalent to `eval(expr) == ctx.false_()`
     fn is_false(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError>;
 
-    /// Get the minimum value of an expression in the current model. If the constraints are
-    /// unsatisfiable, an error is returned.
-    fn min(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError>;
+    /// Get the minimum value of an expression in the current model, interpreting the bitvector as unsigned.
+    /// If the constraints are unsatisfiable, an error is returned.
+    fn min_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError>;
 
-    /// Get the maximum value of an expression in the current model. If the constraints are
-    /// unsatisfiable, an error is returned.
-    fn max(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError>;
+    /// Get the maximum value of an expression in the current model, interpreting the bitvector as unsigned.
+    /// If the constraints are unsatisfiable, an error is returned.
+    fn max_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError>;
+
+    /// Get the minimum value of an expression in the current model, interpreting the bitvector as signed.
+    /// If the constraints are unsatisfiable, an error is returned.
+    fn min_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError>;
+
+    /// Get the maximum value of an expression in the current model, interpreting the bitvector as signed.
+    /// If the constraints are unsatisfiable, an error is returned.
+    fn max_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError>;
 
     /// Find multiple solutions for a boolean expression
     fn eval_bool_n(
@@ -253,11 +261,19 @@ impl<'c> Solver<'c> for ConcreteSolver<'c> {
         Ok(expr.simplify()?.is_false())
     }
 
-    fn min(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn min_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
         self.eval_bitvec(expr)
     }
 
-    fn max(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn max_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.eval_bitvec(expr)
+    }
+
+    fn min_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.eval_bitvec(expr)
+    }
+
+    fn max_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
         self.eval_bitvec(expr)
     }
 }

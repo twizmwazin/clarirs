@@ -484,7 +484,6 @@ impl PySolver {
         signed: bool,
     ) -> Result<BigInt, ClaripyError> {
         let _ = exact; // TODO: Implement approximate solutions
-        let _ = signed; // TODO: Implement signed solutions
 
         let mut solver = self.inner.clone();
         if let Some(extra_constraints) = extra_constraints {
@@ -492,11 +491,18 @@ impl PySolver {
                 solver.add(&expr.0.get().inner)?;
             }
         }
-        if let BitVecOp::BVV(bv) = solver.min(&expr.get().inner)?.op() {
+
+        let result = if signed {
+            solver.min_signed(&expr.get().inner)?
+        } else {
+            solver.min_unsigned(&expr.get().inner)?
+        };
+
+        if let BitVecOp::BVV(bv) = result.op() {
             Ok(BigInt::from(bv.to_biguint()))
         } else {
             Err(ClaripyError::TypeError(
-                "min: expression must be a bitvector".to_string(),
+                "max: expression must be a bitvector".to_string(),
             ))
         }
     }
@@ -510,7 +516,6 @@ impl PySolver {
         signed: bool,
     ) -> Result<BigInt, ClaripyError> {
         let _ = exact; // TODO: Implement approximate solutions
-        let _ = signed; // TODO: Implement signedness
 
         let mut solver = self.inner.clone();
         if let Some(extra_constraints) = extra_constraints {
@@ -519,11 +524,17 @@ impl PySolver {
             }
         }
 
-        if let BitVecOp::BVV(bv) = solver.max(&expr.get().inner)?.op() {
+        let result = if signed {
+            solver.max_signed(&expr.get().inner)?
+        } else {
+            solver.max_unsigned(&expr.get().inner)?
+        };
+
+        if let BitVecOp::BVV(bv) = result.op() {
             Ok(BigInt::from(bv.to_biguint()))
         } else {
             Err(ClaripyError::TypeError(
-                "min: expression must be a bitvector".to_string(),
+                "max: expression must be a bitvector".to_string(),
             ))
         }
     }

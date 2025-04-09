@@ -58,11 +58,19 @@ impl<'c> Solver<'c> for VSASolver<'c> {
         todo!("Implement is_false for VSASolver")
     }
 
-    fn min(&mut self, _expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        todo!("Implement min for VSASolver")
+    fn min_unsigned(&mut self, _expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        todo!("Implement min_unsigned for VSASolver")
     }
 
-    fn max(&mut self, _expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        todo!("Implement max for VSASolver")
+    fn max_unsigned(&mut self, _expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        todo!("Implement max_unsigned for VSASolver")
+    }
+
+    fn min_signed(&mut self, _expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        todo!("Implement min_signed for VSASolver")
+    }
+
+    fn max_signed(&mut self, _expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        todo!("Implement max_signed for VSASolver")
     }
 }

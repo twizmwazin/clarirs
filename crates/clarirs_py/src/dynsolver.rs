@@ -98,19 +98,47 @@ impl Solver<'static> for DynSolver {
         }
     }
 
-    fn min(&mut self, expr: &BitVecAst<'static>) -> Result<BitVecAst<'static>, ClarirsError> {
+    fn min_unsigned(
+        &mut self,
+        expr: &BitVecAst<'static>,
+    ) -> Result<BitVecAst<'static>, ClarirsError> {
         match self {
-            DynSolver::Concrete(solver) => solver.min(expr),
-            DynSolver::Z3(solver) => solver.min(expr),
-            DynSolver::Vsa(solver) => solver.min(expr),
+            DynSolver::Concrete(solver) => solver.min_unsigned(expr),
+            DynSolver::Z3(solver) => solver.min_unsigned(expr),
+            DynSolver::Vsa(solver) => solver.min_unsigned(expr),
         }
     }
 
-    fn max(&mut self, expr: &BitVecAst<'static>) -> Result<BitVecAst<'static>, ClarirsError> {
+    fn max_unsigned(
+        &mut self,
+        expr: &BitVecAst<'static>,
+    ) -> Result<BitVecAst<'static>, ClarirsError> {
         match self {
-            DynSolver::Concrete(solver) => solver.max(expr),
-            DynSolver::Z3(solver) => solver.max(expr),
-            DynSolver::Vsa(solver) => solver.max(expr),
+            DynSolver::Concrete(solver) => solver.max_unsigned(expr),
+            DynSolver::Z3(solver) => solver.max_unsigned(expr),
+            DynSolver::Vsa(solver) => solver.max_unsigned(expr),
+        }
+    }
+
+    fn min_signed(
+        &mut self,
+        expr: &BitVecAst<'static>,
+    ) -> Result<BitVecAst<'static>, ClarirsError> {
+        match self {
+            DynSolver::Concrete(solver) => solver.min_signed(expr),
+            DynSolver::Z3(solver) => solver.min_signed(expr),
+            DynSolver::Vsa(solver) => solver.min_signed(expr),
+        }
+    }
+
+    fn max_signed(
+        &mut self,
+        expr: &BitVecAst<'static>,
+    ) -> Result<BitVecAst<'static>, ClarirsError> {
+        match self {
+            DynSolver::Concrete(solver) => solver.max_signed(expr),
+            DynSolver::Z3(solver) => solver.max_signed(expr),
+            DynSolver::Vsa(solver) => solver.max_signed(expr),
         }
     }
 }
