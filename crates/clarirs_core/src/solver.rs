@@ -47,6 +47,14 @@ pub trait Solver<'c>: Clone + HasContext<'c> {
     /// error is returned. Equivalent to `eval(expr) == ctx.false_()`
     fn is_false(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError>;
 
+    /// Check if an expression could be true in the current model. If the constraints are unsatisfiable, an
+    /// error is returned. Equivalent to `eval(expr) == ctx.true_()`
+    fn has_true(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError>;
+
+    /// Check if an expression could be false in the current model. If the constraints are unsatisfiable, an
+    /// error is returned. Equivalent to `eval(expr) == ctx.false_()`
+    fn has_false(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError>;
+
     /// Get the minimum value of an expression in the current model, interpreting the bitvector as unsigned.
     /// If the constraints are unsatisfiable, an error is returned.
     fn min_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError>;
@@ -210,6 +218,14 @@ impl<'c> Solver<'c> for ConcreteSolver<'c> {
     }
 
     fn is_false(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+        Ok(expr.simplify()?.is_false())
+    }
+
+    fn has_true(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+        Ok(expr.simplify()?.is_true())
+    }
+
+    fn has_false(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
         Ok(expr.simplify()?.is_false())
     }
 

@@ -311,6 +311,18 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         Ok(expr.concrete() && expr.is_false())
     }
 
+    fn has_true(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+        let mut solver = self.clone();
+        solver.add(expr)?;
+        solver.satisfiable()
+    }
+
+    fn has_false(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+        let mut solver = self.clone();
+        solver.add(&self.context().not(expr)?)?;
+        solver.satisfiable()
+    }
+
     fn min_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
         let optimize = self.mk_filled_optimize()?;
         Z3_CONTEXT.with(|&z3_ctx| unsafe {
