@@ -210,45 +210,51 @@ impl PySolver {
         extra_constraints: Option<Vec<CoerceBool<'py>>>,
         exact: Option<Bound<'py, PyAny>>,
     ) -> PyResult<Vec<Bound<'py, PyAny>>> {
-        self.eval_to_ast(py, expr, n, extra_constraints, exact)?
-            .into_iter()
-            .filter_map(|r| {
-                if let Ok(bv_value) = r.clone().into_any().downcast::<BV>() {
-                    // Assume that the BV is concrete, extract and return a Python integer
-                    if let BitVecOp::BVV(bv) = bv_value.get().inner.op() {
-                        Some(bv.to_biguint().into_bound_py_any(py))
+        match self.eval_to_ast(py, expr, n, extra_constraints, exact) {
+            Ok(results) => results
+                .into_iter()
+                .filter_map(|r| {
+                    if let Ok(bv_value) = r.clone().into_any().downcast::<BV>() {
+                        if let BitVecOp::BVV(bv) = bv_value.get().inner.op() {
+                            Some(bv.to_biguint().into_bound_py_any(py))
+                        } else {
+                            None
+                        }
+                    } else if let Ok(bool_value) = r.clone().into_any().downcast::<Bool>() {
+                        if let BooleanOp::BoolV(b) = bool_value.get().inner.op() {
+                            Some(b.into_bound_py_any(py))
+                        } else {
+                            None
+                        }
+                    } else if let Ok(fp_value) = r.clone().into_any().downcast::<FP>() {
+                        if let FloatOp::FPV(fp) = fp_value.get().inner.op() {
+                            fp.to_f64().map(|f| f.into_bound_py_any(py))
+                        } else {
+                            None
+                        }
+                    } else if let Ok(string_value) = r.clone().into_any().downcast::<PyAstString>()
+                    {
+                        if let StringOp::StringV(s) = string_value.get().inner.op() {
+                            Some(s.into_bound_py_any(py))
+                        } else {
+                            None
+                        }
                     } else {
-                        None
+                        Some(Err(ClaripyError::UnsupportedOperation(
+                            "eval: Unsupported type".to_string(),
+                        )
+                        .into()))
                     }
-                } else if let Ok(bool_value) = r.clone().into_any().downcast::<Bool>() {
-                    // Assume that the Bool is concrete, extract and return a Python boolean
-                    if let BooleanOp::BoolV(b) = bool_value.get().inner.op() {
-                        Some(b.into_bound_py_any(py))
-                    } else {
-                        None
-                    }
-                } else if let Ok(fp_value) = r.clone().into_any().downcast::<FP>() {
-                    // Assume that the FP is concrete, extract and return a Python float
-                    if let FloatOp::FPV(fp) = fp_value.get().inner.op() {
-                        fp.to_f64().map(|f| f.into_bound_py_any(py))
-                    } else {
-                        None
-                    }
-                } else if let Ok(string_value) = r.clone().into_any().downcast::<PyAstString>() {
-                    // Assume that the PyAstString is concrete, extract and return a Python string
-                    if let StringOp::StringV(s) = string_value.get().inner.op() {
-                        Some(s.into_bound_py_any(py))
-                    } else {
-                        None
-                    }
+                })
+                .collect::<Result<Vec<Bound<PyAny>>, pyo3::PyErr>>(),
+            Err(e) => {
+                if e.to_string().contains("UNSAT") {
+                    Ok(vec![]) // Return empty list on UNSAT
                 } else {
-                    Some(Err(ClaripyError::UnsupportedOperation(
-                        "eval: Unsupported type".to_string(),
-                    )
-                    .into()))
+                    Err(e.into())
                 }
-            })
-            .collect::<Result<Vec<Bound<PyAny>>, pyo3::PyErr>>()
+            }
+        }
     }
 
     #[pyo3(signature = (exprs, n, extra_constraints = None, exact = None))]
@@ -287,7 +293,7 @@ impl PySolver {
         // Add the solution as a constraint, and check if it is satisfiable
         if let Ok(bool_ast) = expr.downcast::<Bool>() {
             if let Ok(value) = value.extract::<CoerceBool>() {
-                Ok(solver.is_true(
+                Ok(solver.has_true(
                     &self
                         .inner
                         .context()
@@ -302,7 +308,7 @@ impl PySolver {
             }
         } else if let Ok(bv_ast) = expr.downcast::<BV>() {
             if let Ok(value) = value.extract::<CoerceBV>() {
-                Ok(solver.is_true(&self.inner.context().eq_(
+                Ok(solver.has_true(&self.inner.context().eq_(
                     &bv_ast.get().inner,
                     &value.extract_like(bv_ast.py(), bv_ast.get())?.get().inner,
                 )?)?)
@@ -315,7 +321,7 @@ impl PySolver {
             }
         } else if let Ok(fp_ast) = expr.downcast::<FP>() {
             if let Ok(value) = value.extract::<CoerceFP>() {
-                Ok(solver.is_true(
+                Ok(solver.has_true(
                     &self
                         .inner
                         .context()
@@ -330,7 +336,7 @@ impl PySolver {
             }
         } else if let Ok(string_ast) = expr.downcast::<PyAstString>() {
             if let Ok(value) = value.extract::<CoerceString>() {
-                Ok(solver.is_true(
+                Ok(solver.has_true(
                     &self
                         .inner
                         .context()
@@ -376,7 +382,10 @@ impl PySolver {
 
         // Handle different expression types
         if let Ok(bool_expr) = expr.downcast::<Bool>() {
-            Ok(solver.is_true(&bool_expr.get().inner)?)
+            match bool_expr.get().inner.op() {
+                BooleanOp::BoolV(b) => Ok(*b),
+                _ => Ok(solver.is_true(&bool_expr.get().inner)?),
+            }
         } else if let Ok(bv_expr) = expr.downcast::<BV>() {
             // For bitvectors, check if it's concrete and non-zero
             if let BitVecOp::BVV(bv) = bv_expr.get().inner.op() {
@@ -587,6 +596,93 @@ impl PyVSASolver {
             inner: DynSolver::Vsa(VSASolver::new(&GLOBAL_CONTEXT)),
         })
         .add_subclass(Self {}))
+    }
+
+    fn has_true<'py>(slf: PyRefMut<'py, Self>, expr: Bound<'py, Bool>) -> PyResult<bool> {
+        let mut py_solver: PyRefMut<'py, PySolver> = slf.into_super();
+        match &mut py_solver.inner {
+            DynSolver::Vsa(vsa_solver) => vsa_solver
+                .has_true(&expr.get().inner)
+                .map_err(|e| ClaripyError::from(e).into()),
+            _ => {
+                Err(ClaripyError::UnsupportedOperation("has_true not supported".to_string()).into())
+            }
+        }
+    }
+
+    fn has_false<'py>(slf: PyRefMut<'py, Self>, expr: Bound<'py, Bool>) -> PyResult<bool> {
+        let mut py_solver: PyRefMut<'py, PySolver> = slf.into_super();
+        match &mut py_solver.inner {
+            DynSolver::Vsa(vsa_solver) => vsa_solver
+                .has_false(&expr.get().inner)
+                .map_err(|e| ClaripyError::from(e).into()),
+            _ => Err(
+                ClaripyError::UnsupportedOperation("has_false not supported".to_string()).into(),
+            ),
+        }
+    }
+
+    #[pyo3(signature = (expr, value, extra_constraints = None, exact = None))]
+    fn solution<'py>(
+        slf: PyRefMut<'py, Self>,
+        expr: Bound<'py, Base>,
+        value: Bound<'py, PyAny>,
+        extra_constraints: Option<Vec<Bound<'py, Bool>>>,
+        exact: Option<Bound<'py, PyAny>>,
+    ) -> PyResult<bool> {
+        let _ = exact; // TODO: Implement approximate solutions
+        let _ = extra_constraints; // VSA solver doesn't support constraints
+
+        // Get the parent solver
+        let py_solver: PyRefMut<'py, PySolver> = slf.into_super();
+
+        // Handle different expression types
+        if let Ok(bv_ast) = expr.downcast::<BV>() {
+            if let Ok(value) = value.extract::<CoerceBV>() {
+                // Extract the value as a BigUint
+                let value_bv = value.extract_like(bv_ast.py(), bv_ast.get())?;
+
+                // Clone the solver to get a mutable version
+                let mut solver = match &py_solver.inner {
+                    DynSolver::Vsa(vsa_solver) => vsa_solver.clone(),
+                    _ => {
+                        return Err(ClaripyError::UnsupportedOperation(
+                            "solution not supported".to_string(),
+                        )
+                        .into());
+                    }
+                };
+
+                // Check if the value is concrete
+                if let BitVecOp::BVV(_bv) = value_bv.get().inner.op() {
+                    // Create an equality expression
+                    let ctx = solver.context();
+                    let eq_expr = match ctx.eq_(&bv_ast.get().inner, &value_bv.get().inner) {
+                        Ok(expr) => expr,
+                        Err(e) => return Err(ClaripyError::from(e).into()),
+                    };
+
+                    // Use the VSA solver to check if the equality can be true
+                    match solver.has_true(&eq_expr) {
+                        Ok(result) => Ok(result),
+                        Err(e) => Err(ClaripyError::from(e).into()),
+                    }
+                } else {
+                    // If the value is not concrete, we can't check
+                    Ok(false)
+                }
+            } else {
+                let value_type = value.get_type().name()?.extract::<String>()?;
+                Err(
+                    ClaripyError::TypeError(format!("can't coerce a {} to a bv ast", value_type))
+                        .into(),
+                )
+            }
+        } else {
+            // For other types, fall back to the default implementation
+            let super_method = py_solver.solution(expr, value, extra_constraints, exact)?;
+            Ok(super_method)
+        }
     }
 }
 
