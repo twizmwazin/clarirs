@@ -2209,8 +2209,8 @@ mod tests {
             upper_bound: BigUint::from(5u32),
         };
         let (min_s, max_s) = si.get_signed_bounds();
-        assert_eq!(min_s, BigInt::from(-128));
-        assert_eq!(max_s, BigInt::from(127));
+        assert_eq!(min_s, BigInt::from(-6));
+        assert_eq!(max_s, BigInt::from(5));
 
         // Empty interval
         let si = StridedInterval::bottom(8);
