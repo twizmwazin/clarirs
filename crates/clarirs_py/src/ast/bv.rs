@@ -5,6 +5,7 @@ use std::sync::LazyLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use clarirs_core::ast::bitvec::{BitVecAstExt, BitVecOpExt};
+use clarirs_vsa::cardinality::Cardinality;
 use dashmap::DashMap;
 use num_bigint::{BigInt, BigUint, Sign};
 use pyo3::exceptions::{PyTypeError, PyValueError};
@@ -986,18 +987,18 @@ impl BV {
     }
 
     #[getter]
-    pub fn cardinality(_self_: Bound<'_, BV>) -> Result<u32, ClaripyError> {
-        todo!("cardinality")
+    pub fn cardinality(self_: Bound<'_, BV>) -> Result<BigUint, ClaripyError> {
+        Ok(self_.get().inner.cardinality()?)
     }
 
     #[getter]
     pub fn singlevalued(self_: Bound<'_, BV>) -> Result<bool, ClaripyError> {
-        Ok(BV::cardinality(self_)? == 1)
+        Ok(BV::cardinality(self_)? == BigUint::from(1u32))
     }
 
     #[getter]
     pub fn multivalued(self_: Bound<'_, BV>) -> Result<bool, ClaripyError> {
-        Ok(BV::cardinality(self_)? > 1)
+        Ok(BV::cardinality(self_)? > BigUint::from(1u32))
     }
 }
 
