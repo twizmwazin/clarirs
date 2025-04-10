@@ -450,12 +450,17 @@ impl PySolver {
         extra_constraints: Option<Vec<CoerceBool<'py>>>,
         exact: Option<Bound<'py, PyAny>>,
     ) -> Result<bool, ClaripyError> {
-        self.solution(
-            expr.clone().into_super(),
-            true.into_bound_py_any(expr.py())?,
-            extra_constraints.map(|constraints| constraints.into_iter().map(|c| c.0).collect()),
-            exact,
-        )
+        _ = exact; // TODO: Implement approximate solutions
+
+        // Fork the solver for extra constraints
+        let mut solver = self.inner.clone();
+        if let Some(extra_constraints) = extra_constraints {
+            for constraint in extra_constraints {
+                solver.add(&constraint.0.get().inner)?;
+            }
+        }
+
+        Ok(solver.has_true(&expr.get().inner)?)
     }
 
     #[pyo3(signature = (expr, extra_constraints = None, exact = None))]
@@ -465,12 +470,17 @@ impl PySolver {
         extra_constraints: Option<Vec<CoerceBool<'py>>>,
         exact: Option<Bound<'py, PyAny>>,
     ) -> Result<bool, ClaripyError> {
-        self.solution(
-            expr.clone().into_super(),
-            false.into_bound_py_any(expr.py())?,
-            extra_constraints.map(|constraints| constraints.into_iter().map(|c| c.0).collect()),
-            exact,
-        )
+        _ = exact; // TODO: Implement approximate solutions
+
+        // Fork the solver for extra constraints
+        let mut solver = self.inner.clone();
+        if let Some(extra_constraints) = extra_constraints {
+            for constraint in extra_constraints {
+                solver.add(&constraint.0.get().inner)?;
+            }
+        }
+
+        Ok(solver.has_false(&expr.get().inner)?)
     }
 
     #[pyo3(signature = (expr, extra_constraints = None, exact = None, signed = false))]

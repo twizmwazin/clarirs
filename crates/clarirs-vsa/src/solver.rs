@@ -74,6 +74,14 @@ impl<'c> Solver<'c> for VSASolver<'c> {
         todo!("Implement is_false for VSASolver")
     }
 
+    fn has_true(&mut self, _expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+        todo!("Implement has_true for VSASolver")
+    }
+
+    fn has_false(&mut self, _expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+        todo!("Implement has_false for VSASolver")
+    }
+
     fn min_unsigned(&mut self, _expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
         todo!("Implement min_unsigned for VSASolver")
     }
