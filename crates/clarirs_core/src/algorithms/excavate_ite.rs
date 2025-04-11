@@ -23,8 +23,8 @@ impl<'c> ExcavateIte<'c> for DynAst<'c> {
         walk_post_order(
             self.clone(),
             |node, children| match node {
-                DynAst::Boolean(ast) => bool::excavate_ite(&ast, &children).map(DynAst::Boolean),
-                DynAst::BitVec(ast) => bitvec::excavate_ite(&ast, &children).map(DynAst::BitVec),
+                DynAst::Boolean(ast) => bool::excavate_ite(&ast, children).map(DynAst::Boolean),
+                DynAst::BitVec(ast) => bitvec::excavate_ite(&ast, children).map(DynAst::BitVec),
                 DynAst::Float(_) => todo!("Implement ite excavation for FloatAst"),
                 DynAst::String(_) => todo!("Implement ite excavation for StringAst"),
             },

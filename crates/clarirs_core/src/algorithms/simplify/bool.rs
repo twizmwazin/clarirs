@@ -7,7 +7,7 @@ use crate::{
 
 pub(crate) fn simplify_bool<'c>(
     ast: &BoolAst<'c>,
-    children: &Vec<DynAst<'c>>,
+    children: &[DynAst<'c>],
 ) -> Result<BoolAst<'c>, ClarirsError> {
     let ctx = ast.context();
 

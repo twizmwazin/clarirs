@@ -5,7 +5,7 @@ use crate::{
 
 pub(crate) fn simplify_float<'c>(
     ast: &FloatAst<'c>,
-    children: &Vec<DynAst<'c>>,
+    children: &[DynAst<'c>],
 ) -> Result<FloatAst<'c>, ClarirsError> {
     let ctx = ast.context();
 

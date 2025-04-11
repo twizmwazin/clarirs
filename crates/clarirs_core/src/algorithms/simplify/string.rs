@@ -5,7 +5,7 @@ use crate::{
 
 pub(crate) fn simplify_string<'c>(
     ast: &StringAst<'c>,
-    children: &Vec<DynAst<'c>>,
+    children: &[DynAst<'c>],
 ) -> Result<StringAst<'c>, ClarirsError> {
     let ctx = ast.context();
 

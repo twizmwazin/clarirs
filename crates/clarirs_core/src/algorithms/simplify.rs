@@ -101,10 +101,10 @@ impl<'c> Simplify<'c> for DynAst<'c> {
         walk_post_order(
             self.clone(),
             |node, children| match node {
-                DynAst::Boolean(ast) => bool::simplify_bool(&ast, &children).map(DynAst::Boolean),
-                DynAst::BitVec(ast) => bv::simplify_bv(&ast, &children).map(DynAst::BitVec),
-                DynAst::Float(ast) => float::simplify_float(&ast, &children).map(DynAst::Float),
-                DynAst::String(ast) => string::simplify_string(&ast, &children).map(DynAst::String),
+                DynAst::Boolean(ast) => bool::simplify_bool(&ast, children).map(DynAst::Boolean),
+                DynAst::BitVec(ast) => bv::simplify_bv(&ast, children).map(DynAst::BitVec),
+                DynAst::Float(ast) => float::simplify_float(&ast, children).map(DynAst::Float),
+                DynAst::String(ast) => string::simplify_string(&ast, children).map(DynAst::String),
             },
             &self.context().simplification_cache,
         )
