@@ -199,10 +199,10 @@ impl ToSmtLib for DynAst<'_> {
         walk_post_order(
             self.clone(),
             |node, children| match node {
-                DynAst::Boolean(ast) => Ok(to_smtlib_bool(&ast, &children)),
-                DynAst::BitVec(ast) => Ok(to_smtlib_bv(&ast, &children)),
-                DynAst::Float(ast) => Ok(to_smtlib_float(&ast, &children)),
-                DynAst::String(ast) => Ok(to_smtlib_string(&ast, &children)),
+                DynAst::Boolean(ast) => Ok(to_smtlib_bool(&ast, children)),
+                DynAst::BitVec(ast) => Ok(to_smtlib_bv(&ast, children)),
+                DynAst::Float(ast) => Ok(to_smtlib_float(&ast, children)),
+                DynAst::String(ast) => Ok(to_smtlib_string(&ast, children)),
             },
             &(),
         )

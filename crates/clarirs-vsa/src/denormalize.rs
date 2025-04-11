@@ -36,10 +36,10 @@ impl Denormalize for DynAst<'_> {
                             )
                             .map(DynAst::from)
                     } else {
-                        node.make_like(&children)
+                        node.make_like(children)
                     }
                 }
-                _ => node.make_like(&children),
+                _ => node.make_like(children),
             },
             &(),
         )

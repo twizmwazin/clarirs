@@ -90,10 +90,10 @@ impl<'c> AstExtZ3<'c> for DynAst<'c> {
         walk_post_order(
             self.clone(),
             |node, children| match node {
-                DynAst::Boolean(ast) => bool::to_z3(&ast, &children),
-                DynAst::BitVec(ast) => bv::to_z3(&ast, &children),
-                DynAst::Float(ast) => float::to_z3(&ast, &children),
-                DynAst::String(ast) => string::to_z3(&ast, &children),
+                DynAst::Boolean(ast) => bool::to_z3(&ast, children),
+                DynAst::BitVec(ast) => bv::to_z3(&ast, children),
+                DynAst::Float(ast) => float::to_z3(&ast, children),
+                DynAst::String(ast) => string::to_z3(&ast, children),
             },
             &(),
         )
