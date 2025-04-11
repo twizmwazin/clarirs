@@ -5,7 +5,7 @@ use crate::{
 
 pub(crate) fn excavate_ite<'c>(
     ast: &BoolAst<'c>,
-    children: &Vec<DynAst<'c>>,
+    children: &[DynAst<'c>],
 ) -> Result<BoolAst<'c>, ClarirsError> {
     let ctx = ast.context();
 

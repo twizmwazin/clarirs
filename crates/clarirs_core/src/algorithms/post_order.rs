@@ -19,9 +19,9 @@ use std::collections::VecDeque;
 /// results instead of recomputing them, which can significantly improve
 /// performance for trees with repeated subtrees. If you do not want to use a
 /// cache, pass `&()` as the cache.
-pub fn walk_post_order<'c, T: Clone>(
+pub fn walk_post_order<'c, T>(
     ast: DynAst<'c>,
-    mut callback: impl FnMut(DynAst<'c>, Vec<T>) -> Result<T, ClarirsError>,
+    mut callback: impl FnMut(DynAst<'c>, &[T]) -> Result<T, ClarirsError>,
     cache: &impl Cache<u64, T>,
 ) -> Result<T, ClarirsError> {
     // For each node, we need to track:
@@ -50,7 +50,7 @@ pub fn walk_post_order<'c, T: Clone>(
         if state.children_processed == children.len() {
             // All children processed, process this node
             result_queue.push_back(cache.get_or_insert(state.node.inner_hash(), || {
-                callback(state.node.clone(), state.child_results.clone())
+                callback(state.node.clone(), &state.child_results)
             })?);
         } else {
             // Process next child

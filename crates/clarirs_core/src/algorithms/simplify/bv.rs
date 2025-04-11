@@ -11,7 +11,7 @@ use crate::{
 
 pub(crate) fn simplify_bv<'c>(
     ast: &BitVecAst<'c>,
-    children: &Vec<DynAst<'c>>,
+    children: &[DynAst<'c>],
 ) -> Result<BitVecAst<'c>, ClarirsError> {
     let ctx = ast.context();
 

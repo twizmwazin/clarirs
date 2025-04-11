@@ -25,10 +25,8 @@ impl<'c> Reduce<'c> for DynAst<'c> {
         walk_post_order(
             self.clone(),
             |node, children| match node {
-                DynAst::BitVec(bv) => bv::reduce_bv(&bv, &children).map(ReduceResult::BitVec),
-                DynAst::Boolean(bool) => {
-                    bool::reduce_bool(&bool, &children).map(ReduceResult::Bool)
-                }
+                DynAst::BitVec(bv) => bv::reduce_bv(&bv, children).map(ReduceResult::BitVec),
+                DynAst::Boolean(bool) => bool::reduce_bool(&bool, children).map(ReduceResult::Bool),
                 _ => Err(ClarirsError::UnsupportedOperation(
                     "Unsupported operation for reduction".to_string(),
                 )),
