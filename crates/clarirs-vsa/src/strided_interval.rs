@@ -1411,6 +1411,111 @@ impl StridedInterval {
         // Provide a conservative approximation
         Self::top(self.bits)
     }
+
+    /// Returns a new StridedInterval with the upper bound clamped (unsigned).
+    pub fn clamp_upper_unsigned<T: ToBigUint>(&self, new_upper: T) -> Self {
+        if self.is_empty() {
+            return Self::bottom(self.bits);
+        }
+        let new_upper = new_upper.to_biguint().unwrap();
+        let clamped_upper = std::cmp::min(self.upper_bound.clone(), new_upper);
+        if self.lower_bound > clamped_upper {
+            return Self::bottom(self.bits);
+        }
+        Self::new(
+            self.bits,
+            self.stride.clone(),
+            self.lower_bound.clone(),
+            clamped_upper,
+        )
+    }
+
+    /// Returns a new StridedInterval with the lower bound clamped (unsigned).
+    pub fn clamp_lower_unsigned<T: ToBigUint>(&self, new_lower: T) -> Self {
+        if self.is_empty() {
+            return Self::bottom(self.bits);
+        }
+        let new_lower = new_lower.to_biguint().unwrap();
+        let clamped_lower = std::cmp::max(self.lower_bound.clone(), new_lower);
+        if clamped_lower > self.upper_bound {
+            return Self::bottom(self.bits);
+        }
+        Self::new(
+            self.bits,
+            self.stride.clone(),
+            clamped_lower,
+            self.upper_bound.clone(),
+        )
+    }
+
+    /// Returns a new StridedInterval with the upper bound clamped (signed).
+    pub fn clamp_upper_signed<T: ToBigInt>(&self, new_upper: T) -> Self {
+        if self.is_empty() {
+            return Self::bottom(self.bits);
+        }
+        let new_upper = new_upper.to_bigint().unwrap();
+        let (lb_signed, ub_signed) = self.get_signed_bounds();
+        let clamped_ub = std::cmp::min(ub_signed, new_upper);
+
+        // If lower > clamped upper, return bottom
+        if lb_signed > clamped_ub {
+            return Self::bottom(self.bits);
+        }
+
+        // Convert clamped_ub back to unsigned
+        let bits = self.bits;
+        let max_unsigned = Self::max_int(bits);
+        let clamped_ub_unsigned = if clamped_ub < num_bigint::BigInt::zero() {
+            // Two's complement for negative values
+            let modulus = num_bigint::BigInt::one() << bits;
+            let val = (modulus.clone() + clamped_ub) % modulus;
+            val.to_biguint().unwrap()
+        } else {
+            clamped_ub.to_biguint().unwrap()
+        };
+
+        Self::new(
+            bits,
+            self.stride.clone(),
+            self.lower_bound.clone(),
+            clamped_ub_unsigned & max_unsigned,
+        )
+    }
+
+    /// Returns a new StridedInterval with the lower bound clamped (signed).
+    pub fn clamp_lower_signed<T: ToBigInt>(&self, new_lower: T) -> Self {
+        if self.is_empty() {
+            return Self::bottom(self.bits);
+        }
+        let new_lower = new_lower.to_bigint().unwrap();
+        let (lb_signed, ub_signed) = self.get_signed_bounds();
+        let clamped_lb = std::cmp::max(lb_signed, new_lower);
+
+        // If clamped lower > upper, return bottom
+        if clamped_lb > ub_signed {
+            return Self::bottom(self.bits);
+        }
+
+        // Convert clamped_lb back to unsigned
+        let bits = self.bits;
+        let max_unsigned = Self::max_int(bits);
+        let clamped_lb_unsigned = if clamped_lb < num_bigint::BigInt::zero() {
+            // Two's complement for negative values
+            let modulus = num_bigint::BigInt::one() << bits;
+            let val = (modulus.clone() + clamped_lb) % modulus;
+            val.to_biguint().unwrap()
+        } else {
+            clamped_lb.to_biguint().unwrap()
+        };
+
+        Self::new(
+            bits,
+            self.stride.clone(),
+            clamped_lb_unsigned & max_unsigned,
+            self.upper_bound.clone(),
+        )
+    }
+
 }
 
 impl fmt::Display for StridedInterval {
@@ -2217,5 +2322,137 @@ mod tests {
         let (min_s, max_s) = si.get_signed_bounds();
         assert_eq!(min_s, BigInt::zero());
         assert_eq!(max_s, BigInt::zero());
+    }
+
+    #[test]
+    fn test_clamp_upper_unsigned() {
+        // Clamp upper within bounds
+        let si = StridedInterval::range(8, 10u32, 20u32);
+        let clamped = si.clamp_upper_unsigned(15u32);
+        assert_eq!(clamped.lower_bound, BigUint::from(10u32));
+        assert_eq!(clamped.upper_bound, BigUint::from(15u32));
+
+        // Clamp upper to current upper (no-op)
+        let si = StridedInterval::range(8, 10u32, 20u32);
+        let clamped = si.clamp_upper_unsigned(20u32);
+        assert_eq!(clamped.lower_bound, BigUint::from(10u32));
+        assert_eq!(clamped.upper_bound, BigUint::from(20u32));
+
+        // Clamp upper below lower (should be bottom)
+        let si = StridedInterval::range(8, 10u32, 20u32);
+        let clamped = si.clamp_upper_unsigned(5u32);
+        assert!(clamped.is_empty());
+
+        // Clamp upper on empty interval (should be bottom)
+        let si = StridedInterval::bottom(8);
+        let clamped = si.clamp_upper_unsigned(15u32);
+        assert!(clamped.is_empty());
+
+        // Clamp upper on singleton (should clamp to itself or bottom)
+        let si = StridedInterval::constant(8, 12u32);
+        let clamped = si.clamp_upper_unsigned(12u32);
+        assert_eq!(clamped.lower_bound, BigUint::from(12u32));
+        assert_eq!(clamped.upper_bound, BigUint::from(12u32));
+        let clamped = si.clamp_upper_unsigned(10u32);
+        assert!(clamped.is_empty());
+    }
+
+    #[test]
+    fn test_clamp_lower_unsigned() {
+        // Clamp lower within bounds
+        let si = StridedInterval::range(8, 10u32, 20u32);
+        let clamped = si.clamp_lower_unsigned(15u32);
+        assert_eq!(clamped.lower_bound, BigUint::from(15u32));
+        assert_eq!(clamped.upper_bound, BigUint::from(20u32));
+
+        // Clamp lower to current lower (no-op)
+        let si = StridedInterval::range(8, 10u32, 20u32);
+        let clamped = si.clamp_lower_unsigned(10u32);
+        assert_eq!(clamped.lower_bound, BigUint::from(10u32));
+        assert_eq!(clamped.upper_bound, BigUint::from(20u32));
+
+        // Clamp lower above upper (should be bottom)
+        let si = StridedInterval::range(8, 10u32, 20u32);
+        let clamped = si.clamp_lower_unsigned(25u32);
+        assert!(clamped.is_empty());
+
+        // Clamp lower on empty interval (should be bottom)
+        let si = StridedInterval::bottom(8);
+        let clamped = si.clamp_lower_unsigned(15u32);
+        assert!(clamped.is_empty());
+
+        // Clamp lower on singleton (should clamp to itself or bottom)
+        let si = StridedInterval::constant(8, 12u32);
+        let clamped = si.clamp_lower_unsigned(12u32);
+        assert_eq!(clamped.lower_bound, BigUint::from(12u32));
+        assert_eq!(clamped.upper_bound, BigUint::from(12u32));
+        let clamped = si.clamp_lower_unsigned(15u32);
+        assert!(clamped.is_empty());
+    }
+
+    #[test]
+    fn test_clamp_upper_signed() {
+        // Clamp upper within signed range (positive)
+        let si = StridedInterval::range(8, 10u32, 120u32);
+        let clamped = si.clamp_upper_signed(50i32);
+        let (_, ub_signed) = clamped.get_signed_bounds();
+        assert!(ub_signed <= BigInt::from(50));
+
+        // Clamp upper to negative value (should handle two's complement)
+        let si = StridedInterval::range(8, 200u32, 250u32); // signed: -56 to -6
+        let clamped = si.clamp_upper_signed(-10i32);
+        let (_, ub_signed) = clamped.get_signed_bounds();
+        assert!(ub_signed <= BigInt::from(-10));
+
+        // Clamp upper below lower (should be bottom)
+        let si = StridedInterval::range(8, 10u32, 20u32);
+        let clamped = si.clamp_upper_signed(-100i32);
+        assert!(clamped.is_empty());
+
+        // Clamp upper on empty interval (should be bottom)
+        let si = StridedInterval::bottom(8);
+        let clamped = si.clamp_upper_signed(10i32);
+        assert!(clamped.is_empty());
+
+        // Clamp upper on singleton (should clamp to itself or bottom)
+        let si = StridedInterval::constant(8, 12u32);
+        let clamped = si.clamp_upper_signed(12i32);
+        assert_eq!(clamped.lower_bound, BigUint::from(12u32));
+        assert_eq!(clamped.upper_bound, BigUint::from(12u32));
+        let clamped = si.clamp_upper_signed(10i32);
+        assert!(clamped.is_empty());
+    }
+
+    #[test]
+    fn test_clamp_lower_signed() {
+        // Clamp lower within signed range (negative)
+        let si = StridedInterval::range(8, 120u32, 200u32); // signed: -128 to -56
+        let clamped = si.clamp_lower_signed(-100i32);
+        let (lb_signed, _) = clamped.get_signed_bounds();
+        assert!(lb_signed >= BigInt::from(-100));
+
+        // Clamp lower to positive value (should increase lower bound)
+        let si = StridedInterval::range(8, 10u32, 120u32);
+        let clamped = si.clamp_lower_signed(50i32);
+        let (lb_signed, _) = clamped.get_signed_bounds();
+        assert!(lb_signed >= BigInt::from(50));
+
+        // Clamp lower above upper (should be bottom)
+        let si = StridedInterval::range(8, 10u32, 20u32);
+        let clamped = si.clamp_lower_signed(100i32);
+        assert!(clamped.is_empty());
+
+        // Clamp lower on empty interval (should be bottom)
+        let si = StridedInterval::bottom(8);
+        let clamped = si.clamp_lower_signed(10i32);
+        assert!(clamped.is_empty());
+
+        // Clamp lower on singleton (should clamp to itself or bottom)
+        let si = StridedInterval::constant(8, 12u32);
+        let clamped = si.clamp_lower_signed(12i32);
+        assert_eq!(clamped.lower_bound, BigUint::from(12u32));
+        assert_eq!(clamped.upper_bound, BigUint::from(12u32));
+        let clamped = si.clamp_lower_signed(15i32);
+        assert!(clamped.is_empty());
     }
 }
