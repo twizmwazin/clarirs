@@ -1,10 +1,6 @@
 use clarirs_core::{ast::bitvec::BitVecOpExt, prelude::*};
 
-use crate::{
-    Normalize,
-    reduce::{Reduce, ReduceResult},
-    strided_interval::ComparisonResult,
-};
+use crate::{Normalize, reduce::Reduce, strided_interval::ComparisonResult};
 
 /// A solver that uses Value Set Analysis (VSA) for symbolic computation
 #[derive(Clone)]
@@ -45,8 +41,10 @@ impl<'c> Solver<'c> for VSASolver<'c> {
         expr: &BoolAst<'c>,
         n: u32,
     ) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
-        if let ReduceResult::Bool(comp_result) = expr.simplify()?.normalize()?.reduce()? {
-            match comp_result {
+        expr.simplify()?
+            .normalize()?
+            .reduce()
+            .and_then(|comp_result| match comp_result {
                 ComparisonResult::True => Ok(vec![self.context().boolv(true)?]),
                 ComparisonResult::False => Ok(vec![self.context().boolv(false)?]),
                 ComparisonResult::Maybe => match n {
@@ -57,12 +55,7 @@ impl<'c> Solver<'c> for VSASolver<'c> {
                         self.context().boolv(false)?,
                     ]),
                 },
-            }
-        } else {
-            Err(ClarirsError::InvalidArgumentsWithMessage(
-                "Expected Bool expression".to_string(),
-            ))
-        }
+            })
     }
 
     fn eval_bitvec_n(
@@ -70,7 +63,7 @@ impl<'c> Solver<'c> for VSASolver<'c> {
         expr: &BitVecAst<'c>,
         n: u32,
     ) -> Result<Vec<BitVecAst<'c>>, ClarirsError> {
-        if let ReduceResult::BitVec(si) = expr.simplify()?.normalize()?.reduce()? {
+        expr.simplify()?.normalize()?.reduce().and_then(|si| {
             if si.is_empty() {
                 return Ok(vec![]);
             }
@@ -78,11 +71,7 @@ impl<'c> Solver<'c> for VSASolver<'c> {
                 .into_iter()
                 .map(|bv| self.context().bvv_from_biguint_with_size(&bv, expr.size()))
                 .collect()
-        } else {
-            Err(ClarirsError::InvalidArgumentsWithMessage(
-                "Expected BitVec expression".to_string(),
-            ))
-        }
+        })
     }
 
     fn eval_float_n(
@@ -106,69 +95,45 @@ impl<'c> Solver<'c> for VSASolver<'c> {
     }
 
     fn is_true(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
-        let reduced = expr.simplify()?.normalize()?.reduce()?;
-        if let crate::reduce::ReduceResult::Bool(comp_result) = reduced {
-            Ok(comp_result == crate::strided_interval::ComparisonResult::True)
-        } else {
-            Ok(false)
-        }
+        Ok(matches!(
+            expr.simplify()?.normalize()?.reduce()?,
+            ComparisonResult::True
+        ))
     }
 
     fn is_false(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
-        let reduced = expr.simplify()?.normalize()?.reduce()?;
-        if let crate::reduce::ReduceResult::Bool(comp_result) = reduced {
-            Ok(comp_result == crate::strided_interval::ComparisonResult::False)
-        } else {
-            Ok(false)
-        }
+        Ok(matches!(
+            expr.simplify()?.normalize()?.reduce()?,
+            ComparisonResult::False
+        ))
     }
 
     fn has_true(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
-        let reduced = expr.simplify()?.normalize()?.reduce()?;
-        if let crate::reduce::ReduceResult::Bool(comp_result) = reduced {
-            Ok(matches!(
-                comp_result,
-                crate::strided_interval::ComparisonResult::True
-                    | crate::strided_interval::ComparisonResult::Maybe
-            ))
-        } else {
-            Ok(false)
-        }
+        Ok(matches!(
+            expr.simplify()?.normalize()?.reduce()?,
+            ComparisonResult::True | ComparisonResult::Maybe
+        ))
     }
 
     fn has_false(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
-        let reduced = expr.simplify()?.normalize()?.reduce()?;
-        if let crate::reduce::ReduceResult::Bool(comp_result) = reduced {
-            Ok(matches!(
-                comp_result,
-                crate::strided_interval::ComparisonResult::False
-                    | crate::strided_interval::ComparisonResult::Maybe
-            ))
-        } else {
-            Ok(false)
-        }
+        Ok(matches!(
+            expr.simplify()?.normalize()?.reduce()?,
+            ComparisonResult::False | ComparisonResult::Maybe
+        ))
     }
 
     fn min_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        if let ReduceResult::BitVec(si) = expr.simplify()?.normalize()?.reduce()? {
-            self.context()
+        expr.simplify()?.normalize()?.reduce().and_then(|si| {
+            expr.context()
                 .bvv_from_biguint_with_size(&si.lower_bound, expr.size())
-        } else {
-            Err(ClarirsError::InvalidArgumentsWithMessage(
-                "Expected BitVec expression".to_string(),
-            ))
-        }
+        })
     }
 
     fn max_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        if let ReduceResult::BitVec(si) = expr.simplify()?.normalize()?.reduce()? {
-            self.context()
+        expr.simplify()?.normalize()?.reduce().and_then(|si| {
+            expr.context()
                 .bvv_from_biguint_with_size(&si.upper_bound, expr.size())
-        } else {
-            Err(ClarirsError::InvalidArgumentsWithMessage(
-                "Expected BitVec expression".to_string(),
-            ))
-        }
+        })
     }
 
     fn min_signed(&mut self, _expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {

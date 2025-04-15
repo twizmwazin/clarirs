@@ -17,11 +17,15 @@ pub enum ReduceResult {
 /// - Bool expressions are reduced to ComparisonResults
 /// - Float and String expressions return errors
 pub trait Reduce<'c>: Sized {
-    fn reduce(&self) -> Result<ReduceResult, ClarirsError>;
+    type Result;
+
+    fn reduce(&self) -> Result<Self::Result, ClarirsError>;
 }
 
 impl<'c> Reduce<'c> for DynAst<'c> {
-    fn reduce(&self) -> Result<ReduceResult, ClarirsError> {
+    type Result = ReduceResult;
+
+    fn reduce(&self) -> Result<Self::Result, ClarirsError> {
         walk_post_order(
             self.clone(),
             |node, children| match node {
@@ -37,29 +41,29 @@ impl<'c> Reduce<'c> for DynAst<'c> {
 }
 
 impl<'c> Reduce<'c> for BoolAst<'c> {
-    fn reduce(&self) -> Result<ReduceResult, ClarirsError> {
-        DynAst::Boolean(self.clone()).reduce()
+    type Result = ComparisonResult;
+
+    fn reduce(&self) -> Result<Self::Result, ClarirsError> {
+        if let ReduceResult::Bool(result) = DynAst::Boolean(self.clone()).reduce()? {
+            Ok(result)
+        } else {
+            Err(ClarirsError::InvalidArgumentsWithMessage(
+                "Expected Bool result".to_string(),
+            ))
+        }
     }
 }
 
 impl<'c> Reduce<'c> for BitVecAst<'c> {
-    fn reduce(&self) -> Result<ReduceResult, ClarirsError> {
-        DynAst::BitVec(self.clone()).reduce()
-    }
-}
+    type Result = StridedInterval;
 
-impl<'c> Reduce<'c> for FloatAst<'c> {
-    fn reduce(&self) -> Result<ReduceResult, ClarirsError> {
-        Err(ClarirsError::UnsupportedOperation(
-            "Reduce is not supported for Float expressions".to_string(),
-        ))
-    }
-}
-
-impl<'c> Reduce<'c> for StringAst<'c> {
-    fn reduce(&self) -> Result<ReduceResult, ClarirsError> {
-        Err(ClarirsError::UnsupportedOperation(
-            "Reduce is not supported for String expressions".to_string(),
-        ))
+    fn reduce(&self) -> Result<StridedInterval, ClarirsError> {
+        if let ReduceResult::BitVec(result) = DynAst::BitVec(self.clone()).reduce()? {
+            Ok(result)
+        } else {
+            Err(ClarirsError::InvalidArgumentsWithMessage(
+                "Expected BitVec result".to_string(),
+            ))
+        }
     }
 }
