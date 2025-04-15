@@ -1515,7 +1515,6 @@ impl StridedInterval {
             self.upper_bound.clone(),
         )
     }
-
 }
 
 impl fmt::Display for StridedInterval {
