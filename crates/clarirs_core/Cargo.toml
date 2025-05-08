@@ -10,7 +10,7 @@ categories = { workspace = true }
 repository = { workspace = true }
 
 [dependencies]
-ahash = "0.8.11"
+ahash = "0.8.12"
 anyhow = { workspace = true }
 clarirs_num = { path = "../clarirs_num" }
 num-bigint = { version = "0.4.6", features = ["serde"] }
