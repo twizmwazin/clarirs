@@ -1,3 +1,6 @@
+use clarirs_num::{F32_SORT, F64_SORT};
+use core::f32;
+
 use crate::{
     algorithms::simplify::{extract_bitvec_child, extract_bool_child, extract_float_child},
     prelude::*,
@@ -92,9 +95,39 @@ pub(crate) fn simplify_float<'c>(
             let arc = extract_float_child!(children, 0);
             match arc.op() {
                 FloatOp::FPV(float_val) => {
+                    // Zero
+                    if float_val.is_zero() {
+                        return Ok(arc.clone());
+                    }
+
+                    // If input = NaN, negative float, or negative infinity, return NaN
+                    if float_val.is_nan()
+                        || float_val.sign()
+                        || (float_val.is_infinity() && float_val.sign())
+                    {
+                        // Create a NaN
+                        return ctx.fpv(Float::new(
+                            false,
+                            BitVec::ones(float_val.exponent().len()),
+                            BitVec::ones(float_val.mantissa().len()),
+                        ));
+                    }
+
+                    // Positive infinity
+                    if float_val.is_infinity() && !float_val.sign() {
+                        let inf = match float_val.fsort() {
+                            F32_SORT => Float::from(f32::INFINITY),
+                            F64_SORT => Float::from(f64::INFINITY),
+                            other => unreachable!("unsupported format {:?}", other),
+                        };
+
+                        return ctx.fpv(inf);
+                    }
+
                     // Calculate the square root, handling potential `None` from `to_f64()`
-                    if let Some(float_as_f64) = float_val.to_f64() {
-                        let sqrt_value = float_as_f64.sqrt();
+                    if let Some(float_f64) = float_val.to_f64() {
+                        let sqrt_value = float_f64.sqrt();
+
                         ctx.fpv(Float::from_f64_with_rounding(
                             sqrt_value,
                             *fprm,

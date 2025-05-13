@@ -3,7 +3,7 @@ use std::ops::{Add, Div, Mul, Sub};
 
 use super::{BitVec, BitVecError};
 use num_bigint::{BigInt, BigUint};
-use num_traits::{ToPrimitive, Zero};
+use num_traits::{One, ToPrimitive, Zero};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct FSort {
@@ -94,10 +94,11 @@ impl Float {
     pub fn from_f64_with_rounding(value: f64, rm: FPRM, fsort: FSort) -> Result<Self, BitVecError> {
         let (sign, exponent, mantissa) = decompose_f64(value);
 
+        // Create 64-bit FPV and later convert to the desired format.
         let float = Self {
             sign: sign == 1,
-            exponent: BitVec::from_prim_with_size(exponent, fsort.exponent)?,
-            mantissa: BitVec::from_prim_with_size(mantissa, fsort.mantissa)?,
+            exponent: BitVec::from_prim_with_size(exponent, 11)?,
+            mantissa: BitVec::from_prim_with_size(mantissa, 52)?,
         };
 
         float.to_fsort(fsort, rm)
@@ -252,7 +253,17 @@ impl Float {
     }
 
     pub fn lt(&self, other: &Self) -> bool {
-        // Handle sign: If the signs differ, the positive number is greater.
+        // Positive and negative zeros
+        if self.is_zero() && other.is_zero() {
+            return false; // Both are zero, so they are equal
+        }
+
+        // NaNs
+        if self.is_nan() || other.is_nan() {
+            return false; // NaN is not comparable
+        }
+
+        // If the signs differ, the positive number is greater.
         if self.sign() != other.sign() {
             return self.sign();
         }
@@ -276,7 +287,17 @@ impl Float {
     }
 
     pub fn leq(&self, other: &Self) -> bool {
-        // Handle sign: If the signs differ, the positive number is greater.
+        // Positive and negative zeros
+        if self.is_zero() && other.is_zero() {
+            return true; // Both are zero, so they are equal
+        }
+
+        // NaNs
+        if self.is_nan() || other.is_nan() {
+            return false; // NaN is not comparable
+        }
+
+        // If the signs differ, the positive number is greater.
         if self.sign() != other.sign() {
             return self.sign();
         }
@@ -300,6 +321,16 @@ impl Float {
     }
 
     pub fn gt(&self, other: &Self) -> bool {
+        // Handle positive and negative zeros
+        if self.is_zero() && other.is_zero() {
+            return false; // Both are zero, so they are equal
+        }
+
+        // Handle NaNs
+        if self.is_nan() || other.is_nan() {
+            return false; // NaN is not comparable
+        }
+
         // Handle sign: If the signs differ, the positive number is greater.
         if self.sign() != other.sign() {
             return !self.sign();
@@ -324,7 +355,17 @@ impl Float {
     }
 
     pub fn geq(&self, other: &Self) -> bool {
-        // Handle sign: If the signs differ, the positive number is greater.
+        // Positive and negative zeros
+        if self.is_zero() && other.is_zero() {
+            return true; // Both are zero, so they are equal
+        }
+
+        // NaNs
+        if self.is_nan() || other.is_nan() {
+            return false; // NaN is not comparable
+        }
+
+        // If the signs differ, the positive number is greater.
         if self.sign() != other.sign() {
             return !self.sign();
         }
@@ -427,43 +468,159 @@ impl Float {
         let float_value = value.to_f64().unwrap_or(0.0); // Fallback to 0.0 if conversion fails
         Float::from_f64_with_rounding(float_value, fprm, fsort)
     }
+
+    pub fn shift_with_grs(mut value: BigUint, shift: u32) -> (BigUint, bool, bool) {
+        // Right-shifts an unsigned significand exactly as IEEE-754 alignment logic does
+        // and reports the extra information needed for correct rounding.
+
+        //  Parameters
+        // `value` – significand treated as an unsigned `BigUint`.
+        // `shift` – number of bits to shift _right_; must be ≤ value.bit_len().
+
+        //  Returns
+        //`(shifted, guard, sticky)` where
+        // guard – the bit immediately _below_ the kept LSB (bit `shift − 1` of the original value),
+        // shifted – `value >> shift` (the bits that remain after alignment),
+        // sticky – logical-OR of all bits further to the right (bits `shift − 2` … 0).
+
+        if shift == 0 {
+            return (value, false, false);
+        }
+
+        let k = shift as usize;
+
+        let mask = (&BigUint::one() << k) - BigUint::one();
+        let shifted_out = &value & &mask;
+
+        // Guard  = the highest of the shifted-out bits (bit k-1)
+        let guard = ((&shifted_out >> (k - 1)) & BigUint::one()) == BigUint::one();
+
+        // Sticky = OR of any lower shifted-out bit (k-2 .. 0)
+        let sticky = if k > 1 {
+            // (1 << (k-1)) − 1 isolates the lower (k-1) bits
+            (&shifted_out & ((&BigUint::one() << (k - 1)) - BigUint::one())) != BigUint::zero()
+        } else {
+            false
+        };
+
+        value >>= k; // the actual arithmetic shift
+        (value, guard, sticky)
+    }
 }
 
 impl Add for Float {
-    type Output = Result<Self, BitVecError>;
+    type Output = Result<Float, BitVecError>;
 
-    fn add(self, rhs: Self) -> Self::Output {
-        // Ensure `self` is the larger exponent; if not, swap them
-        let (larger, smaller) = if self.exponent > rhs.exponent {
-            (self, rhs)
+    fn add(self, other: Float) -> Self::Output {
+        let mantissa_bits = self.mantissa.len();
+        let exponent_bits = self.exponent.len();
+
+        let self_exp = self.exponent.to_biguint().to_u32().unwrap();
+        let other_exp = other.exponent.to_biguint().to_u32().unwrap();
+
+        let one = BigUint::one();
+
+        // Effective significands (With implicit 1 for normal numbers)
+        let self_eff = if self_exp == 0 {
+            self.mantissa.to_biguint()
         } else {
-            (rhs, self)
+            (&one << mantissa_bits) | self.mantissa.to_biguint()
+        };
+        let other_eff = if other_exp == 0 {
+            other.mantissa.to_biguint()
+        } else {
+            (&one << mantissa_bits) | other.mantissa.to_biguint()
         };
 
-        // Align mantissas by shifting the smaller mantissa
-        let exponent_diff = larger.exponent.len() - smaller.exponent.len();
-        let aligned_smaller_mantissa = (smaller.mantissa.clone() >> exponent_diff)?;
+        let mut guard;
+        let mut sticky;
 
-        // Add or subtract mantissas based on the signs
-        let (new_sign, new_mantissa) = if larger.sign == smaller.sign {
-            // Same sign, add mantissas
-            (larger.sign, larger.mantissa + aligned_smaller_mantissa)
-        } else {
-            // Different signs, subtract mantissas
-            if larger.mantissa > aligned_smaller_mantissa {
-                (larger.sign, larger.mantissa - aligned_smaller_mantissa)
+        let result_exp;
+        let mut sum;
+        let result_sign;
+
+        if self.sign == other.sign {
+            // Same Signs:  Add Magnitudes
+            if self_exp >= other_exp {
+                result_exp = self_exp;
+                let (aligned_other, g, s) = Float::shift_with_grs(other_eff, self_exp - other_exp);
+                guard = g;
+                sticky = s;
+                sum = self_eff + aligned_other;
             } else {
-                (!larger.sign, aligned_smaller_mantissa - larger.mantissa)
+                result_exp = other_exp;
+                let (aligned_self, g, s) = Float::shift_with_grs(self_eff, other_exp - self_exp);
+                guard = g;
+                sticky = s;
+                sum = aligned_self + other_eff;
             }
-        };
+            result_sign = self.sign;
+        } else {
+            // Opposite Signs:  Subtract Smaller Magnitude
+            result_exp = self_exp.max(other_exp);
 
-        // Normalize the result
-        let (normalized_exponent, normalized_mantissa) = normalize(new_mantissa?, larger.exponent)?;
+            let (aligned_self, _g1, s1) =
+                Float::shift_with_grs(self_eff.clone(), result_exp - self_exp);
+            let (aligned_other, g2, s2) =
+                Float::shift_with_grs(other_eff.clone(), result_exp - other_exp);
+
+            guard = g2; // guard from the last shift
+            sticky = s1 || s2; // OR of everything shifted out
+
+            if aligned_self == aligned_other {
+                // Exact cancellation gives +0
+                return Ok(Float {
+                    sign: false,
+                    exponent: BitVec::zeros(exponent_bits),
+                    mantissa: BitVec::zeros(mantissa_bits),
+                });
+            }
+
+            if aligned_self > aligned_other {
+                sum = aligned_self - aligned_other;
+                result_sign = self.sign;
+            } else {
+                sum = aligned_other - aligned_self;
+                result_sign = other.sign;
+            }
+        }
+
+        // Normalization
+        let lower = &one << mantissa_bits; // 1 << 23
+        let upper = &one << (mantissa_bits + 1); // 1 << 24
+        let mut exp = result_exp;
+
+        while sum < lower && exp > 0 {
+            sum <<= 1;
+            exp -= 1;
+        }
+        if sum >= upper {
+            guard = (&sum & &one) == one;
+            sticky |= guard;
+            sum >>= 1;
+            exp = exp.checked_add(1).unwrap();
+        }
+
+        // IEEE-754 Round to Nearest
+        let lsb_is_one = (&sum & &one) == one;
+        if guard && (sticky || lsb_is_one) {
+            sum += &one;
+            if sum >= upper {
+                sum >>= 1;
+                exp = exp.checked_add(1).unwrap();
+            }
+        }
+
+        let stored_mant = if exp > 0 { &sum - &lower } else { sum.clone() };
+
+        let new_exponent = BitVec::from_prim_with_size(exp, exponent_bits)?;
+        let mantissa_u32 = stored_mant.to_u32().unwrap();
+        let new_mantissa = BitVec::from_prim_with_size(mantissa_u32, mantissa_bits)?;
 
         Ok(Float {
-            sign: new_sign,
-            exponent: normalized_exponent,
-            mantissa: normalized_mantissa,
+            sign: result_sign,
+            exponent: new_exponent,
+            mantissa: new_mantissa,
         })
     }
 }
@@ -484,72 +641,190 @@ impl Mul for Float {
     type Output = Result<Self, BitVecError>;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        // Multiply mantissas
-        let mantissa_product = self.mantissa.clone() * rhs.mantissa.clone();
+        if self.is_zero() || rhs.is_zero() {
+            return Ok(Float {
+                sign: self.sign ^ rhs.sign,
+                exponent: BitVec::zeros(self.exponent.len()),
+                mantissa: BitVec::zeros(self.mantissa.len()),
+            });
+        }
 
-        // Add exponents
-        let exponent_sum = self.exponent + rhs.exponent;
+        let mantissa_bits = self.mantissa.len();
+        let exponent_bits = self.exponent.len();
+        let bias = (1u32 << (exponent_bits - 1)) - 1;
 
-        // Determine resulting sign
-        let result_sign = self.sign ^ rhs.sign;
+        let one = (BitVec::ones(32) >> 31)?.to_biguint();
 
-        // Normalize the result
-        let (normalized_exponent, normalized_mantissa) =
-            normalize(mantissa_product?, exponent_sum?)?;
+        // Extract & un‑bias exponents
+        let self_exp = self.exponent.to_biguint().to_u32().unwrap();
+        let rhs_exp = rhs.exponent.to_biguint().to_u32().unwrap();
+        let mut result_exp = self_exp.saturating_sub(bias) + rhs_exp.saturating_sub(bias);
+
+        // Effective significands
+        let self_eff = if self_exp == 0 {
+            self.mantissa.to_biguint()
+        } else {
+            (one.clone() << mantissa_bits) | self.mantissa.to_biguint()
+        };
+        let rhs_eff = if rhs_exp == 0 {
+            rhs.mantissa.to_biguint()
+        } else {
+            (one.clone() << mantissa_bits) | rhs.mantissa.to_biguint()
+        };
+
+        // Multiply significands
+        let mut product = self_eff * rhs_eff;
+        let sign = self.sign ^ rhs.sign;
+
+        // Shift back down by mantissa_bits to get a [1.0,4.0) range
+        product >>= mantissa_bits;
+
+        // Normalization
+        let implicit = one.clone() << mantissa_bits;
+        if product >= (implicit.clone() << 1) {
+            product >>= 1;
+            result_exp = result_exp
+                .checked_add(1)
+                .ok_or(BitVecError::BitVectorTooShort {
+                    value: product.clone(),
+                    length: exponent_bits,
+                })?;
+        }
+
+        // Subtract implicit leading‑1 to form the stored mantissa
+        let stored = &product - &implicit;
+
+        // Re‑bias exponent
+        let biased = result_exp + bias;
+        let new_exponent = BitVec::from_prim_with_size(biased, exponent_bits)?;
+        let mask = (BigUint::from(1u32) << mantissa_bits) - 1u32;
+        let new_mantissa = BitVec::from_biguint(&(&stored & &mask), mantissa_bits)?;
 
         Ok(Float {
-            sign: result_sign,
-            exponent: normalized_exponent,
-            mantissa: normalized_mantissa,
+            sign,
+            exponent: new_exponent,
+            mantissa: new_mantissa,
         })
     }
 }
 
 impl Div for Float {
     type Output = Result<Self, BitVecError>;
-    // TODO: Check for following cases:
-    // Correct rounding modes.
-    // Handling edge cases (e.g., NaNs, infinities).
-    // Precision management and overflow/underflow handling.
 
     fn div(self, rhs: Self) -> Self::Output {
-        // Divide mantissas
-        let mantissa_quotient = (self.mantissa.clone() / rhs.mantissa.clone())?;
-        // Subtract exponents
-        let exponent_diff = self.exponent - rhs.exponent;
+        let exp_bits = self.exponent.len();
+        let man_bits = self.mantissa.len();
+        let bias = (1u32 << (exp_bits - 1)) - 1;
+        let one = (BitVec::ones(32) >> 31)?.to_biguint();
 
-        // Determine resulting sign
-        let result_sign = self.sign ^ rhs.sign;
+        //  Special cases
+        // 0/0 or ∞/∞ → NaN
+        if (self.is_zero() && rhs.is_zero()) || (self.is_infinity() && rhs.is_infinity()) {
+            return Ok(Float {
+                sign: false,
+                exponent: BitVec::ones(exp_bits),
+                mantissa: BitVec::ones(man_bits),
+            });
+        }
+        // 0/x → ±0
+        if self.is_zero() {
+            return Ok(Float {
+                sign: self.sign ^ rhs.sign,
+                exponent: BitVec::zeros(exp_bits),
+                mantissa: BitVec::zeros(man_bits),
+            });
+        }
+        // x/0 → ±∞
+        if rhs.is_zero() {
+            return Ok(Float {
+                sign: self.sign ^ rhs.sign,
+                exponent: BitVec::ones(exp_bits),
+                mantissa: BitVec::zeros(man_bits),
+            });
+        }
+        // ∞/x → ±∞
+        if self.is_infinity() {
+            return Ok(Float {
+                sign: self.sign ^ rhs.sign,
+                exponent: BitVec::ones(exp_bits),
+                mantissa: BitVec::zeros(man_bits),
+            });
+        }
+        // x/∞ → ±0
+        if rhs.is_infinity() {
+            return Ok(Float {
+                sign: self.sign ^ rhs.sign,
+                exponent: BitVec::zeros(exp_bits),
+                mantissa: BitVec::zeros(man_bits),
+            });
+        }
 
-        // Normalize the result
-        let (normalized_exponent, normalized_mantissa) =
-            normalize(mantissa_quotient, exponent_diff?)?;
+        // Extract unbiased exponents
+        let a_exp = self.exponent.to_biguint().to_u32().unwrap();
+        let b_exp = rhs.exponent.to_biguint().to_u32().unwrap();
+        let a_ub = if a_exp == 0 {
+            1u32.wrapping_sub(bias)
+        } else {
+            a_exp.saturating_sub(bias)
+        };
+        let b_ub = if b_exp == 0 {
+            1u32.wrapping_sub(bias)
+        } else {
+            b_exp.saturating_sub(bias)
+        };
+
+        // Build effective significands (with implicit leading‑1 for normals)
+        let a_sig = if a_exp == 0 {
+            self.mantissa.to_biguint()
+        } else {
+            (one.clone() << man_bits) | self.mantissa.to_biguint()
+        };
+        let b_sig = if b_exp == 0 {
+            rhs.mantissa.to_biguint()
+        } else {
+            (one.clone() << man_bits) | rhs.mantissa.to_biguint()
+        };
+
+        //  Fixed‑point divide: shift numerator left by man_bits, then integer‑divide
+        let mut quot = (a_sig << man_bits) / b_sig;
+        let mut res_ub = a_ub as i64 - b_ub as i64;
+        let sign = self.sign ^ rhs.sign;
+
+        //  Normalize to [1<<man_bits, 1<<(man_bits+1))
+        let lower = one.clone() << man_bits;
+        let upper = one.clone() << (man_bits + 1);
+
+        if quot >= upper {
+            quot >>= 1;
+            res_ub += 1;
+        } else {
+            while quot < lower {
+                quot <<= 1;
+                res_ub -= 1;
+            }
+        }
+
+        //  Re‑bias exponent
+        let rebias = (res_ub + bias as i64).max(0).min((1i64 << exp_bits) - 1) as u32;
+
+        //  Extract stored mantissa (drop implicit 1 if normalized)
+        let stored = if rebias == 0 {
+            // subnormal or underflow-to-zero
+            quot
+        } else {
+            quot - lower
+        };
+
+        let new_exponent = BitVec::from_prim_with_size(rebias, exp_bits)?;
+        let mask = (BigUint::from(1u32) << man_bits) - 1u32;
+        let new_mantissa = BitVec::from_biguint(&(&stored & &mask), man_bits)?;
 
         Ok(Float {
-            sign: result_sign,
-            exponent: normalized_exponent,
-            mantissa: normalized_mantissa,
+            sign,
+            exponent: new_exponent,
+            mantissa: new_mantissa,
         })
     }
-}
-
-// Helper function to normalize the mantissa and adjust the exponent
-fn normalize(mantissa: BitVec, exponent: BitVec) -> Result<(BitVec, BitVec), BitVecError> {
-    // Calculate the amount of shift required to normalize mantissa
-    let shift_amount = mantissa.leading_zeros();
-
-    // Clamp shift_amount so it never exceeds the mantissa length
-    if shift_amount >= mantissa.len() as usize {
-        return Ok((exponent, mantissa));
-    }
-
-    // Otherwise, shift mantissa and adjust exponent
-    let normalized_mantissa = mantissa << (shift_amount as u32);
-    let shift_bitvec = BitVec::from_prim_with_size(shift_amount as u32, exponent.len())?;
-
-    let normalized_exponent = exponent.clone() - shift_bitvec;
-
-    Ok((normalized_exponent?, normalized_mantissa?))
 }
 
 impl From<f32> for Float {
