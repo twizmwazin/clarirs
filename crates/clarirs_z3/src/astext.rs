@@ -39,8 +39,7 @@ pub(crate) trait AstExtZ3<'c>: HasContext<'c> + Sized {
         let ast = self.to_z3()?;
         Z3_CONTEXT.with(|ctx| unsafe {
             let simplified_ast = RcAst::from(z3::simplify(*ctx, ast.into()));
-            let result = Self::from_z3(self.context(), simplified_ast);
-            result
+            Self::from_z3(self.context(), simplified_ast)
         })
     }
 }
