@@ -17,7 +17,7 @@ impl ParseCallbacks for RenameTypes {
                     // Leave function names as is
                     ItemKind::Function => s.to_string(),
                     // Convert snake_case to PascalCase
-                    ItemKind::Var => s
+                    ItemKind::Type => s
                         .split('_')
                         .filter(|s| !s.is_empty())
                         .map(|s| {
