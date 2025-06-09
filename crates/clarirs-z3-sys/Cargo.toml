@@ -14,7 +14,7 @@ build = "build.rs"
 [dependencies]
 
 [build-dependencies]
-bindgen = { git = "https://github.com/twizmwazin/rust-bindgen.git", rev = "27b6d79" }
+bindgen = "0.72.0"
 cmake = "0.1.50"
 
 [lints]
