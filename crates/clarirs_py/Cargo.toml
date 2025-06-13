@@ -10,7 +10,7 @@ categories = { workspace = true }
 repository = { workspace = true }
 
 [dependencies]
-pyo3 = { version = "0.25.0", features = [
+pyo3 = { version = "0.25.1", features = [
     "extension-module",
     "py-clone",
     "num-bigint",
