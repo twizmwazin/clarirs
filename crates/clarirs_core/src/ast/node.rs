@@ -322,3 +322,47 @@ impl<'c> From<&StringAst<'c>> for DynAst<'c> {
         DynAst::String(ast.clone())
     }
 }
+
+impl<'c> TryFrom<DynAst<'c>> for BoolAst<'c> {
+    type Error = ClarirsError;
+
+    fn try_from(value: DynAst<'c>) -> Result<Self, Self::Error> {
+        match value {
+            DynAst::Boolean(ast) => Ok(ast),
+            _ => Err(ClarirsError::TypeError("Expected BoolAst".to_string())),
+        }
+    }
+}
+
+impl<'c> TryFrom<DynAst<'c>> for BitVecAst<'c> {
+    type Error = ClarirsError;
+
+    fn try_from(value: DynAst<'c>) -> Result<Self, Self::Error> {
+        match value {
+            DynAst::BitVec(ast) => Ok(ast),
+            _ => Err(ClarirsError::TypeError("Expected BitVecAst".to_string())),
+        }
+    }
+}
+
+impl<'c> TryFrom<DynAst<'c>> for FloatAst<'c> {
+    type Error = ClarirsError;
+
+    fn try_from(value: DynAst<'c>) -> Result<Self, Self::Error> {
+        match value {
+            DynAst::Float(ast) => Ok(ast),
+            _ => Err(ClarirsError::TypeError("Expected FloatAst".to_string())),
+        }
+    }
+}
+
+impl<'c> TryFrom<DynAst<'c>> for StringAst<'c> {
+    type Error = ClarirsError;
+
+    fn try_from(value: DynAst<'c>) -> Result<Self, Self::Error> {
+        match value {
+            DynAst::String(ast) => Ok(ast),
+            _ => Err(ClarirsError::TypeError("Expected StringAst".to_string())),
+        }
+    }
+}
