@@ -12,7 +12,7 @@ pub(crate) fn excavate_ite<'c>(
     match &ast.op() {
         BooleanOp::BoolS(..) | BooleanOp::BoolV(..) => Ok(ast.clone()),
         BooleanOp::Not(..) => {
-            let ast = extract_bool_child!(children, 0);
+            let ast = extract_bool_child(children, 0)?;
 
             if let BooleanOp::If(cond, then_, else_) = ast.op() {
                 Ok(ctx.if_(cond, &ctx.not(then_)?, &ctx.not(else_)?)?)
@@ -21,8 +21,8 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BooleanOp::And(..) => {
-            let lhs = extract_bool_child!(children, 0);
-            let rhs = extract_bool_child!(children, 1);
+            let lhs = extract_bool_child(children, 0)?;
+            let rhs = extract_bool_child(children, 1)?;
 
             if let BooleanOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
@@ -51,8 +51,8 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BooleanOp::Or(..) => {
-            let lhs = extract_bool_child!(children, 0);
-            let rhs = extract_bool_child!(children, 1);
+            let lhs = extract_bool_child(children, 0)?;
+            let rhs = extract_bool_child(children, 1)?;
 
             if let BooleanOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
@@ -81,8 +81,8 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BooleanOp::Xor(..) => {
-            let lhs = extract_bool_child!(children, 0);
-            let rhs = extract_bool_child!(children, 1);
+            let lhs = extract_bool_child(children, 0)?;
+            let rhs = extract_bool_child(children, 1)?;
 
             if let BooleanOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
@@ -111,8 +111,8 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BooleanOp::BoolEq(..) => {
-            let lhs = extract_bool_child!(children, 0);
-            let rhs = extract_bool_child!(children, 1);
+            let lhs = extract_bool_child(children, 0)?;
+            let rhs = extract_bool_child(children, 1)?;
 
             if let BooleanOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
@@ -141,8 +141,8 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BooleanOp::BoolNeq(..) => {
-            let lhs = extract_bool_child!(children, 0);
-            let rhs = extract_bool_child!(children, 1);
+            let lhs = extract_bool_child(children, 0)?;
+            let rhs = extract_bool_child(children, 1)?;
 
             if let BooleanOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
@@ -171,8 +171,8 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BooleanOp::Eq(..) => {
-            let lhs = extract_bitvec_child!(children, 0);
-            let rhs = extract_bitvec_child!(children, 1);
+            let lhs = extract_bitvec_child(children, 0)?;
+            let rhs = extract_bitvec_child(children, 1)?;
 
             if let BitVecOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
@@ -201,8 +201,8 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BooleanOp::Neq(..) => {
-            let lhs = extract_bitvec_child!(children, 0);
-            let rhs = extract_bitvec_child!(children, 1);
+            let lhs = extract_bitvec_child(children, 0)?;
+            let rhs = extract_bitvec_child(children, 1)?;
 
             if let BitVecOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
@@ -231,8 +231,8 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BooleanOp::ULT(..) => {
-            let lhs = extract_bitvec_child!(children, 0);
-            let rhs = extract_bitvec_child!(children, 1);
+            let lhs = extract_bitvec_child(children, 0)?;
+            let rhs = extract_bitvec_child(children, 1)?;
 
             if let BitVecOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
@@ -261,8 +261,8 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BooleanOp::ULE(..) => {
-            let lhs = extract_bitvec_child!(children, 0);
-            let rhs = extract_bitvec_child!(children, 1);
+            let lhs = extract_bitvec_child(children, 0)?;
+            let rhs = extract_bitvec_child(children, 1)?;
 
             if let BitVecOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
@@ -291,8 +291,8 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BooleanOp::UGT(..) => {
-            let lhs = extract_bitvec_child!(children, 0);
-            let rhs = extract_bitvec_child!(children, 1);
+            let lhs = extract_bitvec_child(children, 0)?;
+            let rhs = extract_bitvec_child(children, 1)?;
 
             if let BitVecOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
@@ -321,8 +321,8 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BooleanOp::UGE(..) => {
-            let lhs = extract_bitvec_child!(children, 0);
-            let rhs = extract_bitvec_child!(children, 1);
+            let lhs = extract_bitvec_child(children, 0)?;
+            let rhs = extract_bitvec_child(children, 1)?;
 
             if let BitVecOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
@@ -351,8 +351,8 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BooleanOp::SLT(..) => {
-            let lhs = extract_bitvec_child!(children, 0);
-            let rhs = extract_bitvec_child!(children, 1);
+            let lhs = extract_bitvec_child(children, 0)?;
+            let rhs = extract_bitvec_child(children, 1)?;
 
             if let BitVecOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
@@ -381,8 +381,8 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BooleanOp::SLE(..) => {
-            let lhs = extract_bitvec_child!(children, 0);
-            let rhs = extract_bitvec_child!(children, 1);
+            let lhs = extract_bitvec_child(children, 0)?;
+            let rhs = extract_bitvec_child(children, 1)?;
 
             if let BitVecOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
@@ -411,8 +411,8 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BooleanOp::SGT(..) => {
-            let lhs = extract_bitvec_child!(children, 0);
-            let rhs = extract_bitvec_child!(children, 1);
+            let lhs = extract_bitvec_child(children, 0)?;
+            let rhs = extract_bitvec_child(children, 1)?;
 
             if let BitVecOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
@@ -441,8 +441,8 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BooleanOp::SGE(..) => {
-            let lhs = extract_bitvec_child!(children, 0);
-            let rhs = extract_bitvec_child!(children, 1);
+            let lhs = extract_bitvec_child(children, 0)?;
+            let rhs = extract_bitvec_child(children, 1)?;
 
             if let BitVecOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
@@ -489,14 +489,14 @@ pub(crate) fn excavate_ite<'c>(
             todo!("excavate ite for string operations")
         }
         BooleanOp::If(..) => {
-            let cond = extract_bool_child!(children, 0);
-            let then = extract_bool_child!(children, 1);
-            let else_ = extract_bool_child!(children, 2);
+            let cond = extract_bool_child(children, 0)?;
+            let then = extract_bool_child(children, 1)?;
+            let else_ = extract_bool_child(children, 2)?;
 
             Ok(ctx.if_(&cond, &then, &else_)?)
         }
         BooleanOp::Annotated(_, annotation) => {
-            let ast = extract_bool_child!(children, 0);
+            let ast = extract_bool_child(children, 0)?;
 
             Ok(ctx.annotated(&ast, annotation.clone())?)
         }
