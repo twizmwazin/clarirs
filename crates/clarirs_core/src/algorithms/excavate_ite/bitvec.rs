@@ -12,7 +12,7 @@ pub(crate) fn excavate_ite<'c>(
     match &ast.op() {
         BitVecOp::BVS(..) | BitVecOp::BVV(..) | BitVecOp::SI(..) => Ok(ast.clone()),
         BitVecOp::Not(..) => {
-            let ast = extract_bitvec_child!(children, 0);
+            let ast = extract_bitvec_child(children, 0)?;
 
             if let BitVecOp::If(cond, then_, else_) = ast.op() {
                 Ok(ctx.if_(cond, &ctx.not(then_)?, &ctx.not(else_)?)?)
@@ -21,8 +21,8 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BitVecOp::And(..) => {
-            let lhs = extract_bitvec_child!(children, 0);
-            let rhs = extract_bitvec_child!(children, 1);
+            let lhs = extract_bitvec_child(children, 0)?;
+            let rhs = extract_bitvec_child(children, 1)?;
 
             if let BitVecOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
@@ -51,8 +51,8 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BitVecOp::Or(..) => {
-            let lhs = extract_bitvec_child!(children, 0);
-            let rhs = extract_bitvec_child!(children, 1);
+            let lhs = extract_bitvec_child(children, 0)?;
+            let rhs = extract_bitvec_child(children, 1)?;
 
             if let BitVecOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
@@ -69,8 +69,8 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BitVecOp::Xor(..) => {
-            let lhs = extract_bitvec_child!(children, 0);
-            let rhs = extract_bitvec_child!(children, 1);
+            let lhs = extract_bitvec_child(children, 0)?;
+            let rhs = extract_bitvec_child(children, 1)?;
 
             if let BitVecOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
@@ -87,7 +87,7 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BitVecOp::Neg(..) => {
-            let ast = extract_bitvec_child!(children, 0);
+            let ast = extract_bitvec_child(children, 0)?;
 
             if let BitVecOp::If(cond, then_, else_) = ast.op() {
                 Ok(ctx.if_(cond, &ctx.neg(then_)?, &ctx.neg(else_)?)?)
@@ -96,8 +96,8 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BitVecOp::Add(..) => {
-            let lhs = extract_bitvec_child!(children, 0);
-            let rhs = extract_bitvec_child!(children, 1);
+            let lhs = extract_bitvec_child(children, 0)?;
+            let rhs = extract_bitvec_child(children, 1)?;
 
             if let BitVecOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
@@ -114,8 +114,8 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BitVecOp::Sub(..) => {
-            let lhs = extract_bitvec_child!(children, 0);
-            let rhs = extract_bitvec_child!(children, 1);
+            let lhs = extract_bitvec_child(children, 0)?;
+            let rhs = extract_bitvec_child(children, 1)?;
 
             if let BitVecOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
@@ -132,8 +132,8 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BitVecOp::Mul(..) => {
-            let lhs = extract_bitvec_child!(children, 0);
-            let rhs = extract_bitvec_child!(children, 1);
+            let lhs = extract_bitvec_child(children, 0)?;
+            let rhs = extract_bitvec_child(children, 1)?;
 
             if let BitVecOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
@@ -150,8 +150,8 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BitVecOp::UDiv(..) => {
-            let lhs = extract_bitvec_child!(children, 0);
-            let rhs = extract_bitvec_child!(children, 1);
+            let lhs = extract_bitvec_child(children, 0)?;
+            let rhs = extract_bitvec_child(children, 1)?;
 
             if let BitVecOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
@@ -172,8 +172,8 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BitVecOp::SDiv(..) => {
-            let lhs = extract_bitvec_child!(children, 0);
-            let rhs = extract_bitvec_child!(children, 1);
+            let lhs = extract_bitvec_child(children, 0)?;
+            let rhs = extract_bitvec_child(children, 1)?;
 
             if let BitVecOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
@@ -194,8 +194,8 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BitVecOp::URem(..) => {
-            let lhs = extract_bitvec_child!(children, 0);
-            let rhs = extract_bitvec_child!(children, 1);
+            let lhs = extract_bitvec_child(children, 0)?;
+            let rhs = extract_bitvec_child(children, 1)?;
 
             if let BitVecOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
@@ -216,8 +216,8 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BitVecOp::SRem(..) => {
-            let lhs = extract_bitvec_child!(children, 0);
-            let rhs = extract_bitvec_child!(children, 1);
+            let lhs = extract_bitvec_child(children, 0)?;
+            let rhs = extract_bitvec_child(children, 1)?;
 
             if let BitVecOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
@@ -238,8 +238,8 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BitVecOp::ShL(..) => {
-            let lhs = extract_bitvec_child!(children, 0);
-            let rhs = extract_bitvec_child!(children, 1);
+            let lhs = extract_bitvec_child(children, 0)?;
+            let rhs = extract_bitvec_child(children, 1)?;
 
             if let BitVecOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
@@ -256,8 +256,8 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BitVecOp::LShR(..) => {
-            let lhs = extract_bitvec_child!(children, 0);
-            let rhs = extract_bitvec_child!(children, 1);
+            let lhs = extract_bitvec_child(children, 0)?;
+            let rhs = extract_bitvec_child(children, 1)?;
 
             if let BitVecOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
@@ -278,8 +278,8 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BitVecOp::AShR(..) => {
-            let lhs = extract_bitvec_child!(children, 0);
-            let rhs = extract_bitvec_child!(children, 1);
+            let lhs = extract_bitvec_child(children, 0)?;
+            let rhs = extract_bitvec_child(children, 1)?;
 
             if let BitVecOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
@@ -300,8 +300,8 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BitVecOp::RotateLeft(..) => {
-            let lhs = extract_bitvec_child!(children, 0);
-            let rhs = extract_bitvec_child!(children, 1);
+            let lhs = extract_bitvec_child(children, 0)?;
+            let rhs = extract_bitvec_child(children, 1)?;
 
             if let BitVecOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
@@ -330,8 +330,8 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BitVecOp::RotateRight(..) => {
-            let lhs = extract_bitvec_child!(children, 0);
-            let rhs = extract_bitvec_child!(children, 1);
+            let lhs = extract_bitvec_child(children, 0)?;
+            let rhs = extract_bitvec_child(children, 1)?;
 
             if let BitVecOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
@@ -360,7 +360,7 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BitVecOp::ZeroExt(_, amount) => {
-            let ast = extract_bitvec_child!(children, 0);
+            let ast = extract_bitvec_child(children, 0)?;
 
             if let BitVecOp::If(cond, then_, else_) = ast.op() {
                 Ok(ctx.if_(
@@ -373,7 +373,7 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BitVecOp::SignExt(_, amount) => {
-            let ast = extract_bitvec_child!(children, 0);
+            let ast = extract_bitvec_child(children, 0)?;
 
             if let BitVecOp::If(cond, then_, else_) = ast.op() {
                 Ok(ctx.if_(
@@ -386,7 +386,7 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BitVecOp::Extract(_, ub, lb) => {
-            let ast = extract_bitvec_child!(children, 0);
+            let ast = extract_bitvec_child(children, 0)?;
 
             if let BitVecOp::If(cond, then_, else_) = ast.op() {
                 Ok(ctx.if_(
@@ -399,8 +399,8 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BitVecOp::Concat(..) => {
-            let lhs = extract_bitvec_child!(children, 0);
-            let rhs = extract_bitvec_child!(children, 1);
+            let lhs = extract_bitvec_child(children, 0)?;
+            let rhs = extract_bitvec_child(children, 1)?;
 
             if let BitVecOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
@@ -421,7 +421,7 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BitVecOp::Reverse(..) => {
-            let ast = extract_bitvec_child!(children, 0);
+            let ast = extract_bitvec_child(children, 0)?;
 
             if let BitVecOp::If(cond, then_, else_) = ast.op() {
                 Ok(ctx.if_(cond, &ctx.reverse(then_)?, &ctx.reverse(else_)?)?)
@@ -436,19 +436,19 @@ pub(crate) fn excavate_ite<'c>(
             todo!("excavate_ite for string ops")
         }
         BitVecOp::If(..) => {
-            let cond = extract_bool_child!(children, 0);
-            let then_ = extract_bitvec_child!(children, 1);
-            let else_ = extract_bitvec_child!(children, 2);
+            let cond = extract_bool_child(children, 0)?;
+            let then_ = extract_bitvec_child(children, 1)?;
+            let else_ = extract_bitvec_child(children, 2)?;
 
             Ok(ctx.if_(&cond, &then_, &else_)?)
         }
         BitVecOp::Annotated(_, annotation) => {
-            let ast = extract_bitvec_child!(children, 0);
+            let ast = extract_bitvec_child(children, 0)?;
             Ok(ctx.annotated(&ast, annotation.clone())?)
         }
         BitVecOp::Union(..) => {
-            let lhs = extract_bitvec_child!(children, 0);
-            let rhs = extract_bitvec_child!(children, 1);
+            let lhs = extract_bitvec_child(children, 0)?;
+            let rhs = extract_bitvec_child(children, 1)?;
 
             if let BitVecOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
@@ -469,8 +469,8 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         BitVecOp::Intersection(..) => {
-            let lhs = extract_bitvec_child!(children, 0);
-            let rhs = extract_bitvec_child!(children, 1);
+            let lhs = extract_bitvec_child(children, 0)?;
+            let rhs = extract_bitvec_child(children, 1)?;
 
             if let BitVecOp::If(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions

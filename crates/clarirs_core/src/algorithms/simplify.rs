@@ -9,46 +9,46 @@ mod test_bool;
 mod test_bv;
 
 use crate::prelude::*;
-macro_rules! extract_bool_child {
-    ($children:ident, $index:expr) => {
-        $children
-            .get($index)
-            .and_then(|child| child.clone().into_bool())
-            .ok_or_else(|| ClarirsError::InvalidArguments)?
-    };
+
+pub(crate) fn extract_bool_child<'c>(
+    children: &[DynAst<'c>],
+    index: usize,
+) -> Result<BoolAst<'c>, ClarirsError> {
+    children
+        .get(index)
+        .and_then(|child| child.clone().into_bool())
+        .ok_or(ClarirsError::InvalidArguments)
 }
 
-macro_rules! extract_bitvec_child {
-    ($children:ident, $index:expr) => {
-        $children
-            .get($index)
-            .and_then(|child| child.clone().into_bitvec())
-            .ok_or_else(|| ClarirsError::InvalidArguments)?
-    };
+pub(crate) fn extract_bitvec_child<'c>(
+    children: &[DynAst<'c>],
+    index: usize,
+) -> Result<BitVecAst<'c>, ClarirsError> {
+    children
+        .get(index)
+        .and_then(|child| child.clone().into_bitvec())
+        .ok_or(ClarirsError::InvalidArguments)
 }
 
-macro_rules! extract_float_child {
-    ($children:ident, $index:expr) => {
-        $children
-            .get($index)
-            .and_then(|child| child.clone().into_float())
-            .ok_or_else(|| ClarirsError::InvalidArguments)?
-    };
+pub(crate) fn extract_float_child<'c>(
+    children: &[DynAst<'c>],
+    index: usize,
+) -> Result<FloatAst<'c>, ClarirsError> {
+    children
+        .get(index)
+        .and_then(|child| child.clone().into_float())
+        .ok_or(ClarirsError::InvalidArguments)
 }
 
-macro_rules! extract_string_child {
-    ($children:ident, $index:expr) => {
-        $children
-            .get($index)
-            .and_then(|child| child.clone().into_string())
-            .ok_or_else(|| ClarirsError::InvalidArguments)?
-    };
+pub(crate) fn extract_string_child<'c>(
+    children: &[DynAst<'c>],
+    index: usize,
+) -> Result<StringAst<'c>, ClarirsError> {
+    children
+        .get(index)
+        .and_then(|child| child.clone().into_string())
+        .ok_or(ClarirsError::InvalidArguments)
 }
-
-pub(crate) use extract_bitvec_child;
-pub(crate) use extract_bool_child;
-pub(crate) use extract_float_child;
-pub(crate) use extract_string_child;
 
 use super::walk_post_order;
 

@@ -18,7 +18,7 @@ pub(crate) fn simplify_bv<'c>(
     match &ast.op() {
         BitVecOp::BVS(..) | BitVecOp::BVV(..) | BitVecOp::SI(..) => Ok(ast.clone()),
         BitVecOp::Not(..) => {
-            let arc = extract_bitvec_child!(children, 0);
+            let arc = extract_bitvec_child(children, 0)?;
             match arc.op() {
                 BitVecOp::BVV(value) => ctx.bvv((!value.clone())?),
                 _ => ctx.not(&arc),
@@ -26,8 +26,8 @@ pub(crate) fn simplify_bv<'c>(
         }
         BitVecOp::And(..) => {
             let (arc, arc1) = (
-                extract_bitvec_child!(children, 0),
-                extract_bitvec_child!(children, 1),
+                extract_bitvec_child(children, 0)?,
+                extract_bitvec_child(children, 1)?,
             );
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
@@ -42,8 +42,8 @@ pub(crate) fn simplify_bv<'c>(
         }
         BitVecOp::Or(..) => {
             let (arc, arc1) = (
-                extract_bitvec_child!(children, 0),
-                extract_bitvec_child!(children, 1),
+                extract_bitvec_child(children, 0)?,
+                extract_bitvec_child(children, 1)?,
             );
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
@@ -58,8 +58,8 @@ pub(crate) fn simplify_bv<'c>(
         }
         BitVecOp::Xor(..) => {
             let (arc, arc1) = (
-                extract_bitvec_child!(children, 0),
-                extract_bitvec_child!(children, 1),
+                extract_bitvec_child(children, 0)?,
+                extract_bitvec_child(children, 1)?,
             );
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
@@ -73,7 +73,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::Neg(..) => {
-            let arc = extract_bitvec_child!(children, 0);
+            let arc = extract_bitvec_child(children, 0)?;
             match arc.op() {
                 BitVecOp::BVV(value) => ctx.bvv((-value.clone())?),
                 _ => ctx.neg(&arc),
@@ -81,8 +81,8 @@ pub(crate) fn simplify_bv<'c>(
         }
         BitVecOp::Add(..) => {
             let (arc, arc1) = (
-                extract_bitvec_child!(children, 0),
-                extract_bitvec_child!(children, 1),
+                extract_bitvec_child(children, 0)?,
+                extract_bitvec_child(children, 1)?,
             );
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
@@ -95,8 +95,8 @@ pub(crate) fn simplify_bv<'c>(
         }
         BitVecOp::Sub(..) => {
             let (arc, arc1) = (
-                extract_bitvec_child!(children, 0),
-                extract_bitvec_child!(children, 1),
+                extract_bitvec_child(children, 0)?,
+                extract_bitvec_child(children, 1)?,
             );
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
@@ -109,8 +109,8 @@ pub(crate) fn simplify_bv<'c>(
         }
         BitVecOp::Mul(..) => {
             let (arc, arc1) = (
-                extract_bitvec_child!(children, 0),
-                extract_bitvec_child!(children, 1),
+                extract_bitvec_child(children, 0)?,
+                extract_bitvec_child(children, 1)?,
             );
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
@@ -125,8 +125,8 @@ pub(crate) fn simplify_bv<'c>(
         }
         BitVecOp::UDiv(..) => {
             let (arc, arc1) = (
-                extract_bitvec_child!(children, 0),
-                extract_bitvec_child!(children, 1),
+                extract_bitvec_child(children, 0)?,
+                extract_bitvec_child(children, 1)?,
             );
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
@@ -138,8 +138,8 @@ pub(crate) fn simplify_bv<'c>(
         }
         BitVecOp::SDiv(..) => {
             let (dividend_ast, divisor_ast) = (
-                extract_bitvec_child!(children, 0),
-                extract_bitvec_child!(children, 1),
+                extract_bitvec_child(children, 0)?,
+                extract_bitvec_child(children, 1)?,
             );
             match (dividend_ast.op(), divisor_ast.op()) {
                 (BitVecOp::BVV(dividend_val), BitVecOp::BVV(divisor_val)) => {
@@ -151,8 +151,8 @@ pub(crate) fn simplify_bv<'c>(
         }
         BitVecOp::URem(..) => {
             let (arc, arc1) = (
-                extract_bitvec_child!(children, 0),
-                extract_bitvec_child!(children, 1),
+                extract_bitvec_child(children, 0)?,
+                extract_bitvec_child(children, 1)?,
             );
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => ctx.bvv(value1.urem(value2)),
@@ -161,8 +161,8 @@ pub(crate) fn simplify_bv<'c>(
         }
         BitVecOp::SRem(..) => {
             let (dividend_ast, divisor_ast) = (
-                extract_bitvec_child!(children, 0),
-                extract_bitvec_child!(children, 1),
+                extract_bitvec_child(children, 0)?,
+                extract_bitvec_child(children, 1)?,
             );
             match (dividend_ast.op(), divisor_ast.op()) {
                 (BitVecOp::BVV(dividend_val), BitVecOp::BVV(divisor_val)) => {
@@ -173,8 +173,8 @@ pub(crate) fn simplify_bv<'c>(
         }
         BitVecOp::ShL(..) => {
             let (arc, arc1) = (
-                extract_bitvec_child!(children, 0),
-                extract_bitvec_child!(children, 1),
+                extract_bitvec_child(children, 0)?,
+                extract_bitvec_child(children, 1)?,
             );
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value), BitVecOp::BVV(shift_amount)) => {
@@ -187,8 +187,8 @@ pub(crate) fn simplify_bv<'c>(
         }
         BitVecOp::LShR(..) => {
             let (arc, arc1) = (
-                extract_bitvec_child!(children, 0),
-                extract_bitvec_child!(children, 1),
+                extract_bitvec_child(children, 0)?,
+                extract_bitvec_child(children, 1)?,
             );
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value), BitVecOp::BVV(shift_amount)) => {
@@ -209,8 +209,8 @@ pub(crate) fn simplify_bv<'c>(
         }
         BitVecOp::AShR(..) => {
             let (arc, arc1) = (
-                extract_bitvec_child!(children, 0),
-                extract_bitvec_child!(children, 1),
+                extract_bitvec_child(children, 0)?,
+                extract_bitvec_child(children, 1)?,
             );
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value), BitVecOp::BVV(shift_amount)) => {
@@ -257,8 +257,8 @@ pub(crate) fn simplify_bv<'c>(
         }
         BitVecOp::RotateLeft(..) => {
             let (arc, arc1) = (
-                extract_bitvec_child!(children, 0),
-                extract_bitvec_child!(children, 1),
+                extract_bitvec_child(children, 0)?,
+                extract_bitvec_child(children, 1)?,
             );
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value_bv), BitVecOp::BVV(rotate_bv)) => {
@@ -271,8 +271,8 @@ pub(crate) fn simplify_bv<'c>(
         }
         BitVecOp::RotateRight(..) => {
             let (arc, arc1) = (
-                extract_bitvec_child!(children, 0),
-                extract_bitvec_child!(children, 1),
+                extract_bitvec_child(children, 0)?,
+                extract_bitvec_child(children, 1)?,
             );
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value_bv), BitVecOp::BVV(rotate_amount_bv)) => {
@@ -284,21 +284,21 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::ZeroExt(_, num_bits) => {
-            let arc = extract_bitvec_child!(children, 0);
+            let arc = extract_bitvec_child(children, 0)?;
             match arc.op() {
                 BitVecOp::BVV(value) => ctx.bvv(value.zero_extend(*num_bits)?),
                 _ => ctx.zero_ext(&arc, *num_bits),
             }
         }
         BitVecOp::SignExt(_, num_bits) => {
-            let arc = extract_bitvec_child!(children, 0);
+            let arc = extract_bitvec_child(children, 0)?;
             match arc.op() {
                 BitVecOp::BVV(value) => ctx.bvv(value.sign_extend(*num_bits)?),
                 _ => ctx.sign_ext(&arc, *num_bits),
             }
         }
         BitVecOp::Extract(_, high, low) => {
-            let arc = extract_bitvec_child!(children, 0);
+            let arc = extract_bitvec_child(children, 0)?;
 
             // If the extract bounds are the entire BV, return the inner value as-is
             if *high == arc.size() - 1 && *low == 0 {
@@ -341,8 +341,8 @@ pub(crate) fn simplify_bv<'c>(
         }
         BitVecOp::Concat(..) => {
             let (arc, arc1) = (
-                extract_bitvec_child!(children, 0),
-                extract_bitvec_child!(children, 1),
+                extract_bitvec_child(children, 0)?,
+                extract_bitvec_child(children, 1)?,
             );
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
@@ -357,7 +357,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::Reverse(..) => {
-            let arc = extract_bitvec_child!(children, 0);
+            let arc = extract_bitvec_child(children, 0)?;
             match arc.op() {
                 BitVecOp::BVV(value) => {
                     let reversed_bits = value.reverse_bytes()?;
@@ -367,7 +367,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::FpToIEEEBV(..) => {
-            let arc = extract_float_child!(children, 0);
+            let arc = extract_float_child(children, 0)?;
             match arc.op() {
                 FloatOp::FPV(float) => {
                     // Convert the floating-point value to its IEEE 754 bit representation
@@ -384,7 +384,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::FpToUBV(_, bit_size, fprm) => {
-            let arc = extract_float_child!(children, 0);
+            let arc = extract_float_child(children, 0)?;
             match arc.op() {
                 FloatOp::FPV(float) => {
                     // Convert the float to an unsigned integer representation (BigUint)
@@ -399,7 +399,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::FpToSBV(_, bit_size, fprm) => {
-            let arc = extract_float_child!(children, 0);
+            let arc = extract_float_child(children, 0)?;
             match arc.op() {
                 FloatOp::FPV(float) => {
                     // Convert the float to a signed integer representation (BigInt)
@@ -417,7 +417,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::StrLen(..) => {
-            let arc = extract_string_child!(children, 0);
+            let arc = extract_string_child(children, 0)?;
             match arc.op() {
                 StringOp::StringV(value) => {
                     // chars().count() returns the number of Unicode scalar values
@@ -429,9 +429,9 @@ pub(crate) fn simplify_bv<'c>(
         }
         BitVecOp::StrIndexOf(..) => {
             let (arc, arc1, arc2) = (
-                extract_string_child!(children, 0),
-                extract_string_child!(children, 1),
-                extract_bitvec_child!(children, 2),
+                extract_string_child(children, 0)?,
+                extract_string_child(children, 1)?,
+                extract_bitvec_child(children, 2)?,
             );
 
             match (arc.op(), arc1.op(), arc2.op()) {
@@ -462,7 +462,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::StrToBV(..) => {
-            let arc = extract_string_child!(children, 0);
+            let arc = extract_string_child(children, 0)?;
             match arc.op() {
                 StringOp::StringV(string) => {
                     if string.is_empty() {
@@ -490,9 +490,9 @@ pub(crate) fn simplify_bv<'c>(
         }
         BitVecOp::If(..) => {
             let (if_, then_, else_) = (
-                extract_bool_child!(children, 0),
-                extract_bitvec_child!(children, 1),
-                extract_bitvec_child!(children, 2),
+                extract_bool_child(children, 0)?,
+                extract_bitvec_child(children, 1)?,
+                extract_bitvec_child(children, 2)?,
             );
 
             // If both branches are identical, return either one
@@ -515,7 +515,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::Annotated(_, annotation) => {
-            let arc = extract_bitvec_child!(children, 0);
+            let arc = extract_bitvec_child(children, 0)?;
             if annotation.eliminatable() {
                 Ok(arc)
             } else if annotation.relocatable() {
@@ -526,8 +526,8 @@ pub(crate) fn simplify_bv<'c>(
         }
         BitVecOp::Union(..) => {
             let (lhs, rhs) = (
-                extract_bitvec_child!(children, 0),
-                extract_bitvec_child!(children, 1),
+                extract_bitvec_child(children, 0)?,
+                extract_bitvec_child(children, 1)?,
             );
             if lhs == rhs {
                 return Ok(lhs.clone());
@@ -536,8 +536,8 @@ pub(crate) fn simplify_bv<'c>(
         }
         BitVecOp::Intersection(..) => {
             let (lhs, rhs) = (
-                extract_bitvec_child!(children, 0),
-                extract_bitvec_child!(children, 1),
+                extract_bitvec_child(children, 0)?,
+                extract_bitvec_child(children, 1)?,
             );
             if lhs == rhs {
                 return Ok(lhs.clone());

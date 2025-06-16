@@ -17,7 +17,7 @@ pub(crate) fn simplify_float<'c>(
         FloatOp::FPV(float) => ctx.fpv(float.clone()),
 
         FloatOp::FpNeg(..) => {
-            let arc = extract_float_child!(children, 0);
+            let arc = extract_float_child(children, 0)?;
             match arc.op() {
                 FloatOp::FPV(float) => {
                     // Reverse the sign of the float
@@ -32,7 +32,7 @@ pub(crate) fn simplify_float<'c>(
             }
         }
         FloatOp::FpAbs(..) => {
-            let arc = extract_float_child!(children, 0);
+            let arc = extract_float_child(children, 0)?;
             match arc.op() {
                 FloatOp::FPV(float) => {
                     // Create an absolute value by setting the sign to `false`
@@ -45,8 +45,8 @@ pub(crate) fn simplify_float<'c>(
         }
         FloatOp::FpAdd(_, _, fprm) => {
             let (arc, arc1) = (
-                extract_float_child!(children, 0),
-                extract_float_child!(children, 1),
+                extract_float_child(children, 0)?,
+                extract_float_child(children, 1)?,
             );
             match (arc.op(), arc1.op()) {
                 (FloatOp::FPV(float1), FloatOp::FPV(float2)) => {
@@ -57,8 +57,8 @@ pub(crate) fn simplify_float<'c>(
         }
         FloatOp::FpSub(_, _, fprm) => {
             let (arc, arc1) = (
-                extract_float_child!(children, 0),
-                extract_float_child!(children, 1),
+                extract_float_child(children, 0)?,
+                extract_float_child(children, 1)?,
             );
             match (arc.op(), arc1.op()) {
                 (FloatOp::FPV(float1), FloatOp::FPV(float2)) => {
@@ -69,8 +69,8 @@ pub(crate) fn simplify_float<'c>(
         }
         FloatOp::FpMul(_, _, fprm) => {
             let (arc, arc1) = (
-                extract_float_child!(children, 0),
-                extract_float_child!(children, 1),
+                extract_float_child(children, 0)?,
+                extract_float_child(children, 1)?,
             );
             match (arc.op(), arc1.op()) {
                 (FloatOp::FPV(float1), FloatOp::FPV(float2)) => {
@@ -81,8 +81,8 @@ pub(crate) fn simplify_float<'c>(
         }
         FloatOp::FpDiv(_, _, fprm) => {
             let (arc, arc1) = (
-                extract_float_child!(children, 0),
-                extract_float_child!(children, 1),
+                extract_float_child(children, 0)?,
+                extract_float_child(children, 1)?,
             );
             match (arc.op(), arc1.op()) {
                 (FloatOp::FPV(float1), FloatOp::FPV(float2)) => {
@@ -92,7 +92,7 @@ pub(crate) fn simplify_float<'c>(
             }
         }
         FloatOp::FpSqrt(_, fprm) => {
-            let arc = extract_float_child!(children, 0);
+            let arc = extract_float_child(children, 0)?;
             match arc.op() {
                 FloatOp::FPV(float_val) => {
                     // Zero
@@ -141,7 +141,7 @@ pub(crate) fn simplify_float<'c>(
             }
         }
         FloatOp::FpToFp(_, fsort, fprm) => {
-            let arc = extract_float_child!(children, 0);
+            let arc = extract_float_child(children, 0)?;
             match arc.op() {
                 FloatOp::FPV(float_val) => {
                     let converted_value = float_val.convert_to_format(*fsort, *fprm);
@@ -151,11 +151,11 @@ pub(crate) fn simplify_float<'c>(
             }
         }
         FloatOp::BvToFp(_, fsort) => {
-            let arc = extract_bitvec_child!(children, 0);
+            let arc = extract_bitvec_child(children, 0)?;
             ctx.bv_to_fp(&arc, *fsort)
         }
         FloatOp::BvToFpSigned(_, fsort, fprm) => {
-            let arc = extract_bitvec_child!(children, 0);
+            let arc = extract_bitvec_child(children, 0)?;
             match arc.op() {
                 BitVecOp::BVV(bv_val) => {
                     // Handle conversion from signed bitvector to float
@@ -167,7 +167,7 @@ pub(crate) fn simplify_float<'c>(
             }
         }
         FloatOp::BvToFpUnsigned(_, fsort, fprm) => {
-            let arc = extract_bitvec_child!(children, 0);
+            let arc = extract_bitvec_child(children, 0)?;
             match arc.op() {
                 BitVecOp::BVV(bv_val) => {
                     // Interpret `bv_val` as an unsigned integer and convert to float
@@ -180,9 +180,9 @@ pub(crate) fn simplify_float<'c>(
         }
         FloatOp::If(..) => {
             let (if_, then_, else_) = (
-                extract_bool_child!(children, 0),
-                extract_float_child!(children, 1),
-                extract_float_child!(children, 2),
+                extract_bool_child(children, 0)?,
+                extract_float_child(children, 1)?,
+                extract_float_child(children, 2)?,
             );
 
             // If both branches are identical, return either one
@@ -205,7 +205,7 @@ pub(crate) fn simplify_float<'c>(
             }
         }
         FloatOp::Annotated(_, annotation) => {
-            let arc = extract_float_child!(children, 0);
+            let arc = extract_float_child(children, 0)?;
             if annotation.eliminatable() {
                 Ok(arc)
             } else if annotation.relocatable() {
