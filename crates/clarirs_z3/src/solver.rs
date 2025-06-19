@@ -5,7 +5,7 @@ use clarirs_core::ast::bitvec::BitVecOpExt;
 use clarirs_core::prelude::*;
 use clarirs_z3_sys as z3;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Z3Solver<'c> {
     ctx: &'c Context<'c>,
     assertions: Vec<BoolAst<'c>>,

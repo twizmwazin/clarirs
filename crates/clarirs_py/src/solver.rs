@@ -8,6 +8,7 @@ use num_bigint::BigInt;
 use pyo3::types::PyTuple;
 
 #[pyclass(name = "Solver", module = "clarirs.solver", subclass)]
+#[derive(Debug)]
 pub struct PySolver {
     inner: DynSolver,
 }

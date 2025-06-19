@@ -100,7 +100,7 @@ pub trait Solver<'c>: Clone + HasContext<'c> {
 /// A concrete solver. This solver is used to evaluate expressions in a concrete
 /// context. It does not support adding constraints. It is a glorified
 /// simplifier.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ConcreteSolver<'c> {
     ctx: &'c Context<'c>,
 }
