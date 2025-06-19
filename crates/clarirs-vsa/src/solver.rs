@@ -3,7 +3,7 @@ use clarirs_core::{ast::bitvec::BitVecOpExt, prelude::*};
 use crate::{Normalize, reduce::Reduce, strided_interval::ComparisonResult};
 
 /// A solver that uses Value Set Analysis (VSA) for symbolic computation
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct VSASolver<'c> {
     ctx: &'c Context<'c>,
 }

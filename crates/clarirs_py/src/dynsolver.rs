@@ -2,7 +2,7 @@ use clarirs_core::prelude::*;
 use clarirs_vsa::{Denormalize, VSASolver};
 use clarirs_z3::Z3Solver;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) enum DynSolver {
     Concrete(ConcreteSolver<'static>),
     Z3(Z3Solver<'static>),
