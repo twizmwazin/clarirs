@@ -10,7 +10,7 @@ mod test_bv;
 
 use crate::prelude::*;
 
-pub(crate) fn extract_bool_child<'c>(
+pub fn extract_bool_child<'c>(
     children: &[DynAst<'c>],
     index: usize,
 ) -> Result<BoolAst<'c>, ClarirsError> {
@@ -20,7 +20,7 @@ pub(crate) fn extract_bool_child<'c>(
         .ok_or(ClarirsError::InvalidArguments)
 }
 
-pub(crate) fn extract_bitvec_child<'c>(
+pub fn extract_bitvec_child<'c>(
     children: &[DynAst<'c>],
     index: usize,
 ) -> Result<BitVecAst<'c>, ClarirsError> {
@@ -30,7 +30,7 @@ pub(crate) fn extract_bitvec_child<'c>(
         .ok_or(ClarirsError::InvalidArguments)
 }
 
-pub(crate) fn extract_float_child<'c>(
+pub fn extract_float_child<'c>(
     children: &[DynAst<'c>],
     index: usize,
 ) -> Result<FloatAst<'c>, ClarirsError> {
@@ -40,7 +40,7 @@ pub(crate) fn extract_float_child<'c>(
         .ok_or(ClarirsError::InvalidArguments)
 }
 
-pub(crate) fn extract_string_child<'c>(
+pub fn extract_string_child<'c>(
     children: &[DynAst<'c>],
     index: usize,
 ) -> Result<StringAst<'c>, ClarirsError> {
