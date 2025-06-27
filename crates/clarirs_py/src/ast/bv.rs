@@ -888,8 +888,7 @@ impl BV {
         if index + size > bv_bytes as u32 && pos - size as i32 + 1 < 0 && index > 0 {
             // This should raise a ClaripyOperationError
             return Err(ClaripyError::InvalidOperation(format!(
-                "Index {} + size {} exceeds the number of bytes in the bitvector ({})",
-                index, size, bv_bytes
+                "Index {index} + size {size} exceeds the number of bytes in the bitvector ({bv_bytes})"
             )));
         }
 
@@ -1013,7 +1012,7 @@ pub fn BVS(
         name.to_string()
     } else {
         let counter = BVS_COUNTER.fetch_add(1, Ordering::Relaxed);
-        format!("BV{}_{}_{}", size, name, counter)
+        format!("BV{size}_{name}_{counter}")
     };
     BV::new_with_name(py, &GLOBAL_CONTEXT.bvs(&name, size)?, Some(name.clone()))
 }

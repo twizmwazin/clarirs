@@ -121,8 +121,7 @@ pub fn r#if<'py>(
             .map(|b| b.into_any().downcast::<Base>().unwrap().clone())
         } else {
             Err(ClaripyError::TypeError(format!(
-                "Sort mismatch in if-then-else: {:?} and {:?}",
-                then_, else_
+                "Sort mismatch in if-then-else: {then_:?} and {else_:?}"
             )))
         }
     } else if let Ok(then_bool) = then_.clone().into_any().downcast::<Bool>() {
@@ -136,8 +135,7 @@ pub fn r#if<'py>(
             .map(|b| b.into_any().downcast::<Base>().unwrap().clone())
         } else {
             Err(ClaripyError::TypeError(format!(
-                "Sort mismatch in if-then-else: {:?} and {:?}",
-                then_, else_
+                "Sort mismatch in if-then-else: {then_:?} and {else_:?}"
             )))
         }
     } else if let Ok(then_fp) = then_.clone().into_any().downcast::<FP>() {
@@ -151,8 +149,7 @@ pub fn r#if<'py>(
             .map(|b| b.into_any().downcast::<Base>().unwrap().clone())
         } else {
             Err(ClaripyError::TypeError(format!(
-                "Sort mismatch in if-then-else: {:?} and {:?}",
-                then_, else_
+                "Sort mismatch in if-then-else: {then_:?} and {else_:?}"
             )))
         }
     } else if let Ok(then_string) = then_.clone().into_any().downcast::<PyAstString>() {
@@ -166,8 +163,7 @@ pub fn r#if<'py>(
             .map(|b| b.into_any().downcast::<Base>().unwrap().clone())
         } else {
             Err(ClaripyError::TypeError(format!(
-                "Sort mismatch in if-then-else: {:?} and {:?}",
-                then_, else_
+                "Sort mismatch in if-then-else: {then_:?} and {else_:?}"
             )))
         }
     } else {

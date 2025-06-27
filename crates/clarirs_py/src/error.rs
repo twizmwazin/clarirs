@@ -54,14 +54,14 @@ impl From<ClarirsError> for ClaripyError {
             }
             ClarirsError::TypeError(e) => ClaripyError::TypeError(e),
             ClarirsError::UnsupportedOperation(e) => ClaripyError::UnsupportedOperation(e),
-            _ => ClaripyError::ClarirsError(format!("{}", e)),
+            _ => ClaripyError::ClarirsError(format!("{e}")),
         }
     }
 }
 
 impl From<&ClarirsError> for ClaripyError {
     fn from(e: &ClarirsError) -> Self {
-        ClaripyError::ClarirsError(format!("{}", e))
+        ClaripyError::ClarirsError(format!("{e}"))
     }
 }
 
@@ -75,39 +75,36 @@ impl From<ClaripyError> for PyErr {
     fn from(e: ClaripyError) -> Self {
         match e {
             ClaripyError::DivisionByZero { dividend } => PyZeroDivisionError::new_err(format!(
-                "Division by zero error: attempted {}/0",
-                dividend
+                "Division by zero error: attempted {dividend}/0"
             )),
             ClaripyError::InvalidExtractBounds {
                 upper,
                 lower,
                 length,
             } => py_err::InvalidExtractBoundsError::new_err(format!(
-                "Invalid extract bounds: upper: {}, lower: {}, length: {}",
-                upper, lower, length
+                "Invalid extract bounds: upper: {upper}, lower: {lower}, length: {length}"
             )),
             ClaripyError::InvalidChopSize { size, bits } => PyValueError::new_err(format!(
-                "BitVector length {} must be a multiple of {}.",
-                size, bits
+                "BitVector length {size} must be a multiple of {bits}."
             )),
             ClaripyError::InvalidOperation(e) => py_err::ClaripyOperationError::new_err(e),
             ClaripyError::TypeError(e) => py_err::ClaripyTypeError::new_err(e),
             ClaripyError::PythonError(o) => {
                 Python::with_gil(|py| PyErr::from_value(o.bind(py).clone()))
             }
-            _ => py_err::ClaripyError::new_err(format!("{}", e)),
+            _ => py_err::ClaripyError::new_err(format!("{e}")),
         }
     }
 }
 
 impl From<DowncastError<'_, '_>> for ClaripyError {
     fn from(e: DowncastError) -> Self {
-        ClaripyError::CastingError(format!("{}", e))
+        ClaripyError::CastingError(format!("{e}"))
     }
 }
 
 impl From<DowncastIntoError<'_>> for ClaripyError {
     fn from(e: DowncastIntoError) -> Self {
-        ClaripyError::CastingError(format!("{}", e))
+        ClaripyError::CastingError(format!("{e}"))
     }
 }

@@ -675,7 +675,6 @@ impl StridedInterval {
 
     /// Check if this interval is definitely less than another in signed comparison
     pub fn slt(&self, other: &Self) -> ComparisonResult {
-        println!("slt: self: {:?}, other: {:?}", self, other);
         if self.is_empty() || other.is_empty() {
             return ComparisonResult::False;
         }

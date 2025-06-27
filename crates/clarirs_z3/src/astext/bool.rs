@@ -245,8 +245,7 @@ pub(crate) fn from_z3<'c>(
                                 .to_string_lossy();
 
                         Err(ClarirsError::ConversionError(format!(
-                            "Failed converting from z3: unknown decl kind for bool: {}",
-                            decl_name
+                            "Failed converting from z3: unknown decl kind for bool: {decl_name}"
                         )))
                     }
                 }
