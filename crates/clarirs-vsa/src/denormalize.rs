@@ -18,10 +18,7 @@ impl Denormalize for DynAst<'_> {
                         ast.context()
                             .annotated(
                                 &ast.context().bvs(
-                                    format!(
-                                        "SI{}[{} {} {}]",
-                                        bits, stride, lower_bound, upper_bound
-                                    ),
+                                    format!("SI{bits}[{stride} {lower_bound} {upper_bound}]"),
                                     *bits,
                                 )?,
                                 Annotation::new(

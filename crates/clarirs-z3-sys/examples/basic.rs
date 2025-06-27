@@ -56,8 +56,8 @@ fn main() {
             z3::get_numeral_int(ctx, y_val, &mut y_int);
 
             println!("Solution found:");
-            println!("x = {}", x_int);
-            println!("y = {}", y_int);
+            println!("x = {x_int}");
+            println!("y = {y_int}");
             println!("Sum = {}", x_int + y_int);
 
             // Cleanup

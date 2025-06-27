@@ -13,8 +13,7 @@ impl<'c> ChildVecExt<'c> for &[DynAst<'c>] {
         self.get(index)
             .and_then(|child| child.clone().into_bool())
             .ok_or(ClarirsError::InvalidArgumentsWithMessage(format!(
-                "ChildVecExt: Invalid index {} for child bool",
-                index
+                "ChildVecExt: Invalid index {index} for child bool"
             )))
     }
 
@@ -22,8 +21,7 @@ impl<'c> ChildVecExt<'c> for &[DynAst<'c>] {
         self.get(index)
             .and_then(|child| child.clone().into_bitvec())
             .ok_or(ClarirsError::InvalidArgumentsWithMessage(format!(
-                "ChildVecExt: Invalid index {} for child bitvec",
-                index
+                "ChildVecExt: Invalid index {index} for child bitvec"
             )))
     }
 
@@ -31,8 +29,7 @@ impl<'c> ChildVecExt<'c> for &[DynAst<'c>] {
         self.get(index)
             .and_then(|child| child.clone().into_float())
             .ok_or(ClarirsError::InvalidArgumentsWithMessage(format!(
-                "ChildVecExt: Invalid index {} for child float",
-                index
+                "ChildVecExt: Invalid index {index} for child float"
             )))
     }
 
@@ -40,8 +37,7 @@ impl<'c> ChildVecExt<'c> for &[DynAst<'c>] {
         self.get(index)
             .and_then(|child| child.clone().into_string())
             .ok_or(ClarirsError::InvalidArgumentsWithMessage(format!(
-                "ChildVecExt: Invalid index {} for child string",
-                index
+                "ChildVecExt: Invalid index {index} for child string"
             )))
     }
 
@@ -49,8 +45,7 @@ impl<'c> ChildVecExt<'c> for &[DynAst<'c>] {
         self.get(index)
             .cloned()
             .ok_or(ClarirsError::InvalidArgumentsWithMessage(format!(
-                "ChildVecExt: Invalid index {} for child dyn",
-                index
+                "ChildVecExt: Invalid index {index} for child dyn"
             )))
     }
 }

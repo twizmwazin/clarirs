@@ -19,7 +19,7 @@ pub(crate) fn simplify_string<'c>(
             );
             match (arc.op(), arc1.op()) {
                 (StringOp::StringV(str1), StringOp::StringV(str2)) => {
-                    let concatenated = format!("{}{}", str1, str2);
+                    let concatenated = format!("{str1}{str2}");
                     ctx.stringv(concatenated)
                 }
                 _ => ctx.strconcat(&arc, &arc1),

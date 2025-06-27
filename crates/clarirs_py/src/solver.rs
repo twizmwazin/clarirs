@@ -303,8 +303,7 @@ impl PySolver {
             } else {
                 let value_type = value.get_type().name()?.extract::<String>()?;
                 Err(ClaripyError::TypeError(format!(
-                    "can't coerce a {} to a bool ast",
-                    value_type
+                    "can't coerce a {value_type} to a bool ast"
                 )))
             }
         } else if let Ok(bv_ast) = expr.downcast::<BV>() {
@@ -316,8 +315,7 @@ impl PySolver {
             } else {
                 let value_type = value.get_type().name()?.extract::<String>()?;
                 Err(ClaripyError::TypeError(format!(
-                    "can't coerce a {} to a bv ast",
-                    value_type
+                    "can't coerce a {value_type} to a bv ast"
                 )))
             }
         } else if let Ok(fp_ast) = expr.downcast::<FP>() {
@@ -331,8 +329,7 @@ impl PySolver {
             } else {
                 let value_type = value.get_type().name()?.extract::<String>()?;
                 Err(ClaripyError::TypeError(format!(
-                    "can't coerce a {} to a float ast",
-                    value_type
+                    "can't coerce a {value_type} to a float ast"
                 )))
             }
         } else if let Ok(string_ast) = expr.downcast::<PyAstString>() {
@@ -346,8 +343,7 @@ impl PySolver {
             } else {
                 let value_type = value.get_type().name()?.extract::<String>()?;
                 Err(ClaripyError::TypeError(format!(
-                    "can't coerce a {} to a string ast",
-                    value_type
+                    "can't coerce a {value_type} to a string ast"
                 )))
             }
         } else {
@@ -675,7 +671,7 @@ impl PyVSASolver {
             } else {
                 let value_type = value.get_type().name()?.extract::<String>()?;
                 Err(
-                    ClaripyError::TypeError(format!("can't coerce a {} to a bv ast", value_type))
+                    ClaripyError::TypeError(format!("can't coerce a {value_type} to a bv ast"))
                         .into(),
                 )
             }

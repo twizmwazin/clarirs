@@ -415,7 +415,7 @@ pub fn BoolS<'py>(
         name.to_string()
     } else {
         let counter = BOOLS_COUNTER.fetch_add(1, Ordering::Relaxed);
-        format!("Bool_{}_{}", name, counter)
+        format!("Bool_{name}_{counter}")
     };
     Bool::new_with_name(py, &GLOBAL_CONTEXT.bools(&name)?, Some(name.clone()))
 }

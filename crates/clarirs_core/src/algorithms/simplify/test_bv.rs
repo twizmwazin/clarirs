@@ -231,7 +231,7 @@ fn test_sdiv() -> Result<()> {
         let expected = ctx.bvv_prim(expected_bits)?;
 
         let result = ctx.sdiv(&a, &b)?.simplify()?;
-        assert_eq!(result, expected, "Failed for a={}, b={}", a_i64, b_i64);
+        assert_eq!(result, expected, "Failed for a={a_i64}, b={b_i64}");
     }
 
     Ok(())
