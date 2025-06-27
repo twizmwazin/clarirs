@@ -101,9 +101,9 @@ mod tests {
             DynAst::from(&add),
             |node, children| {
                 let node_type = match node.as_bitvec().unwrap().op() {
-                    BitVecOp::BVS(s, _) => format!("var({})", s),
+                    BitVecOp::BVS(s, _) => format!("var({s})"),
                     BitVecOp::Add(_, _) => "add".to_string(),
-                    op => format!("other({:?})", op),
+                    op => format!("other({op:?})"),
                 };
                 let info = format!("{} with {} children", node_type, children.len());
                 visited.push(info.clone());

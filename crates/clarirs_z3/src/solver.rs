@@ -369,7 +369,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
             let one_bit = self.ctx.bvv_prim_with_size(1u64, 1)?;
 
             // Create a target variable equal to the expression
-            let target_name = format!("min_signed_target_{}", size);
+            let target_name = format!("min_signed_target_{size}");
             let target = self.ctx.bvs(&target_name, size)?;
             let equality = self.ctx.eq_(&target, expr)?;
             z3::optimize_assert(z3_ctx, *optimize, *equality.to_z3()?);
@@ -415,7 +415,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
             let zero_bit = self.ctx.bvv_prim_with_size(0u64, 1)?;
 
             // Create a target variable equal to the expression
-            let target_name = format!("max_signed_target_{}", size);
+            let target_name = format!("max_signed_target_{size}");
             let target = self.ctx.bvs(&target_name, size)?;
             let equality = self.ctx.eq_(&target, expr)?;
             z3::optimize_assert(z3_ctx, *optimize, *equality.to_z3()?);

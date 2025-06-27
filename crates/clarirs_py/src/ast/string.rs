@@ -257,7 +257,7 @@ pub fn StringS<'py>(
         name.to_string()
     } else {
         let counter = STRINGS_COUNTER.fetch_add(1, Ordering::Relaxed);
-        format!("String_{}_{}", name, counter)
+        format!("String_{name}_{counter}")
     };
     PyAstString::new_with_name(py, &GLOBAL_CONTEXT.strings(&name)?, Some(name))
 }

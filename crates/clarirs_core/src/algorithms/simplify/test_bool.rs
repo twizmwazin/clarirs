@@ -32,7 +32,7 @@ fn test_not() -> Result<()> {
     ];
 
     for (ast, expected) in table {
-        assert_eq!(&ctx.not(ast)?.simplify()?, expected, "ast: {:?}", ast);
+        assert_eq!(&ctx.not(ast)?.simplify()?, expected, "ast: {ast:?}");
     }
 
     Ok(())
@@ -62,9 +62,7 @@ fn test_and() -> Result<()> {
         assert_eq!(
             &ctx.and(lhs, rhs)?.simplify()?,
             expected,
-            "lhs: {:?}, rhs: {:?}",
-            lhs,
-            rhs
+            "lhs: {lhs:?}, rhs: {rhs:?}"
         );
     }
 
@@ -95,9 +93,7 @@ fn test_or() -> Result<()> {
         assert_eq!(
             &ctx.or(lhs, rhs)?.simplify()?,
             expected,
-            "lhs: {:?}, rhs: {:?}",
-            lhs,
-            rhs
+            "lhs: {lhs:?}, rhs: {rhs:?}"
         );
     }
 
@@ -129,9 +125,7 @@ fn test_xor() -> Result<()> {
         assert_eq!(
             &ctx.xor(lhs, rhs)?.simplify()?,
             expected,
-            "lhs: {:?}, rhs: {:?}",
-            lhs,
-            rhs
+            "lhs: {lhs:?}, rhs: {rhs:?}"
         );
     }
 
@@ -181,10 +175,7 @@ fn test_if() -> Result<()> {
         assert_eq!(
             &ctx.if_(cond, then_, else_)?.simplify()?,
             expected,
-            "cond: {:?}, then_branch: {:?}, else_branch: {:?}",
-            cond,
-            then_,
-            else_
+            "cond: {cond:?}, then_branch: {then_:?}, else_branch: {else_:?}"
         );
     }
 
@@ -216,9 +207,7 @@ fn test_eq() -> Result<()> {
         assert_eq!(
             &ctx.eq_(lhs, rhs)?.simplify()?,
             expected,
-            "lhs: {:?}, rhs: {:?}",
-            lhs,
-            rhs
+            "lhs: {lhs:?}, rhs: {rhs:?}"
         );
     }
 
@@ -240,9 +229,7 @@ fn test_ult() -> Result<()> {
         assert_eq!(
             &ctx.ult(&lhs, &rhs)?.simplify()?,
             &expected,
-            "lhs: {:?}, rhs: {:?}",
-            lhs,
-            rhs
+            "lhs: {lhs:?}, rhs: {rhs:?}"
         );
     }
 
@@ -264,9 +251,7 @@ fn test_ule() -> Result<()> {
         assert_eq!(
             &ctx.ule(&lhs, &rhs)?.simplify()?,
             &expected,
-            "lhs: {:?}, rhs: {:?}",
-            lhs,
-            rhs
+            "lhs: {lhs:?}, rhs: {rhs:?}"
         );
     }
 
@@ -288,9 +273,7 @@ fn test_ugt() -> Result<()> {
         assert_eq!(
             &ctx.ugt(&lhs, &rhs)?.simplify()?,
             &expected,
-            "lhs: {:?}, rhs: {:?}",
-            lhs,
-            rhs
+            "lhs: {lhs:?}, rhs: {rhs:?}"
         );
     }
 
@@ -312,9 +295,7 @@ fn test_uge() -> Result<()> {
         assert_eq!(
             &ctx.uge(&lhs, &rhs)?.simplify()?,
             &expected,
-            "lhs: {:?}, rhs: {:?}",
-            lhs,
-            rhs
+            "lhs: {lhs:?}, rhs: {rhs:?}"
         );
     }
 
@@ -338,9 +319,7 @@ fn test_slt() -> Result<()> {
         assert_eq!(
             &ctx.slt(&lhs, &rhs)?.simplify()?,
             &expected,
-            "lhs: {:?}, rhs: {:?}",
-            lhs,
-            rhs
+            "lhs: {lhs:?}, rhs: {rhs:?}"
         );
     }
 
@@ -364,9 +343,7 @@ fn test_sle() -> Result<()> {
         assert_eq!(
             &ctx.sle(&lhs, &rhs)?.simplify()?,
             &expected,
-            "lhs: {:?}, rhs: {:?}",
-            lhs,
-            rhs
+            "lhs: {lhs:?}, rhs: {rhs:?}"
         );
     }
 
@@ -390,9 +367,7 @@ fn test_sgt() -> Result<()> {
         assert_eq!(
             &ctx.sgt(&lhs, &rhs)?.simplify()?,
             &expected,
-            "lhs: {:?}, rhs: {:?}",
-            lhs,
-            rhs
+            "lhs: {lhs:?}, rhs: {rhs:?}"
         );
     }
 
@@ -416,9 +391,7 @@ fn test_sge() -> Result<()> {
         assert_eq!(
             &ctx.sge(&lhs, &rhs)?.simplify()?,
             &expected,
-            "lhs: {:?}, rhs: {:?}",
-            lhs,
-            rhs
+            "lhs: {lhs:?}, rhs: {rhs:?}"
         );
     }
 

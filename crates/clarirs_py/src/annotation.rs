@@ -68,7 +68,7 @@ impl<'py> FromPyObject<'py> for PyAnnotationType {
             },
             ("clarirs.annotation", "UninitializedAnnotation") => AnnotationType::Uninitialized,
             (anno_module_name, anno_class_name) => AnnotationType::Unknown {
-                name: format!("{}:{}", anno_module_name, anno_class_name),
+                name: format!("{anno_module_name}:{anno_class_name}"),
                 value: Vec::new(),
             },
         }
@@ -146,7 +146,7 @@ impl FromPyObject<'_> for PyAnnotation {
                 }
                 (anno_module_name, anno_class_name) => PyAnnotation::new(
                     AnnotationType::Unknown {
-                        name: format!("{}:{}", anno_module_name, anno_class_name),
+                        name: format!("{anno_module_name}:{anno_class_name}"),
                         value: pickle_dumps.call1((annotation,))?.extract::<Vec<u8>>()?,
                     },
                     false,

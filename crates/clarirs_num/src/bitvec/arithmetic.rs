@@ -262,7 +262,7 @@ mod tests {
         if let Err(BitVecError::DivisionByZero { dividend }) = result {
             assert_eq!(dividend, BigUint::from(42u64));
         } else {
-            panic!("Expected DivisionByZero error, but got {:?}", result);
+            panic!("Expected DivisionByZero error, but got {result:?}");
         }
 
         Ok(())

@@ -128,7 +128,7 @@ fn main() {
     let (lib_dir, include_dir) = build_z3_from_source();
 
     // Configure static linking
-    println!("cargo:rustc-link-search=native={}", lib_dir);
+    println!("cargo:rustc-link-search=native={lib_dir}");
     if cfg!(target_os = "windows") && env::var("CC").is_ok_and(|cc| cc.contains("msvc")) {
         println!("cargo:rustc-link-lib=static=libz3");
     } else {
@@ -160,7 +160,7 @@ fn main() {
     // Generate bindings using bindgen
     let bindings = bindgen::Builder::default()
         .header("wrapper.h")
-        .clang_arg(format!("-I{}", include_dir))
+        .clang_arg(format!("-I{include_dir}"))
         .generate_comments(true)
         .allowlist_item("Z3_.*")
         .rustified_enum(".*")

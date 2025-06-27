@@ -73,13 +73,13 @@ fn to_smtlib_bv(ast: &BitVecAst, children: &[String]) -> String {
         BitVecOp::FpToUBV(_, size, fprm) => format!(
             "((_ fp.to_ubv {}) {} {})",
             size,
-            format!("{:?}", fprm).to_lowercase(),
+            format!("{fprm:?}").to_lowercase(),
             children[0]
         ),
         BitVecOp::FpToSBV(_, size, fprm) => format!(
             "((_ fp.to_sbv {}) {} {})",
             size,
-            format!("{:?}", fprm).to_lowercase(),
+            format!("{fprm:?}").to_lowercase(),
             children[0]
         ),
         BitVecOp::StrLen(..) => format!("(str.len {})", children[0]),
@@ -92,7 +92,7 @@ fn to_smtlib_bv(ast: &BitVecAst, children: &[String]) -> String {
         BitVecOp::StrToBV(..) => format!("(str.to_bv {})", children[0]),
         BitVecOp::If(..) => format!("(ite {} {} {})", children[0], children[1], children[2]),
         BitVecOp::Annotated(..) => children[0].to_string(),
-        BitVecOp::SI(size, stride, lb, ub) => format!("(vsasi {} {} {} {})", size, stride, lb, ub),
+        BitVecOp::SI(size, stride, lb, ub) => format!("(vsasi {size} {stride} {lb} {ub})"),
         BitVecOp::Union(..) => format!("(vsaunion {} {})", children[0], children[1]),
         BitVecOp::Intersection(..) => format!("(vsaintersection {} {})", children[0], children[1]),
     }
@@ -105,44 +105,44 @@ fn to_smtlib_float(ast: &FloatAst, children: &[String]) -> String {
             let sign = if float.sign() { "1" } else { "0" };
             let exp = float.exponent().to_biguint().to_string();
             let sig = float.mantissa().to_biguint().to_string();
-            format!("(fp #{} #{} #{})", sign, exp, sig)
+            format!("(fp #{sign} #{exp} #{sig})")
         }
         FloatOp::FpNeg(..) => format!("(fp.neg {})", children[0]),
         FloatOp::FpAbs(..) => format!("(fp.abs {})", children[0]),
         FloatOp::FpAdd(_, _, fprm) => format!(
             "(fp.add {} {} {})",
-            format!("{:?}", fprm).to_lowercase(),
+            format!("{fprm:?}").to_lowercase(),
             children[0],
             children[1]
         ),
         FloatOp::FpSub(_, _, fprm) => format!(
             "(fp.sub {} {} {})",
-            format!("{:?}", fprm).to_lowercase(),
+            format!("{fprm:?}").to_lowercase(),
             children[0],
             children[1]
         ),
         FloatOp::FpMul(_, _, fprm) => format!(
             "(fp.mul {} {} {})",
-            format!("{:?}", fprm).to_lowercase(),
+            format!("{fprm:?}").to_lowercase(),
             children[0],
             children[1]
         ),
         FloatOp::FpDiv(_, _, fprm) => format!(
             "(fp.div {} {} {})",
-            format!("{:?}", fprm).to_lowercase(),
+            format!("{fprm:?}").to_lowercase(),
             children[0],
             children[1]
         ),
         FloatOp::FpSqrt(_, fprm) => format!(
             "(fp.sqrt {} {})",
-            format!("{:?}", fprm).to_lowercase(),
+            format!("{fprm:?}").to_lowercase(),
             children[0]
         ),
         FloatOp::FpToFp(_, fsort, fprm) => format!(
             "((_ to_fp {} {}) {} {})",
             fsort.exponent,
             fsort.mantissa,
-            format!("{:?}", fprm).to_lowercase(),
+            format!("{fprm:?}").to_lowercase(),
             children[0]
         ),
         FloatOp::BvToFp(_, fsort) => format!(
@@ -153,14 +153,14 @@ fn to_smtlib_float(ast: &FloatAst, children: &[String]) -> String {
             "((_ to_fp {} {}) {} {})",
             fsort.exponent,
             fsort.mantissa,
-            format!("{:?}", fprm).to_lowercase(),
+            format!("{fprm:?}").to_lowercase(),
             children[0]
         ),
         FloatOp::BvToFpUnsigned(_, fsort, fprm) => format!(
             "((_ to_fp_unsigned {} {}) {} {})",
             fsort.exponent,
             fsort.mantissa,
-            format!("{:?}", fprm).to_lowercase(),
+            format!("{fprm:?}").to_lowercase(),
             children[0]
         ),
         FloatOp::If(..) => {

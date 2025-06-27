@@ -26,10 +26,7 @@ fn import_submodule<'py>(
     pyo3::py_run!(
         py,
         submodule,
-        &format!(
-            "import sys; sys.modules['{}.{}'] = submodule",
-            package, name
-        )
+        &format!("import sys; sys.modules['{package}.{name}'] = submodule")
     );
     m.add_submodule(&submodule)?;
     Ok(())
@@ -46,10 +43,7 @@ fn add_submodule<'py>(
     pyo3::py_run!(
         py,
         submodule,
-        &format!(
-            "import sys; sys.modules['{}.{}'] = submodule",
-            package, name
-        )
+        &format!("import sys; sys.modules['{package}.{name}'] = submodule")
     );
     m.add_submodule(&submodule)?;
     m.add(name, submodule.clone())?;
