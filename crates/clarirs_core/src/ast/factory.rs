@@ -1,3 +1,4 @@
+use nonempty::NonEmpty;
 use num_bigint::BigUint;
 
 use super::factory_support::*;
@@ -637,5 +638,27 @@ pub trait AstFactory<'c>: Sized {
 
     fn fpv_from_f64(&'c self, value: f64) -> Result<FloatAst<'c>, ClarirsError> {
         self.fpv(Float::from(value))
+    }
+
+    fn or_many<Op: SupportsOr<'c>>(
+        &'c self,
+        ops: NonEmpty<AstRef<'c, Op>>,
+    ) -> Result<AstRef<'c, Op>, ClarirsError> {
+        let mut result = ops[0].clone();
+        for op in ops.iter().skip(1) {
+            result = self.or(&result, op)?;
+        }
+        Ok(result)
+    }
+
+    fn and_many<Op: SupportsAnd<'c>>(
+        &'c self,
+        ops: NonEmpty<AstRef<'c, Op>>,
+    ) -> Result<AstRef<'c, Op>, ClarirsError> {
+        let mut result = ops[0].clone();
+        for op in ops.iter().skip(1) {
+            result = self.and(&result, op)?;
+        }
+        Ok(result)
     }
 }
