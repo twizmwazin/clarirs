@@ -18,6 +18,10 @@ pub trait Op<'c>: Debug + Hash + Serialize {
         1 + self.children().iter().map(|c| c.depth()).max().unwrap_or(0)
     }
 
+    fn is_leaf(&self) -> bool {
+        self.children().is_empty()
+    }
+
     fn is_true(&self) -> bool {
         false
     }
