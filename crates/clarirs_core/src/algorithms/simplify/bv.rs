@@ -309,8 +309,40 @@ pub(crate) fn simplify_bv<'c>(
                 // Concrete BVV case
                 BitVecOp::BVV(value) => ctx.bvv(value.extract(*low, *high)?),
 
-                // Concat cases
+                // ZeroExt cases
+                // If extracting from the original bits (not the extended zeros)
+                BitVecOp::ZeroExt(inner, _) if *high < inner.size() => {
+                    ctx.extract(inner, *high, *low)?.simplify()
+                }
+                // If extracting only from the extended zero bits
+                BitVecOp::ZeroExt(inner, _) if *low >= inner.size() => {
+                    ctx.bvv(BitVec::zeros(*high - *low + 1))
+                }
+                // If extracting spans both original and extended bits
+                BitVecOp::ZeroExt(inner, _) if *low < inner.size() && *high >= inner.size() => {
+                    let original_part = ctx.extract(inner, inner.size() - 1, *low)?;
+                    let zero_part = ctx.bvv(BitVec::zeros(*high - inner.size() + 1))?;
+                    ctx.concat(&zero_part, &original_part)
+                }
 
+                // SignExt cases
+                // If extracting from the original bits (not the extended sign bits)
+                BitVecOp::SignExt(inner, _) if *high < inner.size() => {
+                    ctx.extract(inner, *high, *low)?.simplify()
+                }
+                // If extracting only from the extended sign bits
+                BitVecOp::SignExt(inner, _) if *low >= inner.size() => {
+                    let sign_bit = ctx.extract(inner, inner.size() - 1, inner.size() - 1)?;
+                    // Replicate the sign bit for the extracted width
+                    let width = *high - *low + 1;
+                    let mut result = sign_bit.clone();
+                    for _ in 1..width {
+                        result = ctx.concat(&sign_bit, &result)?;
+                    }
+                    Ok(result)
+                }
+
+                // Concat cases
                 // Extracting the entire left side
                 BitVecOp::Concat(lhs, rhs) if *high == arc.size() - 1 && *low == rhs.size() => {
                     Ok(lhs.clone())

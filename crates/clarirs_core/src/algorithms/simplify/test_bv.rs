@@ -953,3 +953,222 @@ fn test_identity_simplifications() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_extract_full_width() -> Result<()> {
+    let ctx = Context::new();
+
+    // Test extracting full width of a 32-bit BVS
+    let bvs = ctx.bvs("test", 32)?;
+    let extract_full = ctx.extract(&bvs, 31, 0)?;
+    let simplified = extract_full.simplify()?;
+
+    // Should simplify to the original BVS
+    assert_eq!(simplified, bvs);
+
+    // Test extracting full width of a BVV
+    let bvv = ctx.bvv_prim(42u32)?;
+    let extract_full_bvv = ctx.extract(&bvv, 31, 0)?;
+    let simplified_bvv = extract_full_bvv.simplify()?;
+
+    // Should simplify to the original BVV
+    assert_eq!(simplified_bvv, bvv);
+
+    Ok(())
+}
+
+#[test]
+fn test_extract_zeroext() -> Result<()> {
+    let ctx = Context::new();
+
+    // Test Extract(ZeroExt(x, n), high, low) where high < original_size
+    let original = ctx.bvs("test", 32)?;
+    let zero_ext = ctx.zero_ext(&original, 64)?; // 32 -> 64 bits
+    let extract = ctx.extract(&zero_ext, 31, 0)?; // Extract original 32 bits
+    let simplified = extract.simplify()?;
+
+    // Should simplify to the original (since we're extracting the full original width)
+    assert_eq!(simplified, original);
+
+    Ok(())
+}
+
+#[test]
+fn test_debug_extract_size() -> Result<()> {
+    let ctx = Context::new();
+
+    let bvs = ctx.bvs("test", 32)?;
+    println!("BVS size: {}", bvs.size());
+
+    let extract_full = ctx.extract(&bvs, 31, 0)?;
+    println!("Extract before simplify: {extract_full:?}");
+
+    let simplified = extract_full.simplify()?;
+    println!("Extract after simplify: {simplified:?}");
+
+    Ok(())
+}
+
+#[test]
+fn test_neq_if_pattern() -> Result<()> {
+    let ctx = Context::new();
+
+    // Test the specific pattern: Neq(If(cond, 1, 0), 0) -> cond
+    let cond = ctx.ult(&ctx.bvs("x", 32)?, &ctx.bvv_prim(45u32)?)?;
+    let one_bv = ctx.bvv(BitVec::ones(1))?; // 1-bit value 1
+    let zero_bv = ctx.bvv(BitVec::zeros(1))?; // 1-bit value 0
+
+    let if_expr = ctx.if_(&cond, &one_bv, &zero_bv)?;
+    let neq_expr = ctx.neq(&if_expr, &zero_bv)?;
+    let simplified = neq_expr.simplify()?;
+
+    // Should simplify to the original condition
+    assert_eq!(simplified, cond);
+
+    Ok(())
+}
+
+#[test]
+fn test_general_if_extraction_patterns() -> Result<()> {
+    let ctx = Context::new();
+
+    let cond = ctx.ult(&ctx.bvs("x", 32)?, &ctx.bvv_prim(45u32)?)?;
+    let a = ctx.bvv_prim(42u32)?; // 32-bit value 42
+    let b = ctx.bvv_prim(17u32)?; // 32-bit value 17
+
+    // Test Neq(If(cond, a, b), b) -> cond
+    let if_expr = ctx.if_(&cond, &a, &b)?;
+    let neq_expr = ctx.neq(&if_expr, &b)?;
+    let simplified = neq_expr.simplify()?;
+    assert_eq!(simplified, cond);
+
+    // Test Neq(If(cond, a, b), a) -> !cond
+    let neq_expr_2 = ctx.neq(&if_expr, &a)?;
+    let simplified_2 = neq_expr_2.simplify()?;
+    let expected_not_cond = ctx.not(&cond)?;
+    assert_eq!(simplified_2, expected_not_cond);
+
+    // Test Eq(If(cond, a, b), a) -> cond
+    let eq_expr = ctx.eq_(&if_expr, &a)?;
+    let simplified_eq = eq_expr.simplify()?;
+    assert_eq!(simplified_eq, cond);
+
+    // Test Eq(If(cond, a, b), b) -> !cond
+    let eq_expr_2 = ctx.eq_(&if_expr, &b)?;
+    let simplified_eq_2 = eq_expr_2.simplify()?;
+    assert_eq!(simplified_eq_2, expected_not_cond);
+
+    // Test symmetric cases: Neq(b, If(cond, a, b)) -> cond
+    let neq_sym = ctx.neq(&b, &if_expr)?;
+    let simplified_sym = neq_sym.simplify()?;
+    assert_eq!(simplified_sym, cond);
+
+    // Test symmetric cases: Neq(a, If(cond, a, b)) -> !cond
+    let neq_sym_2 = ctx.neq(&a, &if_expr)?;
+    let simplified_sym_2 = neq_sym_2.simplify()?;
+    assert_eq!(simplified_sym_2, expected_not_cond);
+
+    // Test symmetric cases: Eq(a, If(cond, a, b)) -> cond
+    let eq_sym = ctx.eq_(&a, &if_expr)?;
+    let simplified_eq_sym = eq_sym.simplify()?;
+    assert_eq!(simplified_eq_sym, cond);
+
+    // Test symmetric cases: Eq(b, If(cond, a, b)) -> !cond
+    let eq_sym_2 = ctx.eq_(&b, &if_expr)?;
+    let simplified_eq_sym_2 = eq_sym_2.simplify()?;
+    assert_eq!(simplified_eq_sym_2, expected_not_cond);
+
+    Ok(())
+}
+
+#[test]
+fn test_boolean_bitvector_normalization() -> Result<()> {
+    let ctx = Context::new();
+
+    let cond = ctx.ult(&ctx.bvs("x", 32)?, &ctx.bvv_prim(45u32)?)?;
+    let one_bv = ctx.bvv(BitVec::ones(1))?; // 1-bit value 1
+    let zero_bv = ctx.bvv(BitVec::zeros(1))?; // 1-bit value 0
+
+    // Test Neq(If(cond, 1, 0), 0) -> cond (boolean encoding)
+    let if_bool = ctx.if_(&cond, &one_bv, &zero_bv)?;
+    let neq_zero = ctx.neq(&if_bool, &zero_bv)?;
+    let simplified = neq_zero.simplify()?;
+    assert_eq!(simplified, cond);
+
+    // Test Eq(If(cond, 1, 0), 1) -> cond (boolean encoding)
+    let eq_one = ctx.eq_(&if_bool, &one_bv)?;
+    let simplified_eq = eq_one.simplify()?;
+    assert_eq!(simplified_eq, cond);
+
+    // Test Eq(If(cond, 1, 0), 0) -> !cond (boolean encoding)
+    let eq_zero = ctx.eq_(&if_bool, &zero_bv)?;
+    let simplified_eq_zero = eq_zero.simplify()?;
+    let expected_not_cond = ctx.not(&cond)?;
+    assert_eq!(simplified_eq_zero, expected_not_cond);
+
+    // Test Neq(If(cond, 1, 0), 1) -> !cond (boolean encoding)
+    let neq_one = ctx.neq(&if_bool, &one_bv)?;
+    let simplified_neq_one = neq_one.simplify()?;
+    assert_eq!(simplified_neq_one, expected_not_cond);
+
+    Ok(())
+}
+
+#[test]
+fn test_if_extraction_with_symbolic_values() -> Result<()> {
+    let ctx = Context::new();
+
+    let cond = ctx.ult(&ctx.bvs("x", 32)?, &ctx.bvv_prim(45u32)?)?;
+    let sym_a = ctx.bvs("a", 32)?;
+    let sym_b = ctx.bvs("b", 32)?;
+
+    // Test with symbolic values: Neq(If(cond, sym_a, sym_b), sym_b) -> cond
+    let if_expr = ctx.if_(&cond, &sym_a, &sym_b)?;
+    let neq_expr = ctx.neq(&if_expr, &sym_b)?;
+    let simplified = neq_expr.simplify()?;
+    assert_eq!(simplified, cond);
+
+    // Test with symbolic values: Neq(If(cond, sym_a, sym_b), sym_a) -> !cond
+    let neq_expr_2 = ctx.neq(&if_expr, &sym_a)?;
+    let simplified_2 = neq_expr_2.simplify()?;
+    let expected_not_cond = ctx.not(&cond)?;
+    assert_eq!(simplified_2, expected_not_cond);
+
+    // Test with symbolic values: Eq(If(cond, sym_a, sym_b), sym_a) -> cond
+    let eq_expr = ctx.eq_(&if_expr, &sym_a)?;
+    let simplified_eq = eq_expr.simplify()?;
+    assert_eq!(simplified_eq, cond);
+
+    // Test with symbolic values: Eq(If(cond, sym_a, sym_b), sym_b) -> !cond
+    let eq_expr_2 = ctx.eq_(&if_expr, &sym_b)?;
+    let simplified_eq_2 = eq_expr_2.simplify()?;
+    assert_eq!(simplified_eq_2, expected_not_cond);
+
+    Ok(())
+}
+
+#[test]
+fn test_original_complex_example() -> Result<()> {
+    let ctx = Context::new();
+
+    // Recreate the original complex pattern:
+    // Neq(If(ULE(BV32_instrumented_load_6, 45), 1, 0), 0)
+    // This should simplify to just: ULE(BV32_instrumented_load_6, 45)
+
+    let bv32_var = ctx.bvs("BV32_instrumented_load_6", 32)?;
+    let const_45 = ctx.bvv_prim(45u32)?;
+    let ule_cond = ctx.ule(&bv32_var, &const_45)?;
+
+    let one_bv = ctx.bvv(BitVec::ones(1))?;
+    let zero_bv = ctx.bvv(BitVec::zeros(1))?;
+
+    let if_expr = ctx.if_(&ule_cond, &one_bv, &zero_bv)?;
+    let neq_expr = ctx.neq(&if_expr, &zero_bv)?;
+
+    let simplified = neq_expr.simplify()?;
+
+    // Should simplify to just the ULE condition
+    assert_eq!(simplified, ule_cond);
+
+    Ok(())
+}
