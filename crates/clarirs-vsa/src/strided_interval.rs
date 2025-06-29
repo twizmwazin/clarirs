@@ -341,16 +341,10 @@ impl StridedInterval {
         // Simple case: one interval is contained within the other
         if let (
             StridedInterval::Normal {
-                stride: s_stride,
-                lower_bound: s_lb,
-                upper_bound: s_ub,
-                ..
+                stride: s_stride, ..
             },
             StridedInterval::Normal {
-                stride: o_stride,
-                lower_bound: o_lb,
-                upper_bound: o_ub,
-                ..
+                stride: o_stride, ..
             },
         ) = (self, other)
         {
@@ -1065,10 +1059,10 @@ impl StridedInterval {
 
         match self {
             StridedInterval::Normal {
-                bits,
                 stride,
                 lower_bound,
                 upper_bound,
+                ..
             } => {
                 // First shift right by low_bit
                 let shifted_lower = lower_bound >> low_bit;
@@ -1751,7 +1745,7 @@ impl StridedInterval {
                 bits,
                 stride,
                 lower_bound,
-                upper_bound,
+                ..
             } => {
                 let new_upper = new_upper.to_bigint().unwrap();
                 let (lb_signed, ub_signed) = self.get_signed_bounds();
@@ -2004,21 +1998,19 @@ impl Div for &StridedInterval {
                 },
                 StridedInterval::Normal {
                     bits: bits2,
-                    stride: o_stride,
                     lower_bound: o_lb,
                     upper_bound: o_ub,
+                    ..
                 },
             ) => {
                 let bits = max(*bits1, *bits2);
                 // Check for division by zero
-                let other_contains_zero = {
-                    let mut contains = false;
-                    if o_lb <= o_ub {
-                        contains = *o_lb == BigUint::zero() || *o_ub == BigUint::zero();
-                    } else {
-                        contains = *o_lb == BigUint::zero() || *o_ub == BigUint::zero();
-                    }
-                    contains
+                let other_contains_zero = if o_lb <= o_ub {
+                    // Non-wrapping case
+                    *o_lb == BigUint::zero() || *o_ub == BigUint::zero()
+                } else {
+                    // Wrapping case
+                    *o_lb >= BigUint::zero() && *o_ub <= BigUint::zero()
                 };
                 if other_contains_zero {
                     return StridedInterval::top(bits);
