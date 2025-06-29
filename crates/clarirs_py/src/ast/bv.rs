@@ -5,7 +5,9 @@ use std::sync::LazyLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use clarirs_core::ast::bitvec::{BitVecAstExt, BitVecOpExt};
+use clarirs_vsa::StridedInterval;
 use clarirs_vsa::cardinality::Cardinality;
+use clarirs_vsa::reduce::Reduce;
 use dashmap::DashMap;
 use num_bigint::{BigInt, BigUint, Sign};
 use pyo3::exceptions::{PyTypeError, PyValueError};
@@ -1111,6 +1113,26 @@ impl BV {
     #[getter]
     pub fn multivalued(self_: Bound<'_, BV>) -> Result<bool, ClaripyError> {
         Ok(BV::cardinality(self_)? > BigUint::from(1u32))
+    }
+
+    pub fn reduce(self_: Bound<'_, BV>) -> Result<Bound<'_, BV>, ClaripyError> {
+        let reduced = self_.get().inner.reduce()?;
+        if let StridedInterval::Normal {
+            bits,
+            stride,
+            lower_bound,
+            upper_bound,
+        } = reduced
+        {
+            BV::new(
+                self_.py(),
+                &GLOBAL_CONTEXT.si(bits, stride, lower_bound, upper_bound)?,
+            )
+        } else {
+            Err(ClaripyError::InvalidOperation(
+                "Cannot reduce non-normal StridedInterval".to_string(),
+            ))
+        }
     }
 }
 
