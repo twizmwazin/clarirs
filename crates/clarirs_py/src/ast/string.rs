@@ -172,6 +172,39 @@ impl PyAstString {
         })
     }
 
+    pub fn get_annotation(
+        &self,
+        annotation_type: PyAnnotationType,
+    ) -> Result<Option<PyAnnotation>, ClaripyError> {
+        Ok(self
+            .annotations()?
+            .into_iter()
+            .find(|annotation| annotation_type.matches(annotation.0.type_())))
+    }
+
+    pub fn append_annotation<'py>(
+        &self,
+        py: Python<'py>,
+        annotation: PyAnnotation,
+    ) -> Result<Bound<'py, PyAstString>, ClaripyError> {
+        PyAstString::new(
+            py,
+            &GLOBAL_CONTEXT.annotated(&self.inner, annotation.0.clone())?,
+        )
+    }
+
+    pub fn append_annotations<'py>(
+        &self,
+        py: Python<'py>,
+        annotations: Vec<PyAnnotation>,
+    ) -> Result<Bound<'py, PyAstString>, ClaripyError> {
+        let mut inner = self.inner.clone();
+        for annotation in annotations {
+            inner = GLOBAL_CONTEXT.annotated(&inner, annotation.0)?;
+        }
+        PyAstString::new(py, &inner)
+    }
+
     #[pyo3(signature = (*annotations))]
     pub fn annotate<'py>(
         &self,
@@ -188,25 +221,50 @@ impl PyAstString {
         )
     }
 
-    pub fn has_annotation_type(
+    pub fn insert_annotations<'py>(
         &self,
-        annotation_type: PyAnnotationType,
-    ) -> Result<bool, ClaripyError> {
-        Ok(self
-            .annotations()?
-            .iter()
-            .any(|annotation| annotation_type.matches(annotation.0.type_())))
+        py: Python<'py>,
+        annotations: Vec<PyAnnotation>,
+    ) -> Result<Bound<'py, PyAstString>, ClaripyError> {
+        let mut inner = self.inner.clone();
+        for annotation in annotations {
+            inner = GLOBAL_CONTEXT.annotated(&inner, annotation.0)?;
+        }
+        PyAstString::new(py, &inner)
     }
 
-    pub fn get_annotations_by_type(
+    /// This actually just removes all annotations and adds the new ones.
+    pub fn replace_annotations<'py>(
         &self,
-        annotation_type: PyAnnotationType,
-    ) -> Result<Vec<PyAnnotation>, ClaripyError> {
-        Ok(self
-            .annotations()?
-            .into_iter()
-            .filter(|annotation| annotation_type.matches(annotation.0.type_()))
-            .collect())
+        py: Python<'py>,
+        annotations: Vec<PyAnnotation>,
+    ) -> Result<Bound<'py, PyAstString>, ClaripyError> {
+        let mut inner = self.inner.clone();
+        while let StringOp::Annotated(inner_, _) = inner.op() {
+            inner = inner_.clone();
+        }
+        PyAstString::new(
+            py,
+            &annotations.iter().try_fold(inner, |acc, annotation| {
+                GLOBAL_CONTEXT.annotated(&acc, annotation.0.clone())
+            })?,
+        )
+    }
+
+    pub fn remove_annotation<'py>(
+        &self,
+        py: Python<'py>,
+        annotation: PyAnnotation,
+    ) -> Result<Bound<'py, PyAstString>, ClaripyError> {
+        let mut inner = self.inner.clone();
+        while let StringOp::Annotated(inner_, _) = inner.op() {
+            if inner_.get_annotations().iter().any(|a| a == &annotation.0) {
+                inner = inner_.clone();
+            } else {
+                break;
+            }
+        }
+        PyAstString::new(py, &GLOBAL_CONTEXT.annotated(&inner, annotation.0)?)
     }
 
     pub fn clear_annotations(
@@ -217,6 +275,40 @@ impl PyAstString {
             inner = inner_.clone();
         }
         PyAstString::new(self_.py(), &inner)
+    }
+
+    pub fn clear_annotation_type<'py>(
+        &self,
+        py: Python<'py>,
+        annotation_type: PyAnnotationType,
+    ) -> Result<Bound<'py, PyAstString>, ClaripyError> {
+        let mut inner = self.inner.clone();
+        while let StringOp::Annotated(inner_, _) = inner.op() {
+            if inner_
+                .get_annotations()
+                .iter()
+                .any(|a| annotation_type.matches(a.type_()))
+            {
+                inner = inner_.clone();
+            } else {
+                break;
+            }
+        }
+        // Remove all annotations of the given type from the boolean
+        let mut result_inner = inner.clone();
+        let mut annotations: Vec<_> = result_inner.get_annotations().into_iter().collect();
+        annotations.retain(|a| !annotation_type.matches(a.type_()));
+        // Remove all existing annotations
+        while let StringOp::Annotated(inner_, _) = result_inner.op() {
+            result_inner = inner_.clone();
+        }
+        // Add back only the retained annotations
+        let final_inner = annotations
+            .into_iter()
+            .try_fold(result_inner, |acc, annotation| {
+                GLOBAL_CONTEXT.annotated(&acc, annotation.clone())
+            })?;
+        PyAstString::new(py, &final_inner)
     }
 
     pub fn __add__<'py>(

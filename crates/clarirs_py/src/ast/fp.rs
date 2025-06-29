@@ -257,22 +257,6 @@ impl FP {
         self.size()
     }
 
-    #[pyo3(signature = (*annotations))]
-    pub fn annotate<'py>(
-        &self,
-        py: Python<'py>,
-        annotations: Vec<PyAnnotation>,
-    ) -> Result<Bound<'py, FP>, ClaripyError> {
-        FP::new(
-            py,
-            &annotations
-                .iter()
-                .try_fold(self.inner.clone(), |acc, annotation| {
-                    GLOBAL_CONTEXT.annotated(&acc, annotation.0.clone())
-                })?,
-        )
-    }
-
     pub fn has_annotation_type(
         &self,
         annotation_type: PyAnnotationType,
@@ -294,12 +278,141 @@ impl FP {
             .collect())
     }
 
+    pub fn get_annotation(
+        &self,
+        annotation_type: PyAnnotationType,
+    ) -> Result<Option<PyAnnotation>, ClaripyError> {
+        Ok(self
+            .annotations()?
+            .into_iter()
+            .find(|annotation| annotation_type.matches(annotation.0.type_())))
+    }
+
+    pub fn append_annotation<'py>(
+        &self,
+        py: Python<'py>,
+        annotation: PyAnnotation,
+    ) -> Result<Bound<'py, FP>, ClaripyError> {
+        FP::new(
+            py,
+            &GLOBAL_CONTEXT.annotated(&self.inner, annotation.0.clone())?,
+        )
+    }
+
+    pub fn append_annotations<'py>(
+        &self,
+        py: Python<'py>,
+        annotations: Vec<PyAnnotation>,
+    ) -> Result<Bound<'py, FP>, ClaripyError> {
+        let mut inner = self.inner.clone();
+        for annotation in annotations {
+            inner = GLOBAL_CONTEXT.annotated(&inner, annotation.0)?;
+        }
+        FP::new(py, &inner)
+    }
+
+    #[pyo3(signature = (*annotations))]
+    pub fn annotate<'py>(
+        &self,
+        py: Python<'py>,
+        annotations: Vec<PyAnnotation>,
+    ) -> Result<Bound<'py, FP>, ClaripyError> {
+        FP::new(
+            py,
+            &annotations
+                .iter()
+                .try_fold(self.inner.clone(), |acc, annotation| {
+                    GLOBAL_CONTEXT.annotated(&acc, annotation.0.clone())
+                })?,
+        )
+    }
+
+    pub fn insert_annotations<'py>(
+        &self,
+        py: Python<'py>,
+        annotations: Vec<PyAnnotation>,
+    ) -> Result<Bound<'py, FP>, ClaripyError> {
+        let mut inner = self.inner.clone();
+        for annotation in annotations {
+            inner = GLOBAL_CONTEXT.annotated(&inner, annotation.0)?;
+        }
+        FP::new(py, &inner)
+    }
+
+    /// This actually just removes all annotations and adds the new ones.
+    pub fn replace_annotations<'py>(
+        &self,
+        py: Python<'py>,
+        annotations: Vec<PyAnnotation>,
+    ) -> Result<Bound<'py, FP>, ClaripyError> {
+        let mut inner = self.inner.clone();
+        while let FloatOp::Annotated(inner_, _) = inner.op() {
+            inner = inner_.clone();
+        }
+        FP::new(
+            py,
+            &annotations.iter().try_fold(inner, |acc, annotation| {
+                GLOBAL_CONTEXT.annotated(&acc, annotation.0.clone())
+            })?,
+        )
+    }
+
+    pub fn remove_annotation<'py>(
+        &self,
+        py: Python<'py>,
+        annotation: PyAnnotation,
+    ) -> Result<Bound<'py, FP>, ClaripyError> {
+        let mut inner = self.inner.clone();
+        while let FloatOp::Annotated(inner_, _) = inner.op() {
+            if inner_.get_annotations().iter().any(|a| a == &annotation.0) {
+                inner = inner_.clone();
+            } else {
+                break;
+            }
+        }
+        FP::new(py, &GLOBAL_CONTEXT.annotated(&inner, annotation.0)?)
+    }
+
     pub fn clear_annotations(self_: Bound<'_, FP>) -> Result<Bound<'_, FP>, ClaripyError> {
         let mut inner = self_.get().inner.clone();
         while let FloatOp::Annotated(inner_, _) = inner.op() {
             inner = inner_.clone();
         }
         FP::new(self_.py(), &inner)
+    }
+
+    pub fn clear_annotation_type<'py>(
+        &self,
+        py: Python<'py>,
+        annotation_type: PyAnnotationType,
+    ) -> Result<Bound<'py, FP>, ClaripyError> {
+        let mut inner = self.inner.clone();
+        while let FloatOp::Annotated(inner_, _) = inner.op() {
+            if inner_
+                .get_annotations()
+                .iter()
+                .any(|a| annotation_type.matches(a.type_()))
+            {
+                inner = inner_.clone();
+            } else {
+                break;
+            }
+        }
+        // Remove all annotations of the given type from the boolean
+        let mut result_inner = inner.clone();
+        let mut annotations: Vec<_> = result_inner.get_annotations().into_iter().collect();
+        annotations.retain(|a| !annotation_type.matches(a.type_()));
+        // Remove all existing annotations
+        while let FloatOp::Annotated(inner_, _) = result_inner.op() {
+            result_inner = inner_.clone();
+        }
+        // Add back only the retained annotations
+        let final_inner = annotations
+            .into_iter()
+            .try_fold(result_inner, |acc, annotation| {
+                GLOBAL_CONTEXT.annotated(&acc, annotation.clone())
+            })?;
+        FP::new(py, &final_inner)
     }
 
     pub fn raw_to_bv(self_: Bound<'_, FP>) -> Result<Bound<'_, BV>, ClaripyError> {
