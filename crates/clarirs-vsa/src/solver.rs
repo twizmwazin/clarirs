@@ -1,4 +1,5 @@
 use clarirs_core::{ast::bitvec::BitVecOpExt, prelude::*};
+use num_traits::Signed;
 
 use crate::{Normalize, reduce::Reduce, strided_interval::ComparisonResult};
 
@@ -122,23 +123,49 @@ impl<'c> Solver<'c> for VSASolver<'c> {
 
     fn min_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
         expr.simplify()?.normalize()?.reduce().and_then(|si| {
+            let (min_bound, _) = si.get_unsigned_bounds();
             expr.context()
-                .bvv_from_biguint_with_size(&si.lower_bound, expr.size())
+                .bvv_from_biguint_with_size(&min_bound, expr.size())
         })
     }
 
     fn max_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
         expr.simplify()?.normalize()?.reduce().and_then(|si| {
+            let (_, max_bound) = si.get_unsigned_bounds();
             expr.context()
-                .bvv_from_biguint_with_size(&si.upper_bound, expr.size())
+                .bvv_from_biguint_with_size(&max_bound, expr.size())
         })
     }
 
-    fn min_signed(&mut self, _expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        todo!("Implement min_signed for VSASolver")
+    fn min_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        expr.simplify()?.normalize()?.reduce().and_then(|si| {
+            let (min_bound, _) = si.get_signed_bounds();
+            // Convert BigInt back to unsigned representation for two's complement
+            let unsigned_min = if min_bound.is_negative() {
+                let modulus = num_bigint::BigUint::from(1u32) << expr.size();
+                let abs_val = (-min_bound.clone()).to_biguint().unwrap();
+                &modulus - &abs_val
+            } else {
+                min_bound.to_biguint().unwrap()
+            };
+            expr.context()
+                .bvv_from_biguint_with_size(&unsigned_min, expr.size())
+        })
     }
 
-    fn max_signed(&mut self, _expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        todo!("Implement max_signed for VSASolver")
+    fn max_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        expr.simplify()?.normalize()?.reduce().and_then(|si| {
+            let (_, max_bound) = si.get_signed_bounds();
+            // Convert BigInt back to unsigned representation for two's complement
+            let unsigned_max = if max_bound.is_negative() {
+                let modulus = num_bigint::BigUint::from(1u32) << expr.size();
+                let abs_val = (-max_bound.clone()).to_biguint().unwrap();
+                &modulus - &abs_val
+            } else {
+                max_bound.to_biguint().unwrap()
+            };
+            expr.context()
+                .bvv_from_biguint_with_size(&unsigned_max, expr.size())
+        })
     }
 }
