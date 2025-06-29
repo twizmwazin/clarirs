@@ -27,9 +27,7 @@ impl<'c> Solver<'c> for VSASolver<'c> {
     }
 
     fn add(&mut self, _: &BoolAst<'c>) -> Result<(), ClarirsError> {
-        Err(ClarirsError::UnsupportedOperation(
-            "Adding constraints is not supported in VSASolver".to_string(),
-        ))
+        Ok(())
     }
 
     fn satisfiable(&mut self) -> Result<bool, ClarirsError> {
