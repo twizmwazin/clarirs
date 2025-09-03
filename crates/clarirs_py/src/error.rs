@@ -1,7 +1,7 @@
 use crate::{prelude::*, py_err};
 use clarirs_num::bitvec::BitVecError;
 use pyo3::{
-    DowncastError, DowncastIntoError, PyErr, PyObject,
+    DowncastError, DowncastIntoError, Py, PyAny, PyErr,
     exceptions::{PyValueError, PyZeroDivisionError},
 };
 use thiserror::Error;
@@ -17,9 +17,9 @@ pub enum ClaripyError {
     #[error("Missing argument index: {0}")]
     MissingArgIndex(usize),
     #[error("Failed to extract argument")]
-    FailedToExtractArg(PyObject),
+    FailedToExtractArg(Py<PyAny>),
     #[error("Python error: {0}")]
-    PythonError(PyObject),
+    PythonError(Py<PyAny>),
     #[error("Casting error: {0}")]
     CastingError(String),
     #[error("Invalid argument type: {0}")]
@@ -67,7 +67,7 @@ impl From<&ClarirsError> for ClaripyError {
 
 impl From<PyErr> for ClaripyError {
     fn from(e: PyErr) -> Self {
-        Python::with_gil(|py| ClaripyError::PythonError(e.value(py).as_any().clone().unbind()))
+        Python::attach(|py| ClaripyError::PythonError(e.value(py).as_any().clone().unbind()))
     }
 }
 
@@ -90,7 +90,7 @@ impl From<ClaripyError> for PyErr {
             ClaripyError::InvalidOperation(e) => py_err::ClaripyOperationError::new_err(e),
             ClaripyError::TypeError(e) => py_err::ClaripyTypeError::new_err(e),
             ClaripyError::PythonError(o) => {
-                Python::with_gil(|py| PyErr::from_value(o.bind(py).clone()))
+                Python::attach(|py| PyErr::from_value(o.bind(py).clone()))
             }
             _ => py_err::ClaripyError::new_err(format!("{e}")),
         }

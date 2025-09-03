@@ -69,7 +69,7 @@ impl BV {
     pub fn py_new<'py>(
         py: Python<'py>,
         op: &str,
-        args: Vec<PyObject>,
+        args: Vec<Py<PyAny>>,
     ) -> Result<Bound<'py, BV>, ClaripyError> {
         BV::new(
             py,
