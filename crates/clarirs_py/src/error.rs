@@ -1,7 +1,7 @@
 use crate::{prelude::*, py_err};
 use clarirs_num::bitvec::BitVecError;
 use pyo3::{
-    DowncastError, DowncastIntoError, PyErr, Py, PyAny,
+    DowncastError, DowncastIntoError, Py, PyAny, PyErr,
     exceptions::{PyValueError, PyZeroDivisionError},
 };
 use thiserror::Error;
