@@ -52,21 +52,21 @@ impl<'py> FromPyObject<'py> for PyAnnotationType {
             anno_type_module_name.as_str(),
             anno_type_class_name.as_str(),
         ) {
-            ("clarirs.annotation", "SimplificationAvoidanceAnnotation") => {
+            ("claripy.annotation", "SimplificationAvoidanceAnnotation") => {
                 AnnotationType::SimplificationAvoidance
             }
-            ("clarirs.annotation", "StridedIntervalAnnotation") => {
+            ("claripy.annotation", "StridedIntervalAnnotation") => {
                 AnnotationType::StridedInterval {
                     stride: BigUint::from(0u32),
                     lower_bound: BigUint::from(0u32),
                     upper_bound: BigUint::from(0u32),
                 }
             }
-            ("clarirs.annotation", "RegionAnnotation") => AnnotationType::Region {
+            ("claripy.annotation", "RegionAnnotation") => AnnotationType::Region {
                 region_id: String::new(),
                 region_base_addr: BigUint::from(0u32),
             },
-            ("clarirs.annotation", "UninitializedAnnotation") => AnnotationType::Uninitialized,
+            ("claripy.annotation", "UninitializedAnnotation") => AnnotationType::Uninitialized,
             (anno_module_name, anno_class_name) => AnnotationType::Unknown {
                 name: format!("{anno_module_name}:{anno_class_name}"),
                 value: Vec::new(),
@@ -108,10 +108,10 @@ impl FromPyObject<'_> for PyAnnotation {
 
         Ok(
             match (anno_module_name.as_str(), anno_class_name.as_str()) {
-                ("clarirs.annotation", "SimplificationAvoidanceAnnotation") => {
+                ("claripy.annotation", "SimplificationAvoidanceAnnotation") => {
                     PyAnnotation::new(AnnotationType::SimplificationAvoidance, false, false)
                 }
-                ("clarirs.annotation", "StridedIntervalAnnotation") => {
+                ("claripy.annotation", "StridedIntervalAnnotation") => {
                     let stride = annotation.getattr("stride")?.extract::<BigUint>()?;
                     let lower_bound = annotation.getattr("lower_bound")?.extract::<BigUint>()?;
                     let upper_bound = annotation.getattr("upper_bound")?.extract::<BigUint>()?;
@@ -126,7 +126,7 @@ impl FromPyObject<'_> for PyAnnotation {
                         false,
                     )
                 }
-                ("clarirs.annotation", "RegionAnnotation") => {
+                ("claripy.annotation", "RegionAnnotation") => {
                     let region_id = annotation.getattr("region_id")?.extract::<String>()?;
                     let region_base_addr = annotation
                         .getattr("region_base_addr")?
@@ -141,7 +141,7 @@ impl FromPyObject<'_> for PyAnnotation {
                         false,
                     )
                 }
-                ("clarirs.annotation", "UninitializedAnnotation") => {
+                ("claripy.annotation", "UninitializedAnnotation") => {
                     PyAnnotation::new(AnnotationType::Uninitialized, false, true)
                 }
                 (anno_module_name, anno_class_name) => PyAnnotation::new(
@@ -169,7 +169,7 @@ impl<'py> IntoPyObject<'py> for PyAnnotation {
                 pickle_loads.call1((value,))?
             }
             AnnotationType::SimplificationAvoidance => {
-                let module = py.import("clarirs.annotation")?;
+                let module = py.import("claripy.annotation")?;
                 module
                     .getattr("SimplificationAvoidanceAnnotation")?
                     .call1(())?
@@ -179,7 +179,7 @@ impl<'py> IntoPyObject<'py> for PyAnnotation {
                 lower_bound,
                 upper_bound,
             } => {
-                let module = py.import("clarirs.annotation")?;
+                let module = py.import("claripy.annotation")?;
                 module.getattr("StridedIntervalAnnotation")?.call1((
                     stride,
                     lower_bound,
@@ -190,13 +190,13 @@ impl<'py> IntoPyObject<'py> for PyAnnotation {
                 region_id,
                 region_base_addr,
             } => {
-                let module = py.import("clarirs.annotation")?;
+                let module = py.import("claripy.annotation")?;
                 module
                     .getattr("RegionAnnotation")?
                     .call1((region_id, region_base_addr))?
             }
             AnnotationType::Uninitialized => {
-                let module = py.import("clarirs.annotation")?;
+                let module = py.import("claripy.annotation")?;
                 module.getattr("UninitializedAnnotation")?.call1(())?
             }
         })
@@ -241,7 +241,7 @@ pub(crate) fn build_module(py: Python<'_>) -> PyResult<Bound<'_, PyModule>> {
         py,
         &CString::from_str(MODULE_CODE)?,
         &CString::from_str("annotation.py")?,
-        &CString::from_str("clarirs.annotation")?,
+        &CString::from_str("claripy.annotation")?,
     )?;
     Ok(module)
 }

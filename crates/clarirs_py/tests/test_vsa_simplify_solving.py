@@ -6,42 +6,42 @@ from __future__ import annotations
 
 import unittest
 
-import clarirs
+import claripy
 
 
 class TestVSASimplificationAndSolving(unittest.TestCase):
     def setUp(self):
         """Set up common test values and solvers."""
         # Create VSA solver
-        self.solver = clarirs.SolverVSA()
+        self.solver = claripy.SolverVSA()
 
         # Create concrete BVs
-        self.bv_0 = clarirs.BVV(0, 32)
-        self.bv_1 = clarirs.BVV(1, 32)
-        self.bv_5 = clarirs.BVV(5, 32)
-        self.bv_10 = clarirs.BVV(10, 32)
-        self.bv_max = clarirs.BVV(0xFFFFFFFF, 32)
+        self.bv_0 = claripy.BVV(0, 32)
+        self.bv_1 = claripy.BVV(1, 32)
+        self.bv_5 = claripy.BVV(5, 32)
+        self.bv_10 = claripy.BVV(10, 32)
+        self.bv_max = claripy.BVV(0xFFFFFFFF, 32)
 
         # Create symbolic BVs
-        self.bv_sym_a = clarirs.BVS("a", 32)
-        self.bv_sym_b = clarirs.BVS("b", 32)
-        self.bv_sym_c = clarirs.BVS("c", 1)  # 1-bit symbolic value
+        self.bv_sym_a = claripy.BVS("a", 32)
+        self.bv_sym_b = claripy.BVS("b", 32)
+        self.bv_sym_c = claripy.BVS("c", 1)  # 1-bit symbolic value
 
         # Create boolean values
-        self.bool_true = clarirs.BoolV(True)
-        self.bool_false = clarirs.BoolV(False)
-        self.bool_sym = clarirs.BoolS("x")
+        self.bool_true = claripy.BoolV(True)
+        self.bool_false = claripy.BoolV(False)
+        self.bool_sym = claripy.BoolS("x")
 
         # Create strided intervals
-        self.si_small = clarirs.SI(bits=32, stride=1, lower_bound=1, upper_bound=10)
-        self.si_medium = clarirs.SI(bits=32, stride=2, lower_bound=10, upper_bound=20)
-        self.si_negative = clarirs.SI(bits=32, stride=1, lower_bound=-10, upper_bound=-1)
-        self.si_mixed = clarirs.SI(bits=32, stride=1, lower_bound=-5, upper_bound=5)
+        self.si_small = claripy.SI(bits=32, stride=1, lower_bound=1, upper_bound=10)
+        self.si_medium = claripy.SI(bits=32, stride=2, lower_bound=10, upper_bound=20)
+        self.si_negative = claripy.SI(bits=32, stride=1, lower_bound=-10, upper_bound=-1)
+        self.si_mixed = claripy.SI(bits=32, stride=1, lower_bound=-5, upper_bound=5)
 
         # Full range (TOP) and empty (BOTTOM) values
-        self.si_top = clarirs.SI(bits=32, stride=1, lower_bound=0, upper_bound=0xFFFFFFFF)
-        self.si_bottom = clarirs.SI(bits=32, stride=0, lower_bound=0, upper_bound=0).intersection(
-            clarirs.SI(bits=32, stride=0, lower_bound=1, upper_bound=1)
+        self.si_top = claripy.SI(bits=32, stride=1, lower_bound=0, upper_bound=0xFFFFFFFF)
+        self.si_bottom = claripy.SI(bits=32, stride=0, lower_bound=0, upper_bound=0).intersection(
+            claripy.SI(bits=32, stride=0, lower_bound=1, upper_bound=1)
         )  # Empty SI
 
     def test_simplify_basic(self):
@@ -118,7 +118,7 @@ class TestVSASimplificationAndSolving(unittest.TestCase):
 
         # Concrete test: x + x = 2*x
         expr1 = self.bv_10 + self.bv_10
-        expr2 = self.bv_10 * clarirs.BVV(2, 32)
+        expr2 = self.bv_10 * claripy.BVV(2, 32)
         self.assertEqual(self.solver.eval(expr1, 1)[0], self.solver.eval(expr2, 1)[0])
 
         # Concrete test: (x & y) | (x & ~y) = x
@@ -143,7 +143,7 @@ class TestVSASimplificationAndSolving(unittest.TestCase):
 
         # Complex concrete expression
         # ((10 + 5) * 2) - ((10 - 5) * 3) = 30 - 15 = 15
-        expr = ((self.bv_10 + self.bv_5) * clarirs.BVV(2, 32)) - ((self.bv_10 - self.bv_5) * clarirs.BVV(3, 32))
+        expr = ((self.bv_10 + self.bv_5) * claripy.BVV(2, 32)) - ((self.bv_10 - self.bv_5) * claripy.BVV(3, 32))
         self.assertEqual(self.solver.eval(expr, 1)[0], 15)
 
     def test_strided_interval_operations(self):
@@ -169,16 +169,16 @@ class TestVSASimplificationAndSolving(unittest.TestCase):
     def test_if_expressions(self):
         """Test evaluation of If expressions."""
         # If(True, 10, 5) = 10
-        expr = clarirs.If(self.bool_true, self.bv_10, self.bv_5)
+        expr = claripy.If(self.bool_true, self.bv_10, self.bv_5)
         self.assertEqual(self.solver.eval(expr, 1)[0], 10)
 
         # If(False, 10, 5) = 5
-        expr = clarirs.If(self.bool_false, self.bv_10, self.bv_5)
+        expr = claripy.If(self.bool_false, self.bv_10, self.bv_5)
         self.assertEqual(self.solver.eval(expr, 1)[0], 5)
 
         # If(c, x, x) = x (concrete case)
         cond = self.bv_10 > self.bv_5
-        expr = clarirs.If(cond, self.bv_10, self.bv_10)
+        expr = claripy.If(cond, self.bv_10, self.bv_10)
         self.assertEqual(self.solver.eval(expr, 1)[0], 10)
 
     def test_solving_eval(self):
@@ -250,18 +250,18 @@ class TestVSASimplificationAndSolving(unittest.TestCase):
         # Let's test what we can with concrete values
 
         # Create a new solver to not pollute the main one
-        s = clarirs.SolverVSA()
+        s = claripy.SolverVSA()
 
         # Test with concrete values first
-        x = clarirs.BVV(10, 32)
+        x = claripy.BVV(10, 32)
         s.add(x > 5)  # Should be satisfiable
 
         # This should be satisfiable since 10 > 5
         self.assertTrue(s.satisfiable())
 
         # Create another solver for testing constraints that should be unsatisfiable
-        s2 = clarirs.SolverVSA()
-        x2 = clarirs.BVV(5, 32)
+        s2 = claripy.SolverVSA()
+        x2 = claripy.BVV(5, 32)
         s2.add(x2 > 10)  # This is obviously false
 
         # This should be unsatisfiable
@@ -285,7 +285,7 @@ class TestVSASimplificationAndSolving(unittest.TestCase):
         self.assertEqual(self.solver.eval(expr, 1)[0], self.solver.eval(a, 1)[0])
 
         # Expression: (a * 2) / 2 = a  (for even values)
-        expr = (a * clarirs.BVV(2, 32)) // clarirs.BVV(2, 32)
+        expr = (a * claripy.BVV(2, 32)) // claripy.BVV(2, 32)
         self.assertEqual(self.solver.eval(expr, 1)[0], self.solver.eval(a, 1)[0])
 
         # Expression: (a & b) | (a & ~b) = a

@@ -25,7 +25,7 @@ log = "0.4.28"
 dashmap = "6.1.0"
 
 [lib]
-name = "clarirs"
+name = "claripy"
 
 [lints]
 workspace = true

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-import clarirs as claripy
+import claripy as claripy
 
 
 class TestBVOperations(unittest.TestCase):

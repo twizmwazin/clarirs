@@ -6,51 +6,51 @@ from __future__ import annotations
 
 import unittest
 
-import clarirs
+import claripy
 
 
 class TestVSABVOperations(unittest.TestCase):
     def setUp(self):
         """Set up common test values and solvers."""
         # Create VSA solver
-        self.solver = clarirs.SolverVSA()
+        self.solver = claripy.SolverVSA()
 
         # Create concrete BVs
-        self.bv_0 = clarirs.BVV(0, 32)
-        self.bv_1 = clarirs.BVV(1, 32)
-        self.bv_5 = clarirs.BVV(5, 32)
-        self.bv_10 = clarirs.BVV(10, 32)
-        self.bv_max = clarirs.BVV(0xFFFFFFFF, 32)
-        self.bv_min = clarirs.BVV(0x80000000, 32)  # Most negative signed 32-bit int
+        self.bv_0 = claripy.BVV(0, 32)
+        self.bv_1 = claripy.BVV(1, 32)
+        self.bv_5 = claripy.BVV(5, 32)
+        self.bv_10 = claripy.BVV(10, 32)
+        self.bv_max = claripy.BVV(0xFFFFFFFF, 32)
+        self.bv_min = claripy.BVV(0x80000000, 32)  # Most negative signed 32-bit int
 
         # Create symbolic BVs
-        self.bv_sym_a = clarirs.BVS("a", 32)
-        self.bv_sym_b = clarirs.BVS("b", 32)
+        self.bv_sym_a = claripy.BVS("a", 32)
+        self.bv_sym_b = claripy.BVS("b", 32)
 
         # Create strided intervals
-        self.si_0 = clarirs.SI(bits=32, stride=0, lower_bound=0, upper_bound=0)
-        self.si_1 = clarirs.SI(bits=32, stride=0, lower_bound=1, upper_bound=1)
-        self.si_small = clarirs.SI(bits=32, stride=1, lower_bound=1, upper_bound=10)
-        self.si_medium = clarirs.SI(bits=32, stride=2, lower_bound=10, upper_bound=20)
-        self.si_large = clarirs.SI(bits=32, stride=10, lower_bound=50, upper_bound=100)
-        self.si_negative = clarirs.SI(bits=32, stride=1, lower_bound=-10, upper_bound=-1)
-        self.si_mixed = clarirs.SI(bits=32, stride=1, lower_bound=-5, upper_bound=5)
+        self.si_0 = claripy.SI(bits=32, stride=0, lower_bound=0, upper_bound=0)
+        self.si_1 = claripy.SI(bits=32, stride=0, lower_bound=1, upper_bound=1)
+        self.si_small = claripy.SI(bits=32, stride=1, lower_bound=1, upper_bound=10)
+        self.si_medium = claripy.SI(bits=32, stride=2, lower_bound=10, upper_bound=20)
+        self.si_large = claripy.SI(bits=32, stride=10, lower_bound=50, upper_bound=100)
+        self.si_negative = claripy.SI(bits=32, stride=1, lower_bound=-10, upper_bound=-1)
+        self.si_mixed = claripy.SI(bits=32, stride=1, lower_bound=-5, upper_bound=5)
 
         # Full range (TOP) and empty (BOTTOM) values
-        self.si_top = clarirs.SI(bits=32, stride=1, lower_bound=0, upper_bound=0xFFFFFFFF)
-        self.si_bottom = clarirs.SI(bits=32, stride=0, lower_bound=0, upper_bound=0).intersection(
-            clarirs.SI(bits=32, stride=0, lower_bound=1, upper_bound=1)
+        self.si_top = claripy.SI(bits=32, stride=1, lower_bound=0, upper_bound=0xFFFFFFFF)
+        self.si_bottom = claripy.SI(bits=32, stride=0, lower_bound=0, upper_bound=0).intersection(
+            claripy.SI(bits=32, stride=0, lower_bound=1, upper_bound=1)
         )  # Empty SI
 
         # Values for overflow/underflow testing
-        self.si_max = clarirs.SI(bits=32, stride=0, lower_bound=0xFFFFFFFF, upper_bound=0xFFFFFFFF)
-        self.si_min = clarirs.SI(bits=32, stride=0, lower_bound=0x80000000, upper_bound=0x80000000)
+        self.si_max = claripy.SI(bits=32, stride=0, lower_bound=0xFFFFFFFF, upper_bound=0xFFFFFFFF)
+        self.si_min = claripy.SI(bits=32, stride=0, lower_bound=0x80000000, upper_bound=0x80000000)
 
         # Different bit widths
-        self.bv_8bit = clarirs.BVV(0xFF, 8)
-        self.si_8bit = clarirs.SI(bits=8, stride=1, lower_bound=0, upper_bound=0xFF)
-        self.bv_16bit = clarirs.BVV(0xFFFF, 16)
-        self.si_16bit = clarirs.SI(bits=16, stride=1, lower_bound=0, upper_bound=0xFFFF)
+        self.bv_8bit = claripy.BVV(0xFF, 8)
+        self.si_8bit = claripy.SI(bits=8, stride=1, lower_bound=0, upper_bound=0xFF)
+        self.bv_16bit = claripy.BVV(0xFFFF, 16)
+        self.si_16bit = claripy.SI(bits=16, stride=1, lower_bound=0, upper_bound=0xFFFF)
 
     def test_basic_addition(self):
         """Test basic addition operations."""
@@ -184,7 +184,7 @@ class TestVSABVOperations(unittest.TestCase):
         self.assertEqual(self.solver.eval(result, 1)[0], 0)
 
         # 10 % 3 = 1
-        result = self.bv_10 % clarirs.BVV(3, 32)
+        result = self.bv_10 % claripy.BVV(3, 32)
         self.assertEqual(self.solver.eval(result, 1)[0], 1)
 
         # SI % concrete
@@ -213,12 +213,12 @@ class TestVSABVOperations(unittest.TestCase):
         self.assertEqual(self.solver.eval(result, 1)[0], 0)
 
         # 0x0A & 0x0F = 0x0A
-        result = self.bv_10 & clarirs.BVV(0xF, 32)
+        result = self.bv_10 & claripy.BVV(0xF, 32)
         self.assertEqual(self.solver.eval(result, 1)[0], 10)
 
         # SI & concrete
         # [1, 10] & 0x0F = [1, 10]
-        result = self.si_small & clarirs.BVV(0xF, 32)
+        result = self.si_small & claripy.BVV(0xF, 32)
         values = self.solver.eval(result, 100)
         for i in range(1, 11):
             self.assertTrue(i & 0xF in values)
@@ -247,7 +247,7 @@ class TestVSABVOperations(unittest.TestCase):
 
         # SI | concrete
         # [1, 10] | 0x10 = [17, 26]
-        result = self.si_small | clarirs.BVV(0x10, 32)
+        result = self.si_small | claripy.BVV(0x10, 32)
         values = self.solver.eval(result, 100)
         for i in range(1, 11):
             self.assertTrue(i | 0x10 in values)
@@ -276,7 +276,7 @@ class TestVSABVOperations(unittest.TestCase):
 
         # SI ^ concrete
         # [1, 10] ^ 0x0F = range of values
-        result = self.si_small ^ clarirs.BVV(0xF, 32)
+        result = self.si_small ^ claripy.BVV(0xF, 32)
         values = self.solver.eval(result, 100)
         for i in range(1, 11):
             self.assertTrue(i ^ 0xF in values)
@@ -341,9 +341,9 @@ class TestVSABVOperations(unittest.TestCase):
         # Shift left with overflow
         # 0x40000000 << 1 = 0x80000000
         # 0x80000000 << 1 = 0x00000000
-        result = clarirs.BVV(0x40000000, 32) << 1
+        result = claripy.BVV(0x40000000, 32) << 1
         self.assertEqual(self.solver.eval(result, 1)[0], 0x80000000)
-        result = clarirs.BVV(0x80000000, 32) << 1
+        result = claripy.BVV(0x80000000, 32) << 1
         self.assertEqual(self.solver.eval(result, 1)[0], 0)
 
     def test_logical_shift_right(self):
@@ -392,7 +392,7 @@ class TestVSABVOperations(unittest.TestCase):
         """Test concatenation operations."""
         # Concrete concatenation
         # 0x0A :: 0x05 = 0x0A05 (but watch out for bit widths)
-        result = clarirs.Concat(self.bv_10, self.bv_5)
+        result = claripy.Concat(self.bv_10, self.bv_5)
         # The result has 64 bits, so it's 0x000000000000000A 0x0000000000000005
         result_value = self.solver.eval(result, 1)[0]
         # The lower 32 bits should be 5, and the upper 32 bits should be 10
@@ -401,7 +401,7 @@ class TestVSABVOperations(unittest.TestCase):
 
         # SI concatenation
         # [1, 10] :: [10, 20] = range of values
-        result = clarirs.Concat(self.si_small, self.si_medium)
+        result = claripy.Concat(self.si_small, self.si_medium)
         # Test that the result has the correct size
         self.assertEqual(result.size(), 64)
         # Test some sample values
@@ -412,41 +412,41 @@ class TestVSABVOperations(unittest.TestCase):
         """Test extraction operations."""
         # Concrete extraction
         # Extract(7, 0, 0x12345678) = 0x78
-        result = clarirs.Extract(7, 0, clarirs.BVV(0x12345678, 32))
+        result = claripy.Extract(7, 0, claripy.BVV(0x12345678, 32))
         self.assertEqual(self.solver.eval(result, 1)[0], 0x78)
 
         # Extract(15, 8, 0x12345678) = 0x56
-        result = clarirs.Extract(15, 8, clarirs.BVV(0x12345678, 32))
+        result = claripy.Extract(15, 8, claripy.BVV(0x12345678, 32))
         self.assertEqual(self.solver.eval(result, 1)[0], 0x56)
 
         # SI extraction
         # Extract lowest byte of [0, 255] = [0, 255]
-        si = clarirs.SI(bits=32, stride=1, lower_bound=0, upper_bound=255)
-        result = clarirs.Extract(7, 0, si)
+        si = claripy.SI(bits=32, stride=1, lower_bound=0, upper_bound=255)
+        result = claripy.Extract(7, 0, si)
         self.assertEqual(self.solver.min(result), 0)
         self.assertEqual(self.solver.max(result), 255)
 
         # Extract bits that are constant
         # Extract(31, 24, 0x12345678) = 0x12
-        result = clarirs.Extract(31, 24, clarirs.BVV(0x12345678, 32))
+        result = claripy.Extract(31, 24, claripy.BVV(0x12345678, 32))
         self.assertEqual(self.solver.eval(result, 1)[0], 0x12)
 
     def test_zero_extend(self):
         """Test zero extension operations."""
         # Concrete zero extend
         # ZeroExt(24, 0xAB) = 0x000000AB
-        result = clarirs.ZeroExt(24, clarirs.BVV(0xAB, 8))
+        result = claripy.ZeroExt(24, claripy.BVV(0xAB, 8))
         self.assertEqual(self.solver.eval(result, 1)[0], 0xAB)
 
         # SI zero extend
         # ZeroExt(24, [0, 255]) = [0, 255]
-        result = clarirs.ZeroExt(24, self.si_8bit)
+        result = claripy.ZeroExt(24, self.si_8bit)
         self.assertEqual(self.solver.min(result), 0)
         self.assertEqual(self.solver.max(result), 255)
 
         # Zero extend preserves positive values
         # ZeroExt(16, [1, 10]) = [1, 10]
-        result = clarirs.ZeroExt(16, clarirs.SI(bits=16, stride=1, lower_bound=1, upper_bound=10))
+        result = claripy.ZeroExt(16, claripy.SI(bits=16, stride=1, lower_bound=1, upper_bound=10))
         self.assertEqual(self.solver.min(result), 1)
         self.assertEqual(self.solver.max(result), 10)
 
@@ -454,17 +454,17 @@ class TestVSABVOperations(unittest.TestCase):
         """Test sign extension operations."""
         # Concrete sign extend
         # SignExt(24, 0x7F) = 0x0000007F
-        result = clarirs.SignExt(24, clarirs.BVV(0x7F, 8))
+        result = claripy.SignExt(24, claripy.BVV(0x7F, 8))
         self.assertEqual(self.solver.eval(result, 1)[0], 0x7F)
 
         # SignExt(24, 0x80) = 0xFFFFFF80
-        result = clarirs.SignExt(24, clarirs.BVV(0x80, 8))
+        result = claripy.SignExt(24, claripy.BVV(0x80, 8))
         self.assertEqual(self.solver.eval(result, 1)[0], 0xFFFFFF80)
 
         # SI sign extend
         # SignExt(24, [-128, 127]) = [-128, 127]
-        si = clarirs.SI(bits=8, stride=1, lower_bound=-128, upper_bound=127)
-        result = clarirs.SignExt(24, si)
+        si = claripy.SI(bits=8, stride=1, lower_bound=-128, upper_bound=127)
+        result = claripy.SignExt(24, si)
         values = self.solver.eval(result, 1000)
         self.assertTrue(any(v >= 0xFFFFFF80 for v in values))  # Negative values
         self.assertTrue(any(v <= 0x7F for v in values))  # Positive values
@@ -473,31 +473,31 @@ class TestVSABVOperations(unittest.TestCase):
         """Test rotation operations."""
         # Concrete rotate left
         # RotateLeft(0x01, 1) = 0x02
-        result = clarirs.RotateLeft(self.bv_1, 1)
+        result = claripy.RotateLeft(self.bv_1, 1)
         self.assertEqual(self.solver.eval(result, 1)[0], 2)
 
         # RotateLeft(0x80000000, 1) = 0x00000001
-        result = clarirs.RotateLeft(self.bv_min, 1)
+        result = claripy.RotateLeft(self.bv_min, 1)
         self.assertEqual(self.solver.eval(result, 1)[0], 1)
 
         # Concrete rotate right
         # RotateRight(0x01, 1) = 0x80000000
-        result = clarirs.RotateRight(self.bv_1, 1)
+        result = claripy.RotateRight(self.bv_1, 1)
         self.assertEqual(self.solver.eval(result, 1)[0], 0x80000000)
 
         # RotateRight(0x80000000, 1) = 0x40000000
-        result = clarirs.RotateRight(self.bv_min, 1)
+        result = claripy.RotateRight(self.bv_min, 1)
         self.assertEqual(self.solver.eval(result, 1)[0], 0x40000000)
 
     def test_reverse(self):
         """Test byte reversal operations."""
         # Concrete reverse
         # Reverse(0x12345678) = 0x78563412
-        result = clarirs.Reverse(clarirs.BVV(0x12345678, 32))
+        result = claripy.Reverse(claripy.BVV(0x12345678, 32))
         self.assertEqual(self.solver.eval(result, 1)[0], 0x78563412)
 
         # Reverse(0x00FF) = 0xFF00 (16-bit)
-        result = clarirs.Reverse(clarirs.BVV(0x00FF, 16))
+        result = claripy.Reverse(claripy.BVV(0x00FF, 16))
         self.assertEqual(self.solver.eval(result, 1)[0], 0xFF00)
 
     def test_interleaved_operations(self):
@@ -521,7 +521,7 @@ class TestVSABVOperations(unittest.TestCase):
 
         # Complex expression
         # ((a + b) & 0xF) | ((a - b) << 4)
-        expr = ((self.bv_10 + self.bv_5) & clarirs.BVV(0xF, 32)) | ((self.bv_10 - self.bv_5) << 4)
+        expr = ((self.bv_10 + self.bv_5) & claripy.BVV(0xF, 32)) | ((self.bv_10 - self.bv_5) << 4)
         # ((0x0A + 0x05) & 0x0F) | ((0x0A - 0x05) << 4)
         # (0x0F & 0x0F) | (0x05 << 4)
         # 0x0F | 0x50 = 0x5F
@@ -534,7 +534,7 @@ class TestVSABVOperations(unittest.TestCase):
 
         # Concatenate different bit widths
         # 8-bit :: 32-bit = 40-bit
-        expr = clarirs.Concat(self.bv_8bit, self.bv_10)
+        expr = claripy.Concat(self.bv_8bit, self.bv_10)
         self.assertEqual(expr.size(), 40)
         self.assertEqual(self.solver.eval(expr, 1)[0], 0xFF0000000A)
 
@@ -543,20 +543,20 @@ class TestVSABVOperations(unittest.TestCase):
         # If with concrete condition
         # If(0x0A == 0x0A, 0xAA, 0xBB) = 0xAA
         cond = self.bv_10 == self.bv_10
-        expr = clarirs.If(cond, clarirs.BVV(0xAA, 32), clarirs.BVV(0xBB, 32))
+        expr = claripy.If(cond, claripy.BVV(0xAA, 32), claripy.BVV(0xBB, 32))
         vals = self.solver.eval(expr, 10)
         self.assertEqual(vals[0], 0xAA)
 
         # If(0x0A != 0x0A, 0xAA, 0xBB) = 0xBB
         cond = self.bv_10 != self.bv_10
-        expr = clarirs.If(cond, clarirs.BVV(0xAA, 32), clarirs.BVV(0xBB, 32))
+        expr = claripy.If(cond, claripy.BVV(0xAA, 32), claripy.BVV(0xBB, 32))
         vals = self.solver.eval(expr, 10)
         self.assertEqual(vals[0], 0xBB)
 
         # If with symbolic condition
         # If([1, 10] == 5, 0xAA, 0xBB)
         cond = self.si_small == self.bv_5
-        expr = clarirs.If(cond, clarirs.BVV(0xAA, 32), clarirs.BVV(0xBB, 32))
+        expr = claripy.If(cond, claripy.BVV(0xAA, 32), claripy.BVV(0xBB, 32))
         # The result can be either 0xAA or 0xBB, as 5 may or may not be in [1, 10]
         result_values = self.solver.eval(expr, 10)
         self.assertTrue(0xAA in result_values)
@@ -565,7 +565,7 @@ class TestVSABVOperations(unittest.TestCase):
         # If with VSA expressions on both branches
         # If(a > b, [1, 10], [10, 20])
         cond = self.bv_10 > self.bv_5
-        expr = clarirs.If(cond, self.si_small, self.si_medium)
+        expr = claripy.If(cond, self.si_small, self.si_medium)
         # The condition is true, so we should get [1, 10]
         self.assertEqual(self.solver.min(expr), 1)
         self.assertEqual(self.solver.max(expr), 10)
@@ -574,8 +574,8 @@ class TestVSABVOperations(unittest.TestCase):
         # If(a > b, If(a > 0, 0xAA, 0xBB), 0xCC)
         cond1 = self.bv_10 > self.bv_5
         cond2 = self.bv_10 > self.bv_0
-        nested_if = clarirs.If(cond2, clarirs.BVV(0xAA, 32), clarirs.BVV(0xBB, 32))
-        expr = clarirs.If(cond1, nested_if, clarirs.BVV(0xCC, 32))
+        nested_if = claripy.If(cond2, claripy.BVV(0xAA, 32), claripy.BVV(0xBB, 32))
+        expr = claripy.If(cond1, nested_if, claripy.BVV(0xCC, 32))
         # Both conditions are true, so we should get 0xAA
         self.assertEqual(self.solver.eval(expr, 1)[0], 0xAA)
 
@@ -592,26 +592,26 @@ class TestVSAPrecisionLoss(unittest.TestCase):
     def setUp(self):
         """Set up common test values and solvers for precision loss tests."""
         # Create VSA solver
-        self.solver = clarirs.SolverVSA()
+        self.solver = claripy.SolverVSA()
 
         # Create strided intervals
-        self.si_narrow = clarirs.SI(bits=32, stride=1, lower_bound=10, upper_bound=20)
-        self.si_wide = clarirs.SI(bits=32, stride=1, lower_bound=100, upper_bound=10000)
-        self.si_huge = clarirs.SI(bits=32, stride=1, lower_bound=0, upper_bound=0xFFFFFF00)
+        self.si_narrow = claripy.SI(bits=32, stride=1, lower_bound=10, upper_bound=20)
+        self.si_wide = claripy.SI(bits=32, stride=1, lower_bound=100, upper_bound=10000)
+        self.si_huge = claripy.SI(bits=32, stride=1, lower_bound=0, upper_bound=0xFFFFFF00)
 
         # Near-overflow values
-        self.si_near_max = clarirs.SI(bits=32, stride=1, lower_bound=0xFFFFFF00, upper_bound=0xFFFFFFFF)
-        self.si_half_max = clarirs.SI(bits=32, stride=1, lower_bound=0x7FFFFFFF - 100, upper_bound=0x7FFFFFFF)
+        self.si_near_max = claripy.SI(bits=32, stride=1, lower_bound=0xFFFFFF00, upper_bound=0xFFFFFFFF)
+        self.si_half_max = claripy.SI(bits=32, stride=1, lower_bound=0x7FFFFFFF - 100, upper_bound=0x7FFFFFFF)
 
         # Value close to south pole
-        self.si_sp_straddling = clarirs.SI(bits=32, stride=1, lower_bound=0xFFFFFFFF - 10, upper_bound=10)
+        self.si_sp_straddling = claripy.SI(bits=32, stride=1, lower_bound=0xFFFFFFFF - 10, upper_bound=10)
 
         # Value close to north pole
-        self.si_np_straddling = clarirs.SI(bits=32, stride=1, lower_bound=0x7FFFFFFF - 10, upper_bound=0x80000000 + 10)
+        self.si_np_straddling = claripy.SI(bits=32, stride=1, lower_bound=0x7FFFFFFF - 10, upper_bound=0x80000000 + 10)
 
         # Simple concrete values
-        self.bv_1 = clarirs.BVV(1, 32)
-        self.bv_large = clarirs.BVV(0x7FFFFFFF, 32)
+        self.bv_1 = claripy.BVV(1, 32)
+        self.bv_large = claripy.BVV(0x7FFFFFFF, 32)
 
     def assert_precision_loss(self, original_intervals, result, operation_name):
         """
@@ -706,8 +706,8 @@ class TestVSAPrecisionLoss(unittest.TestCase):
         tradeoff in multiplication.
         """
         # For better control and to avoid inconsistencies, use smaller intervals
-        si_narrow = clarirs.SI(bits=32, stride=1, lower_bound=10, upper_bound=15)
-        si_wide = clarirs.SI(bits=32, stride=1, lower_bound=100, upper_bound=1000)
+        si_narrow = claripy.SI(bits=32, stride=1, lower_bound=10, upper_bound=15)
+        si_wide = claripy.SI(bits=32, stride=1, lower_bound=100, upper_bound=1000)
 
         # Multiply a narrow interval with a wide interval
         result = si_narrow * si_wide
@@ -797,7 +797,7 @@ class TestVSAPrecisionLoss(unittest.TestCase):
         because representing the exact pattern of bits is challenging.
         """
         # Test bitwise AND with a constant mask
-        bit_mask = clarirs.BVV(0xFFFF, 32)  # Bottom 16 bits set
+        bit_mask = claripy.BVV(0xFFFF, 32)  # Bottom 16 bits set
 
         # Document theoretical and actual behavior
         print("Testing bitwise AND precision loss with mask 0xFFFF")
@@ -810,7 +810,7 @@ class TestVSAPrecisionLoss(unittest.TestCase):
         # Create precise SIs for each test value
         for val in test_values:
             # Create a singleton SI
-            si = clarirs.SI(bits=32, stride=0, lower_bound=val, upper_bound=val)
+            si = claripy.SI(bits=32, stride=0, lower_bound=val, upper_bound=val)
 
             # Apply the bit mask
             result = si & bit_mask
@@ -825,7 +825,7 @@ class TestVSAPrecisionLoss(unittest.TestCase):
             )
 
         # Test with a range to observe precision loss
-        wide_range = clarirs.SI(bits=32, stride=1, lower_bound=500, upper_bound=1000)
+        wide_range = claripy.SI(bits=32, stride=1, lower_bound=500, upper_bound=1000)
         result = wide_range & bit_mask
 
         # Theoretical range for perfect precision
@@ -882,8 +882,8 @@ class TestVSAPrecisionLoss(unittest.TestCase):
         This is a fundamental limitation of the strided interval domain.
         """
         # Create two disjoint intervals
-        si_1 = clarirs.SI(bits=32, stride=1, lower_bound=0, upper_bound=10)
-        si_2 = clarirs.SI(bits=32, stride=1, lower_bound=20, upper_bound=30)
+        si_1 = claripy.SI(bits=32, stride=1, lower_bound=0, upper_bound=10)
+        si_2 = claripy.SI(bits=32, stride=1, lower_bound=20, upper_bound=30)
 
         # Join the intervals
         result = si_1.union(si_2)
@@ -914,27 +914,27 @@ class TestVSAPrecisionLoss(unittest.TestCase):
         potentially leading to TOP collapse where individual operations wouldn't.
         """
         # Start with a relatively precise interval
-        si = clarirs.SI(bits=32, stride=1, lower_bound=10, upper_bound=20)
+        si = claripy.SI(bits=32, stride=1, lower_bound=10, upper_bound=20)
         original_card = si.cardinality
 
         # Perform a series of operations step by step, extracting information at each stage
         # Multiplication
-        si = si * clarirs.SI(bits=32, stride=1, lower_bound=2, upper_bound=3)
+        si = si * claripy.SI(bits=32, stride=1, lower_bound=2, upper_bound=3)
         mul_card = si.cardinality
         print(f"After multiplication: {original_card} → {mul_card} values")
 
         # Addition
-        si = si + clarirs.SI(bits=32, stride=1, lower_bound=5, upper_bound=10)
+        si = si + claripy.SI(bits=32, stride=1, lower_bound=5, upper_bound=10)
         add_card = si.cardinality
         print(f"After addition: {mul_card} → {add_card} values")
 
         # Bitwise AND - this might convert the SI to a BV, so we need to handle it carefully
         before_and = si.cardinality
-        result = si & clarirs.BVV(0xFFFFFFF0, 32)
+        result = si & claripy.BVV(0xFFFFFFF0, 32)
 
         # Division
         # Create a fresh SI for division to avoid attribute errors if the last operation returned a BV
-        divisor = clarirs.SI(bits=32, stride=1, lower_bound=1, upper_bound=4)
+        divisor = claripy.SI(bits=32, stride=1, lower_bound=1, upper_bound=4)
         final_result = result // divisor
 
         # Check range of final result

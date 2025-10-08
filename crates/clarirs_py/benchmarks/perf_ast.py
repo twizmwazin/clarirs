@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import clarirs
-from clarirs.ast.base import Base
+import claripy
+from claripy.ast.base import Base
 
 
-class MyAnnotation(clarirs.Annotation):
+class MyAnnotation(claripy.Annotation):
     def __init__(self, value):
         self.value = value
 
@@ -16,22 +16,22 @@ def make_asts() -> list[Base]:
     results: list[Base] = []
 
     # Make a lot of BVS
-    results.extend([clarirs.BVS(str(i), 32) for i in range(1000)])
+    results.extend([claripy.BVS(str(i), 32) for i in range(1000)])
 
     # Make a lot of BVV
-    results.extend([clarirs.BVV(i, 32) for i in range(1000)])
+    results.extend([claripy.BVV(i, 32) for i in range(1000)])
 
     # Make a lot of And
-    results.extend([clarirs.And(clarirs.BVS(str(i), 32), clarirs.BVV(i, 32)) for i in range(1000)])
+    results.extend([claripy.And(claripy.BVS(str(i), 32), claripy.BVV(i, 32)) for i in range(1000)])
 
     # Make a lot of Or
-    results.extend([clarirs.Or(clarirs.BVS(str(i), 32), clarirs.BVV(i, 32)) for i in range(1000)])
+    results.extend([claripy.Or(claripy.BVS(str(i), 32), claripy.BVV(i, 32)) for i in range(1000)])
 
     # Make a lot of FPS
-    results.extend([clarirs.FPS(str(i), clarirs.FSORT_DOUBLE) for i in range(1000)])
+    results.extend([claripy.FPS(str(i), claripy.FSORT_DOUBLE) for i in range(1000)])
 
     # Make a lot of FPV
-    results.extend([clarirs.FPV(i, clarirs.FSORT_DOUBLE) for i in range(1000)])
+    results.extend([claripy.FPV(i, claripy.FSORT_DOUBLE) for i in range(1000)])
 
     # Annotate!
     # for i in range(100):

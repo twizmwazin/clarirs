@@ -21,7 +21,7 @@ use clarirs_core::smtlib::ToSmtLib;
 static BVS_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static PY_BV_CACHE: LazyLock<DashMap<u64, Py<PyWeakrefReference>>> = LazyLock::new(DashMap::new);
 
-#[pyclass(extends=Bits, subclass, frozen, weakref, module="clarirs.ast.bv")]
+#[pyclass(extends=Bits, subclass, frozen, weakref, module="claripy.ast.bv")]
 pub struct BV {
     pub(crate) inner: BitVecAst<'static>,
 }
