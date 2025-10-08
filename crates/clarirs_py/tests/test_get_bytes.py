@@ -2,36 +2,36 @@ from __future__ import annotations
 
 import unittest
 
-import clarirs
+import claripy
 
 
 class TestGetBytes(unittest.TestCase):
     def setUp(self):
         """Set up common test values and solvers."""
         # Create BVs with different sizes and patterns for testing
-        self.bv_32bit = clarirs.BVV(0xDEADBEEF, 32)  # 32-bit value with recognizable byte pattern
-        self.bv_64bit = clarirs.BVV(0x0123456789ABCDEF, 64)  # 64-bit value with sequential bytes
-        self.bv_8bit = clarirs.BVV(0xA5, 8)  # 8-bit value (single byte)
-        self.bv_16bit = clarirs.BVV(0xCAFE, 16)  # 16-bit value (two bytes)
+        self.bv_32bit = claripy.BVV(0xDEADBEEF, 32)  # 32-bit value with recognizable byte pattern
+        self.bv_64bit = claripy.BVV(0x0123456789ABCDEF, 64)  # 64-bit value with sequential bytes
+        self.bv_8bit = claripy.BVV(0xA5, 8)  # 8-bit value (single byte)
+        self.bv_16bit = claripy.BVV(0xCAFE, 16)  # 16-bit value (two bytes)
 
         # Non-byte-aligned bit widths
-        self.bv_10bit = clarirs.BVV(0x3F0, 10)  # 10-bit value (not byte-aligned)
-        self.bv_31bit = clarirs.BVV(0x7FFFFFFF, 31)  # 31-bit value (not byte-aligned)
+        self.bv_10bit = claripy.BVV(0x3F0, 10)  # 10-bit value (not byte-aligned)
+        self.bv_31bit = claripy.BVV(0x7FFFFFFF, 31)  # 31-bit value (not byte-aligned)
 
         # Special patterns
-        self.bv_all_ones = clarirs.BVV((1 << 32) - 1, 32)  # All bits set to 1
-        self.bv_zero = clarirs.BVV(0, 32)  # All bits set to 0
-        self.bv_alternating = clarirs.BVV(0xAAAAAAAA, 32)  # Alternating 1s and 0s
+        self.bv_all_ones = claripy.BVV((1 << 32) - 1, 32)  # All bits set to 1
+        self.bv_zero = claripy.BVV(0, 32)  # All bits set to 0
+        self.bv_alternating = claripy.BVV(0xAAAAAAAA, 32)  # Alternating 1s and 0s
 
         # Empty bitvector
-        self.bv_empty = clarirs.BVV(0, 0)  # Zero-length bitvector
+        self.bv_empty = claripy.BVV(0, 0)  # Zero-length bitvector
 
         # Symbolic values
-        self.sym_x = clarirs.BVS("x", 32)  # Symbolic 32-bit value
+        self.sym_x = claripy.BVS("x", 32)  # Symbolic 32-bit value
 
         # Set up solvers for checking results
-        self.z3 = clarirs.SolverZ3()
-        self.concrete = clarirs.SolverConcrete()
+        self.z3 = claripy.SolverZ3()
+        self.concrete = claripy.SolverConcrete()
 
     def _check_equal(self, expr, expected):
         """
@@ -45,7 +45,7 @@ class TestGetBytes(unittest.TestCase):
         self.assertEqual(z3_result, expected, "Z3 result does not match expected value")
 
         if expr.symbolic:
-            with self.assertRaises(clarirs.ClaripyOperationError):
+            with self.assertRaises(claripy.ClaripyOperationError):
                 self.concrete.eval(expr, 1)[0]
         else:
             concrete_result = self.concrete.eval(expr, 1)[0]
@@ -180,7 +180,7 @@ class TestGetBytes(unittest.TestCase):
         self.assertEqual(result.args[0], 222)  # First byte (0xDE)
 
         # Test with index + size too large - this raises a ClaripyOperationError
-        with self.assertRaises(clarirs.ClaripyOperationError):
+        with self.assertRaises(claripy.ClaripyOperationError):
             self.bv_32bit.get_bytes(2, 3)
 
     def test_get_bytes_zero_extension(self):
@@ -240,20 +240,20 @@ class TestGetBytes(unittest.TestCase):
         self._check_equal(result, 0xDEAD ^ 0xBEEF)  # 0xDEAD (57005) ^ 0xBEEF (48879) = 0x6042 (24642)
 
         # Test with symbolic values
-        sym_result = self.sym_x.get_byte(0) + clarirs.BVV(1, 8)
+        sym_result = self.sym_x.get_byte(0) + claripy.BVV(1, 8)
         self._check_symbolic_evaluation(sym_result, lambda solver: solver.satisfiable())
 
     def test_comprehensive_patterns(self):
         """Test get_byte and get_bytes with comprehensive bit patterns."""
         # Create a value with alternating bytes
-        alternating_bytes = clarirs.BVV(0xA5A5A5A5, 32)
+        alternating_bytes = claripy.BVV(0xA5A5A5A5, 32)
 
         # Test each byte
         for i in range(4):
             self.assertEqual(alternating_bytes.get_byte(i).args[0], 0xA5)
 
         # Create a value with sequential bytes
-        sequential = clarirs.BVV(0x01020304, 32)
+        sequential = claripy.BVV(0x01020304, 32)
 
         # Test each byte
         self.assertEqual(sequential.get_byte(0).args[0], 0x01)

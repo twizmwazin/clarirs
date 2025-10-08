@@ -15,7 +15,7 @@ static STRINGS_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static PY_STRING_CACHE: LazyLock<DashMap<u64, Py<PyWeakrefReference>>> =
     LazyLock::new(DashMap::new);
 
-#[pyclass(name="String", extends=Base, subclass, frozen, module="clarirs.ast.string")]
+#[pyclass(name="String", extends=Base, subclass, frozen, module="claripy.ast.string")]
 pub struct PyAstString {
     pub(crate) inner: StringAst<'static>,
 }

@@ -2,7 +2,7 @@ use pyo3::types::PySet;
 
 use crate::prelude::*;
 
-#[pyclass(subclass, frozen, weakref, module = "clarirs.ast.base")]
+#[pyclass(subclass, frozen, weakref, module = "claripy.ast.base")]
 #[derive(Clone)]
 pub struct Base {
     errored: Py<PySet>,

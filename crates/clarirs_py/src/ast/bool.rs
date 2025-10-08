@@ -19,7 +19,7 @@ use super::r#if;
 static BOOLS_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static PY_BOOL_CACHE: LazyLock<DashMap<u64, Py<PyWeakrefReference>>> = LazyLock::new(DashMap::new);
 
-#[pyclass(extends=Base, subclass, frozen, weakref, module="clarirs.ast.bool")]
+#[pyclass(extends=Base, subclass, frozen, weakref, module="claripy.ast.bool")]
 pub struct Bool {
     pub(crate) inner: BoolAst<'static>,
 }

@@ -172,12 +172,12 @@ pub fn r#if<'py>(
 }
 
 pub(crate) fn import(py: Python, m: &Bound<PyModule>) -> PyResult<()> {
-    import_submodule(py, m, "clarirs.ast", "base", base::import)?;
-    import_submodule(py, m, "clarirs.ast", "bits", bits::import)?;
-    import_submodule(py, m, "clarirs.ast", "bool", bool::import)?;
-    import_submodule(py, m, "clarirs.ast", "bv", bv::import)?;
-    import_submodule(py, m, "clarirs.ast", "fp", fp::import)?;
-    import_submodule(py, m, "clarirs.ast", "strings", string::import)?;
+    import_submodule(py, m, "claripy.ast", "base", base::import)?;
+    import_submodule(py, m, "claripy.ast", "bits", bits::import)?;
+    import_submodule(py, m, "claripy.ast", "bool", bool::import)?;
+    import_submodule(py, m, "claripy.ast", "bv", bv::import)?;
+    import_submodule(py, m, "claripy.ast", "fp", fp::import)?;
+    import_submodule(py, m, "claripy.ast", "strings", string::import)?;
 
     m.add_class::<base::Base>()?;
     m.add_class::<bits::Bits>()?;

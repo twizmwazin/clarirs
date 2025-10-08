@@ -7,7 +7,7 @@ use clarirs_z3::Z3Solver;
 use num_bigint::BigInt;
 use pyo3::types::PyTuple;
 
-#[pyclass(name = "Solver", module = "clarirs.solver", subclass)]
+#[pyclass(name = "Solver", module = "claripy.solver", subclass)]
 #[derive(Debug)]
 pub struct PySolver {
     inner: DynSolver,
@@ -554,7 +554,7 @@ impl PySolver {
     }
 }
 
-#[pyclass(extends = PySolver, name = "SolverConcrete", module = "clarirs.solver")]
+#[pyclass(extends = PySolver, name = "SolverConcrete", module = "claripy.solver")]
 pub struct PyConcreteSolver;
 
 #[pymethods]
@@ -568,7 +568,7 @@ impl PyConcreteSolver {
     }
 }
 
-#[pyclass(extends = PySolver, name = "SolverZ3", module = "clarirs.solver")]
+#[pyclass(extends = PySolver, name = "SolverZ3", module = "claripy.solver")]
 pub struct PyZ3Solver;
 
 #[pymethods]
@@ -582,7 +582,7 @@ impl PyZ3Solver {
     }
 }
 
-#[pyclass(extends = PySolver, name = "SolverVSA", module = "clarirs.solver")]
+#[pyclass(extends = PySolver, name = "SolverVSA", module = "claripy.solver")]
 pub struct PyVSASolver;
 
 #[pymethods]

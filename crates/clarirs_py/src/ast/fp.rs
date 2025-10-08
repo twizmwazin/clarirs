@@ -15,7 +15,7 @@ use clarirs_core::smtlib::ToSmtLib;
 static FPS_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static PY_FP_CACHE: LazyLock<DashMap<u64, Py<PyWeakrefReference>>> = LazyLock::new(DashMap::new);
 
-#[pyclass(name = "RM", module = "clarirs.ast.fp", eq)]
+#[pyclass(name = "RM", module = "claripy.ast.fp", eq)]
 #[derive(Clone, PartialEq, Eq, Default)]
 #[allow(non_camel_case_types)]
 pub enum PyRM {
@@ -72,7 +72,7 @@ impl From<&FPRM> for PyRM {
     }
 }
 
-#[pyclass(name = "FSort", module = "clarirs.ast.fp")]
+#[pyclass(name = "FSort", module = "claripy.ast.fp")]
 #[derive(Clone)]
 pub struct PyFSort(FSort);
 
@@ -129,7 +129,7 @@ pub fn fsort_double() -> PyFSort {
     PyFSort(FSort::f64())
 }
 
-#[pyclass(extends=Bits, subclass, frozen, weakref, module="clarirs.ast.bits")]
+#[pyclass(extends=Bits, subclass, frozen, weakref, module="claripy.ast.bits")]
 pub struct FP {
     pub(crate) inner: FloatAst<'static>,
 }

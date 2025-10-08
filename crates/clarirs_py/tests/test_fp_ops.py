@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import unittest
 
-import clarirs as claripy
-from clarirs.fp import FSORT_FLOAT, RM
+import claripy as claripy
+from claripy.fp import FSORT_FLOAT, RM
 import math
 
 

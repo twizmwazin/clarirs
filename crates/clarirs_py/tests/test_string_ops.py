@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import unittest
 
-import clarirs as claripy
-from clarirs import (
+import claripy as claripy
+from claripy import (
     IntToStr,
     StrConcat,
     StrContains,
@@ -16,7 +16,7 @@ from clarirs import (
     StrSuffixOf,
     StrToInt,
 )
-from clarirs.ast import BV, Bool, String
+from claripy.ast import BV, Bool, String
 
 
 class TestStringOperations(unittest.TestCase):

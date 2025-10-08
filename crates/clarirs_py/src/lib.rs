@@ -103,10 +103,10 @@ fn is_false(expr: Bound<'_, Bool>) -> Result<bool, ClaripyError> {
 }
 
 #[pymodule]
-pub fn clarirs(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
-    let annotation = add_submodule(py, m, "clarirs", "annotation", annotation::build_module)?;
-    import_submodule(py, m, "clarirs", "ast", ast::import)?;
-    import_submodule(py, m, "clarirs", "solver", solver::import)?;
+pub fn claripy(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
+    let annotation = add_submodule(py, m, "claripy", "annotation", annotation::build_module)?;
+    import_submodule(py, m, "claripy", "ast", ast::import)?;
+    import_submodule(py, m, "claripy", "solver", solver::import)?;
 
     add_pyfunctions!(
         m,
@@ -266,7 +266,7 @@ pub fn clarirs(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Compat
 
     // fp
-    import_submodule(py, m, "clarirs", "fp", |py, fp| {
+    import_submodule(py, m, "claripy", "fp", |py, fp| {
         fp.add_class::<ast::fp::PyRM>()?;
         fp.add_class::<ast::fp::PyFSort>()?;
         fp.add("FSORT_FLOAT", ast::fp::fsort_float())?;
