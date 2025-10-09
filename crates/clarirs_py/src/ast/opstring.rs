@@ -78,7 +78,6 @@ impl ToOpString for BitVecAst<'static> {
             BitVecOp::StrIndexOf(..) => "StrIndexOf".to_string(),
             BitVecOp::StrToBV(..) => "StrToBV".to_string(),
             BitVecOp::If(..) => "If".to_string(),
-            BitVecOp::SI(..) => "SI".to_string(),
             BitVecOp::Union(..) => "Union".to_string(),
             BitVecOp::Intersection(..) => "Intersection".to_string(),
         }

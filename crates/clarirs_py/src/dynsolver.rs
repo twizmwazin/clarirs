@@ -1,5 +1,5 @@
 use clarirs_core::prelude::*;
-use clarirs_vsa::{Denormalize, VSASolver};
+use clarirs_vsa::VSASolver;
 use clarirs_z3::Z3Solver;
 
 #[derive(Clone, Debug)]
@@ -95,7 +95,7 @@ impl Solver<'static> for DynSolver {
         match self {
             DynSolver::Concrete(solver) => solver.eval_bool(expr),
             DynSolver::Z3(solver) => solver.eval_bool(expr),
-            DynSolver::Vsa(solver) => solver.eval_bool(expr).and_then(Denormalize::denormalize),
+            DynSolver::Vsa(solver) => solver.eval_bool(expr),
         }
     }
 
@@ -106,7 +106,7 @@ impl Solver<'static> for DynSolver {
         match self {
             DynSolver::Concrete(solver) => solver.eval_bitvec(expr),
             DynSolver::Z3(solver) => solver.eval_bitvec(expr),
-            DynSolver::Vsa(solver) => solver.eval_bitvec(expr).and_then(Denormalize::denormalize),
+            DynSolver::Vsa(solver) => solver.eval_bitvec(expr),
         }
     }
 

@@ -126,14 +126,6 @@ impl ExtractPyArgs for BitVecAst<'static> {
                 BV::new(py, then_)?.into_any(),
                 BV::new(py, else_)?.into_any(),
             ],
-            BitVecOp::SI(size, bits, lower_bound, upper_bound) => {
-                vec![
-                    size.into_bound_py_any(py)?,
-                    bits.into_bound_py_any(py)?,
-                    lower_bound.into_bound_py_any(py)?,
-                    upper_bound.into_bound_py_any(py)?,
-                ]
-            }
         })
     }
 }

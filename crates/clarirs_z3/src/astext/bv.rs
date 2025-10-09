@@ -95,7 +95,7 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, Clarir
             BitVecOp::StrLen(..) => todo!("StrLen"),
             BitVecOp::StrIndexOf(..) => todo!("StrIndexOf"),
             BitVecOp::StrToBV(..) => todo!("StrToBV"),
-            BitVecOp::SI(..) | BitVecOp::Union(..) | BitVecOp::Intersection(..) => {
+            BitVecOp::Union(..) | BitVecOp::Intersection(..) => {
                 // These are not supported in Z3
                 return Err(ClarirsError::ConversionError(
                     "vsa types are not currently supported in the z3 backend".to_string(),

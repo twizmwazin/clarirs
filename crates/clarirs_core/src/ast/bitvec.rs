@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 use std::vec::IntoIter;
 
-use num_bigint::BigUint;
 use serde::Serialize;
 
 use crate::prelude::*;
@@ -43,7 +42,6 @@ pub enum BitVecOp<'c> {
     If(AstRef<'c, BooleanOp<'c>>, BitVecAst<'c>, BitVecAst<'c>),
 
     // VSA Ops
-    SI(u32, BigUint, BigUint, BigUint),
     Union(BitVecAst<'c>, BitVecAst<'c>),
     Intersection(BitVecAst<'c>, BitVecAst<'c>),
 }
@@ -207,13 +205,6 @@ impl std::hash::Hash for BitVecOp<'_> {
                 b.hash(state);
                 c.hash(state);
             }
-            BitVecOp::SI(size, stride, lb, ub) => {
-                33.hash(state);
-                size.hash(state);
-                stride.hash(state);
-                lb.hash(state);
-                ub.hash(state);
-            }
             BitVecOp::Union(a, b) => {
                 34.hash(state);
                 a.hash(state);
@@ -231,7 +222,7 @@ impl std::hash::Hash for BitVecOp<'_> {
 impl<'c> Op<'c> for BitVecOp<'c> {
     fn child_iter(&self) -> IntoIter<DynAst<'c>> {
         match self {
-            BitVecOp::BVS(..) | BitVecOp::BVV(..) | BitVecOp::SI(..) => vec![],
+            BitVecOp::BVS(..) | BitVecOp::BVV(..) => vec![],
             BitVecOp::Not(a)
             | BitVecOp::Neg(a)
             | BitVecOp::Reverse(a)
@@ -295,7 +286,7 @@ pub trait BitVecAstExt<'c> {
 impl<'c> BitVecOpExt<'c> for BitVecOp<'c> {
     fn size(&self) -> u32 {
         match self {
-            BitVecOp::BVS(_, size) | BitVecOp::SI(size, ..) => *size,
+            BitVecOp::BVS(_, size) => *size,
             BitVecOp::BVV(bv) => bv.len(),
             BitVecOp::Not(a) | BitVecOp::Neg(a) | BitVecOp::Reverse(a) | BitVecOp::If(_, a, _) => {
                 a.size()

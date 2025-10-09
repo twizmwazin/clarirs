@@ -763,7 +763,7 @@ impl<'c> Replace<'c, StringAst<'c>> for BoolAst<'c> {
 impl<'c> Replace<'c, BoolAst<'c>> for BitVecAst<'c> {
     fn replace(&self, from: &BoolAst<'c>, to: &BoolAst<'c>) -> Result<Self, ClarirsError> {
         match self.op() {
-            BitVecOp::BVS(..) | BitVecOp::BVV(..) | BitVecOp::SI(..) => Ok(self.clone()),
+            BitVecOp::BVS(..) | BitVecOp::BVV(..) => Ok(self.clone()),
             BitVecOp::Not(a) => {
                 let a_replaced = a.replace(from, to)?;
                 self.context().make_bitvec(BitVecOp::Not(a_replaced))
@@ -945,7 +945,7 @@ impl<'c> Replace<'c, BitVecAst<'c>> for BitVecAst<'c> {
             Ok(to.clone())
         } else {
             match self.op() {
-                BitVecOp::BVS(..) | BitVecOp::BVV(..) | BitVecOp::SI(..) => Ok(self.clone()),
+                BitVecOp::BVS(..) | BitVecOp::BVV(..) => Ok(self.clone()),
                 BitVecOp::Not(a) => {
                     let a_replaced = a.replace(from, to)?;
                     self.context().make_bitvec(BitVecOp::Not(a_replaced))
@@ -1125,7 +1125,7 @@ impl<'c> Replace<'c, BitVecAst<'c>> for BitVecAst<'c> {
 impl<'c> Replace<'c, FloatAst<'c>> for BitVecAst<'c> {
     fn replace(&self, from: &FloatAst<'c>, to: &FloatAst<'c>) -> Result<Self, ClarirsError> {
         match self.op() {
-            BitVecOp::BVS(..) | BitVecOp::BVV(..) | BitVecOp::SI(..) => Ok(self.clone()),
+            BitVecOp::BVS(..) | BitVecOp::BVV(..) => Ok(self.clone()),
             BitVecOp::Not(a) => {
                 let a_replaced = a.replace(from, to)?;
                 self.context().make_bitvec(BitVecOp::Not(a_replaced))
@@ -1304,7 +1304,7 @@ impl<'c> Replace<'c, FloatAst<'c>> for BitVecAst<'c> {
 impl<'c> Replace<'c, StringAst<'c>> for BitVecAst<'c> {
     fn replace(&self, from: &StringAst<'c>, to: &StringAst<'c>) -> Result<Self, ClarirsError> {
         match self.op() {
-            BitVecOp::BVS(..) | BitVecOp::BVV(..) | BitVecOp::SI(..) => Ok(self.clone()),
+            BitVecOp::BVS(..) | BitVecOp::BVV(..) => Ok(self.clone()),
             BitVecOp::Not(a) => {
                 let a_replaced = a.replace(from, to)?;
                 self.context().make_bitvec(BitVecOp::Not(a_replaced))

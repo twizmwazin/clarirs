@@ -90,7 +90,6 @@ fn to_smtlib_bv(ast: &BitVecAst, children: &[String]) -> String {
         }
         BitVecOp::StrToBV(..) => format!("(str.to_bv {})", children[0]),
         BitVecOp::If(..) => format!("(ite {} {} {})", children[0], children[1], children[2]),
-        BitVecOp::SI(size, stride, lb, ub) => format!("(vsasi {size} {stride} {lb} {ub})"),
         BitVecOp::Union(..) => format!("(vsaunion {} {})", children[0], children[1]),
         BitVecOp::Intersection(..) => format!("(vsaintersection {} {})", children[0], children[1]),
     }

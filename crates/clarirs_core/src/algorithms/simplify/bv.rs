@@ -16,7 +16,7 @@ pub(crate) fn simplify_bv<'c>(
     let ctx = ast.context();
 
     match &ast.op() {
-        BitVecOp::BVS(..) | BitVecOp::BVV(..) | BitVecOp::SI(..) => Ok(ast.clone()),
+        BitVecOp::BVS(..) | BitVecOp::BVV(..) => Ok(ast.clone()),
         BitVecOp::Not(..) => {
             let arc = extract_bitvec_child(children, 0)?;
             match arc.op() {

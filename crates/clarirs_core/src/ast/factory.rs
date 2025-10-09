@@ -618,7 +618,21 @@ pub trait AstFactory<'c>: Sized {
         lower_bound: BigUint,
         upper_bound: BigUint,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::SI(size, stride, lower_bound, upper_bound))
+        self.make_bitvec_annotated(
+            BitVecOp::BVS(
+                format!("SI{size}_{stride}_{lower_bound}_{upper_bound}"),
+                size,
+            ),
+            HashSet::from([Annotation::new(
+                AnnotationType::StridedInterval {
+                    stride,
+                    lower_bound,
+                    upper_bound,
+                },
+                false,
+                false,
+            )]),
+        )
     }
 
     fn union(
