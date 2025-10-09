@@ -1268,7 +1268,7 @@ pub fn Extract<'py>(
     base: Bound<'py, BV>,
 ) -> Result<Bound<'py, BV>, ClaripyError> {
     let size = base.get().size() as u32;
-    
+
     // Validate extract bounds
     if lower > upper {
         return Err(ClaripyError::InvalidOperation(
@@ -1276,11 +1276,11 @@ pub fn Extract<'py>(
         ));
     }
     if upper >= size {
-        return Err(ClaripyError::InvalidOperation(
-            format!("Extract bound ({upper}) must be less than BV size ({size})"),
-        ));
+        return Err(ClaripyError::InvalidOperation(format!(
+            "Extract bound ({upper}) must be less than BV size ({size})"
+        )));
     }
-    
+
     BV::new(
         py,
         &GLOBAL_CONTEXT.extract(&base.get().inner, upper, lower)?,
