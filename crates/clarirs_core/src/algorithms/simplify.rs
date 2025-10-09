@@ -8,6 +8,8 @@ mod test_bool;
 #[cfg(test)]
 mod test_bv;
 
+use std::collections::HashSet;
+
 use crate::prelude::*;
 
 pub fn extract_bool_child<'c>(
@@ -100,11 +102,47 @@ impl<'c> Simplify<'c> for DynAst<'c> {
     fn simplify(&self) -> Result<Self, ClarirsError> {
         walk_post_order(
             self.clone(),
-            |node, children| match node {
-                DynAst::Boolean(ast) => bool::simplify_bool(&ast, children).map(DynAst::Boolean),
-                DynAst::BitVec(ast) => bv::simplify_bv(&ast, children).map(DynAst::BitVec),
-                DynAst::Float(ast) => float::simplify_float(&ast, children).map(DynAst::Float),
-                DynAst::String(ast) => string::simplify_string(&ast, children).map(DynAst::String),
+            |node, children| {
+                if node
+                    .annotations()
+                    .iter()
+                    .any(|a| !a.eliminatable() && !a.relocatable())
+                {
+                    Ok(node)
+                } else {
+                    let relocatable_annos: HashSet<Annotation> = HashSet::from_iter(
+                        node.annotations()
+                            .iter()
+                            .filter(|a| !a.eliminatable() && a.relocatable())
+                            .cloned(),
+                    );
+                    match node {
+                        DynAst::Boolean(ast) => bool::simplify_bool(&ast, children)
+                            .and_then(|ast| {
+                                ast.context()
+                                    .make_bool_annotated(ast.op().clone(), relocatable_annos)
+                            })
+                            .map(DynAst::Boolean),
+                        DynAst::BitVec(ast) => bv::simplify_bv(&ast, children)
+                            .and_then(|ast| {
+                                ast.context()
+                                    .make_bitvec_annotated(ast.op().clone(), relocatable_annos)
+                            })
+                            .map(DynAst::BitVec),
+                        DynAst::Float(ast) => float::simplify_float(&ast, children)
+                            .and_then(|ast| {
+                                ast.context()
+                                    .make_float_annotated(ast.op().clone(), relocatable_annos)
+                            })
+                            .map(DynAst::Float),
+                        DynAst::String(ast) => string::simplify_string(&ast, children)
+                            .and_then(|ast| {
+                                ast.context()
+                                    .make_string_annotated(ast.op().clone(), relocatable_annos)
+                            })
+                            .map(DynAst::String),
+                    }
+                }
             },
             &self.context().simplification_cache,
         )
