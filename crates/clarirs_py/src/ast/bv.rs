@@ -225,7 +225,7 @@ impl BV {
     pub fn annotations(&self) -> PyResult<Vec<PyAnnotation>> {
         Ok(self
             .inner
-            .get_annotations()
+            .annotations()
             .iter()
             .cloned()
             .map(PyAnnotation::from)
@@ -350,10 +350,10 @@ impl BV {
         &self,
         py: Python<'py>,
         annotation: PyAnnotation,
-    ) -> Result<Bound<'py, BV>, ClaripyError> {
-        BV::new(
+    ) -> Result<Bound<'py, Self>, ClaripyError> {
+        Self::new(
             py,
-            &GLOBAL_CONTEXT.annotated(&self.inner, annotation.0.clone())?,
+            &GLOBAL_CONTEXT.annotate(&self.inner, annotation.0.clone())?,
         )
     }
 
@@ -361,12 +361,12 @@ impl BV {
         &self,
         py: Python<'py>,
         annotations: Vec<PyAnnotation>,
-    ) -> Result<Bound<'py, BV>, ClaripyError> {
+    ) -> Result<Bound<'py, Self>, ClaripyError> {
         let mut inner = self.inner.clone();
         for annotation in annotations {
-            inner = GLOBAL_CONTEXT.annotated(&inner, annotation.0)?;
+            inner = GLOBAL_CONTEXT.annotate(&inner, annotation.0)?;
         }
-        BV::new(py, &inner)
+        Self::new(py, &inner)
     }
 
     #[pyo3(signature = (*annotations))]
@@ -374,13 +374,13 @@ impl BV {
         &self,
         py: Python<'py>,
         annotations: Vec<PyAnnotation>,
-    ) -> Result<Bound<'py, BV>, ClaripyError> {
-        BV::new(
+    ) -> Result<Bound<'py, Self>, ClaripyError> {
+        Self::new(
             py,
             &annotations
                 .iter()
                 .try_fold(self.inner.clone(), |acc, annotation| {
-                    GLOBAL_CONTEXT.annotated(&acc, annotation.0.clone())
+                    GLOBAL_CONTEXT.annotate(&acc, annotation.0.clone())
                 })?,
         )
     }
@@ -389,12 +389,12 @@ impl BV {
         &self,
         py: Python<'py>,
         annotations: Vec<PyAnnotation>,
-    ) -> Result<Bound<'py, BV>, ClaripyError> {
+    ) -> Result<Bound<'py, Self>, ClaripyError> {
         let mut inner = self.inner.clone();
         for annotation in annotations {
-            inner = GLOBAL_CONTEXT.annotated(&inner, annotation.0)?;
+            inner = GLOBAL_CONTEXT.annotate(&inner, annotation.0)?;
         }
-        BV::new(py, &inner)
+        Self::new(py, &inner)
     }
 
     /// This actually just removes all annotations and adds the new ones.
@@ -402,75 +402,54 @@ impl BV {
         &self,
         py: Python<'py>,
         annotations: Vec<PyAnnotation>,
-    ) -> Result<Bound<'py, BV>, ClaripyError> {
-        let mut inner = self.inner.clone();
-        while let BitVecOp::Annotated(inner_, _) = inner.op() {
-            inner = inner_.clone();
-        }
-        BV::new(
-            py,
-            &annotations.iter().try_fold(inner, |acc, annotation| {
-                GLOBAL_CONTEXT.annotated(&acc, annotation.0.clone())
-            })?,
-        )
+    ) -> Result<Bound<'py, Self>, ClaripyError> {
+        let inner = self.inner.context().make_bitvec_annotated(
+            self.inner.op().clone(),
+            annotations.into_iter().map(|a| a.0).collect(),
+        )?;
+        Self::new(py, &inner)
     }
 
     pub fn remove_annotation<'py>(
         &self,
         py: Python<'py>,
         annotation: PyAnnotation,
-    ) -> Result<Bound<'py, BV>, ClaripyError> {
-        let mut inner = self.inner.clone();
-        while let BitVecOp::Annotated(inner_, _) = inner.op() {
-            if inner_.get_annotations().iter().any(|a| a == &annotation.0) {
-                inner = inner_.clone();
-            } else {
-                break;
-            }
-        }
-        BV::new(py, &GLOBAL_CONTEXT.annotated(&inner, annotation.0)?)
+    ) -> Result<Bound<'py, Self>, ClaripyError> {
+        let inner = self.inner.context().make_bitvec_annotated(
+            self.inner.op().clone(),
+            self.inner
+                .annotations()
+                .iter()
+                .filter(|a| **a != annotation.0)
+                .cloned()
+                .collect(),
+        )?;
+        Self::new(py, &inner)
     }
 
-    pub fn clear_annotations(self_: Bound<'_, BV>) -> Result<Bound<'_, BV>, ClaripyError> {
-        let mut inner = self_.get().inner.clone();
-        while let BitVecOp::Annotated(inner_, _) = inner.op() {
-            inner = inner_.clone();
-        }
-        BV::new(self_.py(), &inner)
+    pub fn clear_annotations<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> Result<Bound<'py, Self>, ClaripyError> {
+        let inner = self.inner.context().make_bitvec(self.inner.op().clone())?;
+        Self::new(py, &inner)
     }
 
     pub fn clear_annotation_type<'py>(
         &self,
         py: Python<'py>,
         annotation_type: PyAnnotationType,
-    ) -> Result<Bound<'py, BV>, ClaripyError> {
-        let mut inner = self.inner.clone();
-        while let BitVecOp::Annotated(inner_, _) = inner.op() {
-            if inner_
-                .get_annotations()
+    ) -> Result<Bound<'py, Self>, ClaripyError> {
+        let inner = self.inner.context().make_bitvec_annotated(
+            self.inner.op().clone(),
+            self.inner
+                .annotations()
                 .iter()
-                .any(|a| annotation_type.matches(a.type_()))
-            {
-                inner = inner_.clone();
-            } else {
-                break;
-            }
-        }
-        // Remove all annotations of the given type from the bitvector
-        let mut result_inner = inner.clone();
-        let mut annotations: Vec<_> = result_inner.get_annotations().into_iter().collect();
-        annotations.retain(|a| !annotation_type.matches(a.type_()));
-        // Remove all existing annotations
-        while let BitVecOp::Annotated(inner_, _) = result_inner.op() {
-            result_inner = inner_.clone();
-        }
-        // Add back only the retained annotations
-        let final_inner = annotations
-            .into_iter()
-            .try_fold(result_inner, |acc, annotation| {
-                GLOBAL_CONTEXT.annotated(&acc, annotation.clone())
-            })?;
-        BV::new(py, &final_inner)
+                .filter(|a| !annotation_type.matches(a.type_()))
+                .cloned()
+                .collect(),
+        )?;
+        Self::new(py, &inner)
     }
 
     pub fn raw_to_bv(self_: Bound<'_, BV>) -> Result<Bound<'_, BV>, ClaripyError> {
@@ -1350,7 +1329,7 @@ pub fn VS<'py>(
     let value = value.extract(py, bits)?;
     BV::new(
         py,
-        &GLOBAL_CONTEXT.annotated(
+        &GLOBAL_CONTEXT.annotate(
             &value.get().inner,
             Annotation::new(
                 AnnotationType::Region {

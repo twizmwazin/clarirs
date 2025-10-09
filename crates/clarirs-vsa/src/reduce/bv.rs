@@ -73,7 +73,6 @@ pub(crate) fn reduce_bv(
             ComparisonResult::False => child_si(children, 2)?,
             ComparisonResult::Maybe => child_si(children, 1)?.union(&child_si(children, 2)?),
         },
-        BitVecOp::Annotated(..) => child_si(children, 0)?.clone(),
         BitVecOp::SI(bits, stride, lower_bound, upper_bound) => StridedInterval::new(
             *bits,
             stride.clone(),

@@ -84,6 +84,5 @@ pub(crate) fn reduce_bool(
             ComparisonResult::False => child(children, 2)?,
             ComparisonResult::Maybe => child(children, 1)? | child(children, 2)?,
         },
-        BooleanOp::Annotated(..) => child(children, 0)?,
     })
 }

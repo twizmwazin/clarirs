@@ -72,7 +72,6 @@ pub(crate) fn to_z3(ast: &StringAst, children: &[RcAst]) -> Result<RcAst, Clarir
                 let else_ = else_.to_z3()?;
                 z3::mk_ite(z3_ctx, cond.0, then.0, else_.0).into()
             }
-            StringOp::Annotated(inner, _) => inner.to_z3()?,
         })
         .and_then(|ast| {
             if ast.is_null() {

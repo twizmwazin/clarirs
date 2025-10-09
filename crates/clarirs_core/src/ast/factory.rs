@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use nonempty::NonEmpty;
 use num_bigint::BigUint;
 
@@ -7,12 +9,44 @@ use crate::prelude::*;
 
 pub trait AstFactory<'c>: Sized {
     // Required methods
-    fn make_bool(&'c self, op: BooleanOp<'c>) -> Result<BoolAst<'c>, ClarirsError>;
-    fn make_bitvec(&'c self, op: BitVecOp<'c>) -> Result<BitVecAst<'c>, ClarirsError>;
-    fn make_float(&'c self, op: FloatOp<'c>) -> Result<FloatAst<'c>, ClarirsError>;
-    fn make_string(&'c self, op: StringOp<'c>) -> Result<StringAst<'c>, ClarirsError>;
+    fn make_bool_annotated(
+        &'c self,
+        op: BooleanOp<'c>,
+        annotations: HashSet<Annotation>,
+    ) -> Result<BoolAst<'c>, ClarirsError>;
+    fn make_bitvec_annotated(
+        &'c self,
+        op: BitVecOp<'c>,
+        annotations: HashSet<Annotation>,
+    ) -> Result<BitVecAst<'c>, ClarirsError>;
+    fn make_float_annotated(
+        &'c self,
+        op: FloatOp<'c>,
+        annotations: HashSet<Annotation>,
+    ) -> Result<FloatAst<'c>, ClarirsError>;
+    fn make_string_annotated(
+        &'c self,
+        op: StringOp<'c>,
+        annotations: HashSet<Annotation>,
+    ) -> Result<StringAst<'c>, ClarirsError>;
 
     // Provided methods
+
+    fn make_bool(&'c self, op: BooleanOp<'c>) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool_annotated(op, HashSet::new())
+    }
+
+    fn make_bitvec(&'c self, op: BitVecOp<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec_annotated(op, HashSet::new())
+    }
+
+    fn make_float(&'c self, op: FloatOp<'c>) -> Result<FloatAst<'c>, ClarirsError> {
+        self.make_float_annotated(op, HashSet::new())
+    }
+
+    fn make_string(&'c self, op: StringOp<'c>) -> Result<StringAst<'c>, ClarirsError> {
+        self.make_string_annotated(op, HashSet::new())
+    }
 
     fn bools<S: Into<String>>(&'c self, name: S) -> Result<BoolAst<'c>, ClarirsError> {
         self.make_bool(BooleanOp::BoolS(name.into()))
@@ -567,16 +601,12 @@ pub trait AstFactory<'c>: Sized {
         Op::if_(self, cond, then, else_)
     }
 
-    fn annotated<Op: SupportsAnnotated<'c>>(
+    fn annotate<Op: SupportsAnnotate<'c>>(
         &'c self,
-        lhs: &AstRef<'c, Op>,
+        ast: &AstRef<'c, Op>,
         annotation: Annotation,
     ) -> Result<AstRef<'c, Op>, ClarirsError> {
-        // Check if this annotation is already present
-        if lhs.get_annotations().contains(&annotation) {
-            return Ok(lhs.clone());
-        }
-        Op::annotated(self, lhs, annotation)
+        Op::annotate(ast, annotation)
     }
 
     // VSA methods

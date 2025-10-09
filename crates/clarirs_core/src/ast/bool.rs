@@ -40,7 +40,6 @@ pub enum BooleanOp<'c> {
     StrEq(StringAst<'c>, StringAst<'c>),
     StrNeq(StringAst<'c>, StringAst<'c>),
     If(BoolAst<'c>, BoolAst<'c>, BoolAst<'c>),
-    Annotated(BoolAst<'c>, Annotation),
 }
 
 pub type BoolAst<'c> = AstRef<'c, BooleanOp<'c>>;
@@ -209,11 +208,6 @@ impl std::hash::Hash for BooleanOp<'_> {
                 b.hash(state);
                 c.hash(state);
             }
-            BooleanOp::Annotated(a, b) => {
-                33.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
         }
     }
 }
@@ -225,7 +219,7 @@ impl<'c> Op<'c> for BooleanOp<'c> {
             BooleanOp::BoolS(_) | BooleanOp::BoolV(_) => vec![],
 
             // Cases with one child
-            BooleanOp::Not(a) | BooleanOp::Annotated(a, _) => vec![a.into()],
+            BooleanOp::Not(a) => vec![a.into()],
 
             BooleanOp::FpIsNan(a) | BooleanOp::FpIsInf(a) => vec![a.into()],
             BooleanOp::StrIsDigit(a) => vec![a.into()],
@@ -283,18 +277,6 @@ impl<'c> Op<'c> for BooleanOp<'c> {
             self.child_iter()
                 .map(|x| x.variables())
                 .fold(HashSet::new(), |acc, x| acc.union(&x).cloned().collect())
-        }
-    }
-
-    fn get_annotations(&self) -> Vec<Annotation> {
-        if let BooleanOp::Annotated(inner, anno) = self {
-            inner
-                .get_annotations()
-                .into_iter()
-                .chain(vec![anno.clone()])
-                .collect()
-        } else {
-            vec![]
         }
     }
 

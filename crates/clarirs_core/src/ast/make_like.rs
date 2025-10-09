@@ -100,9 +100,6 @@ impl<'c> MakeLike<'c> for BoolAst<'c> {
                 children.child_bool(1)?,
                 children.child_bool(2)?,
             ),
-            BooleanOp::Annotated(.., anno) => {
-                BooleanOp::Annotated(children.child_bool(0)?, anno.clone())
-            }
         })
     }
 }
@@ -184,9 +181,6 @@ impl<'c> MakeLike<'c> for BitVecAst<'c> {
                 children.child_bitvec(1)?,
                 children.child_bitvec(2)?,
             ),
-            BitVecOp::Annotated(.., annotation) => {
-                BitVecOp::Annotated(children.child_bitvec(0)?, annotation.clone())
-            }
             BitVecOp::Union(..) => {
                 BitVecOp::Union(children.child_bitvec(0)?, children.child_bitvec(1)?)
             }
@@ -231,9 +225,6 @@ impl<'c> MakeLike<'c> for FloatAst<'c> {
                 children.child_float(1)?,
                 children.child_float(2)?,
             ),
-            FloatOp::Annotated(.., annotation) => {
-                FloatOp::Annotated(children.child_float(0)?, annotation.clone())
-            }
         })
     }
 }
@@ -261,9 +252,6 @@ impl<'c> MakeLike<'c> for StringAst<'c> {
                 children.child_string(1)?,
                 children.child_string(2)?,
             ),
-            StringOp::Annotated(.., annotation) => {
-                StringOp::Annotated(children.child_string(0)?, annotation.clone())
-            }
         })
     }
 }

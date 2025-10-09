@@ -442,10 +442,6 @@ pub(crate) fn excavate_ite<'c>(
 
             Ok(ctx.if_(&cond, &then_, &else_)?)
         }
-        BitVecOp::Annotated(_, annotation) => {
-            let ast = extract_bitvec_child(children, 0)?;
-            Ok(ctx.annotated(&ast, annotation.clone())?)
-        }
         BitVecOp::Union(..) => {
             let lhs = extract_bitvec_child(children, 0)?;
             let rhs = extract_bitvec_child(children, 1)?;

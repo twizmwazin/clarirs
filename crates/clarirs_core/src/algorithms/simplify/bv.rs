@@ -546,16 +546,6 @@ pub(crate) fn simplify_bv<'c>(
                 _ => ctx.if_(&if_, &then_, &else_),
             }
         }
-        BitVecOp::Annotated(_, annotation) => {
-            let arc = extract_bitvec_child(children, 0)?;
-            if annotation.eliminatable() {
-                Ok(arc)
-            } else if annotation.relocatable() {
-                ctx.annotated(&arc, annotation.clone())
-            } else {
-                Ok(ast.clone())
-            }
-        }
         BitVecOp::Union(..) => {
             let (lhs, rhs) = (
                 extract_bitvec_child(children, 0)?,

@@ -1,5 +1,6 @@
 use ahash::AHasher;
 use std::{
+    collections::HashSet,
     fmt::Debug,
     hash::{Hash, Hasher},
     sync::Arc,
@@ -36,128 +37,124 @@ impl Context<'_> {
 }
 
 impl<'c> AstFactory<'c> for Context<'c> {
-    fn make_bool(&'c self, op: BooleanOp<'c>) -> std::result::Result<BoolAst<'c>, ClarirsError> {
+    fn make_bool_annotated(
+        &'c self,
+        op: BooleanOp<'c>,
+        mut annotations: HashSet<Annotation>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        annotations.extend(
+            op.child_iter()
+                .flat_map(|c| c.annotations())
+                .filter(|a| a.relocatable()),
+        );
+
         let mut hasher = AHasher::default();
         op.hash(&mut hasher);
         let hash = hasher.finish();
 
-        let mut result = self
+        Ok(self
             .ast_cache
             .get_or_insert(hash, || {
-                Ok(DynAst::from(Arc::new(AstNode::new(self, op.clone(), hash))))
+                Ok(DynAst::from(Arc::new(AstNode::new(
+                    self,
+                    op.clone(),
+                    annotations.clone(),
+                    hash,
+                ))))
             })?
             .as_bool()
             .ok_or(ClarirsError::TypeError("Expected BoolAst".to_string()))?
-            .clone();
-
-        // If the op is not Annotation, copy all relocatable annotations from the children
-        if !matches!(op, BooleanOp::Annotated(..)) {
-            result = result
-                .children()
-                .iter()
-                .flat_map(|child| child.get_annotations())
-                .filter(|annotation| annotation.relocatable())
-                .collect::<Vec<Annotation>>()
-                .iter()
-                .try_fold(result, |result, annotation| {
-                    self.make_bool(BooleanOp::Annotated(result.clone(), annotation.clone()))
-                })?;
-        }
-
-        Ok(result)
+            .clone())
     }
 
-    fn make_bitvec(&'c self, op: BitVecOp<'c>) -> std::result::Result<BitVecAst<'c>, ClarirsError> {
+    fn make_bitvec_annotated(
+        &'c self,
+        op: BitVecOp<'c>,
+        mut annotations: HashSet<Annotation>,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        annotations.extend(
+            op.child_iter()
+                .flat_map(|c| c.annotations())
+                .filter(|a| a.relocatable()),
+        );
+
         let mut hasher = AHasher::default();
         op.hash(&mut hasher);
         let hash = hasher.finish();
 
-        let mut result = self
+        Ok(self
             .ast_cache
             .get_or_insert(hash, || {
-                Ok(DynAst::from(Arc::new(AstNode::new(self, op.clone(), hash))))
+                Ok(DynAst::from(Arc::new(AstNode::new(
+                    self,
+                    op.clone(),
+                    annotations.clone(),
+                    hash,
+                ))))
             })?
             .as_bitvec()
             .ok_or(ClarirsError::TypeError("Expected BitVecAst".to_string()))?
-            .clone();
-
-        // If the op is not Annotation, copy all relocatable annotations from the children
-        if !matches!(op, BitVecOp::Annotated(..)) {
-            result = result
-                .children()
-                .iter()
-                .flat_map(|child| child.get_annotations())
-                .filter(|annotation| annotation.relocatable())
-                .collect::<Vec<Annotation>>()
-                .iter()
-                .try_fold(result, |result, annotation| {
-                    self.make_bitvec(BitVecOp::Annotated(result.clone(), annotation.clone()))
-                })?;
-        }
-
-        Ok(result)
+            .clone())
     }
 
-    fn make_float(&'c self, op: FloatOp<'c>) -> std::result::Result<FloatAst<'c>, ClarirsError> {
+    fn make_float_annotated(
+        &'c self,
+        op: FloatOp<'c>,
+        mut annotations: HashSet<Annotation>,
+    ) -> std::result::Result<FloatAst<'c>, ClarirsError> {
+        annotations.extend(
+            op.child_iter()
+                .flat_map(|c| c.annotations())
+                .filter(|a| a.relocatable()),
+        );
+
         let mut hasher = AHasher::default();
         op.hash(&mut hasher);
         let hash = hasher.finish();
 
-        let mut result = self
+        Ok(self
             .ast_cache
             .get_or_insert(hash, || {
-                Ok(DynAst::from(Arc::new(AstNode::new(self, op.clone(), hash))))
+                Ok(DynAst::from(Arc::new(AstNode::new(
+                    self,
+                    op.clone(),
+                    annotations.clone(),
+                    hash,
+                ))))
             })?
             .as_float()
             .ok_or(ClarirsError::TypeError("Expected FloatAst".to_string()))?
-            .clone();
-
-        // If the op is not Annotation, copy all relocatable annotations from the children
-        if !matches!(op, FloatOp::Annotated(..)) {
-            result = result
-                .children()
-                .iter()
-                .flat_map(|child| child.get_annotations())
-                .filter(|annotation| annotation.relocatable())
-                .collect::<Vec<Annotation>>()
-                .iter()
-                .try_fold(result, |result, annotation| {
-                    self.make_float(FloatOp::Annotated(result.clone(), annotation.clone()))
-                })?;
-        }
-
-        Ok(result)
+            .clone())
     }
 
-    fn make_string(&'c self, op: StringOp<'c>) -> std::result::Result<StringAst<'c>, ClarirsError> {
+    fn make_string_annotated(
+        &'c self,
+        op: StringOp<'c>,
+        mut annotations: HashSet<Annotation>,
+    ) -> Result<StringAst<'c>, ClarirsError> {
+        annotations.extend(
+            op.child_iter()
+                .flat_map(|c| c.annotations())
+                .filter(|a| a.relocatable()),
+        );
+
         let mut hasher = AHasher::default();
         op.hash(&mut hasher);
         let hash = hasher.finish();
 
-        let mut result = self
+        Ok(self
             .ast_cache
             .get_or_insert(hash, || {
-                Ok(DynAst::from(Arc::new(AstNode::new(self, op.clone(), hash))))
+                Ok(DynAst::from(Arc::new(AstNode::new(
+                    self,
+                    op.clone(),
+                    annotations.clone(),
+                    hash,
+                ))))
             })?
             .as_string()
             .ok_or(ClarirsError::TypeError("Expected StringAst".to_string()))?
-            .clone();
-
-        // If the op is not Annotation, copy all relocatable annotations from the children
-        if !matches!(op, StringOp::Annotated(..)) {
-            result = result
-                .children()
-                .iter()
-                .flat_map(|child| child.get_annotations())
-                .filter(|annotation| annotation.relocatable())
-                .collect::<Vec<Annotation>>()
-                .iter()
-                .try_fold(result, |result, annotation| {
-                    self.make_string(StringOp::Annotated(result.clone(), annotation.clone()))
-                })?;
-        }
-
-        Ok(result)
+            .clone())
     }
 }
 

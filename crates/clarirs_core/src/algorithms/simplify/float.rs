@@ -204,15 +204,5 @@ pub(crate) fn simplify_float<'c>(
                 _ => ctx.if_(&if_, &then_, &else_),
             }
         }
-        FloatOp::Annotated(_, annotation) => {
-            let arc = extract_float_child(children, 0)?;
-            if annotation.eliminatable() {
-                Ok(arc)
-            } else if annotation.relocatable() {
-                ctx.annotated(&arc, annotation.clone())
-            } else {
-                Ok(ast.clone())
-            }
-        }
     }
 }

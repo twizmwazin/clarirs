@@ -114,15 +114,5 @@ pub(crate) fn simplify_string<'c>(
                 _ => ctx.if_(&if_, &then_, &else_),
             }
         }
-        StringOp::Annotated(_, annotation) => {
-            let arc = extract_string_child(children, 0)?;
-            if annotation.eliminatable() {
-                Ok(arc)
-            } else if annotation.relocatable() {
-                ctx.annotated(&arc, annotation.clone())
-            } else {
-                Ok(ast.clone())
-            }
-        }
     }
 }

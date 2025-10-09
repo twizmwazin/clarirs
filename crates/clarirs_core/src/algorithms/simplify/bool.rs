@@ -500,15 +500,5 @@ pub(crate) fn simplify_bool<'c>(
                 _ => ctx.if_(&cond, &then_, &else_),
             }
         }
-        BooleanOp::Annotated(_, annotation) => {
-            let arc = extract_bool_child(children, 0)?;
-            if annotation.eliminatable() {
-                Ok(arc)
-            } else if annotation.relocatable() {
-                ctx.annotated(&arc, annotation.clone())
-            } else {
-                Ok(ast.clone())
-            }
-        }
     }
 }

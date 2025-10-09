@@ -1,6 +1,6 @@
 use clarirs_core::ast::annotation::AnnotationType;
-use clarirs_core::ast::bitvec::BitVecOpExt;
 use clarirs_core::prelude::*;
+use num_bigint::BigUint;
 
 /// The `Normalize` trait provides functionality to convert AST nodes into a normalized form
 /// suitable for Value Set Analysis (VSA).
@@ -71,7 +71,29 @@ impl Normalize<'_> for BitVecAst<'_> {
         let ctx = self.context();
 
         match self.op() {
-            BitVecOp::BVS(_, _) => Ok(self.clone()),
+            BitVecOp::BVS(_, size) => {
+                // Check for SI annotation, or use full range as default
+                let si_annotation = self
+                    .annotations()
+                    .iter()
+                    .find_map(|a| match a.type_() {
+                        AnnotationType::StridedInterval {
+                            stride,
+                            lower_bound,
+                            upper_bound,
+                        } => Some((stride.clone(), lower_bound.clone(), upper_bound.clone())),
+                        _ => None,
+                    })
+                    .unwrap_or_else(|| {
+                        (
+                            1u32.into(),
+                            0u32.into(),
+                            (BigUint::from(1u32) << size) - 1u32,
+                        )
+                    });
+
+                ctx.si(*size, si_annotation.0, si_annotation.1, si_annotation.2)
+            }
             BitVecOp::BVV(bv) => ctx.si(bv.len(), 1u32.into(), bv.to_biguint(), bv.to_biguint()),
             BitVecOp::Not(ast) => ctx.not(&ast.normalize()?),
             BitVecOp::And(lhs, rhs) => ctx.and(&lhs.normalize()?, &rhs.normalize()?),
@@ -112,19 +134,6 @@ impl Normalize<'_> for BitVecAst<'_> {
                 &then_branch.normalize()?,
                 &else_branch.normalize()?,
             ),
-            BitVecOp::Annotated(ast, annotation) => match annotation.type_() {
-                AnnotationType::StridedInterval {
-                    stride,
-                    lower_bound,
-                    upper_bound,
-                } => ctx.si(
-                    ast.size(),
-                    stride.clone(),
-                    lower_bound.clone(),
-                    upper_bound.clone(),
-                ),
-                _ => ctx.annotated(&ast.normalize()?, annotation.clone()),
-            },
             BitVecOp::SI(..) => Ok(self.clone()),
             BitVecOp::Union(lhs, rhs) => ctx.union(&lhs.normalize()?, &rhs.normalize()?),
             BitVecOp::Intersection(lhs, rhs) => {
@@ -187,11 +196,6 @@ impl Normalize<'_> for BoolAst<'_> {
                 &then_branch.normalize()?,
                 &else_branch.normalize()?,
             ),
-            BooleanOp::Annotated(ast, annotation) => {
-                // For boolean ASTs, we just normalize the inner AST
-                // as there's no SI equivalent for boolean operations
-                ctx.annotated(&ast.normalize()?, annotation.clone())
-            }
         }
     }
 }

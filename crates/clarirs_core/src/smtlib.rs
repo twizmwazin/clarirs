@@ -37,7 +37,6 @@ fn to_smtlib_bool(ast: &BoolAst, children: &[String]) -> String {
         BooleanOp::StrEq(..) => format!("(= {} {})", children[0], children[1]),
         BooleanOp::StrNeq(..) => format!("(not (= {} {}))", children[0], children[1]),
         BooleanOp::If(..) => format!("(ite {} {} {})", children[0], children[1], children[2]),
-        BooleanOp::Annotated(..) => children[0].to_string(),
     }
 }
 
@@ -91,7 +90,6 @@ fn to_smtlib_bv(ast: &BitVecAst, children: &[String]) -> String {
         }
         BitVecOp::StrToBV(..) => format!("(str.to_bv {})", children[0]),
         BitVecOp::If(..) => format!("(ite {} {} {})", children[0], children[1], children[2]),
-        BitVecOp::Annotated(..) => children[0].to_string(),
         BitVecOp::SI(size, stride, lb, ub) => format!("(vsasi {size} {stride} {lb} {ub})"),
         BitVecOp::Union(..) => format!("(vsaunion {} {})", children[0], children[1]),
         BitVecOp::Intersection(..) => format!("(vsaintersection {} {})", children[0], children[1]),
@@ -166,7 +164,6 @@ fn to_smtlib_float(ast: &FloatAst, children: &[String]) -> String {
         FloatOp::If(..) => {
             format!("(ite {} {} {})", children[0], children[1], children[2])
         }
-        FloatOp::Annotated(..) => children[0].to_string(),
     }
 }
 
@@ -185,7 +182,6 @@ fn to_smtlib_string(ast: &StringAst, children: &[String]) -> String {
         ),
         StringOp::BVToStr(..) => format!("(str.from_bv {})", children[0]),
         StringOp::If(..) => format!("(ite {} {} {})", children[0], children[1], children[2]),
-        StringOp::Annotated(..) => children[0].to_string(),
     }
 }
 

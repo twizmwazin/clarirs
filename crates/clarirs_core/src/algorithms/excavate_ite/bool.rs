@@ -495,10 +495,5 @@ pub(crate) fn excavate_ite<'c>(
 
             Ok(ctx.if_(&cond, &then, &else_)?)
         }
-        BooleanOp::Annotated(_, annotation) => {
-            let ast = extract_bool_child(children, 0)?;
-
-            Ok(ctx.annotated(&ast, annotation.clone())?)
-        }
     }
 }

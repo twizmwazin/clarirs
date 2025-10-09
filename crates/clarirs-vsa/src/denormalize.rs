@@ -16,7 +16,7 @@ impl Denormalize for DynAst<'_> {
                 DynAst::BitVec(ast) => {
                     if let BitVecOp::SI(bits, stride, lower_bound, upper_bound) = ast.op() {
                         ast.context()
-                            .annotated(
+                            .annotate(
                                 &ast.context().bvs(
                                     format!("SI{bits}[{stride} {lower_bound} {upper_bound}]"),
                                     *bits,

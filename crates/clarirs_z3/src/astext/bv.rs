@@ -89,7 +89,6 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, Clarir
                 let else_ = child!(children, 2);
                 z3::mk_ite(z3_ctx, cond.0, then.0, else_.0).into()
             }
-            BitVecOp::Annotated(..) => child!(children, 0).clone(),
             BitVecOp::FpToIEEEBV(..) => todo!("FpToIEEEBV"),
             BitVecOp::FpToUBV(..) => todo!("FpToUBV"),
             BitVecOp::FpToSBV(..) => todo!("FpToSBV"),

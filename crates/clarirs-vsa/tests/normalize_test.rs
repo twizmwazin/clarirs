@@ -30,13 +30,16 @@ fn test_normalize_bvs() {
 
     let bvs = ctx.bvs("x", 32).unwrap();
 
-    // Normalization should return the BVS itself
+    // Normalization should return an SI with full range
     let result = bvs.normalize();
     assert!(result.is_ok());
 
-    // Check that the normalized result is the same as the original BVS
+    // Check that it was converted to an SI
     let normalized = result.unwrap();
-    assert_eq!(normalized, bvs);
+    assert_eq!(
+        normalized.op(),
+        &BitVecOp::SI(32, 1u32.into(), 0u32.into(), u32::MAX.into())
+    );
 }
 
 #[test]
@@ -58,7 +61,7 @@ fn test_normalize_si_annotation() {
     );
 
     // Annotate the BVS with SI
-    let annotated = ctx.annotated(&bvs, annotation).unwrap();
+    let annotated = ctx.annotate(&bvs, annotation).unwrap();
 
     // Normalize it
     let normalized = annotated.normalize().unwrap();
@@ -434,20 +437,22 @@ fn test_normalize_bool_annotated() {
     );
 
     // Annotate the boolean
-    let annotated = ctx.annotated(&bool_val, annotation.clone()).unwrap();
+    let annotated = ctx.annotate(&bool_val, annotation.clone()).unwrap();
 
     // Normalize it
     let normalized = annotated.normalize().unwrap();
 
     // Check that the annotation is preserved
-    match normalized.op() {
-        BooleanOp::Annotated(inner, anno) => {
-            // Check that inner value was preserved
-            assert!(matches!(inner.op(), BooleanOp::BoolV(true)));
+    // match normalized.op() {
+    //     BooleanOp::Annotated(inner, anno) => {
+    //         // Check that inner value was preserved
+    //         assert!(matches!(inner.op(), BooleanOp::BoolV(true)));
 
-            // Check that annotation was preserved
-            assert_eq!(anno, &annotation);
-        }
-        _ => panic!("Expected Annotated operation"),
-    }
+    //         // Check that annotation was preserved
+    //         assert_eq!(anno, &annotation);
+    //     }
+    //     _ => panic!("Expected Annotated operation"),
+    // }
+    assert!(normalized.annotations().len() != 0);
+    assert!(normalized.annotations().contains(&annotation));
 }

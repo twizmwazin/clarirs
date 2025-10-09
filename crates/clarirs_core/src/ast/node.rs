@@ -8,11 +8,12 @@ use std::{
 
 use serde::Serialize;
 
-use crate::prelude::*;
+use crate::{ast::factory_support::SupportsAnnotate, prelude::*};
 
 #[derive(Clone, Eq, serde::Serialize)]
 pub struct AstNode<'c, O: Op<'c>> {
     op: O,
+    annotations: HashSet<Annotation>,
     #[serde(skip)]
     ctx: &'c Context<'c>,
     #[serde(skip)]
@@ -21,8 +22,6 @@ pub struct AstNode<'c, O: Op<'c>> {
     variables: HashSet<String>,
     #[serde(skip)]
     depth: u32,
-    #[serde(skip)]
-    annotations: Vec<Annotation>,
 }
 
 impl<'c, O> Debug for AstNode<'c, O>
@@ -61,11 +60,15 @@ where
     }
 }
 
-impl<'c, O: Op<'c> + Serialize> AstNode<'c, O> {
-    pub(crate) fn new(ctx: &'c Context<'c>, op: O, hash: u64) -> Self {
+impl<'c, O: Op<'c> + Serialize + SupportsAnnotate<'c>> AstNode<'c, O> {
+    pub(crate) fn new(
+        ctx: &'c Context<'c>,
+        op: O,
+        annotations: HashSet<Annotation>,
+        hash: u64,
+    ) -> Self {
         let variables = op.variables();
         let depth = op.depth();
-        let annotations = op.get_annotations();
 
         Self {
             op,
@@ -79,6 +82,14 @@ impl<'c, O: Op<'c> + Serialize> AstNode<'c, O> {
 
     pub fn op(&self) -> &O {
         &self.op
+    }
+
+    pub fn annotations(&self) -> &HashSet<Annotation> {
+        &self.annotations
+    }
+
+    pub fn annotate(self: Arc<Self>, annotation: Annotation) -> Result<Arc<Self>, ClarirsError> {
+        self.context().annotate(&self, annotation)
     }
 
     pub fn hash(&self) -> u64 {
@@ -115,12 +126,8 @@ impl<'c, O: Op<'c>> Op<'c> for AstNode<'c, O> {
         self.variables.clone()
     }
 
-    fn get_annotations(&self) -> Vec<Annotation> {
-        self.annotations.clone()
-    }
-
     fn check_same_sort(&self, other: &Self) -> bool {
-        self.op().check_same_sort(other.op())
+        self.op.check_same_sort(&other.op)
     }
 }
 
@@ -132,6 +139,17 @@ pub enum DynAst<'c> {
     BitVec(BitVecAst<'c>),
     Float(FloatAst<'c>),
     String(StringAst<'c>),
+}
+
+impl DynAst<'_> {
+    pub fn annotations(&self) -> HashSet<Annotation> {
+        match self {
+            DynAst::Boolean(ast) => ast.annotations().clone(),
+            DynAst::BitVec(ast) => ast.annotations().clone(),
+            DynAst::Float(ast) => ast.annotations().clone(),
+            DynAst::String(ast) => ast.annotations().clone(),
+        }
+    }
 }
 
 impl<'c> HasContext<'c> for DynAst<'c> {
@@ -186,15 +204,6 @@ impl<'c> Op<'c> for DynAst<'c> {
             DynAst::String(ast) => ast.variables(),
         }
         .clone()
-    }
-
-    fn get_annotations(&self) -> Vec<Annotation> {
-        match self {
-            DynAst::Boolean(ast) => ast.get_annotations(),
-            DynAst::BitVec(ast) => ast.get_annotations(),
-            DynAst::Float(ast) => ast.get_annotations(),
-            DynAst::String(ast) => ast.get_annotations(),
-        }
     }
 
     fn check_same_sort(&self, other: &Self) -> bool {
