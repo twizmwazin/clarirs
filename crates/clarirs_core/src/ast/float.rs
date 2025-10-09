@@ -25,7 +25,6 @@ pub enum FloatOp<'c> {
     /// Transform an unsigned 2's complement bitvector to a float
     BvToFpUnsigned(BitVecAst<'c>, FSort, FPRM),
     If(AstRef<'c, BooleanOp<'c>>, FloatAst<'c>, FloatAst<'c>),
-    Annotated(FloatAst<'c>, Annotation),
 }
 
 pub type FloatAst<'c> = AstRef<'c, FloatOp<'c>>;
@@ -109,11 +108,6 @@ impl std::hash::Hash for FloatOp<'_> {
                 b.hash(state);
                 c.hash(state);
             }
-            FloatOp::Annotated(a, anno) => {
-                14.hash(state);
-                a.hash(state);
-                anno.hash(state);
-            }
         }
     }
 }
@@ -126,8 +120,7 @@ impl<'c> Op<'c> for FloatOp<'c> {
             FloatOp::FpNeg(a)
             | FloatOp::FpAbs(a)
             | FloatOp::FpSqrt(a, _)
-            | FloatOp::FpToFp(a, _, _)
-            | FloatOp::Annotated(a, _) => vec![a.into()].into_iter(),
+            | FloatOp::FpToFp(a, _, _) => vec![a.into()].into_iter(),
             FloatOp::BvToFp(a, _)
             | FloatOp::BvToFpSigned(a, _, _)
             | FloatOp::BvToFpUnsigned(a, _, _) => vec![a.into()].into_iter(),
@@ -152,18 +145,6 @@ impl<'c> Op<'c> for FloatOp<'c> {
         }
     }
 
-    fn get_annotations(&self) -> Vec<Annotation> {
-        if let FloatOp::Annotated(inner, anno) = self {
-            inner
-                .get_annotations()
-                .into_iter()
-                .chain(vec![anno.clone()])
-                .collect()
-        } else {
-            vec![]
-        }
-    }
-
     fn check_same_sort(&self, other: &Self) -> bool {
         self.size() == other.size()
     }
@@ -185,8 +166,7 @@ impl<'c> FloatExt<'c> for FloatOp<'c> {
             | FloatOp::FpSub(a, _, _)
             | FloatOp::FpMul(a, _, _)
             | FloatOp::FpDiv(a, _, _)
-            | FloatOp::If(_, a, _)
-            | FloatOp::Annotated(a, _) => a.size(),
+            | FloatOp::If(_, a, _) => a.size(),
             FloatOp::FpToFp(_, sort, _)
             | FloatOp::BvToFp(_, sort)
             | FloatOp::BvToFpSigned(_, sort, _)
@@ -217,8 +197,7 @@ impl<'c> FloatOpExt<'c> for FloatOp<'c> {
             | FloatOp::FpSub(a, _, _)
             | FloatOp::FpMul(a, _, _)
             | FloatOp::FpDiv(a, _, _)
-            | FloatOp::If(_, a, _)
-            | FloatOp::Annotated(a, _) => a.sort(),
+            | FloatOp::If(_, a, _) => a.sort(),
             FloatOp::FpToFp(_, sort, _)
             | FloatOp::BvToFp(_, sort)
             | FloatOp::BvToFpSigned(_, sort, _)

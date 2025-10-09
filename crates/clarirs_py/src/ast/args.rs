@@ -61,7 +61,6 @@ impl ExtractPyArgs for BoolAst<'static> {
                 Bool::new(py, then_)?.into_any(),
                 Bool::new(py, else_)?.into_any(),
             ],
-            BooleanOp::Annotated(inner, _) => inner.extract_py_args(py)?,
         })
     }
 }
@@ -127,15 +126,6 @@ impl ExtractPyArgs for BitVecAst<'static> {
                 BV::new(py, then_)?.into_any(),
                 BV::new(py, else_)?.into_any(),
             ],
-            BitVecOp::Annotated(inner, _) => inner.extract_py_args(py)?,
-            BitVecOp::SI(size, bits, lower_bound, upper_bound) => {
-                vec![
-                    size.into_bound_py_any(py)?,
-                    bits.into_bound_py_any(py)?,
-                    lower_bound.into_bound_py_any(py)?,
-                    upper_bound.into_bound_py_any(py)?,
-                ]
-            }
         })
     }
 }
@@ -173,7 +163,6 @@ impl ExtractPyArgs for FloatAst<'static> {
                 FP::new(py, then_)?.into_any(),
                 FP::new(py, else_)?.into_any(),
             ],
-            FloatOp::Annotated(inner, _) => inner.extract_py_args(py)?,
         })
     }
 }
@@ -206,7 +195,6 @@ impl ExtractPyArgs for StringAst<'static> {
                 PyAstString::new(py, then_)?.into_any(),
                 PyAstString::new(py, else_)?.into_any(),
             ],
-            StringOp::Annotated(inner, _) => inner.extract_py_args(py)?,
         })
     }
 }

@@ -1,7 +1,7 @@
 use clarirs_core::{ast::bitvec::BitVecOpExt, prelude::*};
 use num_traits::Signed;
 
-use crate::{Normalize, reduce::Reduce, strided_interval::ComparisonResult};
+use crate::{reduce::Reduce, strided_interval::ComparisonResult};
 
 /// A solver that uses Value Set Analysis (VSA) for symbolic computation
 #[derive(Clone, Debug)]
@@ -41,7 +41,6 @@ impl<'c> Solver<'c> for VSASolver<'c> {
         n: u32,
     ) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
         expr.simplify()?
-            .normalize()?
             .reduce()
             .and_then(|comp_result| match comp_result {
                 ComparisonResult::True => Ok(vec![self.context().boolv(true)?]),
@@ -62,7 +61,7 @@ impl<'c> Solver<'c> for VSASolver<'c> {
         expr: &BitVecAst<'c>,
         n: u32,
     ) -> Result<Vec<BitVecAst<'c>>, ClarirsError> {
-        expr.simplify()?.normalize()?.reduce().and_then(|si| {
+        expr.simplify()?.reduce().and_then(|si| {
             if si.is_empty() {
                 return Ok(vec![]);
             }
@@ -94,35 +93,32 @@ impl<'c> Solver<'c> for VSASolver<'c> {
     }
 
     fn is_true(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
-        Ok(matches!(
-            expr.simplify()?.normalize()?.reduce()?,
-            ComparisonResult::True
-        ))
+        Ok(matches!(expr.simplify()?.reduce()?, ComparisonResult::True))
     }
 
     fn is_false(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
         Ok(matches!(
-            expr.simplify()?.normalize()?.reduce()?,
+            expr.simplify()?.reduce()?,
             ComparisonResult::False
         ))
     }
 
     fn has_true(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
         Ok(matches!(
-            expr.simplify()?.normalize()?.reduce()?,
+            expr.simplify()?.reduce()?,
             ComparisonResult::True | ComparisonResult::Maybe
         ))
     }
 
     fn has_false(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
         Ok(matches!(
-            expr.simplify()?.normalize()?.reduce()?,
+            expr.simplify()?.reduce()?,
             ComparisonResult::False | ComparisonResult::Maybe
         ))
     }
 
     fn min_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        expr.simplify()?.normalize()?.reduce().and_then(|si| {
+        expr.simplify()?.reduce().and_then(|si| {
             let (min_bound, _) = si.get_unsigned_bounds();
             expr.context()
                 .bvv_from_biguint_with_size(&min_bound, expr.size())
@@ -130,7 +126,7 @@ impl<'c> Solver<'c> for VSASolver<'c> {
     }
 
     fn max_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        expr.simplify()?.normalize()?.reduce().and_then(|si| {
+        expr.simplify()?.reduce().and_then(|si| {
             let (_, max_bound) = si.get_unsigned_bounds();
             expr.context()
                 .bvv_from_biguint_with_size(&max_bound, expr.size())
@@ -138,7 +134,7 @@ impl<'c> Solver<'c> for VSASolver<'c> {
     }
 
     fn min_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        expr.simplify()?.normalize()?.reduce().and_then(|si| {
+        expr.simplify()?.reduce().and_then(|si| {
             let (min_bound, _) = si.get_signed_bounds();
             // Convert BigInt back to unsigned representation for two's complement
             let unsigned_min = if min_bound.is_negative() {
@@ -154,7 +150,7 @@ impl<'c> Solver<'c> for VSASolver<'c> {
     }
 
     fn max_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        expr.simplify()?.normalize()?.reduce().and_then(|si| {
+        expr.simplify()?.reduce().and_then(|si| {
             let (_, max_bound) = si.get_signed_bounds();
             // Convert BigInt back to unsigned representation for two's complement
             let unsigned_max = if max_bound.is_negative() {

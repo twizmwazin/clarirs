@@ -32,7 +32,29 @@ pub(crate) fn reduce_bv(
     children: &[ReduceResult],
 ) -> Result<StridedInterval, ClarirsError> {
     Ok(match ast.op() {
-        BitVecOp::BVS(_, bits) => StridedInterval::top(*bits),
+        BitVecOp::BVS(_, bits) => {
+            // If there is an SI annotation, use it. Otherwise, return top.
+            ast.annotations()
+                .iter()
+                .find_map(|ann| {
+                    if let AnnotationType::StridedInterval {
+                        stride,
+                        lower_bound,
+                        upper_bound,
+                    } = ann.type_()
+                    {
+                        Some(StridedInterval::new(
+                            *bits,
+                            stride.clone(),
+                            lower_bound.clone(),
+                            upper_bound.clone(),
+                        ))
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or_else(|| StridedInterval::top(*bits))
+        }
         BitVecOp::BVV(bv) => StridedInterval::constant(bv.len(), bv.to_biguint()),
         BitVecOp::Not(..) => !child_si(children, 0)?,
         BitVecOp::And(..) => child_si(children, 0)? & child_si(children, 1)?,
@@ -73,13 +95,6 @@ pub(crate) fn reduce_bv(
             ComparisonResult::False => child_si(children, 2)?,
             ComparisonResult::Maybe => child_si(children, 1)?.union(&child_si(children, 2)?),
         },
-        BitVecOp::Annotated(..) => child_si(children, 0)?.clone(),
-        BitVecOp::SI(bits, stride, lower_bound, upper_bound) => StridedInterval::new(
-            *bits,
-            stride.clone(),
-            lower_bound.clone(),
-            upper_bound.clone(),
-        ),
         BitVecOp::Union(..) => child_si(children, 0)?.union(&child_si(children, 1)?),
         BitVecOp::Intersection(..) => child_si(children, 0)?.intersection(&child_si(children, 1)?),
     })

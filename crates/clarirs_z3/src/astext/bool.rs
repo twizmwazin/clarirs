@@ -44,7 +44,6 @@ pub(crate) fn to_z3(ast: &BoolAst, children: &[RcAst]) -> Result<RcAst, ClarirsE
                 let else_ = child!(children, 2);
                 z3::mk_ite(z3_ctx, cond.0, then.0, else_.0).into()
             }
-            BooleanOp::Annotated(..) => child!(children, 0).clone(),
 
             // BV operations
             BooleanOp::Eq(..) => binop!(z3_ctx, children, mk_eq),

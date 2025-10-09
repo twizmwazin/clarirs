@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::prelude::*;
 
 macro_rules! uniop_support_trait {
@@ -62,15 +64,7 @@ pub trait SupportsIf<'c>: Op<'c> + Sized {
     ) -> Result<AstRef<'c, Self>, ClarirsError>;
 }
 
-pub trait SupportsAnnotated<'c>: Op<'c> + Sized {
-    fn annotated(
-        factory: &'c impl AstFactory<'c>,
-        ast: &AstRef<'c, Self>,
-        annotation: Annotation,
-    ) -> Result<AstRef<'c, Self>, ClarirsError>;
-}
-
-macro_rules! impl_supports_if_and_annotated {
+macro_rules! impl_supports_if {
     ($($impler:ty, $factory_func:ident),*) => {
         $(
             impl<'c> SupportsIf<'c> for $impler {
@@ -81,17 +75,11 @@ macro_rules! impl_supports_if_and_annotated {
                     factory.$factory_func(<$impler>::If(cond.clone(), then.clone(), els.clone()))
                 }
             }
-
-            impl<'c> SupportsAnnotated<'c> for $impler {
-                fn annotated(factory: &'c impl AstFactory<'c>, ast: &AstRef<'c, Self>, annotation: Annotation) -> Result<AstRef<'c, Self>, ClarirsError> {
-                    factory.$factory_func(<$impler>::Annotated(ast.clone(), annotation))
-                }
-            }
         )*
     };
 }
 
-impl_supports_if_and_annotated!(
+impl_supports_if!(
     BooleanOp<'c>,
     make_bool,
     BitVecOp<'c>,
@@ -101,6 +89,53 @@ impl_supports_if_and_annotated!(
     StringOp<'c>,
     make_string
 );
+
+pub trait SupportsAnnotate<'c>: Op<'c> + Sized {
+    fn annotate(
+        ast: &AstRef<'c, Self>,
+        annotation: Annotation,
+    ) -> Result<AstRef<'c, Self>, ClarirsError>;
+}
+
+impl<'c> SupportsAnnotate<'c> for BooleanOp<'c> {
+    fn annotate(
+        ast: &AstRef<'c, Self>,
+        annotation: Annotation,
+    ) -> Result<AstRef<'c, Self>, ClarirsError> {
+        ast.context()
+            .make_bool_annotated(ast.op().clone(), HashSet::from([annotation]))
+    }
+}
+
+impl<'c> SupportsAnnotate<'c> for BitVecOp<'c> {
+    fn annotate(
+        ast: &AstRef<'c, Self>,
+        annotation: Annotation,
+    ) -> Result<AstRef<'c, Self>, ClarirsError> {
+        ast.context()
+            .make_bitvec_annotated(ast.op().clone(), HashSet::from([annotation]))
+    }
+}
+
+impl<'c> SupportsAnnotate<'c> for FloatOp<'c> {
+    fn annotate(
+        ast: &AstRef<'c, Self>,
+        annotation: Annotation,
+    ) -> Result<AstRef<'c, Self>, ClarirsError> {
+        ast.context()
+            .make_float_annotated(ast.op().clone(), HashSet::from([annotation]))
+    }
+}
+
+impl<'c> SupportsAnnotate<'c> for StringOp<'c> {
+    fn annotate(
+        ast: &AstRef<'c, Self>,
+        annotation: Annotation,
+    ) -> Result<AstRef<'c, Self>, ClarirsError> {
+        ast.context()
+            .make_string_annotated(ast.op().clone(), HashSet::from([annotation]))
+    }
+}
 
 pub trait SupportsEq<'c>: Op<'c> + Sized {
     fn eq_(

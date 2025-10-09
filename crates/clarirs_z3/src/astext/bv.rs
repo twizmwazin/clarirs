@@ -89,14 +89,13 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, Clarir
                 let else_ = child!(children, 2);
                 z3::mk_ite(z3_ctx, cond.0, then.0, else_.0).into()
             }
-            BitVecOp::Annotated(..) => child!(children, 0).clone(),
             BitVecOp::FpToIEEEBV(..) => todo!("FpToIEEEBV"),
             BitVecOp::FpToUBV(..) => todo!("FpToUBV"),
             BitVecOp::FpToSBV(..) => todo!("FpToSBV"),
             BitVecOp::StrLen(..) => todo!("StrLen"),
             BitVecOp::StrIndexOf(..) => todo!("StrIndexOf"),
             BitVecOp::StrToBV(..) => todo!("StrToBV"),
-            BitVecOp::SI(..) | BitVecOp::Union(..) | BitVecOp::Intersection(..) => {
+            BitVecOp::Union(..) | BitVecOp::Intersection(..) => {
                 // These are not supported in Z3
                 return Err(ClarirsError::ConversionError(
                     "vsa types are not currently supported in the z3 backend".to_string(),

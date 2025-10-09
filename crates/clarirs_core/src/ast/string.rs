@@ -14,7 +14,6 @@ pub enum StringOp<'c> {
     StrReplace(StringAst<'c>, StringAst<'c>, StringAst<'c>),
     BVToStr(BitVecAst<'c>),
     If(AstRef<'c, BooleanOp<'c>>, StringAst<'c>, StringAst<'c>),
-    Annotated(StringAst<'c>, Annotation),
 }
 
 pub type StringAst<'c> = AstRef<'c, StringOp<'c>>;
@@ -58,10 +57,6 @@ impl std::hash::Hash for StringOp<'_> {
                 b.hash(state);
                 c.hash(state);
             }
-            StringOp::Annotated(a, _) => {
-                7.hash(state);
-                a.hash(state);
-            }
         }
     }
 }
@@ -72,7 +67,6 @@ impl<'c> Op<'c> for StringOp<'c> {
             StringOp::StringS(..) | StringOp::StringV(..) => vec![],
 
             StringOp::BVToStr(a) => vec![a.into()],
-            StringOp::Annotated(a, _) => vec![a.into()],
 
             StringOp::StrConcat(a, b) => vec![a.into(), b.into()],
 
@@ -93,18 +87,6 @@ impl<'c> Op<'c> for StringOp<'c> {
             self.child_iter()
                 .map(|x| x.variables())
                 .fold(HashSet::new(), |acc, x| acc.union(&x).cloned().collect())
-        }
-    }
-
-    fn get_annotations(&self) -> Vec<Annotation> {
-        if let StringOp::Annotated(inner, anno) = self {
-            inner
-                .get_annotations()
-                .into_iter()
-                .chain(vec![anno.clone()])
-                .collect()
-        } else {
-            vec![]
         }
     }
 

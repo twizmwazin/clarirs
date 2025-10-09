@@ -40,7 +40,6 @@ impl ToOpString for BoolAst<'static> {
             BooleanOp::StrEq(..) => "__eq__".to_string(),
             BooleanOp::StrNeq(..) => "__ne__".to_string(),
             BooleanOp::If(..) => "If".to_string(),
-            BooleanOp::Annotated(child, _) => child.to_opstring(),
         }
     }
 }
@@ -79,8 +78,6 @@ impl ToOpString for BitVecAst<'static> {
             BitVecOp::StrIndexOf(..) => "StrIndexOf".to_string(),
             BitVecOp::StrToBV(..) => "StrToBV".to_string(),
             BitVecOp::If(..) => "If".to_string(),
-            BitVecOp::Annotated(child, _) => child.to_opstring(),
-            BitVecOp::SI(..) => "SI".to_string(),
             BitVecOp::Union(..) => "Union".to_string(),
             BitVecOp::Intersection(..) => "Intersection".to_string(),
         }
@@ -104,7 +101,6 @@ impl ToOpString for FloatAst<'static> {
             FloatOp::BvToFpSigned(..) => "fpToFPSigned".to_string(),
             FloatOp::BvToFpUnsigned(..) => "fpToFPUnsigned".to_string(),
             FloatOp::If(..) => "If".to_string(),
-            FloatOp::Annotated(child, _) => child.to_opstring(),
         }
     }
 }
@@ -119,7 +115,6 @@ impl ToOpString for StringAst<'static> {
             StringOp::StrReplace(..) => "StrReplace".to_string(),
             StringOp::BVToStr(..) => "IntToStr".to_string(),
             StringOp::If(..) => "If".to_string(),
-            StringOp::Annotated(child, _) => child.to_opstring(),
         }
     }
 }

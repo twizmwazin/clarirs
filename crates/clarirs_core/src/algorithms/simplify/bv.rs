@@ -16,7 +16,7 @@ pub(crate) fn simplify_bv<'c>(
     let ctx = ast.context();
 
     match &ast.op() {
-        BitVecOp::BVS(..) | BitVecOp::BVV(..) | BitVecOp::SI(..) => Ok(ast.clone()),
+        BitVecOp::BVS(..) | BitVecOp::BVV(..) => Ok(ast.clone()),
         BitVecOp::Not(..) => {
             let arc = extract_bitvec_child(children, 0)?;
             match arc.op() {
@@ -544,16 +544,6 @@ pub(crate) fn simplify_bv<'c>(
                 // If the condition has a Not at the top level, invert the branches
                 BooleanOp::Not(inner) => ctx.if_(inner, &else_, &then_),
                 _ => ctx.if_(&if_, &then_, &else_),
-            }
-        }
-        BitVecOp::Annotated(_, annotation) => {
-            let arc = extract_bitvec_child(children, 0)?;
-            if annotation.eliminatable() {
-                Ok(arc)
-            } else if annotation.relocatable() {
-                ctx.annotated(&arc, annotation.clone())
-            } else {
-                Ok(ast.clone())
             }
         }
         BitVecOp::Union(..) => {

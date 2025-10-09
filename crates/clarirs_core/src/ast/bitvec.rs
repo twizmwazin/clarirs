@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 use std::vec::IntoIter;
 
-use num_bigint::BigUint;
 use serde::Serialize;
 
 use crate::prelude::*;
@@ -41,10 +40,8 @@ pub enum BitVecOp<'c> {
     StrIndexOf(StringAst<'c>, StringAst<'c>, BitVecAst<'c>),
     StrToBV(StringAst<'c>),
     If(AstRef<'c, BooleanOp<'c>>, BitVecAst<'c>, BitVecAst<'c>),
-    Annotated(BitVecAst<'c>, Annotation),
 
     // VSA Ops
-    SI(u32, BigUint, BigUint, BigUint),
     Union(BitVecAst<'c>, BitVecAst<'c>),
     Intersection(BitVecAst<'c>, BitVecAst<'c>),
 }
@@ -208,18 +205,6 @@ impl std::hash::Hash for BitVecOp<'_> {
                 b.hash(state);
                 c.hash(state);
             }
-            BitVecOp::Annotated(a, anno) => {
-                32.hash(state);
-                a.hash(state);
-                anno.hash(state);
-            }
-            BitVecOp::SI(size, stride, lb, ub) => {
-                33.hash(state);
-                size.hash(state);
-                stride.hash(state);
-                lb.hash(state);
-                ub.hash(state);
-            }
             BitVecOp::Union(a, b) => {
                 34.hash(state);
                 a.hash(state);
@@ -237,14 +222,13 @@ impl std::hash::Hash for BitVecOp<'_> {
 impl<'c> Op<'c> for BitVecOp<'c> {
     fn child_iter(&self) -> IntoIter<DynAst<'c>> {
         match self {
-            BitVecOp::BVS(..) | BitVecOp::BVV(..) | BitVecOp::SI(..) => vec![],
+            BitVecOp::BVS(..) | BitVecOp::BVV(..) => vec![],
             BitVecOp::Not(a)
             | BitVecOp::Neg(a)
             | BitVecOp::Reverse(a)
             | BitVecOp::ZeroExt(a, _)
             | BitVecOp::SignExt(a, _)
-            | BitVecOp::Extract(a, _, _)
-            | BitVecOp::Annotated(a, _) => vec![a.into()],
+            | BitVecOp::Extract(a, _, _) => vec![a.into()],
             BitVecOp::StrLen(a) | BitVecOp::StrToBV(a) => vec![a.into()],
             BitVecOp::FpToIEEEBV(a) | BitVecOp::FpToUBV(a, _, _) | BitVecOp::FpToSBV(a, _, _) => {
                 vec![a.into()]
@@ -285,18 +269,6 @@ impl<'c> Op<'c> for BitVecOp<'c> {
         }
     }
 
-    fn get_annotations(&self) -> Vec<Annotation> {
-        if let BitVecOp::Annotated(inner, anno) = self {
-            inner
-                .get_annotations()
-                .into_iter()
-                .chain(vec![anno.clone()])
-                .collect()
-        } else {
-            vec![]
-        }
-    }
-
     fn check_same_sort(&self, other: &Self) -> bool {
         self.size() == other.size()
     }
@@ -314,13 +286,11 @@ pub trait BitVecAstExt<'c> {
 impl<'c> BitVecOpExt<'c> for BitVecOp<'c> {
     fn size(&self) -> u32 {
         match self {
-            BitVecOp::BVS(_, size) | BitVecOp::SI(size, ..) => *size,
+            BitVecOp::BVS(_, size) => *size,
             BitVecOp::BVV(bv) => bv.len(),
-            BitVecOp::Not(a)
-            | BitVecOp::Neg(a)
-            | BitVecOp::Reverse(a)
-            | BitVecOp::If(_, a, _)
-            | BitVecOp::Annotated(a, _) => a.size(),
+            BitVecOp::Not(a) | BitVecOp::Neg(a) | BitVecOp::Reverse(a) | BitVecOp::If(_, a, _) => {
+                a.size()
+            }
             BitVecOp::And(a, _)
             | BitVecOp::Or(a, _)
             | BitVecOp::Xor(a, _)

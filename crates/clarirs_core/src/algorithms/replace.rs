@@ -194,11 +194,6 @@ impl<'c> Replace<'c, BoolAst<'c>> for BoolAst<'c> {
                     self.context()
                         .make_bool(BooleanOp::If(a_replaced, b_replaced, c_replaced))
                 }
-                BooleanOp::Annotated(a, anno) => {
-                    let a_replaced = a.replace(from, to)?;
-                    self.context()
-                        .make_bool(BooleanOp::Annotated(a_replaced, anno.clone()))
-                }
             }
         }
     }
@@ -387,11 +382,6 @@ impl<'c> Replace<'c, BitVecAst<'c>> for BoolAst<'c> {
                 self.context()
                     .make_bool(BooleanOp::If(a_replaced, b_replaced, c_replaced))
             }
-            BooleanOp::Annotated(a, anno) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::Annotated(a_replaced, anno.clone()))
-            }
         }
     }
 }
@@ -578,11 +568,6 @@ impl<'c> Replace<'c, FloatAst<'c>> for BoolAst<'c> {
                 let c_replaced = c.replace(from, to)?;
                 self.context()
                     .make_bool(BooleanOp::If(a_replaced, b_replaced, c_replaced))
-            }
-            BooleanOp::Annotated(a, anno) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::Annotated(a_replaced, anno.clone()))
             }
         }
     }
@@ -771,11 +756,6 @@ impl<'c> Replace<'c, StringAst<'c>> for BoolAst<'c> {
                 self.context()
                     .make_bool(BooleanOp::If(a_replaced, b_replaced, c_replaced))
             }
-            BooleanOp::Annotated(a, anno) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::Annotated(a_replaced, anno.clone()))
-            }
         }
     }
 }
@@ -783,7 +763,7 @@ impl<'c> Replace<'c, StringAst<'c>> for BoolAst<'c> {
 impl<'c> Replace<'c, BoolAst<'c>> for BitVecAst<'c> {
     fn replace(&self, from: &BoolAst<'c>, to: &BoolAst<'c>) -> Result<Self, ClarirsError> {
         match self.op() {
-            BitVecOp::BVS(..) | BitVecOp::BVV(..) | BitVecOp::SI(..) => Ok(self.clone()),
+            BitVecOp::BVS(..) | BitVecOp::BVV(..) => Ok(self.clone()),
             BitVecOp::Not(a) => {
                 let a_replaced = a.replace(from, to)?;
                 self.context().make_bitvec(BitVecOp::Not(a_replaced))
@@ -943,11 +923,6 @@ impl<'c> Replace<'c, BoolAst<'c>> for BitVecAst<'c> {
                 self.context()
                     .make_bitvec(BitVecOp::If(a_replaced, b_replaced, c_replaced))
             }
-            BitVecOp::Annotated(a, anno) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Annotated(a_replaced, anno.clone()))
-            }
             BitVecOp::Union(a, b) => {
                 let a_replaced = a.replace(from, to)?;
                 let b_replaced = b.replace(from, to)?;
@@ -970,7 +945,7 @@ impl<'c> Replace<'c, BitVecAst<'c>> for BitVecAst<'c> {
             Ok(to.clone())
         } else {
             match self.op() {
-                BitVecOp::BVS(..) | BitVecOp::BVV(..) | BitVecOp::SI(..) => Ok(self.clone()),
+                BitVecOp::BVS(..) | BitVecOp::BVV(..) => Ok(self.clone()),
                 BitVecOp::Not(a) => {
                     let a_replaced = a.replace(from, to)?;
                     self.context().make_bitvec(BitVecOp::Not(a_replaced))
@@ -1130,11 +1105,6 @@ impl<'c> Replace<'c, BitVecAst<'c>> for BitVecAst<'c> {
                     self.context()
                         .make_bitvec(BitVecOp::If(a_replaced, b_replaced, c_replaced))
                 }
-                BitVecOp::Annotated(a, anno) => {
-                    let a_replaced = a.replace(from, to)?;
-                    self.context()
-                        .make_bitvec(BitVecOp::Annotated(a_replaced, anno.clone()))
-                }
                 BitVecOp::Union(a, b) => {
                     let a_replaced = a.replace(from, to)?;
                     let b_replaced = b.replace(from, to)?;
@@ -1155,7 +1125,7 @@ impl<'c> Replace<'c, BitVecAst<'c>> for BitVecAst<'c> {
 impl<'c> Replace<'c, FloatAst<'c>> for BitVecAst<'c> {
     fn replace(&self, from: &FloatAst<'c>, to: &FloatAst<'c>) -> Result<Self, ClarirsError> {
         match self.op() {
-            BitVecOp::BVS(..) | BitVecOp::BVV(..) | BitVecOp::SI(..) => Ok(self.clone()),
+            BitVecOp::BVS(..) | BitVecOp::BVV(..) => Ok(self.clone()),
             BitVecOp::Not(a) => {
                 let a_replaced = a.replace(from, to)?;
                 self.context().make_bitvec(BitVecOp::Not(a_replaced))
@@ -1314,11 +1284,6 @@ impl<'c> Replace<'c, FloatAst<'c>> for BitVecAst<'c> {
                 let c_replaced = c.replace(from, to)?;
                 self.context()
                     .make_bitvec(BitVecOp::If(a_replaced, b_replaced, c_replaced))
-            }
-            BitVecOp::Annotated(a, anno) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Annotated(a_replaced, anno.clone()))
             }
             BitVecOp::Union(a, b) => {
                 let a_replaced = a.replace(from, to)?;
@@ -1339,7 +1304,7 @@ impl<'c> Replace<'c, FloatAst<'c>> for BitVecAst<'c> {
 impl<'c> Replace<'c, StringAst<'c>> for BitVecAst<'c> {
     fn replace(&self, from: &StringAst<'c>, to: &StringAst<'c>) -> Result<Self, ClarirsError> {
         match self.op() {
-            BitVecOp::BVS(..) | BitVecOp::BVV(..) | BitVecOp::SI(..) => Ok(self.clone()),
+            BitVecOp::BVS(..) | BitVecOp::BVV(..) => Ok(self.clone()),
             BitVecOp::Not(a) => {
                 let a_replaced = a.replace(from, to)?;
                 self.context().make_bitvec(BitVecOp::Not(a_replaced))
@@ -1498,11 +1463,6 @@ impl<'c> Replace<'c, StringAst<'c>> for BitVecAst<'c> {
                 let c_replaced = c.replace(from, to)?;
                 self.context()
                     .make_bitvec(BitVecOp::If(a_replaced, b_replaced, c_replaced))
-            }
-            BitVecOp::Annotated(a, anno) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Annotated(a_replaced, anno.clone()))
             }
             BitVecOp::Union(a, b) => {
                 let a_replaced = a.replace(from, to)?;
@@ -1587,11 +1547,6 @@ impl<'c> Replace<'c, BoolAst<'c>> for FloatAst<'c> {
                 self.context()
                     .make_float(FloatOp::If(a_replaced, b_replaced, c_replaced))
             }
-            FloatOp::Annotated(a, anno) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::Annotated(a_replaced, anno.clone()))
-            }
         }
     }
 }
@@ -1662,11 +1617,6 @@ impl<'c> Replace<'c, BitVecAst<'c>> for FloatAst<'c> {
                 let c_replaced = c.replace(from, to)?;
                 self.context()
                     .make_float(FloatOp::If(a_replaced, b_replaced, c_replaced))
-            }
-            FloatOp::Annotated(a, anno) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::Annotated(a_replaced, anno.clone()))
             }
         }
     }
@@ -1742,11 +1692,6 @@ impl<'c> Replace<'c, FloatAst<'c>> for FloatAst<'c> {
                     self.context()
                         .make_float(FloatOp::If(a_replaced, b_replaced, c_replaced))
                 }
-                FloatOp::Annotated(a, anno) => {
-                    let a_replaced = a.replace(from, to)?;
-                    self.context()
-                        .make_float(FloatOp::Annotated(a_replaced, anno.clone()))
-                }
             }
         }
     }
@@ -1819,11 +1764,6 @@ impl<'c> Replace<'c, StringAst<'c>> for FloatAst<'c> {
                 self.context()
                     .make_float(FloatOp::If(a_replaced, b_replaced, c_replaced))
             }
-            FloatOp::Annotated(a, anno) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::Annotated(a_replaced, anno.clone()))
-            }
         }
     }
 }
@@ -1862,11 +1802,6 @@ impl<'c> Replace<'c, BoolAst<'c>> for StringAst<'c> {
                 let c_replaced = c.replace(from, to)?;
                 self.context()
                     .make_string(StringOp::If(a_replaced, b_replaced, c_replaced))
-            }
-            StringOp::Annotated(a, anno) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_string(StringOp::Annotated(a_replaced, anno.clone()))
             }
         }
     }
@@ -1907,11 +1842,6 @@ impl<'c> Replace<'c, BitVecAst<'c>> for StringAst<'c> {
                 self.context()
                     .make_string(StringOp::If(a_replaced, b_replaced, c_replaced))
             }
-            StringOp::Annotated(a, anno) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_string(StringOp::Annotated(a_replaced, anno.clone()))
-            }
         }
     }
 }
@@ -1950,11 +1880,6 @@ impl<'c> Replace<'c, FloatAst<'c>> for StringAst<'c> {
                 let c_replaced = c.replace(from, to)?;
                 self.context()
                     .make_string(StringOp::If(a_replaced, b_replaced, c_replaced))
-            }
-            StringOp::Annotated(a, anno) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_string(StringOp::Annotated(a_replaced, anno.clone()))
             }
         }
     }
@@ -1997,11 +1922,6 @@ impl<'c> Replace<'c, StringAst<'c>> for StringAst<'c> {
                     let c_replaced = c.replace(from, to)?;
                     self.context()
                         .make_string(StringOp::If(a_replaced, b_replaced, c_replaced))
-                }
-                StringOp::Annotated(a, anno) => {
-                    let a_replaced = a.replace(from, to)?;
-                    self.context()
-                        .make_string(StringOp::Annotated(a_replaced, anno.clone()))
                 }
             }
         }
