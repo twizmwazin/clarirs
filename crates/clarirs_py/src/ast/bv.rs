@@ -305,10 +305,33 @@ impl BV {
                 stop += size;
             }
 
+            // Validate extract bounds
+            if start < 0 || stop < 0 {
+                return Err(ClaripyError::InvalidOperation(
+                    "Extract high and low must be nonnegative".to_string(),
+                ));
+            }
+            if stop > start {
+                return Err(ClaripyError::InvalidOperation(
+                    "Extract low must be <= high".to_string(),
+                ));
+            }
+            if start >= size {
+                return Err(ClaripyError::InvalidOperation(
+                    "Extract bound must be less than BV size".to_string(),
+                ));
+            }
+
             Extract(self_.py(), start as u32, stop as u32, self_)?
                 .get()
                 .simplify(py)
         } else if let Ok(int_val) = range.extract::<u32>() {
+            let size = self_.get().size() as u32;
+            if int_val >= size {
+                return Err(ClaripyError::InvalidOperation(
+                    "Extract bound must be less than BV size".to_string(),
+                ));
+            }
             Extract(self_.py(), int_val, int_val, self_)
         } else {
             Err(ClaripyError::FailedToExtractArg(range.unbind()))
@@ -1244,6 +1267,20 @@ pub fn Extract<'py>(
     lower: u32,
     base: Bound<'py, BV>,
 ) -> Result<Bound<'py, BV>, ClaripyError> {
+    let size = base.get().size() as u32;
+
+    // Validate extract bounds
+    if lower > upper {
+        return Err(ClaripyError::InvalidOperation(
+            "Extract low must be <= high".to_string(),
+        ));
+    }
+    if upper >= size {
+        return Err(ClaripyError::InvalidOperation(format!(
+            "Extract bound ({upper}) must be less than BV size ({size})"
+        )));
+    }
+
     BV::new(
         py,
         &GLOBAL_CONTEXT.extract(&base.get().inner, upper, lower)?,
