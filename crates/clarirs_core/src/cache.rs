@@ -123,8 +123,7 @@ impl<'c> Cache<u64, DynAst<'c>> for AstCache<'c> {
                 } {
                     if existing_arc != arc {
                         panic!(
-                            "Hash collision detected! Hash: {}, Existing: {:?}, New: {:?}",
-                            hash, existing_arc, arc
+                            "Hash collision detected! Hash: {hash}, Existing: {existing_arc:?}, New: {arc:?}"
                         );
                     }
                 }
