@@ -167,11 +167,10 @@ mod tests {
 
         // Insert into cache
         let result1 = cache.get_or_insert(hash1, || Ok(DynAst::from(&ast1)))?;
-        
+
         // Verify we can retrieve it without recomputing
-        let result2 = cache.get_or_insert(hash1, || {
-            panic!("Should not compute new value when cached")
-        })?;
+        let result2 =
+            cache.get_or_insert(hash1, || panic!("Should not compute new value when cached"))?;
 
         assert_eq!(result1, result2);
         Ok(())
@@ -189,7 +188,7 @@ mod tests {
 
         // Insert into cache
         let result1 = cache.get_or_insert(hash1, || Ok(DynAst::from(&ast1)))?;
-        
+
         // In collision mode, it will always recompute, so provide a valid computation
         let ast2 = ctx.bvv_prim_with_size(42u64, 64)?;
         let result2 = cache.get_or_insert(hash1, || Ok(DynAst::from(&ast2)))?;
@@ -236,7 +235,10 @@ mod tests {
             Ok(DynAst::from(&ast2))
         })?;
 
-        assert!(computed, "Should have computed new value after weak ref expired");
+        assert!(
+            computed,
+            "Should have computed new value after weak ref expired"
+        );
         Ok(())
     }
 
@@ -251,11 +253,15 @@ mod tests {
 
         // Insert first value
         let ast1 = ctx.bvv_prim_with_size(42u64, 64).unwrap();
-        let _ = cache.get_or_insert(hash, || Ok(DynAst::from(&ast1))).unwrap();
+        let _ = cache
+            .get_or_insert(hash, || Ok(DynAst::from(&ast1)))
+            .unwrap();
 
         // Try to insert different value with same hash - should panic
         let ast2 = ctx.bvv_prim_with_size(99u64, 64).unwrap();
-        let _ = cache.get_or_insert(hash, || Ok(DynAst::from(&ast2))).unwrap();
+        let _ = cache
+            .get_or_insert(hash, || Ok(DynAst::from(&ast2)))
+            .unwrap();
     }
 
     #[test]
@@ -286,27 +292,34 @@ mod tests {
 
         // Insert first value
         let ast1 = ctx.bvv_prim_with_size(42u64, 64).unwrap();
-        let _ = cache.get_or_insert(hash, || Ok(DynAst::from(&ast1))).unwrap();
+        let _ = cache
+            .get_or_insert(hash, || Ok(DynAst::from(&ast1)))
+            .unwrap();
 
         // This should always compute, even though the value is in cache
         let mut computed = false;
         let ast2 = ctx.bvv_prim_with_size(42u64, 64).unwrap();
-        let _ = cache.get_or_insert(hash, || {
-            computed = true;
-            Ok(DynAst::from(&ast2))
-        }).unwrap();
+        let _ = cache
+            .get_or_insert(hash, || {
+                computed = true;
+                Ok(DynAst::from(&ast2))
+            })
+            .unwrap();
 
-        assert!(computed, "Should always compute in collision detection mode");
+        assert!(
+            computed,
+            "Should always compute in collision detection mode"
+        );
     }
 
     #[test]
     fn test_generic_cache_basic() {
         let cache = GenericCache::<u64, String>::default();
-        
+
         let result1 = cache.get_or_insert(1, || Ok("hello".to_string())).unwrap();
-        let result2 = cache.get_or_insert(1, || {
-            panic!("Should not compute when cached")
-        }).unwrap();
+        let result2 = cache
+            .get_or_insert(1, || panic!("Should not compute when cached"))
+            .unwrap();
 
         assert_eq!(result1, result2);
     }
