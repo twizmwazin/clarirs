@@ -7,6 +7,7 @@ use crate::prelude::*;
 
 // This isn't actually exported in python, but it makes more sense to go here
 // than anywhere else
+#[derive(Debug)]
 pub struct PyAnnotationType(AnnotationType);
 
 impl PyAnnotationType {
@@ -44,7 +45,6 @@ impl<'py> FromPyObject<'py> for PyAnnotationType {
         let anno_type = anno_type.downcast::<PyType>()?;
         let anno_type_module_name = anno_type.getattr("__module__")?.extract::<String>()?;
         let anno_type_class_name = anno_type
-            .getattr("__class__")?
             .getattr("__name__")?
             .extract::<String>()?;
 
