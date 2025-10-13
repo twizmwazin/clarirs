@@ -80,7 +80,7 @@ impl BitVec {
     {
         let value_u64: u64 = value.into();
 
-        // Automatically truncate the value to fit within the given length
+        // Truncate the value to fit within the given length
         let truncated_value = if length < 64 {
             value_u64 & ((1u64 << length) - 1)
         } else {
@@ -93,7 +93,7 @@ impl BitVec {
     }
 
     pub fn from_biguint(value: &BigUint, length: u32) -> Result<BitVec, BitVecError> {
-        // Automatically truncate if value is too large
+        // Truncate value to fit within the specified length
         let truncated = if value.bits() as u32 > length {
             value % (BigUint::from(1u8) << length)
         } else {
@@ -119,7 +119,7 @@ impl BitVec {
     }
 
     pub fn from_bigint(value: &BigInt, length: u32) -> Result<BitVec, BitVecError> {
-        // Automatically truncate - use the same logic as from_bigint_trunc
+        // Truncate value to fit within the specified length
         let big_uint = if value.sign() == Sign::Minus {
             // For negative values, compute 2's complement: 2^length - (|value| % 2^length)
             let modulus = BigUint::from(1u8) << length;
@@ -130,7 +130,7 @@ impl BitVec {
                 &modulus - truncated_magnitude
             }
         } else {
-            // For positive values, use the magnitude directly and truncate
+            // For positive values, truncate the magnitude
             value.magnitude() % (BigUint::from(1u8) << length)
         };
         BitVec::from_biguint(&big_uint, length)
@@ -147,7 +147,7 @@ impl BitVec {
                 &modulus - truncated_magnitude
             }
         } else {
-            // For positive values, use the magnitude directly and truncate
+            // For positive values, truncate the magnitude
             value.magnitude() % (BigUint::from(1u8) << length)
         };
         BitVec::from_biguint(&big_uint, length).expect("BitVec truncation failed")
@@ -192,10 +192,8 @@ impl BitVec {
     }
 
     pub fn from_str(s: &str, length: u32) -> Result<BitVec, BitVecError> {
-        // Parse error should not be BitVectorTooShort - we can just use a conversion error instead
-        // or we could define a new error type, but for now let's just panic on parse error
         let value = BigUint::from_str_radix(s, 10)
-            .map_err(|_| BitVecError::InvalidChopSize { size: 0, bits: 0 })?; // Placeholder error
+            .map_err(|_| BitVecError::InvalidChopSize { size: 0, bits: 0 })?; // Placeholder error for parse failure
         BitVec::from_biguint(&value, length)
     }
 

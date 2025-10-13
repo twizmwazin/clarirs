@@ -137,12 +137,12 @@ mod tests {
         let bv = BitVec::from_biguint(&value, 64).unwrap();
         assert_eq!(bv.to_u64().unwrap(), 42);
 
-        // Test value too large for width (now automatically truncated)
+        // Test value truncation
         let value = BigUint::from(0xFFu64);
         let bv = BitVec::from_biguint(&value, 4).unwrap();
         assert_eq!(bv.to_u64().unwrap(), 0xF); // 0xFF truncated to 4 bits = 0xF
 
-        // Test truncation with from_biguint_trunc (same result now)
+        // Test explicit truncation function
         let value = BigUint::from(0xFFu64);
         let bv = BitVec::from_biguint_trunc(&value, 4);
         assert_eq!(bv.to_u64().unwrap() & 0xF, 0xF); // Only compare the lowest 4 bits
