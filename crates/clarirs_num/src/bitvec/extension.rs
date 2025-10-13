@@ -29,12 +29,18 @@ impl BitVec {
             // How many bits we can copy in this iteration
             let bits_this_round = std::cmp::min(
                 remaining_bits as usize, // How many bits we still need
-                64 - std::cmp::max(src_bit_idx, dst_bit_idx % 64), // Space left in current word
+                std::cmp::min(64 - src_bit_idx, 64 - (dst_bit_idx % 64)), // Space left in current word
             );
 
             // Extract bits from source word
-            let mask = ((1u64 << bits_this_round) - 1) << src_bit_idx;
-            let bits = (self.words[src_word_idx] & mask) >> src_bit_idx;
+            // Handle the case where bits_this_round == 64 to avoid undefined behavior
+            let bits = if bits_this_round == 64 && src_bit_idx == 0 {
+                // Extract the entire word
+                self.words[src_word_idx]
+            } else {
+                let mask = ((1u64 << bits_this_round) - 1) << src_bit_idx;
+                (self.words[src_word_idx] & mask) >> src_bit_idx
+            };
 
             // Insert bits into destination word
             let dst_word_idx = dst_bit_idx / 64;
