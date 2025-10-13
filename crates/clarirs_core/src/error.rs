@@ -13,11 +13,6 @@ pub enum ClarirsError {
     InvalidArguments,
     #[error("Invalid arguments: {0}")]
     InvalidArgumentsWithMessage(String),
-    #[error("BitVector too short: {length} bits is too short for value {value}")]
-    BitVectorTooShort {
-        value: num_bigint::BigUint,
-        length: u32,
-    },
     #[error("Division by zero error: attempted {dividend}/0")]
     DivisionByZero { dividend: num_bigint::BigUint },
     #[error("Invalid extract bounds: upper: {upper}, lower: {lower}, length: {length}")]
@@ -45,9 +40,6 @@ impl<T> From<PoisonError<T>> for ClarirsError {
 impl From<BitVecError> for ClarirsError {
     fn from(e: BitVecError) -> Self {
         match e {
-            BitVecError::BitVectorTooShort { value, length } => {
-                ClarirsError::BitVectorTooShort { value, length }
-            }
             BitVecError::BitVectorNotByteSized { length } => {
                 ClarirsError::BitVectorNotByteSized { length }
             }

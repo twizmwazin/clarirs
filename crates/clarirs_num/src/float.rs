@@ -683,12 +683,7 @@ impl Mul for Float {
         let implicit = one.clone() << mantissa_bits;
         if product >= (implicit.clone() << 1) {
             product >>= 1;
-            result_exp = result_exp
-                .checked_add(1)
-                .ok_or(BitVecError::BitVectorTooShort {
-                    value: product.clone(),
-                    length: exponent_bits,
-                })?;
+            result_exp = result_exp.checked_add(1).unwrap();
         }
 
         // Subtract implicit leading‑1 to form the stored mantissa
@@ -1003,10 +998,7 @@ mod tests {
             let middle = start.to_fsort(F32_SORT, FPRM::NearestTiesToEven)?;
             let end = middle.to_fsort(F64_SORT, FPRM::NearestTiesToEven)?;
 
-            let recomposed = end.to_f64().ok_or_else(|| BitVecError::BitVectorTooShort {
-                value: BigUint::from(0u32),
-                length: 0,
-            })?;
+            let recomposed = end.to_f64().expect("Failed to convert to f64");
 
             if value.is_nan() {
                 assert!(recomposed.is_nan());
@@ -1040,12 +1032,7 @@ mod tests {
         for &value in test_values {
             let float = Float::from(value);
             let converted = float.to_fsort(F64_SORT, FPRM::NearestTiesToEven)?;
-            let result = converted
-                .to_f64()
-                .ok_or_else(|| BitVecError::BitVectorTooShort {
-                    value: BigUint::from(0u32),
-                    length: 0,
-                })?;
+            let result = converted.to_f64().expect("Failed to convert to f64");
 
             if value.is_nan() {
                 assert!(result.is_nan());
@@ -1080,12 +1067,7 @@ mod tests {
         for &value in test_values {
             let float = Float::from(value);
             let converted = float.to_fsort(F32_SORT, FPRM::NearestTiesToEven)?;
-            let result = converted
-                .to_f32()
-                .ok_or_else(|| BitVecError::BitVectorTooShort {
-                    value: BigUint::from(0u32),
-                    length: 0,
-                })?;
+            let result = converted.to_f32().expect("Failed to convert to f32");
 
             if value.is_nan() {
                 assert!(result.is_nan());
