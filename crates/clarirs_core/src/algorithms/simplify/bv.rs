@@ -378,9 +378,7 @@ pub(crate) fn simplify_bv<'c>(
             );
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
-                    // Shift the first value to the left to make space, then OR with the second value
-                    let concatenated_value =
-                        ((value1.zero_extend(value2.len())? << value2.len())? | value2.clone())?;
+                    let concatenated_value = value1.concat(value2)?;
 
                     // Return a new BitVec with the concatenated result and new length
                     ctx.bvv(concatenated_value)
