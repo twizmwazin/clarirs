@@ -98,15 +98,15 @@ fn test_from_bigint() -> Result<(), BitVecError> {
     assert_eq!(bv.len(), 32);
     assert_eq!(bv.to_u64().unwrap(), 0xFFFFFFFF);
 
-    // Test error case: value too large for width
+    // Test truncation: value too large for width gets truncated
     let value = BigInt::from(256i32);
-    let result = BitVec::from_bigint(&value, 8);
-    assert!(result.is_err());
+    let result = BitVec::from_bigint(&value, 8)?;
+    assert_eq!(result.to_u64().unwrap(), 0); // 256 & 0xFF = 0
 
-    // Test error case: negative value too large for width
-    let value = BigInt::from(-129i32); // Requires 9 bits in 2's complement
-    let result = BitVec::from_bigint(&value, 8);
-    assert!(result.is_err());
+    // Test truncation: negative value too large for width gets truncated
+    let value = BigInt::from(-129i32); // Gets truncated to 8 bits
+    let result = BitVec::from_bigint(&value, 8)?;
+    assert_eq!(result.to_u64().unwrap(), 127); // -129 mod 256 = 127 in two's complement
 
     Ok(())
 }
@@ -284,13 +284,13 @@ fn test_valid_bv_from_length() {
 
 #[test]
 fn test_invalid_bv_from_length() {
-    // Value too large for the given size
-    let bv = BitVec::from_prim_with_size(5u8, 1);
-    assert!(bv.is_err());
+    // Value too large for the given size - now gets truncated
+    let bv = BitVec::from_prim_with_size(5u8, 1).unwrap();
+    assert_eq!(bv.to_u64().unwrap(), 1); // 5 & 1 = 1
 
-    // Maximum value (255) but only 4 bits allocated
-    let bv = BitVec::from_prim_with_size(255u8, 4);
-    assert!(bv.is_err());
+    // Maximum value (255) but only 4 bits allocated - now gets truncated
+    let bv = BitVec::from_prim_with_size(255u8, 4).unwrap();
+    assert_eq!(bv.to_u64().unwrap(), 15); // 255 & 0xF = 15
 }
 
 #[test]
