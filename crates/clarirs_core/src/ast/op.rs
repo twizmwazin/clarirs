@@ -7,7 +7,7 @@ use serde::Serialize;
 
 use crate::prelude::*;
 
-pub trait Op<'c>: Debug + Hash + Serialize {
+pub trait Op<'c>: Debug + Hash + Serialize + PartialEq {
     fn child_iter(&self) -> IntoIter<DynAst<'c>>;
 
     fn children(&self) -> Vec<DynAst<'c>> {

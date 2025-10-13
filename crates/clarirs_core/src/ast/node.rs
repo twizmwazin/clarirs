@@ -47,7 +47,7 @@ where
     O: Op<'c> + Serialize,
 {
     fn eq(&self, other: &Self) -> bool {
-        self.hash == other.hash
+        self.op == other.op && self.annotations == other.annotations
     }
 }
 
