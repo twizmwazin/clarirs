@@ -49,7 +49,11 @@ impl<'c> AstFactory<'c> for Context<'c> {
         );
 
         let mut hasher = AHasher::default();
+        0u32.hash(&mut hasher); // Domain separation for bools
         op.hash(&mut hasher);
+        for a in &annotations {
+            a.hash(&mut hasher);
+        }
         let hash = hasher.finish();
 
         Ok(self
@@ -79,7 +83,11 @@ impl<'c> AstFactory<'c> for Context<'c> {
         );
 
         let mut hasher = AHasher::default();
+        1u32.hash(&mut hasher); // Domain separation for bitvecs
         op.hash(&mut hasher);
+        for a in &annotations {
+            a.hash(&mut hasher);
+        }
         let hash = hasher.finish();
 
         Ok(self
@@ -109,7 +117,11 @@ impl<'c> AstFactory<'c> for Context<'c> {
         );
 
         let mut hasher = AHasher::default();
+        2u32.hash(&mut hasher); // Domain separation for floats
         op.hash(&mut hasher);
+        for a in &annotations {
+            a.hash(&mut hasher);
+        }
         let hash = hasher.finish();
 
         Ok(self
@@ -139,7 +151,11 @@ impl<'c> AstFactory<'c> for Context<'c> {
         );
 
         let mut hasher = AHasher::default();
+        3u32.hash(&mut hasher); // Domain separation for strings
         op.hash(&mut hasher);
+        for a in &annotations {
+            a.hash(&mut hasher);
+        }
         let hash = hasher.finish();
 
         Ok(self
