@@ -1,12 +1,19 @@
 use clarirs_core::prelude::*;
+use clarirs_core::solver_mixins::{ConcreteEarlyResolutionMixin, SimplificationMixin};
 use clarirs_vsa::VSASolver;
 use clarirs_z3::Z3Solver;
 
+// Type aliases for the wrapped solvers with mixins
+type WrappedConcreteSolver<'c> = ConcreteSolver<'c>;
+type WrappedZ3Solver<'c> = SimplificationMixin<'c, ConcreteEarlyResolutionMixin<'c, Z3Solver<'c>>>;
+type WrappedVSASolver<'c> =
+    SimplificationMixin<'c, ConcreteEarlyResolutionMixin<'c, VSASolver<'c>>>;
+
 #[derive(Clone, Debug)]
 pub(crate) enum DynSolver {
-    Concrete(ConcreteSolver<'static>),
-    Z3(Z3Solver<'static>),
-    Vsa(VSASolver<'static>),
+    Concrete(WrappedConcreteSolver<'static>),
+    Z3(WrappedZ3Solver<'static>),
+    Vsa(WrappedVSASolver<'static>),
 }
 
 impl HasContext<'static> for DynSolver {

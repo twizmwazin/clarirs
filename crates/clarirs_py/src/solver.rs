@@ -2,6 +2,7 @@ use std::collections::HashSet;
 
 use crate::{dynsolver::DynSolver, prelude::*};
 use clarirs_core::ast::bitvec::BitVecOpExt;
+use clarirs_core::solver_mixins::{ConcreteEarlyResolutionMixin, SimplificationMixin};
 use clarirs_vsa::VSASolver;
 use clarirs_z3::Z3Solver;
 use num_bigint::BigInt;
@@ -13,12 +14,19 @@ pub struct PySolver {
     inner: DynSolver,
 }
 
+// Helper function to wrap a solver with mixins
+fn wrap_solver<'c, S: Solver<'c>>(
+    solver: S,
+) -> SimplificationMixin<'c, ConcreteEarlyResolutionMixin<'c, S>> {
+    SimplificationMixin::new(ConcreteEarlyResolutionMixin::new(solver))
+}
+
 #[pymethods]
 impl PySolver {
     #[new]
     fn new() -> Result<PyClassInitializer<Self>, ClaripyError> {
         Ok(PyClassInitializer::from(PySolver {
-            inner: DynSolver::Z3(Z3Solver::new(&GLOBAL_CONTEXT)),
+            inner: DynSolver::Z3(wrap_solver(Z3Solver::new(&GLOBAL_CONTEXT))),
         }))
     }
 
@@ -28,8 +36,8 @@ impl PySolver {
                 DynSolver::Concrete(..) => {
                     DynSolver::Concrete(ConcreteSolver::new(&GLOBAL_CONTEXT))
                 }
-                DynSolver::Z3(..) => DynSolver::Z3(Z3Solver::new(&GLOBAL_CONTEXT)),
-                DynSolver::Vsa(..) => DynSolver::Vsa(VSASolver::new(&GLOBAL_CONTEXT)),
+                DynSolver::Z3(..) => DynSolver::Z3(wrap_solver(Z3Solver::new(&GLOBAL_CONTEXT))),
+                DynSolver::Vsa(..) => DynSolver::Vsa(wrap_solver(VSASolver::new(&GLOBAL_CONTEXT))),
             },
         })
     }
@@ -576,7 +584,7 @@ impl PyZ3Solver {
     #[new]
     fn new() -> Result<PyClassInitializer<Self>, ClaripyError> {
         Ok(PyClassInitializer::from(PySolver {
-            inner: DynSolver::Z3(Z3Solver::new(&GLOBAL_CONTEXT)),
+            inner: DynSolver::Z3(wrap_solver(Z3Solver::new(&GLOBAL_CONTEXT))),
         })
         .add_subclass(Self {}))
     }
@@ -590,7 +598,7 @@ impl PyVSASolver {
     #[new]
     fn new() -> Result<PyClassInitializer<Self>, ClaripyError> {
         Ok(PyClassInitializer::from(PySolver {
-            inner: DynSolver::Vsa(VSASolver::new(&GLOBAL_CONTEXT)),
+            inner: DynSolver::Vsa(wrap_solver(VSASolver::new(&GLOBAL_CONTEXT))),
         })
         .add_subclass(Self {}))
     }
