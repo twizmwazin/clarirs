@@ -5,6 +5,7 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
 use ast::args::ExtractPyArgs;
+use clarirs_core::algorithms::structurally_match;
 use dashmap::DashMap;
 use pyo3::exceptions::PyValueError;
 use pyo3::types::PyTuple;
@@ -261,6 +262,14 @@ impl Bool {
 
     pub fn __repr__(&self) -> String {
         self.inner.to_smtlib()
+    }
+
+    pub fn identical(&self, other: Bound<'_, Base>) -> Result<bool, ClaripyError> {
+        let other_dyn = Base::to_dynast(other)?;
+        Ok(structurally_match(
+            &DynAst::Boolean(self.inner.clone()),
+            &other_dyn,
+        )?)
     }
 
     #[getter]
