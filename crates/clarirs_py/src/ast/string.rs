@@ -234,20 +234,31 @@ impl PyAstString {
         Self::new(py, &inner)
     }
 
-    #[pyo3(signature = (*annotations))]
+    #[pyo3(signature = (*annotations, remove_annotations = None))]
     pub fn annotate<'py>(
         &self,
         py: Python<'py>,
         annotations: Vec<PyAnnotation>,
+        remove_annotations: Option<Vec<PyAnnotation>>,
     ) -> Result<Bound<'py, Self>, ClaripyError> {
-        Self::new(
-            py,
-            &annotations
-                .iter()
-                .try_fold(self.inner.clone(), |acc, annotation| {
-                    GLOBAL_CONTEXT.annotate(&acc, annotation.0.clone())
-                })?,
-        )
+        let new_annotations = self
+            .annotations()?
+            .iter()
+            .filter(|a| {
+                if let Some(remove_annotations) = &remove_annotations {
+                    !remove_annotations.iter().any(|ra| ra.0 == a.0)
+                } else {
+                    true
+                }
+            })
+            .map(|a| a.0.clone())
+            .chain(annotations.into_iter().map(|a| a.0))
+            .collect();
+        let inner = self
+            .inner
+            .context()
+            .make_string_annotated(self.inner.op().clone(), new_annotations)?;
+        Self::new(py, &inner)
     }
 
     pub fn insert_annotations<'py>(
