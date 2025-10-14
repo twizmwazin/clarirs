@@ -53,9 +53,20 @@ impl BitVec {
             (1u64 << bits_in_last_word) - 1
         };
 
-        if !words.is_empty() {
-            let last_idx = words.len() - 1;
-            words[last_idx] &= final_word_mask;
+        // Calculate the expected number of words based on length
+        let expected_words = length.div_ceil(64) as usize;
+
+        // Pad with zeros if we have fewer words than expected
+        while words.len() < expected_words {
+            words.push(0);
+        }
+
+        // Apply mask only to the actual final word (based on length, not words.len())
+        if expected_words > 0 {
+            let last_idx = expected_words - 1;
+            if last_idx < words.len() {
+                words[last_idx] &= final_word_mask;
+            }
         }
 
         Ok(Self {
@@ -110,7 +121,8 @@ impl BitVec {
         }
 
         // Convert the BigUint to a BitVec
-        BitVec::new(truncated.iter_u64_digits().collect(), length)
+        let digits: SmallVec<[u64; 1]> = truncated.iter_u64_digits().collect();
+        BitVec::new(digits, length)
     }
 
     pub fn from_biguint_trunc(value: &BigUint, length: u32) -> BitVec {
