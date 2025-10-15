@@ -648,7 +648,8 @@ pub fn reverse_ite_cases<'py>(
     py: Python<'py>,
     ast: Bound<'py, PyAny>,
 ) -> PyResult<Vec<(Bound<'py, PyAny>, Bound<'py, PyAny>)>> {
-    let mut queue: Vec<(Bound<'py, PyAny>, Bound<'py, PyAny>)> = vec![(true_op(py)?.into_any(), ast)];
+    let mut queue: Vec<(Bound<'py, PyAny>, Bound<'py, PyAny>)> =
+        vec![(true_op(py)?.into_any(), ast)];
     let mut results = Vec::new();
 
     while let Some((condition, current_ast)) = queue.pop() {
@@ -656,31 +657,33 @@ pub fn reverse_ite_cases<'py>(
         if let Ok(base) = current_ast.downcast::<Base>() {
             let op = base.getattr("op")?;
             let op_str: String = op.extract()?;
-            
+
             if op_str == "If" {
                 // Get the three arguments: condition, true_branch, false_branch
                 let args = base.getattr("args")?;
                 let args_vec: Vec<Bound<'py, PyAny>> = args.extract()?;
-                
+
                 if args_vec.len() == 3 {
                     let if_cond = args_vec[0].clone();
                     let true_branch = args_vec[1].clone();
                     let false_branch = args_vec[2].clone();
-                    
+
                     // Queue: And(condition, if_cond)
-                    let new_cond_true = and(py, vec![condition.clone(), if_cond.clone()])?.into_any();
+                    let new_cond_true =
+                        and(py, vec![condition.clone(), if_cond.clone()])?.into_any();
                     queue.push((new_cond_true, true_branch));
-                    
+
                     // Queue: And(condition, Not(if_cond))
                     let not_if_cond = not(py, if_cond.downcast::<Base>()?.clone())?;
-                    let new_cond_false = and(py, vec![condition.clone(), not_if_cond.into_any()])?.into_any();
+                    let new_cond_false =
+                        and(py, vec![condition.clone(), not_if_cond.into_any()])?.into_any();
                     queue.push((new_cond_false, false_branch));
-                    
+
                     continue;
                 }
             }
         }
-        
+
         // If not an If node, yield the condition and ast
         results.push((condition, current_ast));
     }
