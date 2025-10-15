@@ -15,7 +15,7 @@ static STRINGS_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static PY_STRING_CACHE: LazyLock<DashMap<u64, Py<PyWeakrefReference>>> =
     LazyLock::new(DashMap::new);
 
-#[pyclass(name="String", extends=Base, subclass, frozen, module="claripy.ast.string")]
+#[pyclass(name="String", extends=Base, subclass, frozen, module="claripy.ast.strings")]
 pub struct PyAstString {
     pub(crate) inner: StringAst<'static>,
 }
@@ -58,41 +58,50 @@ impl PyAstString {
 #[pymethods]
 impl PyAstString {
     #[new]
+    #[pyo3(signature = (op, args, annotations=None))]
     pub fn py_new<'py>(
         py: Python<'py>,
         op: &str,
         args: Vec<Py<PyAny>>,
+        annotations: Option<Vec<PyAnnotation>>,
     ) -> Result<Bound<'py, PyAstString>, ClaripyError> {
-        PyAstString::new(
-            py,
-            &match op {
-                "StringS" => GLOBAL_CONTEXT.strings(&args[0].extract::<String>(py)?)?,
-                "StringV" => GLOBAL_CONTEXT.stringv(&args[0].extract::<String>(py)?)?,
-                "StrConcat" => GLOBAL_CONTEXT.strconcat(
-                    &args[0].downcast_bound::<PyAstString>(py)?.get().inner,
-                    &args[1].downcast_bound::<PyAstString>(py)?.get().inner,
-                )?,
-                "StrSubstr" => GLOBAL_CONTEXT.strsubstr(
-                    &args[0].downcast_bound::<PyAstString>(py)?.get().inner,
-                    &args[1].downcast_bound::<BV>(py)?.get().inner,
-                    &args[2].downcast_bound::<BV>(py)?.get().inner,
-                )?,
-                "StrReplace" => GLOBAL_CONTEXT.strreplace(
-                    &args[0].downcast_bound::<PyAstString>(py)?.get().inner,
-                    &args[1].downcast_bound::<PyAstString>(py)?.get().inner,
-                    &args[2].downcast_bound::<PyAstString>(py)?.get().inner,
-                )?,
-                "IntToStr" => {
-                    GLOBAL_CONTEXT.bvtostr(&args[0].downcast_bound::<BV>(py)?.get().inner)?
-                }
-                "If" => GLOBAL_CONTEXT.if_(
-                    &args[0].downcast_bound::<Bool>(py)?.get().inner,
-                    &args[1].downcast_bound::<PyAstString>(py)?.get().inner,
-                    &args[2].downcast_bound::<PyAstString>(py)?.get().inner,
-                )?,
-                _ => return Err(ClaripyError::InvalidOperation(op.to_string())),
-            },
-        )
+        let inner = match op {
+            "StringS" => GLOBAL_CONTEXT.strings(&args[0].extract::<String>(py)?)?,
+            "StringV" => GLOBAL_CONTEXT.stringv(&args[0].extract::<String>(py)?)?,
+            "StrConcat" => GLOBAL_CONTEXT.strconcat(
+                &args[0].downcast_bound::<PyAstString>(py)?.get().inner,
+                &args[1].downcast_bound::<PyAstString>(py)?.get().inner,
+            )?,
+            "StrSubstr" => GLOBAL_CONTEXT.strsubstr(
+                &args[0].downcast_bound::<PyAstString>(py)?.get().inner,
+                &args[1].downcast_bound::<BV>(py)?.get().inner,
+                &args[2].downcast_bound::<BV>(py)?.get().inner,
+            )?,
+            "StrReplace" => GLOBAL_CONTEXT.strreplace(
+                &args[0].downcast_bound::<PyAstString>(py)?.get().inner,
+                &args[1].downcast_bound::<PyAstString>(py)?.get().inner,
+                &args[2].downcast_bound::<PyAstString>(py)?.get().inner,
+            )?,
+            "IntToStr" => GLOBAL_CONTEXT.bvtostr(&args[0].downcast_bound::<BV>(py)?.get().inner)?,
+            "If" => GLOBAL_CONTEXT.if_(
+                &args[0].downcast_bound::<Bool>(py)?.get().inner,
+                &args[1].downcast_bound::<PyAstString>(py)?.get().inner,
+                &args[2].downcast_bound::<PyAstString>(py)?.get().inner,
+            )?,
+            _ => return Err(ClaripyError::InvalidOperation(op.to_string())),
+        };
+
+        let inner_with_annotations = if let Some(annots) = annotations {
+            let mut result = inner;
+            for annot in annots {
+                result = GLOBAL_CONTEXT.annotate(&result, annot.0)?;
+            }
+            result
+        } else {
+            inner
+        };
+
+        PyAstString::new(py, &inner_with_annotations)
     }
 
     #[getter]
@@ -353,6 +362,24 @@ impl PyAstString {
         other: Bound<'py, PyAstString>,
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(py, &GLOBAL_CONTEXT.strneq(&self.inner, &other.get().inner)?)
+    }
+
+    #[allow(clippy::type_complexity)]
+    pub fn __reduce__<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> Result<
+        (
+            Bound<'py, PyAny>,
+            (String, Vec<Bound<'py, PyAny>>, Vec<PyAnnotation>),
+        ),
+        ClaripyError,
+    > {
+        let class = py.get_type::<PyAstString>();
+        let op = self.op();
+        let args = self.args(py)?;
+        let annotations = self.annotations()?;
+        Ok((class.into_any(), (op, args, annotations)))
     }
 }
 

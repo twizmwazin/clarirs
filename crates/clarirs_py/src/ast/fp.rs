@@ -102,6 +102,12 @@ impl PyFSort {
             }
         }))
     }
+
+    pub fn __reduce__<'py>(&self, py: Python<'py>) -> PyResult<(Bound<'py, PyAny>, (u32,))> {
+        let class = py.get_type::<PyFSort>();
+        let from_size = class.getattr("from_size")?;
+        Ok((from_size.into_any(), (self.0.size(),)))
+    }
 }
 
 impl From<PyFSort> for FSort {
@@ -130,7 +136,7 @@ pub fn fsort_double() -> PyFSort {
     PyFSort(FSort::f64())
 }
 
-#[pyclass(extends=Bits, subclass, frozen, weakref, module="claripy.ast.bits")]
+#[pyclass(extends=Bits, subclass, frozen, weakref, module="claripy.ast.fp")]
 pub struct FP {
     pub(crate) inner: FloatAst<'static>,
 }
@@ -181,6 +187,107 @@ impl FP {
 
 #[pymethods]
 impl FP {
+    #[new]
+    #[pyo3(signature = (op, args, annotations=None))]
+    pub fn py_new<'py>(
+        py: Python<'py>,
+        op: &str,
+        args: Vec<Py<PyAny>>,
+        annotations: Option<Vec<PyAnnotation>>,
+    ) -> Result<Bound<'py, FP>, ClaripyError> {
+        let inner = match op {
+            "FPS" => {
+                let name = args[0].extract::<String>(py)?;
+                let sort: FSort = args[1].extract::<PyFSort>(py)?.into();
+                GLOBAL_CONTEXT.fps(&name, sort)?
+            }
+            "FPV" => {
+                let float_value = Float::from(args[0].extract::<f64>(py)?);
+                GLOBAL_CONTEXT.fpv(float_value)?
+            }
+            "fpNeg" => GLOBAL_CONTEXT.fp_neg(&args[0].downcast_bound::<FP>(py)?.get().inner)?,
+            "fpAbs" => GLOBAL_CONTEXT.fp_abs(&args[0].downcast_bound::<FP>(py)?.get().inner)?,
+            "fpAdd" => {
+                let rm: FPRM = args[2].extract::<PyRM>(py)?.into();
+                GLOBAL_CONTEXT.fp_add(
+                    &args[0].downcast_bound::<FP>(py)?.get().inner,
+                    &args[1].downcast_bound::<FP>(py)?.get().inner,
+                    rm,
+                )?
+            }
+            "fpSub" => {
+                let rm: FPRM = args[2].extract::<PyRM>(py)?.into();
+                GLOBAL_CONTEXT.fp_sub(
+                    &args[0].downcast_bound::<FP>(py)?.get().inner,
+                    &args[1].downcast_bound::<FP>(py)?.get().inner,
+                    rm,
+                )?
+            }
+            "fpMul" => {
+                let rm: FPRM = args[2].extract::<PyRM>(py)?.into();
+                GLOBAL_CONTEXT.fp_mul(
+                    &args[0].downcast_bound::<FP>(py)?.get().inner,
+                    &args[1].downcast_bound::<FP>(py)?.get().inner,
+                    rm,
+                )?
+            }
+            "fpDiv" => {
+                let rm: FPRM = args[2].extract::<PyRM>(py)?.into();
+                GLOBAL_CONTEXT.fp_div(
+                    &args[0].downcast_bound::<FP>(py)?.get().inner,
+                    &args[1].downcast_bound::<FP>(py)?.get().inner,
+                    rm,
+                )?
+            }
+            "fpSqrt" => {
+                let rm: FPRM = args[1].extract::<PyRM>(py)?.into();
+                GLOBAL_CONTEXT.fp_sqrt(&args[0].downcast_bound::<FP>(py)?.get().inner, rm)?
+            }
+            "fpToFP" => {
+                let sort: FSort = args[1].extract::<PyFSort>(py)?.into();
+                let rm: FPRM = args
+                    .get(2)
+                    .map(|rm| rm.extract::<PyRM>(py))
+                    .transpose()?
+                    .map(|rm| rm.into())
+                    .unwrap_or_default();
+                GLOBAL_CONTEXT.fp_to_fp(&args[0].downcast_bound::<FP>(py)?.get().inner, sort, rm)?
+            }
+            "fpToFPUnsigned" => {
+                let sort: FSort = args[1].extract::<PyFSort>(py)?.into();
+                let rm: FPRM = args
+                    .get(2)
+                    .map(|rm| rm.extract::<PyRM>(py))
+                    .transpose()?
+                    .map(|rm| rm.into())
+                    .unwrap_or_default();
+                GLOBAL_CONTEXT.bv_to_fp_unsigned(
+                    &args[0].downcast_bound::<BV>(py)?.get().inner,
+                    sort,
+                    rm,
+                )?
+            }
+            "If" => GLOBAL_CONTEXT.if_(
+                &args[0].downcast_bound::<Bool>(py)?.get().inner,
+                &args[1].downcast_bound::<FP>(py)?.get().inner,
+                &args[2].downcast_bound::<FP>(py)?.get().inner,
+            )?,
+            _ => return Err(ClaripyError::InvalidOperation(op.to_string())),
+        };
+
+        let inner_with_annotations = if let Some(annots) = annotations {
+            let mut result = inner;
+            for annot in annots {
+                result = GLOBAL_CONTEXT.annotate(&result, annot.0)?;
+            }
+            result
+        } else {
+            inner
+        };
+
+        FP::new(py, &inner_with_annotations)
+    }
+
     #[getter]
     pub fn op(&self) -> String {
         self.inner.to_opstring()
@@ -534,6 +641,24 @@ impl FP {
             py,
             &GLOBAL_CONTEXT.fp_div(&self.inner, &other.into(), PyRM::default())?,
         )
+    }
+
+    #[allow(clippy::type_complexity)]
+    pub fn __reduce__<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> Result<
+        (
+            Bound<'py, PyAny>,
+            (String, Vec<Bound<'py, PyAny>>, Vec<PyAnnotation>),
+        ),
+        ClaripyError,
+    > {
+        let class = py.get_type::<FP>();
+        let op = self.op();
+        let args = self.args(py)?;
+        let annotations = self.annotations()?;
+        Ok((class.into_any(), (op, args, annotations)))
     }
 }
 
