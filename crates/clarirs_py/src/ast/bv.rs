@@ -953,9 +953,13 @@ impl BV {
     pub fn concat<'py>(
         self_: Bound<'py, BV>,
         py: Python<'py>,
-        args: Vec<Bound<'py, BV>>,
+        args: Vec<CoerceBV<'py>>,
     ) -> Result<Bound<'py, BV>, ClaripyError> {
-        Concat(py, once(self_).chain(args.iter().cloned()).collect())
+        let extracted_args = args
+            .iter()
+            .map(|arg| arg.extract(py, self_.get().size() as u32, true))
+            .collect::<Result<Vec<_>, _>>()?;
+        Concat(py, once(self_).chain(extracted_args).collect())
     }
 
     pub fn zero_extend<'py>(
@@ -1410,7 +1414,7 @@ pub fn VS<'py>(
     region_base_addr: BigUint,
     value: CoerceBV,
 ) -> Result<Bound<'py, BV>, ClaripyError> {
-    let value = value.extract(py, bits)?;
+    let value = value.extract(py, bits, false)?;
     BV::new(
         py,
         &GLOBAL_CONTEXT.annotate(

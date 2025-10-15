@@ -40,10 +40,10 @@ pub enum CoerceBV<'py> {
 }
 
 impl<'py> CoerceBV<'py> {
-    pub fn extract(&self, py: Python<'py>, size: u32) -> Result<Bound<'py, BV>, ClaripyError> {
+    pub fn extract(&self, py: Python<'py>, size: u32, allow_mismatch: bool) -> Result<Bound<'py, BV>, ClaripyError> {
         match self {
             CoerceBV::BV(bv) => {
-                if bv.get().size() as u32 == size {
+                if bv.get().size() as u32 == size  || allow_mismatch {
                     Ok(bv.clone())
                 } else {
                     Err(ClaripyError::CastingError("BV size mismatch".to_string()))
@@ -57,7 +57,7 @@ impl<'py> CoerceBV<'py> {
     }
 
     pub fn extract_like(&self, py: Python<'py>, like: &BV) -> Result<Bound<'py, BV>, ClaripyError> {
-        self.extract(py, like.size() as u32)
+        self.extract(py, like.size() as u32, false)
     }
 
     pub fn extract_pair(
@@ -86,8 +86,8 @@ impl<'py> CoerceBV<'py> {
                 }
                 let size = size.next_power_of_two();
 
-                let lhs = lhs.extract(py, size)?;
-                let rhs = rhs.extract(py, size)?;
+                let lhs = lhs.extract(py, size, false)?;
+                let rhs = rhs.extract(py, size, false)?;
                 (lhs, rhs)
             }
         })
@@ -171,5 +171,43 @@ impl<'py> From<CoerceString<'py>> for Bound<'py, PyAstString> {
 impl<'py> From<CoerceString<'py>> for StringAst<'static> {
     fn from(val: CoerceString<'py>) -> Self {
         val.0.get().inner.clone()
+    }
+}
+
+pub struct CoerceBase<'py>(pub Bound<'py, Base>);
+
+impl<'py> FromPyObject<'py> for CoerceBase<'py> {
+    fn extract_bound(val: &Bound<'py, PyAny>) -> PyResult<Self> {
+        if let Ok(bool) = CoerceBool::extract_bound(val) {
+            Ok(CoerceBase(bool.0.downcast()?.clone()))
+        } else if let Ok(bv) = CoerceBV::extract_bound(val) {
+            match bv {
+                CoerceBV::BV(bv) => Ok(CoerceBase(bv.downcast()?.clone())),
+                CoerceBV::Int(int) => {
+                    // Just default to 64 bits for now
+                    let bv = BitVec::from_bigint_trunc(&int, 64);
+                    let bv = BV::new(
+                        val.py(),
+                        &GLOBAL_CONTEXT.bvv(bv).map_err(ClaripyError::from)?,
+                    )?;
+                    Ok(CoerceBase(bv.downcast()?.clone()))
+                }
+            }
+        } else if let Ok(fp) = CoerceFP::extract_bound(val) {
+            Ok(CoerceBase(fp.0.downcast()?.clone()))
+        } else if let Ok(string) = CoerceString::extract_bound(val) {
+            Ok(CoerceBase(string.0.downcast()?.clone()))
+        } else {
+            Err(
+                ClaripyError::InvalidArgumentType("Expected Bool, BV, FP, or String".to_string())
+                    .into(),
+            )
+        }
+    }
+}
+
+impl<'py> From<CoerceBase<'py>> for Bound<'py, Base> {
+    fn from(val: CoerceBase<'py>) -> Self {
+        val.0
     }
 }

@@ -93,13 +93,13 @@ fn py_excavate_ite<'py>(
 }
 
 #[pyfunction]
-fn is_true(expr: Bound<'_, Bool>) -> Result<bool, ClaripyError> {
-    Ok(expr.get().inner.simplify()?.is_true())
+fn is_true(expr: CoerceBool<'_>) -> Result<bool, ClaripyError> {
+    Ok(expr.0.get().inner.simplify()?.is_true())
 }
 
 #[pyfunction]
-fn is_false(expr: Bound<'_, Bool>) -> Result<bool, ClaripyError> {
-    Ok(expr.get().inner.simplify()?.is_false())
+fn is_false(expr: CoerceBool<'_>) -> Result<bool, ClaripyError> {
+    Ok(expr.0.get().inner.simplify()?.is_false())
 }
 
 #[pymodule]
