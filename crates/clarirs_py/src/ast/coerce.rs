@@ -40,10 +40,15 @@ pub enum CoerceBV<'py> {
 }
 
 impl<'py> CoerceBV<'py> {
-    pub fn extract(&self, py: Python<'py>, size: u32, allow_mismatch: bool) -> Result<Bound<'py, BV>, ClaripyError> {
+    pub fn extract(
+        &self,
+        py: Python<'py>,
+        size: u32,
+        allow_mismatch: bool,
+    ) -> Result<Bound<'py, BV>, ClaripyError> {
         match self {
             CoerceBV::BV(bv) => {
-                if bv.get().size() as u32 == size  || allow_mismatch {
+                if bv.get().size() as u32 == size || allow_mismatch {
                     Ok(bv.clone())
                 } else {
                     Err(ClaripyError::CastingError("BV size mismatch".to_string()))
