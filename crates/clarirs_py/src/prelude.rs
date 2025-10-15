@@ -7,7 +7,7 @@ pub use crate::ast::{
     bits::Bits,
     bool::Bool,
     bv::BV,
-    coerce::{CoerceBV, CoerceBool, CoerceFP, CoerceString},
+    coerce::{CoerceBV, CoerceBase, CoerceBool, CoerceFP, CoerceString},
     fp::FP,
     opstring::ToOpString,
     string::PyAstString,

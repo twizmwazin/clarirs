@@ -434,8 +434,8 @@ pub fn StrSubstr<'py>(
         py,
         &GLOBAL_CONTEXT.strsubstr(
             &base.get().inner,
-            &start.extract(py, 64)?.get().inner,
-            &size.extract(py, 64)?.get().inner,
+            &start.extract(py, 64, false)?.get().inner,
+            &size.extract(py, 64, false)?.get().inner,
         )?,
     )
 }
@@ -464,7 +464,7 @@ pub fn StrIndexOf<'py>(
         &GLOBAL_CONTEXT.strindexof(
             &haystack.get().inner,
             &needle.get().inner,
-            &start.extract(py, 64)?.get().inner,
+            &start.extract(py, 64, false)?.get().inner,
         )?,
     )
 }

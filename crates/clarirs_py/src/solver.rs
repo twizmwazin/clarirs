@@ -284,12 +284,13 @@ impl PySolver {
     #[pyo3(signature = (expr, value, extra_constraints = None, exact = None))]
     fn solution(
         &self,
-        expr: Bound<Base>,
+        expr: CoerceBase,
         value: Bound<PyAny>,
         extra_constraints: Option<Vec<Bound<Bool>>>,
         exact: Option<Bound<PyAny>>,
     ) -> Result<bool, ClaripyError> {
         _ = exact; // TODO: Implement approximate solutions
+        let expr = expr.0;
 
         // Fork the solver for extra constraints
         let mut solver = self.inner.clone();
@@ -630,13 +631,14 @@ impl PyVSASolver {
     #[pyo3(signature = (expr, value, extra_constraints = None, exact = None))]
     fn solution<'py>(
         slf: PyRefMut<'py, Self>,
-        expr: Bound<'py, Base>,
+        expr: CoerceBase<'py>,
         value: Bound<'py, PyAny>,
         extra_constraints: Option<Vec<Bound<'py, Bool>>>,
         exact: Option<Bound<'py, PyAny>>,
     ) -> PyResult<bool> {
         let _ = exact; // TODO: Implement approximate solutions
         let _ = extra_constraints; // VSA solver doesn't support constraints
+        let expr = expr.0;
 
         // Get the parent solver
         let py_solver: PyRefMut<'py, PySolver> = slf.into_super();
@@ -685,7 +687,8 @@ impl PyVSASolver {
             }
         } else {
             // For other types, fall back to the default implementation
-            let super_method = py_solver.solution(expr, value, extra_constraints, exact)?;
+            let super_method =
+                py_solver.solution(CoerceBase(expr), value, extra_constraints, exact)?;
             Ok(super_method)
         }
     }
