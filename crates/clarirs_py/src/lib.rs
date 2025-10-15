@@ -257,6 +257,7 @@ pub fn claripy(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(is_true, m)?)?;
     m.add_function(wrap_pyfunction!(is_false, m)?)?;
     m.add_function(wrap_pyfunction!(ast::bool::ite_cases, m)?)?;
+    m.add_function(wrap_pyfunction!(ast::bool::reverse_ite_cases, m)?)?;
     m.add_function(wrap_pyfunction!(ast::bool::ite_dict, m)?)?;
     m.add_class::<solver::PySolver>()?;
     m.add_class::<solver::PyConcreteSolver>()?;
