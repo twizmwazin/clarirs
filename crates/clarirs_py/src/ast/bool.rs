@@ -8,6 +8,7 @@ use ast::args::ExtractPyArgs;
 use clarirs_core::algorithms::structurally_match;
 use dashmap::DashMap;
 use pyo3::exceptions::PyValueError;
+use pyo3::types::PySequence;
 use pyo3::types::PyTuple;
 use pyo3::types::{PyDict, PyFrozenSet, PyWeakrefMethods, PyWeakrefReference};
 
@@ -616,15 +617,15 @@ pub fn ite_cases<'py>(
 
     // Process cases in reverse order
     for i in cases.iter().rev() {
-        let tuple = i.downcast::<PyTuple>()?;
-        if tuple.len() != 2 {
+        let tuple = i.downcast::<PySequence>()?;
+        if tuple.len()? != 2 {
             return Err(PyValueError::new_err(
                 "Each case must be a (condition, value) tuple",
             ));
         }
 
         let cond = tuple.get_item(0)?;
-        let cond_bool = cond.downcast::<Bool>()?.clone();
+        let cond_bool = cond.extract::<CoerceBool>()?.into();
         let value = tuple.get_item(1)?;
 
         // Create If expression: If(cond, value, sofar)
@@ -737,7 +738,7 @@ pub fn ite_dict<'py>(
 
     for (k, v) in d.iter() {
         let le = k.call_method1("__le__", (split_val.clone(),))?;
-        let is_le = le.downcast::<Bool>()?;
+        let is_le: Bound<'py, Bool> = le.extract::<CoerceBool>()?.into();
 
         if is_le.get().inner.is_true() {
             dict_low.set_item(k, v)?;

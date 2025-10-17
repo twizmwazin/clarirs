@@ -2044,7 +2044,7 @@ impl<'c> Replace<'c, DynAst<'c>> for StringAst<'c> {
 
 impl<'c> Replace<'c, DynAst<'c>> for DynAst<'c> {
     fn replace(&self, from: &DynAst<'c>, to: &DynAst<'c>) -> Result<Self, ClarirsError> {
-        if discriminant(self) != discriminant(from) {
+        if discriminant(from) != discriminant(to) {
             return Err(ClarirsError::TypeError(
                 "Cannot replace different types".to_string(),
             ));

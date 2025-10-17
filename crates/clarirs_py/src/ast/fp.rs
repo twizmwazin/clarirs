@@ -543,6 +543,10 @@ impl FP {
         )
     }
 
+    pub fn to_fp(self_: Bound<'_, FP>) -> Result<Bound<'_, FP>, ClaripyError> {
+        Ok(self_)
+    }
+
     pub fn __eq__<'py>(
         &self,
         py: Python<'py>,
@@ -659,6 +663,11 @@ impl FP {
         let args = self.args(py)?;
         let annotations = self.annotations()?;
         Ok((class.into_any(), (op, args, annotations)))
+    }
+
+    #[getter]
+    pub fn length(&self) -> usize {
+        self.size()
     }
 }
 
