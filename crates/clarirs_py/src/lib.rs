@@ -15,6 +15,7 @@ use clarirs_core::{
     algorithms::{ExcavateIte, Replace},
     ast::float::FloatOpExt,
 };
+use clarirs_vsa::StridedInterval;
 use prelude::*;
 
 fn import_submodule<'py>(
@@ -115,6 +116,33 @@ fn is_true(expr: CoerceBool<'_>) -> Result<bool, ClaripyError> {
 #[pyfunction]
 fn is_false(expr: CoerceBool<'_>) -> Result<bool, ClaripyError> {
     Ok(expr.0.get().inner.simplify()?.is_false())
+}
+
+// FIXME: we should come up with a better interface for this
+#[allow(clippy::type_complexity)]
+#[pyfunction]
+fn constraint_to_si(
+    expr: Bound<'_, Bool>,
+) -> Result<(bool, Vec<(Bound<'_, BV>, Bound<'_, BV>)>), ClaripyError> {
+    let (old, new_si) = clarirs_vsa::constraint_to_si::constraint_to_si(&expr.get().inner)?;
+
+    match new_si {
+        StridedInterval::Empty { .. } => Ok((false, vec![])),
+        StridedInterval::Normal {
+            bits,
+            stride,
+            lower_bound,
+            upper_bound,
+        } => {
+            let old_bv = BV::new(expr.py(), &old)?;
+            let new_bv = BV::new(
+                expr.py(),
+                &old.context().si(bits, stride, lower_bound, upper_bound)?,
+            )?;
+
+            Ok((true, vec![(old_bv, new_bv)]))
+        }
+    }
 }
 
 #[pymodule]
@@ -290,6 +318,8 @@ pub fn claripy(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
         pyo3::py_run!(py, fp, "import sys; sys.modules['clarirs.fp'] = fp");
         Ok(())
     })?;
+
+    m.add_function(wrap_pyfunction!(constraint_to_si, m)?)?;
 
     Ok(())
 }
