@@ -11,7 +11,10 @@ pub mod py_err;
 pub mod pyslicemethodsext;
 pub mod solver;
 
-use clarirs_core::algorithms::{ExcavateIte, Replace};
+use clarirs_core::{
+    algorithms::{ExcavateIte, Replace},
+    ast::float::FloatOpExt,
+};
 use prelude::*;
 
 fn import_submodule<'py>(
@@ -78,9 +81,21 @@ fn py_replace<'py>(
     old: Bound<'py, Base>,
     new: Bound<'py, Base>,
 ) -> Result<Bound<'py, Base>, ClaripyError> {
+    let old_dyn = Base::to_dynast(old.clone())?;
+    let new_dyn = Base::to_dynast(new.clone())?;
+
+    // Convert new type to old type, if they do not match and both are BV or FP
+    let new_coerced = match (&old_dyn, &new_dyn) {
+        (DynAst::BitVec(_), DynAst::Float(new_fp)) => new_fp.context().fp_to_ieeebv(new_fp)?.into(),
+        (DynAst::Float(old_fp), DynAst::BitVec(new_bv)) => {
+            new_bv.context().bv_to_fp(new_bv, old_fp.sort())?.into()
+        }
+        (_, new_dyn) => new_dyn.clone(),
+    };
+
     Base::from_dynast(
         expr.py(),
-        Base::to_dynast(expr)?.replace(&Base::to_dynast(old)?, &Base::to_dynast(new)?)?,
+        Base::to_dynast(expr)?.replace(&old_dyn, &new_coerced)?,
     )
 }
 

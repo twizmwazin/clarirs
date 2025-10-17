@@ -10,7 +10,7 @@ pub mod string;
 
 use std::sync::LazyLock;
 
-use crate::prelude::*;
+use crate::{ast::bool::true_op, prelude::*};
 
 use super::import_submodule;
 
@@ -77,10 +77,9 @@ pub fn and<'py>(
     py: Python<'py>,
     args: Vec<Bound<'py, PyAny>>,
 ) -> Result<Bound<'py, Base>, ClaripyError> {
-    let mut args = args.into_iter();
-    let first = args.next().ok_or(ClaripyError::MissingArgIndex(0))?;
     Ok(args
-        .try_fold(first, |acc, arg| {
+        .into_iter()
+        .try_fold(true_op(py)?.downcast::<PyAny>()?.clone(), |acc, arg| {
             and_inner(py, acc, arg).map(|b| b.into_any().clone())
         })?
         .downcast_into::<Base>()?)
@@ -91,10 +90,9 @@ pub fn or<'py>(
     py: Python<'py>,
     args: Vec<Bound<'py, PyAny>>,
 ) -> Result<Bound<'py, Base>, ClaripyError> {
-    let mut args = args.into_iter();
-    let first = args.next().ok_or(ClaripyError::MissingArgIndex(0))?;
     Ok(args
-        .try_fold(first, |acc, arg| {
+        .into_iter()
+        .try_fold(true_op(py)?.downcast::<PyAny>()?.clone(), |acc, arg| {
             or_inner(py, acc, arg).map(|b| b.into_any().clone())
         })?
         .downcast_into::<Base>()?)
