@@ -9,7 +9,10 @@ use dashmap::DashMap;
 use pyo3::types::{PyFrozenSet, PyWeakrefReference};
 
 use crate::prelude::*;
-use clarirs_core::{algorithms::structurally_match, smtlib::ToSmtLib};
+use clarirs_core::{
+    algorithms::{canonicalize, structurally_match},
+    smtlib::ToSmtLib,
+};
 
 static STRINGS_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static PY_STRING_CACHE: LazyLock<DashMap<u64, Py<PyWeakrefReference>>> =
@@ -158,6 +161,20 @@ impl PyAstString {
 
     pub fn __repr__(&self) -> String {
         self.inner.to_smtlib()
+    }
+
+    pub fn canonicalize<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> Result<Bound<'py, PyAstString>, ClaripyError> {
+        PyAstString::new(
+            py,
+            &canonicalize(&self.inner.clone().into())?
+                .into_string()
+                .ok_or(ClaripyError::InvalidOperation(
+                    "Canonicalization did not produce a Bool".to_string(),
+                ))?,
+        )
     }
 
     pub fn identical(&self, other: Bound<'_, Base>) -> Result<bool, ClaripyError> {
