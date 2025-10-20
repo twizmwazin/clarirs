@@ -1,8 +1,9 @@
 use crate::{prelude::*, py_err};
 use clarirs_num::bitvec::BitVecError;
 use pyo3::{
-    DowncastError, DowncastIntoError, Py, PyAny, PyErr,
+    CastError, CastIntoError, Py, PyAny, PyErr,
     exceptions::{PyValueError, PyZeroDivisionError},
+    pyclass::PyClassGuardError,
 };
 use thiserror::Error;
 
@@ -97,14 +98,20 @@ impl From<ClaripyError> for PyErr {
     }
 }
 
-impl From<DowncastError<'_, '_>> for ClaripyError {
-    fn from(e: DowncastError) -> Self {
+impl From<CastError<'_, '_>> for ClaripyError {
+    fn from(e: CastError) -> Self {
         ClaripyError::CastingError(format!("{e}"))
     }
 }
 
-impl From<DowncastIntoError<'_>> for ClaripyError {
-    fn from(e: DowncastIntoError) -> Self {
+impl From<CastIntoError<'_>> for ClaripyError {
+    fn from(e: CastIntoError) -> Self {
+        ClaripyError::CastingError(format!("{e}"))
+    }
+}
+
+impl<'py> From<PyClassGuardError<'_, 'py>> for ClaripyError {
+    fn from(e: PyClassGuardError) -> Self {
         ClaripyError::CastingError(format!("{e}"))
     }
 }

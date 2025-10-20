@@ -40,9 +40,11 @@ impl From<PyAnnotationType> for AnnotationType {
     }
 }
 
-impl<'py> FromPyObject<'py> for PyAnnotationType {
-    fn extract_bound(anno_type: &Bound<'py, PyAny>) -> PyResult<Self> {
-        let anno_type = anno_type.downcast::<PyType>()?;
+impl<'py> FromPyObject<'_, 'py> for PyAnnotationType {
+    type Error = PyErr;
+
+    fn extract(anno_type: Borrowed<'_, 'py, PyAny>) -> PyResult<Self> {
+        let anno_type = anno_type.cast::<PyType>()?;
         let anno_type_module_name = anno_type.getattr("__module__")?.extract::<String>()?;
         let anno_type_class_name = anno_type.getattr("__name__")?.extract::<String>()?;
 
@@ -95,8 +97,10 @@ impl From<PyAnnotation> for Annotation {
     }
 }
 
-impl FromPyObject<'_> for PyAnnotation {
-    fn extract_bound(annotation: &Bound<'_, PyAny>) -> PyResult<Self> {
+impl<'py> FromPyObject<'_, 'py> for PyAnnotation {
+    type Error = PyErr;
+
+    fn extract(annotation: Borrowed<'_, 'py, PyAny>) -> PyResult<Self> {
         let pickle_dumps = annotation.py().import("pickle")?.getattr("dumps")?;
         let anno_module_name = annotation.getattr("__module__")?.extract::<String>()?;
         let anno_class_name = annotation

@@ -79,108 +79,108 @@ impl BV {
             "BVV" => GLOBAL_CONTEXT
                 .bvv_from_biguint_with_size(&args[0].extract(py)?, args[1].extract(py)?)?,
             "__and__" => GLOBAL_CONTEXT.and(
-                &args[0].downcast_bound::<BV>(py)?.get().inner,
-                &args[1].downcast_bound::<BV>(py)?.get().inner,
+                &args[0].cast_bound::<BV>(py)?.get().inner,
+                &args[1].cast_bound::<BV>(py)?.get().inner,
             )?,
             "__or__" => GLOBAL_CONTEXT.or(
-                &args[0].downcast_bound::<BV>(py)?.get().inner,
-                &args[1].downcast_bound::<BV>(py)?.get().inner,
+                &args[0].cast_bound::<BV>(py)?.get().inner,
+                &args[1].cast_bound::<BV>(py)?.get().inner,
             )?,
             "__xor__" => GLOBAL_CONTEXT.xor(
-                &args[0].downcast_bound::<BV>(py)?.get().inner,
-                &args[1].downcast_bound::<BV>(py)?.get().inner,
+                &args[0].cast_bound::<BV>(py)?.get().inner,
+                &args[1].cast_bound::<BV>(py)?.get().inner,
             )?,
-            "__neg__" => GLOBAL_CONTEXT.neg(&args[0].downcast_bound::<BV>(py)?.get().inner)?,
+            "__neg__" => GLOBAL_CONTEXT.neg(&args[0].cast_bound::<BV>(py)?.get().inner)?,
             "__add__" => GLOBAL_CONTEXT.add(
-                &args[0].downcast_bound::<BV>(py)?.get().inner,
-                &args[1].downcast_bound::<BV>(py)?.get().inner,
+                &args[0].cast_bound::<BV>(py)?.get().inner,
+                &args[1].cast_bound::<BV>(py)?.get().inner,
             )?,
             "__sub__" => GLOBAL_CONTEXT.sub(
-                &args[0].downcast_bound::<BV>(py)?.get().inner,
-                &args[1].downcast_bound::<BV>(py)?.get().inner,
+                &args[0].cast_bound::<BV>(py)?.get().inner,
+                &args[1].cast_bound::<BV>(py)?.get().inner,
             )?,
             "__mul__" => GLOBAL_CONTEXT.mul(
-                &args[0].downcast_bound::<BV>(py)?.get().inner,
-                &args[1].downcast_bound::<BV>(py)?.get().inner,
+                &args[0].cast_bound::<BV>(py)?.get().inner,
+                &args[1].cast_bound::<BV>(py)?.get().inner,
             )?,
             "__floordiv__" => GLOBAL_CONTEXT.udiv(
-                &args[0].downcast_bound::<BV>(py)?.get().inner,
-                &args[1].downcast_bound::<BV>(py)?.get().inner,
+                &args[0].cast_bound::<BV>(py)?.get().inner,
+                &args[1].cast_bound::<BV>(py)?.get().inner,
             )?,
             "SDiv" => GLOBAL_CONTEXT.sdiv(
-                &args[0].downcast_bound::<BV>(py)?.get().inner,
-                &args[1].downcast_bound::<BV>(py)?.get().inner,
+                &args[0].cast_bound::<BV>(py)?.get().inner,
+                &args[1].cast_bound::<BV>(py)?.get().inner,
             )?,
             "__mod__" => GLOBAL_CONTEXT.urem(
-                &args[0].downcast_bound::<BV>(py)?.get().inner,
-                &args[1].downcast_bound::<BV>(py)?.get().inner,
+                &args[0].cast_bound::<BV>(py)?.get().inner,
+                &args[1].cast_bound::<BV>(py)?.get().inner,
             )?,
             "SMod" => GLOBAL_CONTEXT.srem(
-                &args[0].downcast_bound::<BV>(py)?.get().inner,
-                &args[1].downcast_bound::<BV>(py)?.get().inner,
+                &args[0].cast_bound::<BV>(py)?.get().inner,
+                &args[1].cast_bound::<BV>(py)?.get().inner,
             )?,
             "__lshift__" => GLOBAL_CONTEXT.shl(
-                &args[0].downcast_bound::<BV>(py)?.get().inner,
-                &args[1].downcast_bound::<BV>(py)?.get().inner,
+                &args[0].cast_bound::<BV>(py)?.get().inner,
+                &args[1].cast_bound::<BV>(py)?.get().inner,
             )?,
             "LShR" => GLOBAL_CONTEXT.lshr(
-                &args[0].downcast_bound::<BV>(py)?.get().inner,
-                &args[1].downcast_bound::<BV>(py)?.get().inner,
+                &args[0].cast_bound::<BV>(py)?.get().inner,
+                &args[1].cast_bound::<BV>(py)?.get().inner,
             )?,
             "__rshift__" => GLOBAL_CONTEXT.ashr(
-                &args[0].downcast_bound::<BV>(py)?.get().inner,
-                &args[1].downcast_bound::<BV>(py)?.get().inner,
+                &args[0].cast_bound::<BV>(py)?.get().inner,
+                &args[1].cast_bound::<BV>(py)?.get().inner,
             )?,
             "RotateLeft" => GLOBAL_CONTEXT.rotate_left(
-                &args[0].downcast_bound::<BV>(py)?.get().inner,
-                &args[1].downcast_bound::<BV>(py)?.get().inner,
+                &args[0].cast_bound::<BV>(py)?.get().inner,
+                &args[1].cast_bound::<BV>(py)?.get().inner,
             )?,
             "RotateRight" => GLOBAL_CONTEXT.rotate_right(
-                &args[0].downcast_bound::<BV>(py)?.get().inner,
-                &args[1].downcast_bound::<BV>(py)?.get().inner,
+                &args[0].cast_bound::<BV>(py)?.get().inner,
+                &args[1].cast_bound::<BV>(py)?.get().inner,
             )?,
             "ZeroExt" => GLOBAL_CONTEXT.zero_ext(
-                &args[0].downcast_bound::<BV>(py)?.get().inner,
+                &args[0].cast_bound::<BV>(py)?.get().inner,
                 args[1].extract(py)?,
             )?,
             "SignExt" => GLOBAL_CONTEXT.sign_ext(
-                &args[0].downcast_bound::<BV>(py)?.get().inner,
+                &args[0].cast_bound::<BV>(py)?.get().inner,
                 args[1].extract(py)?,
             )?,
             "Extract" => GLOBAL_CONTEXT.extract(
-                &args[2].downcast_bound::<BV>(py)?.get().inner,
+                &args[2].cast_bound::<BV>(py)?.get().inner,
                 args[0].extract(py)?,
                 args[1].extract(py)?,
             )?,
             "Concat" => GLOBAL_CONTEXT.concat(
-                &args[0].downcast_bound::<BV>(py)?.get().inner,
-                &args[1].downcast_bound::<BV>(py)?.get().inner,
+                &args[0].cast_bound::<BV>(py)?.get().inner,
+                &args[1].cast_bound::<BV>(py)?.get().inner,
             )?,
-            "Reverse" => GLOBAL_CONTEXT.reverse(&args[0].downcast_bound::<BV>(py)?.get().inner)?,
+            "Reverse" => GLOBAL_CONTEXT.reverse(&args[0].cast_bound::<BV>(py)?.get().inner)?,
             "fpToIEEEBV" => {
-                GLOBAL_CONTEXT.fp_to_ieeebv(&args[0].downcast_bound::<FP>(py)?.get().inner)?
+                GLOBAL_CONTEXT.fp_to_ieeebv(&args[0].cast_bound::<FP>(py)?.get().inner)?
             }
             // "fpToUBV" => GLOBAL_CONTEXT.fp_to_ubv(
-            //     &args[0].downcast_bound::<FP>(py)?.get().inner,
+            //     &args[0].cast_bound::<FP>(py)?.get().inner,
             // )?,
             // "fpToSBV" => GLOBAL_CONTEXT.fp_to_sbv(
-            //     &args[0].downcast_bound::<FP>(py)?.get().inner,
+            //     &args[0].cast_bound::<FP>(py)?.get().inner,
             // )?,
             "StrLen" => {
-                GLOBAL_CONTEXT.strlen(&args[0].downcast_bound::<PyAstString>(py)?.get().inner)?
+                GLOBAL_CONTEXT.strlen(&args[0].cast_bound::<PyAstString>(py)?.get().inner)?
             }
             "StrIndexOf" => GLOBAL_CONTEXT.strindexof(
-                &args[0].downcast_bound::<PyAstString>(py)?.get().inner,
-                &args[1].downcast_bound::<PyAstString>(py)?.get().inner,
-                &args[2].downcast_bound::<BV>(py)?.get().inner,
+                &args[0].cast_bound::<PyAstString>(py)?.get().inner,
+                &args[1].cast_bound::<PyAstString>(py)?.get().inner,
+                &args[2].cast_bound::<BV>(py)?.get().inner,
             )?,
             "StrToBV" => {
-                GLOBAL_CONTEXT.strtobv(&args[0].downcast_bound::<PyAstString>(py)?.get().inner)?
+                GLOBAL_CONTEXT.strtobv(&args[0].cast_bound::<PyAstString>(py)?.get().inner)?
             }
             "If" => GLOBAL_CONTEXT.if_(
-                &args[0].downcast_bound::<Bool>(py)?.get().inner,
-                &args[1].downcast_bound::<BV>(py)?.get().inner,
-                &args[2].downcast_bound::<BV>(py)?.get().inner,
+                &args[0].cast_bound::<Bool>(py)?.get().inner,
+                &args[1].cast_bound::<BV>(py)?.get().inner,
+                &args[2].cast_bound::<BV>(py)?.get().inner,
             )?,
             _ => return Err(ClaripyError::InvalidOperation(op.to_string())),
         };
@@ -300,7 +300,7 @@ impl BV {
         self_: Bound<'py, BV>,
         range: Bound<'py, PyAny>,
     ) -> Result<Bound<'py, BV>, ClaripyError> {
-        if let Ok(slice) = range.downcast::<PySlice>() {
+        if let Ok(slice) = range.cast::<PySlice>() {
             if slice.step()?.is_some() {
                 return Err(ClaripyError::InvalidOperation(
                     "slicing with step is not supported".to_string(),
@@ -536,7 +536,7 @@ impl BV {
     ) -> Result<Bound<'py, BV>, ClaripyError> {
         BV::new(
             py,
-            &GLOBAL_CONTEXT.add(&self.inner, &other.extract_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.add(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -555,7 +555,7 @@ impl BV {
     ) -> Result<Bound<'py, BV>, ClaripyError> {
         BV::new(
             py,
-            &GLOBAL_CONTEXT.sub(&self.inner, &other.extract_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.sub(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -574,7 +574,7 @@ impl BV {
     ) -> Result<Bound<'py, BV>, ClaripyError> {
         BV::new(
             py,
-            &GLOBAL_CONTEXT.mul(&self.inner, &other.extract_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.mul(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -593,7 +593,7 @@ impl BV {
     ) -> Result<Bound<'py, BV>, ClaripyError> {
         BV::new(
             py,
-            &GLOBAL_CONTEXT.udiv(&self.inner, &other.extract_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.udiv(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -612,7 +612,7 @@ impl BV {
     ) -> Result<Bound<'py, BV>, ClaripyError> {
         BV::new(
             py,
-            &GLOBAL_CONTEXT.udiv(&self.inner, &other.extract_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.udiv(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -631,7 +631,7 @@ impl BV {
     ) -> Result<Bound<'py, BV>, ClaripyError> {
         BV::new(
             py,
-            &GLOBAL_CONTEXT.urem(&self.inner, &other.extract_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.urem(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -650,7 +650,7 @@ impl BV {
     ) -> Result<Bound<'py, BV>, ClaripyError> {
         BV::new(
             py,
-            &GLOBAL_CONTEXT.sdiv(&self.inner, &other.extract_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.sdiv(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -661,7 +661,7 @@ impl BV {
     ) -> Result<Bound<'py, BV>, ClaripyError> {
         BV::new(
             py,
-            &GLOBAL_CONTEXT.srem(&self.inner, &other.extract_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.srem(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -672,7 +672,7 @@ impl BV {
     ) -> Result<Bound<'py, BV>, ClaripyError> {
         BV::new(
             py,
-            &GLOBAL_CONTEXT.and(&self.inner, &other.extract_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.and(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -691,7 +691,7 @@ impl BV {
     ) -> Result<Bound<'py, BV>, ClaripyError> {
         BV::new(
             py,
-            &GLOBAL_CONTEXT.or(&self.inner, &other.extract_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.or(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -710,7 +710,7 @@ impl BV {
     ) -> Result<Bound<'py, BV>, ClaripyError> {
         BV::new(
             py,
-            &GLOBAL_CONTEXT.xor(&self.inner, &other.extract_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.xor(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -729,7 +729,7 @@ impl BV {
     ) -> Result<Bound<'py, BV>, ClaripyError> {
         BV::new(
             py,
-            &GLOBAL_CONTEXT.shl(&self.inner, &other.extract_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.shl(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -748,7 +748,7 @@ impl BV {
     ) -> Result<Bound<'py, BV>, ClaripyError> {
         BV::new(
             py,
-            &GLOBAL_CONTEXT.ashr(&self.inner, &other.extract_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.ashr(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -767,7 +767,7 @@ impl BV {
     ) -> Result<Bound<'py, BV>, ClaripyError> {
         BV::new(
             py,
-            &GLOBAL_CONTEXT.lshr(&self.inner, &other.extract_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.lshr(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -790,7 +790,7 @@ impl BV {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.eq_(&self.inner, &other.extract_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.eq_(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -801,7 +801,7 @@ impl BV {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.neq(&self.inner, &other.extract_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.neq(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -812,7 +812,7 @@ impl BV {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.ult(&self.inner, &other.extract_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.ult(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -823,7 +823,7 @@ impl BV {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.ule(&self.inner, &other.extract_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.ule(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -834,7 +834,7 @@ impl BV {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.ugt(&self.inner, &other.extract_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.ugt(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -845,7 +845,7 @@ impl BV {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.uge(&self.inner, &other.extract_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.uge(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -856,7 +856,7 @@ impl BV {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.ult(&self.inner, &other.extract_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.ult(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -867,7 +867,7 @@ impl BV {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.ule(&self.inner, &other.extract_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.ule(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -878,7 +878,7 @@ impl BV {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.ugt(&self.inner, &other.extract_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.ugt(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -889,7 +889,7 @@ impl BV {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.uge(&self.inner, &other.extract_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.uge(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -900,7 +900,7 @@ impl BV {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.slt(&self.inner, &other.extract_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.slt(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -911,7 +911,7 @@ impl BV {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.sle(&self.inner, &other.extract_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.sle(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -922,7 +922,7 @@ impl BV {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.sgt(&self.inner, &other.extract_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.sgt(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -933,7 +933,7 @@ impl BV {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.sge(&self.inner, &other.extract_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.sge(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -957,7 +957,7 @@ impl BV {
     ) -> Result<Bound<'py, BV>, ClaripyError> {
         let extracted_args = args
             .iter()
-            .map(|arg| arg.extract(py, self_.get().size() as u32, true))
+            .map(|arg| arg.unpack(py, self_.get().size() as u32, true))
             .collect::<Result<Vec<_>, _>>()?;
         Concat(py, once(self_).chain(extracted_args).collect())
     }
@@ -1119,7 +1119,7 @@ impl BV {
     ) -> Result<Bound<'py, BV>, ClaripyError> {
         BV::new(
             py,
-            &GLOBAL_CONTEXT.union(&self.inner, &other.extract_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.union(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -1130,8 +1130,7 @@ impl BV {
     ) -> Result<Bound<'py, BV>, ClaripyError> {
         BV::new(
             py,
-            &GLOBAL_CONTEXT
-                .intersection(&self.inner, &other.extract_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.intersection(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -1278,7 +1277,7 @@ macro_rules! binop {
             lhs: CoerceBV<'py>,
             rhs: CoerceBV<'py>,
         ) -> Result<Bound<'py, $ret>, ClaripyError> {
-            let (elhs, erhs) = CoerceBV::extract_pair(py, &lhs, &rhs)?;
+            let (elhs, erhs) = CoerceBV::unpack_pair(py, &lhs, &rhs)?;
             <$ret>::new(
                 py,
                 &GLOBAL_CONTEXT.$context_method(&elhs.get().inner, &erhs.get().inner)?,
@@ -1414,7 +1413,7 @@ pub fn VS<'py>(
     region_base_addr: BigUint,
     value: CoerceBV,
 ) -> Result<Bound<'py, BV>, ClaripyError> {
-    let value = value.extract(py, bits, false)?;
+    let value = value.unpack(py, bits, false)?;
     BV::new(
         py,
         &GLOBAL_CONTEXT.annotate(
@@ -1437,7 +1436,7 @@ pub fn Union<'py>(
     lhs: CoerceBV,
     rhs: CoerceBV,
 ) -> Result<Bound<'py, BV>, ClaripyError> {
-    let (elhs, erhs) = CoerceBV::extract_pair(py, &lhs, &rhs)?;
+    let (elhs, erhs) = CoerceBV::unpack_pair(py, &lhs, &rhs)?;
     BV::new(
         py,
         &GLOBAL_CONTEXT.union(&elhs.get().inner, &erhs.get().inner)?,
@@ -1450,7 +1449,7 @@ pub fn Intersection<'py>(
     lhs: CoerceBV,
     rhs: CoerceBV,
 ) -> Result<Bound<'py, BV>, ClaripyError> {
-    let (elhs, erhs) = CoerceBV::extract_pair(py, &lhs, &rhs)?;
+    let (elhs, erhs) = CoerceBV::unpack_pair(py, &lhs, &rhs)?;
     BV::new(
         py,
         &GLOBAL_CONTEXT.intersection(&elhs.get().inner, &erhs.get().inner)?,

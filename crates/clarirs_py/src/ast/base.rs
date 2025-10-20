@@ -25,13 +25,13 @@ impl Base {
     }
 
     pub fn to_dynast(self_: Bound<'_, Base>) -> Result<DynAst<'static>, ClaripyError> {
-        if let Ok(bool) = self_.clone().into_any().downcast::<Bool>() {
+        if let Ok(bool) = self_.clone().into_any().cast::<Bool>() {
             Ok(DynAst::Boolean(bool.get().inner.clone()))
-        } else if let Ok(bv) = self_.clone().into_any().downcast::<BV>() {
+        } else if let Ok(bv) = self_.clone().into_any().cast::<BV>() {
             Ok(DynAst::BitVec(bv.get().inner.clone()))
-        } else if let Ok(fp) = self_.clone().into_any().downcast::<FP>() {
+        } else if let Ok(fp) = self_.clone().into_any().cast::<FP>() {
             Ok(DynAst::Float(fp.get().inner.clone()))
-        } else if let Ok(string) = self_.clone().into_any().downcast::<PyAstString>() {
+        } else if let Ok(string) = self_.clone().into_any().cast::<PyAstString>() {
             Ok(DynAst::String(string.get().inner.clone()))
         } else {
             Err(ClaripyError::TypeError(
@@ -46,16 +46,16 @@ impl Base {
     ) -> Result<Bound<'py, Base>, ClaripyError> {
         match dynast {
             DynAst::Boolean(ast) => {
-                Bool::new(py, &ast).map(|b| b.into_any().downcast_into::<Base>().unwrap())
+                Bool::new(py, &ast).map(|b| b.into_any().cast_into::<Base>().unwrap())
             }
             DynAst::BitVec(ast) => {
-                BV::new(py, &ast).map(|b| b.into_any().downcast_into::<Base>().unwrap())
+                BV::new(py, &ast).map(|b| b.into_any().cast_into::<Base>().unwrap())
             }
             DynAst::Float(ast) => {
-                FP::new(py, &ast).map(|b| b.into_any().downcast_into::<Base>().unwrap())
+                FP::new(py, &ast).map(|b| b.into_any().cast_into::<Base>().unwrap())
             }
             DynAst::String(ast) => {
-                PyAstString::new(py, &ast).map(|b| b.into_any().downcast_into::<Base>().unwrap())
+                PyAstString::new(py, &ast).map(|b| b.into_any().cast_into::<Base>().unwrap())
             }
         }
     }

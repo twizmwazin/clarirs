@@ -85,19 +85,19 @@ impl PySolver {
         exprs: Bound<'py, PyAny>,
     ) -> Result<Vec<Bound<'py, Bool>>, ClaripyError> {
         // Handle both tuple of expressions and single expression
-        let bool_exprs = if let Ok(tuple) = exprs.downcast::<PyTuple>() {
+        let bool_exprs = if let Ok(tuple) = exprs.cast::<PyTuple>() {
             // Convert tuple of expressions to Vec<Bound<Bool>>
             tuple
                 .iter()
                 .map(|expr| {
-                    expr.downcast_into::<Bool>().map_err(|_| {
+                    expr.cast_into::<Bool>().map_err(|_| {
                         ClaripyError::TypeError("add: expression must be a boolean".to_string())
                     })
                 })
                 .collect::<Result<Vec<_>, _>>()?
         } else {
             // Handle single expression case
-            vec![exprs.downcast_into::<Bool>().map_err(|_| {
+            vec![exprs.cast_into::<Bool>().map_err(|_| {
                 ClaripyError::TypeError("add: expression must be a boolean".to_string())
             })?]
         };
@@ -153,7 +153,7 @@ impl PySolver {
         }
 
         // Get multiple solutions based on expression type
-        if let Ok(bv_value) = expr.clone().into_any().downcast::<BV>() {
+        if let Ok(bv_value) = expr.clone().into_any().cast::<BV>() {
             // Use the new multi-solution trait method
             let solutions = solver.eval_bitvec_n(&bv_value.get().inner, n)?;
             let py_solutions = solutions
@@ -164,9 +164,9 @@ impl PySolver {
             // Convert to Base type
             Ok(py_solutions
                 .into_iter()
-                .map(|sol| sol.into_any().downcast::<Base>().unwrap().clone())
+                .map(|sol| sol.into_any().cast::<Base>().unwrap().clone())
                 .collect())
-        } else if let Ok(bool_value) = expr.clone().into_any().downcast::<Bool>() {
+        } else if let Ok(bool_value) = expr.clone().into_any().cast::<Bool>() {
             // Use the new multi-solution trait method
             let solutions = solver.eval_bool_n(&bool_value.get().inner, n)?;
             let py_solutions = solutions
@@ -177,9 +177,9 @@ impl PySolver {
             // Convert to Base type
             Ok(py_solutions
                 .into_iter()
-                .map(|sol| sol.into_any().downcast::<Base>().unwrap().clone())
+                .map(|sol| sol.into_any().cast::<Base>().unwrap().clone())
                 .collect())
-        } else if let Ok(fp_value) = expr.clone().into_any().downcast::<FP>() {
+        } else if let Ok(fp_value) = expr.clone().into_any().cast::<FP>() {
             // Use the new multi-solution trait method
             let solutions = solver.eval_float_n(&fp_value.get().inner, n)?;
             let py_solutions = solutions
@@ -190,9 +190,9 @@ impl PySolver {
             // Convert to Base type
             Ok(py_solutions
                 .into_iter()
-                .map(|sol| sol.into_any().downcast::<Base>().unwrap().clone())
+                .map(|sol| sol.into_any().cast::<Base>().unwrap().clone())
                 .collect())
-        } else if let Ok(string_value) = expr.clone().into_any().downcast::<PyAstString>() {
+        } else if let Ok(string_value) = expr.clone().into_any().cast::<PyAstString>() {
             // Use the new multi-solution trait method
             let solutions = solver.eval_string_n(&string_value.get().inner, n)?;
             let py_solutions = solutions
@@ -203,7 +203,7 @@ impl PySolver {
             // Convert to Base type
             Ok(py_solutions
                 .into_iter()
-                .map(|sol| sol.into_any().downcast::<Base>().unwrap().clone())
+                .map(|sol| sol.into_any().cast::<Base>().unwrap().clone())
                 .collect())
         } else {
             return Err(ClaripyError::TypeError("Unsupported type".to_string()));
@@ -223,26 +223,25 @@ impl PySolver {
             Ok(results) => results
                 .into_iter()
                 .filter_map(|r| {
-                    if let Ok(bv_value) = r.clone().into_any().downcast::<BV>() {
+                    if let Ok(bv_value) = r.clone().into_any().cast::<BV>() {
                         if let BitVecOp::BVV(bv) = bv_value.get().inner.op() {
                             Some(bv.to_biguint().into_bound_py_any(py))
                         } else {
                             None
                         }
-                    } else if let Ok(bool_value) = r.clone().into_any().downcast::<Bool>() {
+                    } else if let Ok(bool_value) = r.clone().into_any().cast::<Bool>() {
                         if let BooleanOp::BoolV(b) = bool_value.get().inner.op() {
                             Some(b.into_bound_py_any(py))
                         } else {
                             None
                         }
-                    } else if let Ok(fp_value) = r.clone().into_any().downcast::<FP>() {
+                    } else if let Ok(fp_value) = r.clone().into_any().cast::<FP>() {
                         if let FloatOp::FPV(fp) = fp_value.get().inner.op() {
                             fp.to_f64().map(|f| f.into_bound_py_any(py))
                         } else {
                             None
                         }
-                    } else if let Ok(string_value) = r.clone().into_any().downcast::<PyAstString>()
-                    {
+                    } else if let Ok(string_value) = r.clone().into_any().cast::<PyAstString>() {
                         if let StringOp::StringV(s) = string_value.get().inner.op() {
                             Some(s.into_bound_py_any(py))
                         } else {
@@ -301,7 +300,7 @@ impl PySolver {
         }
 
         // Add the solution as a constraint, and check if it is satisfiable
-        if let Ok(bool_ast) = expr.downcast::<Bool>() {
+        if let Ok(bool_ast) = expr.cast::<Bool>() {
             if let Ok(value) = value.extract::<CoerceBool>() {
                 Ok(solver.has_true(
                     &self
@@ -315,11 +314,11 @@ impl PySolver {
                     "can't coerce a {value_type} to a bool ast"
                 )))
             }
-        } else if let Ok(bv_ast) = expr.downcast::<BV>() {
+        } else if let Ok(bv_ast) = expr.cast::<BV>() {
             if let Ok(value) = value.extract::<CoerceBV>() {
                 Ok(solver.has_true(&self.inner.context().eq_(
                     &bv_ast.get().inner,
-                    &value.extract_like(bv_ast.py(), bv_ast.get())?.get().inner,
+                    &value.unpack_like(bv_ast.py(), bv_ast.get())?.get().inner,
                 )?)?)
             } else {
                 let value_type = value.get_type().name()?.extract::<String>()?;
@@ -327,7 +326,7 @@ impl PySolver {
                     "can't coerce a {value_type} to a bv ast"
                 )))
             }
-        } else if let Ok(fp_ast) = expr.downcast::<FP>() {
+        } else if let Ok(fp_ast) = expr.cast::<FP>() {
             if let Ok(value) = value.extract::<CoerceFP>() {
                 Ok(solver.has_true(
                     &self
@@ -341,7 +340,7 @@ impl PySolver {
                     "can't coerce a {value_type} to a float ast"
                 )))
             }
-        } else if let Ok(string_ast) = expr.downcast::<PyAstString>() {
+        } else if let Ok(string_ast) = expr.cast::<PyAstString>() {
             if let Ok(value) = value.extract::<CoerceString>() {
                 Ok(solver.has_true(
                     &self
@@ -387,12 +386,12 @@ impl PySolver {
         }
 
         // Handle different expression types
-        if let Ok(bool_expr) = expr.downcast::<Bool>() {
+        if let Ok(bool_expr) = expr.cast::<Bool>() {
             match bool_expr.get().inner.op() {
                 BooleanOp::BoolV(b) => Ok(*b),
                 _ => Ok(solver.is_true(&bool_expr.get().inner)?),
             }
-        } else if let Ok(bv_expr) = expr.downcast::<BV>() {
+        } else if let Ok(bv_expr) = expr.cast::<BV>() {
             // For bitvectors, check if it's concrete and non-zero
             if let BitVecOp::BVV(bv) = bv_expr.get().inner.op() {
                 Ok(!bv.is_zero())
@@ -437,9 +436,9 @@ impl PySolver {
         }
 
         // Handle different expression types
-        if let Ok(bool_expr) = expr.downcast::<Bool>() {
+        if let Ok(bool_expr) = expr.cast::<Bool>() {
             Ok(solver.is_false(&bool_expr.get().inner)?)
-        } else if let Ok(bv_expr) = expr.downcast::<BV>() {
+        } else if let Ok(bv_expr) = expr.cast::<BV>() {
             // For bitvectors, check if it's concrete and zero
             if let BitVecOp::BVV(bv) = bv_expr.get().inner.op() {
                 Ok(bv.is_zero())
@@ -644,10 +643,10 @@ impl PyVSASolver {
         let py_solver: PyRefMut<'py, PySolver> = slf.into_super();
 
         // Handle different expression types
-        if let Ok(bv_ast) = expr.downcast::<BV>() {
+        if let Ok(bv_ast) = expr.cast::<BV>() {
             if let Ok(value) = value.extract::<CoerceBV>() {
                 // Extract the value as a BigUint
-                let value_bv = value.extract_like(bv_ast.py(), bv_ast.get())?;
+                let value_bv = value.unpack_like(bv_ast.py(), bv_ast.get())?;
 
                 // Clone the solver to get a mutable version
                 let mut solver = match &py_solver.inner {

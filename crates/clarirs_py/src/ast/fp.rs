@@ -205,43 +205,43 @@ impl FP {
                 let float_value = Float::from(args[0].extract::<f64>(py)?);
                 GLOBAL_CONTEXT.fpv(float_value)?
             }
-            "fpNeg" => GLOBAL_CONTEXT.fp_neg(&args[0].downcast_bound::<FP>(py)?.get().inner)?,
-            "fpAbs" => GLOBAL_CONTEXT.fp_abs(&args[0].downcast_bound::<FP>(py)?.get().inner)?,
+            "fpNeg" => GLOBAL_CONTEXT.fp_neg(&args[0].cast_bound::<FP>(py)?.get().inner)?,
+            "fpAbs" => GLOBAL_CONTEXT.fp_abs(&args[0].cast_bound::<FP>(py)?.get().inner)?,
             "fpAdd" => {
                 let rm: FPRM = args[2].extract::<PyRM>(py)?.into();
                 GLOBAL_CONTEXT.fp_add(
-                    &args[0].downcast_bound::<FP>(py)?.get().inner,
-                    &args[1].downcast_bound::<FP>(py)?.get().inner,
+                    &args[0].cast_bound::<FP>(py)?.get().inner,
+                    &args[1].cast_bound::<FP>(py)?.get().inner,
                     rm,
                 )?
             }
             "fpSub" => {
                 let rm: FPRM = args[2].extract::<PyRM>(py)?.into();
                 GLOBAL_CONTEXT.fp_sub(
-                    &args[0].downcast_bound::<FP>(py)?.get().inner,
-                    &args[1].downcast_bound::<FP>(py)?.get().inner,
+                    &args[0].cast_bound::<FP>(py)?.get().inner,
+                    &args[1].cast_bound::<FP>(py)?.get().inner,
                     rm,
                 )?
             }
             "fpMul" => {
                 let rm: FPRM = args[2].extract::<PyRM>(py)?.into();
                 GLOBAL_CONTEXT.fp_mul(
-                    &args[0].downcast_bound::<FP>(py)?.get().inner,
-                    &args[1].downcast_bound::<FP>(py)?.get().inner,
+                    &args[0].cast_bound::<FP>(py)?.get().inner,
+                    &args[1].cast_bound::<FP>(py)?.get().inner,
                     rm,
                 )?
             }
             "fpDiv" => {
                 let rm: FPRM = args[2].extract::<PyRM>(py)?.into();
                 GLOBAL_CONTEXT.fp_div(
-                    &args[0].downcast_bound::<FP>(py)?.get().inner,
-                    &args[1].downcast_bound::<FP>(py)?.get().inner,
+                    &args[0].cast_bound::<FP>(py)?.get().inner,
+                    &args[1].cast_bound::<FP>(py)?.get().inner,
                     rm,
                 )?
             }
             "fpSqrt" => {
                 let rm: FPRM = args[1].extract::<PyRM>(py)?.into();
-                GLOBAL_CONTEXT.fp_sqrt(&args[0].downcast_bound::<FP>(py)?.get().inner, rm)?
+                GLOBAL_CONTEXT.fp_sqrt(&args[0].cast_bound::<FP>(py)?.get().inner, rm)?
             }
             "fpToFP" => {
                 let sort: FSort = args[1].extract::<PyFSort>(py)?.into();
@@ -251,7 +251,7 @@ impl FP {
                     .transpose()?
                     .map(|rm| rm.into())
                     .unwrap_or_default();
-                GLOBAL_CONTEXT.fp_to_fp(&args[0].downcast_bound::<FP>(py)?.get().inner, sort, rm)?
+                GLOBAL_CONTEXT.fp_to_fp(&args[0].cast_bound::<FP>(py)?.get().inner, sort, rm)?
             }
             "fpToFPUnsigned" => {
                 let sort: FSort = args[1].extract::<PyFSort>(py)?.into();
@@ -262,15 +262,15 @@ impl FP {
                     .map(|rm| rm.into())
                     .unwrap_or_default();
                 GLOBAL_CONTEXT.bv_to_fp_unsigned(
-                    &args[0].downcast_bound::<BV>(py)?.get().inner,
+                    &args[0].cast_bound::<BV>(py)?.get().inner,
                     sort,
                     rm,
                 )?
             }
             "If" => GLOBAL_CONTEXT.if_(
-                &args[0].downcast_bound::<Bool>(py)?.get().inner,
-                &args[1].downcast_bound::<FP>(py)?.get().inner,
-                &args[2].downcast_bound::<FP>(py)?.get().inner,
+                &args[0].cast_bound::<Bool>(py)?.get().inner,
+                &args[1].cast_bound::<FP>(py)?.get().inner,
+                &args[2].cast_bound::<FP>(py)?.get().inner,
             )?,
             _ => return Err(ClaripyError::InvalidOperation(op.to_string())),
         };

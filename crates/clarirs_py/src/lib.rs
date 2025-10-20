@@ -1,4 +1,5 @@
-#[allow(clippy::multiple_crate_versions)]
+#![allow(clippy::declare_interior_mutable_const)]
+
 #[macro_use]
 mod macros;
 
@@ -58,18 +59,18 @@ fn py_simplify<'py>(
     py: Python<'py>,
     expr: Bound<'py, Base>,
 ) -> Result<Bound<'py, Base>, ClaripyError> {
-    if let Ok(bv_value) = expr.clone().into_any().downcast::<BV>() {
+    if let Ok(bv_value) = expr.clone().into_any().cast::<BV>() {
         BV::new(py, &bv_value.get().inner.simplify().unwrap())
-            .map(|b| b.into_any().downcast::<Base>().unwrap().clone())
-    } else if let Ok(bool_value) = expr.clone().into_any().downcast::<Bool>() {
+            .map(|b| b.into_any().cast::<Base>().unwrap().clone())
+    } else if let Ok(bool_value) = expr.clone().into_any().cast::<Bool>() {
         Bool::new(py, &bool_value.get().inner.simplify().unwrap())
-            .map(|b| b.into_any().downcast::<Base>().unwrap().clone())
-    } else if let Ok(fp_value) = expr.clone().into_any().downcast::<FP>() {
+            .map(|b| b.into_any().cast::<Base>().unwrap().clone())
+    } else if let Ok(fp_value) = expr.clone().into_any().cast::<FP>() {
         FP::new(py, &fp_value.get().inner.simplify().unwrap())
-            .map(|b| b.into_any().downcast::<Base>().unwrap().clone())
-    } else if let Ok(string_value) = expr.clone().into_any().downcast::<PyAstString>() {
+            .map(|b| b.into_any().cast::<Base>().unwrap().clone())
+    } else if let Ok(string_value) = expr.clone().into_any().cast::<PyAstString>() {
         PyAstString::new(py, &string_value.get().inner.simplify().unwrap())
-            .map(|b| b.into_any().downcast::<Base>().unwrap().clone())
+            .map(|b| b.into_any().cast::<Base>().unwrap().clone())
     } else {
         panic!("Unsupported type");
     }
