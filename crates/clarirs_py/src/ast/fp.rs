@@ -1,8 +1,12 @@
 #![allow(non_snake_case)]
 
-use std::{collections::HashSet, sync::{
-    atomic::{AtomicUsize, Ordering}, LazyLock
-}};
+use std::{
+    collections::HashSet,
+    sync::{
+        LazyLock,
+        atomic::{AtomicUsize, Ordering},
+    },
+};
 
 use clarirs_core::algorithms::{canonicalize, structurally_match};
 use clarirs_core::ast::float::{FloatExt, FloatOpExt};
@@ -506,14 +510,12 @@ impl FP {
         Self::new(py, &inner)
     }
 
-
     pub fn remove_annotations<'py>(
         &self,
         py: Python<'py>,
         annotations: Vec<PyAnnotation>,
     ) -> Result<Bound<'py, Self>, ClaripyError> {
-        let annotations_set: HashSet<_> =
-            annotations.into_iter().map(|a| a.0).collect();
+        let annotations_set: HashSet<_> = annotations.into_iter().map(|a| a.0).collect();
         let inner = self.inner.context().make_float_annotated(
             self.inner.op().clone(),
             self.inner
