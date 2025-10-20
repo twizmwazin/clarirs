@@ -275,9 +275,14 @@ impl Bool {
     }
 
     pub fn canonicalize<'py>(&self, py: Python<'py>) -> Result<Bound<'py, Bool>, ClaripyError> {
-        Bool::new(py, &canonicalize(&self.inner.clone().into())?.into_bool().ok_or(ClaripyError::InvalidOperation(
-            "Canonicalization did not produce a Bool".to_string(),
-        ))?)
+        Bool::new(
+            py,
+            &canonicalize(&self.inner.clone().into())?
+                .into_bool()
+                .ok_or(ClaripyError::InvalidOperation(
+                    "Canonicalization did not produce a Bool".to_string(),
+                ))?,
+        )
     }
 
     pub fn identical(&self, other: Bound<'_, Base>) -> Result<bool, ClaripyError> {

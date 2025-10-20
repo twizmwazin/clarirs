@@ -345,9 +345,14 @@ impl FP {
     }
 
     pub fn canonicalize<'py>(&self, py: Python<'py>) -> Result<Bound<'py, FP>, ClaripyError> {
-        FP::new(py, &canonicalize(&self.inner.clone().into())?.into_float().ok_or(ClaripyError::InvalidOperation(
-            "Canonicalization did not produce a Bool".to_string(),
-        ))?)
+        FP::new(
+            py,
+            &canonicalize(&self.inner.clone().into())?
+                .into_float()
+                .ok_or(ClaripyError::InvalidOperation(
+                    "Canonicalization did not produce a Bool".to_string(),
+                ))?,
+        )
     }
 
     pub fn identical(&self, other: Bound<'_, Base>) -> Result<bool, ClaripyError> {

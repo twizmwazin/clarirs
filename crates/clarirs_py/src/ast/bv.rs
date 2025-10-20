@@ -255,9 +255,14 @@ impl BV {
     }
 
     pub fn canonicalize<'py>(&self, py: Python<'py>) -> Result<Bound<'py, BV>, ClaripyError> {
-        BV::new(py, &canonicalize(&self.inner.clone().into())?.into_bitvec().ok_or(ClaripyError::InvalidOperation(
-            "Canonicalization did not produce a Bool".to_string(),
-        ))?)
+        BV::new(
+            py,
+            &canonicalize(&self.inner.clone().into())?
+                .into_bitvec()
+                .ok_or(ClaripyError::InvalidOperation(
+                    "Canonicalization did not produce a Bool".to_string(),
+                ))?,
+        )
     }
 
     pub fn identical(&self, other: Bound<'_, Base>) -> Result<bool, ClaripyError> {
