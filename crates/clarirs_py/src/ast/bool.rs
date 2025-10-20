@@ -5,6 +5,7 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
 use ast::args::ExtractPyArgs;
+use clarirs_core::algorithms::canonicalize;
 use clarirs_core::algorithms::structurally_match;
 use dashmap::DashMap;
 use pyo3::exceptions::PyValueError;
@@ -271,6 +272,12 @@ impl Bool {
 
     pub fn __repr__(&self) -> String {
         self.inner.to_smtlib()
+    }
+
+    pub fn canonicalize<'py>(&self, py: Python<'py>) -> Result<Bound<'py, Bool>, ClaripyError> {
+        Bool::new(py, &canonicalize(&self.inner.clone().into())?.into_bool().ok_or(ClaripyError::InvalidOperation(
+            "Canonicalization did not produce a Bool".to_string(),
+        ))?)
     }
 
     pub fn identical(&self, other: Bound<'_, Base>) -> Result<bool, ClaripyError> {
