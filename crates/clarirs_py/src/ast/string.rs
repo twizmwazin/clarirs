@@ -69,24 +69,24 @@ impl PyAstString {
             "StringS" => GLOBAL_CONTEXT.strings(&args[0].extract::<String>(py)?)?,
             "StringV" => GLOBAL_CONTEXT.stringv(&args[0].extract::<String>(py)?)?,
             "StrConcat" => GLOBAL_CONTEXT.strconcat(
-                &args[0].downcast_bound::<PyAstString>(py)?.get().inner,
-                &args[1].downcast_bound::<PyAstString>(py)?.get().inner,
+                &args[0].cast_bound::<PyAstString>(py)?.get().inner,
+                &args[1].cast_bound::<PyAstString>(py)?.get().inner,
             )?,
             "StrSubstr" => GLOBAL_CONTEXT.strsubstr(
-                &args[0].downcast_bound::<PyAstString>(py)?.get().inner,
-                &args[1].downcast_bound::<BV>(py)?.get().inner,
-                &args[2].downcast_bound::<BV>(py)?.get().inner,
+                &args[0].cast_bound::<PyAstString>(py)?.get().inner,
+                &args[1].cast_bound::<BV>(py)?.get().inner,
+                &args[2].cast_bound::<BV>(py)?.get().inner,
             )?,
             "StrReplace" => GLOBAL_CONTEXT.strreplace(
-                &args[0].downcast_bound::<PyAstString>(py)?.get().inner,
-                &args[1].downcast_bound::<PyAstString>(py)?.get().inner,
-                &args[2].downcast_bound::<PyAstString>(py)?.get().inner,
+                &args[0].cast_bound::<PyAstString>(py)?.get().inner,
+                &args[1].cast_bound::<PyAstString>(py)?.get().inner,
+                &args[2].cast_bound::<PyAstString>(py)?.get().inner,
             )?,
-            "IntToStr" => GLOBAL_CONTEXT.bvtostr(&args[0].downcast_bound::<BV>(py)?.get().inner)?,
+            "IntToStr" => GLOBAL_CONTEXT.bvtostr(&args[0].cast_bound::<BV>(py)?.get().inner)?,
             "If" => GLOBAL_CONTEXT.if_(
-                &args[0].downcast_bound::<Bool>(py)?.get().inner,
-                &args[1].downcast_bound::<PyAstString>(py)?.get().inner,
-                &args[2].downcast_bound::<PyAstString>(py)?.get().inner,
+                &args[0].cast_bound::<Bool>(py)?.get().inner,
+                &args[1].cast_bound::<PyAstString>(py)?.get().inner,
+                &args[2].cast_bound::<PyAstString>(py)?.get().inner,
             )?,
             _ => return Err(ClaripyError::InvalidOperation(op.to_string())),
         };
@@ -434,8 +434,8 @@ pub fn StrSubstr<'py>(
         py,
         &GLOBAL_CONTEXT.strsubstr(
             &base.get().inner,
-            &start.extract(py, 64, false)?.get().inner,
-            &size.extract(py, 64, false)?.get().inner,
+            &start.unpack(py, 64, false)?.get().inner,
+            &size.unpack(py, 64, false)?.get().inner,
         )?,
     )
 }
@@ -464,7 +464,7 @@ pub fn StrIndexOf<'py>(
         &GLOBAL_CONTEXT.strindexof(
             &haystack.get().inner,
             &needle.get().inner,
-            &start.extract(py, 64, false)?.get().inner,
+            &start.unpack(py, 64, false)?.get().inner,
         )?,
     )
 }

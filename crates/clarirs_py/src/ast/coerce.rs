@@ -8,10 +8,12 @@ use crate::prelude::*;
 #[derive(Clone)]
 pub struct CoerceBool<'py>(pub Bound<'py, Bool>);
 
-impl<'py> FromPyObject<'py> for CoerceBool<'py> {
-    fn extract_bound(val: &Bound<'py, PyAny>) -> PyResult<Self> {
-        if let Ok(bool_val) = val.downcast::<Bool>() {
-            Ok(CoerceBool(bool_val.clone()))
+impl<'py> FromPyObject<'_, 'py> for CoerceBool<'py> {
+    type Error = PyErr;
+
+    fn extract(val: Borrowed<'_, 'py, PyAny>) -> PyResult<Self> {
+        if let Ok(bool_val) = val.cast::<Bool>() {
+            Ok(CoerceBool(bool_val.to_owned()))
         } else if let Ok(bool_val) = val.extract::<bool>() {
             Ok(CoerceBool(
                 Bool::new(val.py(), &GLOBAL_CONTEXT.boolv(bool_val).unwrap()).unwrap(),
@@ -40,7 +42,7 @@ pub enum CoerceBV<'py> {
 }
 
 impl<'py> CoerceBV<'py> {
-    pub fn extract(
+    pub fn unpack(
         &self,
         py: Python<'py>,
         size: u32,
@@ -61,11 +63,11 @@ impl<'py> CoerceBV<'py> {
         }
     }
 
-    pub fn extract_like(&self, py: Python<'py>, like: &BV) -> Result<Bound<'py, BV>, ClaripyError> {
-        self.extract(py, like.size() as u32, false)
+    pub fn unpack_like(&self, py: Python<'py>, like: &BV) -> Result<Bound<'py, BV>, ClaripyError> {
+        self.unpack(py, like.size() as u32, false)
     }
 
-    pub fn extract_pair(
+    pub fn unpack_pair(
         py: Python<'py>,
         lhs: &CoerceBV<'py>,
         rhs: &CoerceBV<'py>,
@@ -73,11 +75,11 @@ impl<'py> CoerceBV<'py> {
         Ok(match (lhs, rhs) {
             (CoerceBV::BV(lhs), CoerceBV::BV(rhs)) => (lhs.clone(), rhs.clone()),
             (CoerceBV::Int(_), CoerceBV::BV(rhs)) => {
-                let lhs = lhs.extract_like(py, rhs.get())?;
+                let lhs = lhs.unpack_like(py, rhs.get())?;
                 (lhs, rhs.clone())
             }
             (CoerceBV::BV(lhs), CoerceBV::Int(_)) => {
-                let rhs = rhs.extract_like(py, lhs.get())?;
+                let rhs = rhs.unpack_like(py, lhs.get())?;
                 (lhs.clone(), rhs)
             }
             (CoerceBV::Int(lhs_int), CoerceBV::Int(rhs_int)) => {
@@ -91,20 +93,22 @@ impl<'py> CoerceBV<'py> {
                 }
                 let size = size.next_power_of_two();
 
-                let lhs = lhs.extract(py, size, false)?;
-                let rhs = rhs.extract(py, size, false)?;
+                let lhs = lhs.unpack(py, size, false)?;
+                let rhs = rhs.unpack(py, size, false)?;
                 (lhs, rhs)
             }
         })
     }
 }
 
-impl<'py> FromPyObject<'py> for CoerceBV<'py> {
-    fn extract_bound(val: &Bound<'py, PyAny>) -> PyResult<Self> {
-        if let Ok(bv_val) = val.downcast::<BV>() {
-            Ok(CoerceBV::from(bv_val.clone()))
-        } else if let Ok(int_val) = val.downcast::<PyInt>() {
-            Ok(CoerceBV::from(int_val.clone()))
+impl<'py> FromPyObject<'_, 'py> for CoerceBV<'py> {
+    type Error = PyErr;
+
+    fn extract(val: Borrowed<'_, 'py, PyAny>) -> PyResult<Self> {
+        if let Ok(bv_val) = val.cast::<BV>() {
+            Ok(CoerceBV::from(bv_val.to_owned()))
+        } else if let Ok(int_val) = val.cast::<PyInt>() {
+            Ok(CoerceBV::from(int_val.to_owned()))
         } else {
             Err(ClaripyError::InvalidArgumentType("Expected BV".to_string()).into())
         }
@@ -125,10 +129,12 @@ impl<'py> From<Bound<'py, PyInt>> for CoerceBV<'py> {
 
 pub struct CoerceFP<'py>(pub Bound<'py, FP>);
 
-impl<'py> FromPyObject<'py> for CoerceFP<'py> {
-    fn extract_bound(val: &Bound<'py, PyAny>) -> PyResult<Self> {
-        if let Ok(fp_val) = val.downcast::<FP>() {
-            Ok(CoerceFP(fp_val.clone()))
+impl<'py> FromPyObject<'_, 'py> for CoerceFP<'py> {
+    type Error = PyErr;
+
+    fn extract(val: Borrowed<'_, 'py, PyAny>) -> PyResult<Self> {
+        if let Ok(fp_val) = val.cast::<FP>() {
+            Ok(CoerceFP(fp_val.to_owned()))
         } else if let Ok(fp_val) = val.extract::<f64>() {
             Ok(CoerceFP(
                 FP::new(val.py(), &GLOBAL_CONTEXT.fpv(Float::from(fp_val)).unwrap()).unwrap(),
@@ -153,10 +159,11 @@ impl<'py> From<CoerceFP<'py>> for FloatAst<'static> {
 
 pub struct CoerceString<'py>(pub Bound<'py, PyAstString>);
 
-impl<'py> FromPyObject<'py> for CoerceString<'py> {
-    fn extract_bound(val: &Bound<'py, PyAny>) -> PyResult<Self> {
-        if let Ok(string_val) = val.downcast::<PyAstString>() {
-            Ok(CoerceString(string_val.clone()))
+impl<'py> FromPyObject<'_, 'py> for CoerceString<'py> {
+    type Error = PyErr;
+    fn extract(val: Borrowed<'_, 'py, PyAny>) -> PyResult<Self> {
+        if let Ok(string_val) = val.cast::<PyAstString>() {
+            Ok(CoerceString(string_val.to_owned()))
         } else if let Ok(string_val) = val.extract::<&str>() {
             Ok(CoerceString(
                 PyAstString::new(val.py(), &GLOBAL_CONTEXT.stringv(string_val).unwrap()).unwrap(),
@@ -181,13 +188,15 @@ impl<'py> From<CoerceString<'py>> for StringAst<'static> {
 
 pub struct CoerceBase<'py>(pub Bound<'py, Base>);
 
-impl<'py> FromPyObject<'py> for CoerceBase<'py> {
-    fn extract_bound(val: &Bound<'py, PyAny>) -> PyResult<Self> {
-        if let Ok(bool) = CoerceBool::extract_bound(val) {
-            Ok(CoerceBase(bool.0.downcast()?.clone()))
-        } else if let Ok(bv) = CoerceBV::extract_bound(val) {
+impl<'a, 'py> FromPyObject<'a, 'py> for CoerceBase<'py> {
+    type Error = PyErr;
+
+    fn extract(val: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+        if let Ok(bool) = CoerceBool::extract(val) {
+            Ok(CoerceBase(bool.0.cast()?.clone()))
+        } else if let Ok(bv) = CoerceBV::extract(val) {
             match bv {
-                CoerceBV::BV(bv) => Ok(CoerceBase(bv.downcast()?.clone())),
+                CoerceBV::BV(bv) => Ok(CoerceBase(bv.cast()?.clone())),
                 CoerceBV::Int(int) => {
                     // Just default to 64 bits for now
                     let bv = BitVec::from_bigint_trunc(&int, 64);
@@ -195,13 +204,13 @@ impl<'py> FromPyObject<'py> for CoerceBase<'py> {
                         val.py(),
                         &GLOBAL_CONTEXT.bvv(bv).map_err(ClaripyError::from)?,
                     )?;
-                    Ok(CoerceBase(bv.downcast()?.clone()))
+                    Ok(CoerceBase(bv.cast()?.clone()))
                 }
             }
-        } else if let Ok(fp) = CoerceFP::extract_bound(val) {
-            Ok(CoerceBase(fp.0.downcast()?.clone()))
-        } else if let Ok(string) = CoerceString::extract_bound(val) {
-            Ok(CoerceBase(string.0.downcast()?.clone()))
+        } else if let Ok(fp) = CoerceFP::extract(val) {
+            Ok(CoerceBase(fp.0.cast()?.clone()))
+        } else if let Ok(string) = CoerceString::extract(val) {
+            Ok(CoerceBase(string.0.cast()?.clone()))
         } else {
             Err(
                 ClaripyError::InvalidArgumentType("Expected Bool, BV, FP, or String".to_string())
