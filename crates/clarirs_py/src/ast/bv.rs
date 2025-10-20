@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
 
+use std::collections::HashSet;
 use std::iter::once;
 use std::sync::LazyLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -484,6 +485,25 @@ impl BV {
                 .annotations()
                 .iter()
                 .filter(|a| **a != annotation.0)
+                .cloned()
+                .collect(),
+        )?;
+        Self::new(py, &inner)
+    }
+
+    pub fn remove_annotations<'py>(
+        &self,
+        py: Python<'py>,
+        annotations: Vec<PyAnnotation>,
+    ) -> Result<Bound<'py, Self>, ClaripyError> {
+        let annotations_set: HashSet<_> =
+            annotations.into_iter().map(|a| a.0).collect();
+        let inner = self.inner.context().make_bitvec_annotated(
+            self.inner.op().clone(),
+            self.inner
+                .annotations()
+                .iter()
+                .filter(|a| !annotations_set.contains(a))
                 .cloned()
                 .collect(),
         )?;
