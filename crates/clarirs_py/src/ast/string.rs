@@ -1,8 +1,11 @@
 #![allow(non_snake_case)]
 
-use std::sync::{
-    LazyLock,
-    atomic::{AtomicUsize, Ordering},
+use std::{
+    collections::HashSet,
+    sync::{
+        LazyLock,
+        atomic::{AtomicUsize, Ordering},
+    },
 };
 
 use dashmap::DashMap;
@@ -323,6 +326,24 @@ impl PyAstString {
                 .annotations()
                 .iter()
                 .filter(|a| **a != annotation.0)
+                .cloned()
+                .collect(),
+        )?;
+        Self::new(py, &inner)
+    }
+
+    pub fn remove_annotations<'py>(
+        &self,
+        py: Python<'py>,
+        annotations: Vec<PyAnnotation>,
+    ) -> Result<Bound<'py, Self>, ClaripyError> {
+        let annotations_set: HashSet<_> = annotations.into_iter().map(|a| a.0).collect();
+        let inner = self.inner.context().make_string_annotated(
+            self.inner.op().clone(),
+            self.inner
+                .annotations()
+                .iter()
+                .filter(|a| !annotations_set.contains(a))
                 .cloned()
                 .collect(),
         )?;
