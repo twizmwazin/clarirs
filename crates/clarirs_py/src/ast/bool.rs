@@ -648,13 +648,13 @@ pub fn ite_cases<'py>(
     for i in cases_vec.iter().rev() {
         let mut iter = i.try_iter()?;
 
-        let cond = iter
-            .next()
-            .ok_or_else(|| PyValueError::new_err("Each case must be a (condition, value) tuple"));
+        let cond = iter.next().ok_or_else(|| {
+            PyValueError::new_err("Each case must be a (condition, value) tuple")
+        })??;
         let cond_bool = cond.extract::<CoerceBool>()?.into();
-        let value = iter
-            .next()
-            .ok_or_else(|| PyValueError::new_err("Each case must be a (condition, value) tuple"));
+        let value = iter.next().ok_or_else(|| {
+            PyValueError::new_err("Each case must be a (condition, value) tuple")
+        })??;
 
         // Create If expression: If(cond, value, sofar)
         sofar = r#if(py, cond_bool, value, sofar)?.as_any().clone();
