@@ -10,7 +10,6 @@ use clarirs_core::algorithms::canonicalize;
 use clarirs_core::algorithms::structurally_match;
 use dashmap::DashMap;
 use pyo3::exceptions::PyValueError;
-use pyo3::types::PySequence;
 use pyo3::types::PyTuple;
 use pyo3::types::{PyDict, PyFrozenSet, PyWeakrefMethods, PyWeakrefReference};
 
@@ -638,23 +637,24 @@ pub fn false_op(py: Python<'_>) -> Result<Bound<'_, Bool>, ClaripyError> {
 #[pyfunction]
 pub fn ite_cases<'py>(
     py: Python<'py>,
-    cases: Vec<Bound<'py, PyAny>>,
+    cases: Bound<'py, PyAny>,
     default: Bound<'py, PyAny>,
 ) -> PyResult<Bound<'py, PyAny>> {
     let mut sofar = default;
 
-    // Process cases in reverse order
-    for i in cases.iter().rev() {
-        let tuple = i.cast::<PySequence>()?;
-        if tuple.len()? != 2 {
-            return Err(PyValueError::new_err(
-                "Each case must be a (condition, value) tuple",
-            ));
-        }
+    let cases_vec = cases.try_iter()?.collect::<Result<Vec<_>, _>>()?;
 
-        let cond = tuple.get_item(0)?;
+    // Process cases in reverse order
+    for i in cases_vec.iter().rev() {
+        let mut iter = i.try_iter()?;
+
+        let cond = iter.next().ok_or_else(|| {
+            PyValueError::new_err("Each case must be a (condition, value) tuple")
+        })??;
         let cond_bool = cond.extract::<CoerceBool>()?.into();
-        let value = tuple.get_item(1)?;
+        let value = iter.next().ok_or_else(|| {
+            PyValueError::new_err("Each case must be a (condition, value) tuple")
+        })??;
 
         // Create If expression: If(cond, value, sofar)
         sofar = r#if(py, cond_bool, value, sofar)?.as_any().clone();
@@ -747,7 +747,7 @@ pub fn ite_dict<'py>(
             cases.push(tuple.into_any());
         }
 
-        return ite_cases(py, cases, default);
+        return ite_cases(py, cases.into_bound_py_any(py)?, default);
     }
 
     // Binary search
