@@ -560,6 +560,56 @@ impl PySolver {
             ))
         }
     }
+
+    fn __getstate__<'py>(&self, py: Python<'py>) -> Result<Bound<'py, PyTuple>, ClaripyError> {
+        // Get the solver type
+        let solver_type = match &self.inner {
+            DynSolver::Concrete(..) => "Concrete",
+            DynSolver::Z3(..) => "Z3",
+            DynSolver::Vsa(..) => "Vsa",
+        };
+
+        // Get the constraints
+        let constraints = self.constraints(py)?;
+
+        // Return a tuple of (solver_type, constraints)
+        Ok(PyTuple::new(
+            py,
+            vec![
+                solver_type.into_bound_py_any(py)?,
+                constraints.into_bound_py_any(py)?,
+            ],
+        )?)
+    }
+
+    fn __setstate__<'py>(
+        &mut self,
+        _py: Python<'py>,
+        state: Bound<'py, PyTuple>,
+    ) -> Result<(), ClaripyError> {
+        // Extract solver type and constraints from the state tuple
+        let solver_type: String = state.get_item(0)?.extract()?;
+        let constraints: Vec<Bound<'py, Bool>> = state.get_item(1)?.extract()?;
+
+        // Create a new solver based on the type
+        self.inner = match solver_type.as_str() {
+            "Concrete" => DynSolver::Concrete(ConcreteSolver::new(&GLOBAL_CONTEXT)),
+            "Z3" => DynSolver::Z3(wrap_solver(Z3Solver::new(&GLOBAL_CONTEXT))),
+            "Vsa" => DynSolver::Vsa(wrap_solver(VSASolver::new(&GLOBAL_CONTEXT))),
+            _ => {
+                return Err(ClaripyError::TypeError(format!(
+                    "Unknown solver type: {solver_type}"
+                )));
+            }
+        };
+
+        // Add the constraints to the solver
+        for constraint in constraints {
+            self.inner.add(&constraint.get().inner)?;
+        }
+
+        Ok(())
+    }
 }
 
 #[pyclass(extends = PySolver, name = "SolverConcrete", module = "claripy.solver")]
