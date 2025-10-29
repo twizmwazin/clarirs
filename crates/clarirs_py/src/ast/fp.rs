@@ -347,6 +347,7 @@ impl FP {
         self.inner.to_smtlib()
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn canonicalize<'py>(
         &self,
         py: Python<'py>,
