@@ -138,7 +138,7 @@ impl<'c> Z3Solver<'c> {
     }
 
     fn eval(&self, expr: &DynAst<'c>) -> Result<DynAst<'c>, ClarirsError> {
-        let expr = Z3Solver::simplify_varast(expr)?;
+        let expr = Z3Solver::simplify_varast(&expr.simplify()?)?;
 
         // If the expression is concrete, we can return it directly
         if expr.concrete() {
