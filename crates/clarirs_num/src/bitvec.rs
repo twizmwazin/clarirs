@@ -130,6 +130,16 @@ impl BitVec {
         Self::from_biguint(&truncated, length).expect("BitVec truncation failed")
     }
 
+    /// Creates a `BitVec` from a big-endian byte slice with bit-width equal to the
+    /// slice length times eight.
+    pub fn from_bytes_be(bytes: &[u8]) -> BitVec {
+        let length = (bytes.len() as u32) * 8;
+        let big_uint = BigUint::from_bytes_be(bytes);
+
+        // Reuse the existing BigUint constructor; this cannot fail for well-formed inputs.
+        BitVec::from_biguint(&big_uint, length).expect("BitVec::from_biguint should not fail")
+    }
+
     pub fn from_bigint(value: &BigInt, length: u32) -> Result<BitVec, BitVecError> {
         // Truncate value to fit within the specified length
         let big_uint = if value.sign() == Sign::Minus {

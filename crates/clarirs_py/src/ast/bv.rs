@@ -985,11 +985,7 @@ impl BV {
         py: Python<'py>,
         args: Vec<CoerceBV<'py>>,
     ) -> Result<Bound<'py, BV>, ClaripyError> {
-        let extracted_args = args
-            .iter()
-            .map(|arg| arg.unpack(py, self_.get().size() as u32, true))
-            .collect::<Result<Vec<_>, _>>()?;
-        Concat(py, once(self_).chain(extracted_args).collect())
+        Concat(py, once(self_.into()).chain(args).collect())
     }
 
     pub fn zero_extend<'py>(
@@ -1333,9 +1329,9 @@ binop!(Concat_inner, concat, BV);
 #[pyfunction(signature = (*args))]
 pub fn Concat<'py>(
     py: Python<'py>,
-    args: Vec<Bound<'py, BV>>,
+    args: Vec<CoerceBV<'py>>,
 ) -> Result<Bound<'py, BV>, ClaripyError> {
-    let mut args = args.into_iter();
+    let mut args = CoerceBV::unpack_vec(py, &args)?.into_iter();
     let first = args.next().ok_or(ClaripyError::MissingArgIndex(0))?;
     args.try_fold(first, |acc, arg| Concat_inner(py, acc.into(), arg.into()))
 }
