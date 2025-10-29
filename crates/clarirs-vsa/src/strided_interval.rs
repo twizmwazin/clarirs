@@ -1693,6 +1693,7 @@ impl StridedInterval {
 
                 Self::constant(*bits, result)
             }
+            StridedInterval::Normal { bits: 8, .. } => self.clone(),
             StridedInterval::Normal { bits, .. } => Self::top(*bits),
         }
     }
