@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     sync::{
         LazyLock,
         atomic::{AtomicUsize, Ordering},
@@ -347,15 +347,28 @@ impl FP {
         self.inner.to_smtlib()
     }
 
-    pub fn canonicalize<'py>(&self, py: Python<'py>) -> Result<Bound<'py, FP>, ClaripyError> {
-        FP::new(
+    #[allow(clippy::type_complexity)]
+    pub fn canonicalize<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> Result<(HashMap<u64, Bound<'py, PyAny>>, usize, Bound<'py, FP>), ClaripyError> {
+        let (replacement_map, counter, canonical) = canonicalize(&self.inner.clone().into())?;
+        let canonical_fp = FP::new(
             py,
-            &canonicalize(&self.inner.clone().into())?
+            &canonical
                 .into_float()
                 .ok_or(ClaripyError::InvalidOperation(
-                    "Canonicalization did not produce a Bool".to_string(),
+                    "Canonicalization did not produce a Float".to_string(),
                 ))?,
-        )
+        )?;
+
+        let mut py_map = HashMap::new();
+        for (hash, dynast) in replacement_map {
+            let py_ast = Base::from_dynast(py, dynast)?;
+            py_map.insert(hash, py_ast.into_any());
+        }
+
+        Ok((py_map, counter, canonical_fp))
     }
 
     pub fn identical(&self, other: Bound<'_, Base>) -> Result<bool, ClaripyError> {

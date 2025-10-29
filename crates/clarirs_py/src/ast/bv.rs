@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::iter::once;
 use std::sync::LazyLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -255,15 +255,28 @@ impl BV {
         self.inner.to_smtlib()
     }
 
-    pub fn canonicalize<'py>(&self, py: Python<'py>) -> Result<Bound<'py, BV>, ClaripyError> {
-        BV::new(
+    #[allow(clippy::type_complexity)]
+    pub fn canonicalize<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> Result<(HashMap<u64, Bound<'py, PyAny>>, usize, Bound<'py, BV>), ClaripyError> {
+        let (replacement_map, counter, canonical) = canonicalize(&self.inner.clone().into())?;
+        let canonical_bv = BV::new(
             py,
-            &canonicalize(&self.inner.clone().into())?
+            &canonical
                 .into_bitvec()
                 .ok_or(ClaripyError::InvalidOperation(
-                    "Canonicalization did not produce a Bool".to_string(),
+                    "Canonicalization did not produce a BitVec".to_string(),
                 ))?,
-        )
+        )?;
+
+        let mut py_map = HashMap::new();
+        for (hash, dynast) in replacement_map {
+            let py_ast = Base::from_dynast(py, dynast)?;
+            py_map.insert(hash, py_ast.into_any());
+        }
+
+        Ok((py_map, counter, canonical_bv))
     }
 
     pub fn identical(&self, other: Bound<'_, Base>) -> Result<bool, ClaripyError> {
