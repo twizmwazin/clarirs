@@ -46,7 +46,7 @@ pub(crate) trait AstExtZ3<'c>: HasContext<'c> + Sized {
 
 impl<'c> AstExtZ3<'c> for BoolAst<'c> {
     fn to_z3(&self) -> Result<RcAst, ClarirsError> {
-        DynAst::from(self).to_z3()
+        DynAst::from(self.simplify()?).to_z3()
     }
 
     fn from_z3(ctx: &'c Context<'c>, ast: impl Into<RcAst>) -> Result<Self, ClarirsError> {
@@ -56,7 +56,7 @@ impl<'c> AstExtZ3<'c> for BoolAst<'c> {
 
 impl<'c> AstExtZ3<'c> for BitVecAst<'c> {
     fn to_z3(&self) -> Result<RcAst, ClarirsError> {
-        DynAst::from(self).to_z3()
+        DynAst::from(self.simplify()?).to_z3()
     }
 
     fn from_z3(ctx: &'c Context<'c>, ast: impl Into<RcAst>) -> Result<Self, ClarirsError> {
@@ -66,7 +66,7 @@ impl<'c> AstExtZ3<'c> for BitVecAst<'c> {
 
 impl<'c> AstExtZ3<'c> for FloatAst<'c> {
     fn to_z3(&self) -> Result<RcAst, ClarirsError> {
-        DynAst::from(self).to_z3()
+        DynAst::from(self.simplify()?).to_z3()
     }
 
     fn from_z3(ctx: &'c Context<'c>, ast: impl Into<RcAst>) -> Result<Self, ClarirsError> {
@@ -76,7 +76,7 @@ impl<'c> AstExtZ3<'c> for FloatAst<'c> {
 
 impl<'c> AstExtZ3<'c> for StringAst<'c> {
     fn to_z3(&self) -> Result<RcAst, ClarirsError> {
-        DynAst::from(self).to_z3()
+        DynAst::from(self.simplify()?).to_z3()
     }
 
     fn from_z3(ctx: &'c Context<'c>, ast: impl Into<RcAst>) -> Result<Self, ClarirsError> {

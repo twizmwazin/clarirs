@@ -383,6 +383,10 @@ pub(crate) fn simplify_bv<'c>(
                     // Return a new BitVec with the concatenated result and new length
                     ctx.bvv(concatenated_value)
                 }
+                // Match cases where one side's size is zero
+                (lhs, _) if lhs.size() == 0 => Ok(arc1.clone()),
+                (_, rhs) if rhs.size() == 0 => Ok(arc.clone()),
+
                 _ => ctx.concat(&arc, &arc1),
             }
         }
