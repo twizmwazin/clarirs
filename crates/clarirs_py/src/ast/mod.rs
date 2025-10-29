@@ -10,7 +10,10 @@ pub mod string;
 
 use std::sync::LazyLock;
 
-use crate::{ast::bool::true_op, prelude::*};
+use crate::{
+    ast::bool::{false_op, true_op},
+    prelude::*,
+};
 
 use super::import_submodule;
 
@@ -92,7 +95,7 @@ pub fn or<'py>(
 ) -> Result<Bound<'py, Base>, ClaripyError> {
     Ok(args
         .into_iter()
-        .try_fold(true_op(py)?.cast::<PyAny>()?.clone(), |acc, arg| {
+        .try_fold(false_op(py)?.cast::<PyAny>()?.clone(), |acc, arg| {
             or_inner(py, acc, arg).map(|b| b.into_any().clone())
         })?
         .cast_into::<Base>()?)
