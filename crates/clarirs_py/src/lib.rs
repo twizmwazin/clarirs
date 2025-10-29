@@ -16,6 +16,7 @@ use clarirs_core::{
     algorithms::{ExcavateIte, Replace},
     ast::float::FloatOpExt,
 };
+use num_bigint::BigInt;
 use prelude::*;
 
 fn import_submodule<'py>(
@@ -109,13 +110,45 @@ fn py_excavate_ite<'py>(
 }
 
 #[pyfunction]
-fn is_true(expr: CoerceBool<'_>) -> Result<bool, ClaripyError> {
-    Ok(expr.0.get().inner.simplify()?.is_true())
+fn is_true(expr: Bound<'_, PyAny>) -> Result<bool, ClaripyError> {
+    if let Ok(bool_expr) = expr.clone().extract::<CoerceBool>() {
+        Ok(bool_expr.0.get().inner.simplify()?.is_true())
+    } else if let Ok(bv_expr) = expr.clone().extract::<CoerceBV>() {
+        match bv_expr {
+            CoerceBV::BV(bv_expr) => Ok(bv_expr.get().inner.simplify()?.is_true()),
+            CoerceBV::Int(int_expr) => Ok(int_expr != BigInt::ZERO),
+        }
+    } else if let Ok(fp_expr) = expr.clone().extract::<CoerceFP>() {
+        Ok(fp_expr.0.get().inner.simplify()?.is_true())
+    } else if let Ok(string_expr) = expr.clone().extract::<CoerceString>() {
+        Ok(string_expr.0.get().inner.simplify()?.is_true())
+    } else {
+        Err(ClaripyError::InvalidArgumentType(format!(
+            "Expected Bool, BV, FP, or String, got {}",
+            expr.get_type()
+        )))
+    }
 }
 
 #[pyfunction]
-fn is_false(expr: CoerceBool<'_>) -> Result<bool, ClaripyError> {
-    Ok(expr.0.get().inner.simplify()?.is_false())
+fn is_false(expr: Bound<'_, PyAny>) -> Result<bool, ClaripyError> {
+    if let Ok(bool_expr) = expr.clone().extract::<CoerceBool>() {
+        Ok(bool_expr.0.get().inner.simplify()?.is_false())
+    } else if let Ok(bv_expr) = expr.clone().extract::<CoerceBV>() {
+        match bv_expr {
+            CoerceBV::BV(bv_expr) => Ok(bv_expr.get().inner.simplify()?.is_false()),
+            CoerceBV::Int(int_expr) => Ok(int_expr == BigInt::ZERO),
+        }
+    } else if let Ok(fp_expr) = expr.clone().extract::<CoerceFP>() {
+        Ok(fp_expr.0.get().inner.simplify()?.is_false())
+    } else if let Ok(string_expr) = expr.clone().extract::<CoerceString>() {
+        Ok(string_expr.0.get().inner.simplify()?.is_false())
+    } else {
+        Err(ClaripyError::InvalidArgumentType(format!(
+            "Expected Bool, BV, FP, or String, got {}",
+            expr.get_type()
+        )))
+    }
 }
 
 #[pymodule]
