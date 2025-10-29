@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     sync::{
         LazyLock,
         atomic::{AtomicUsize, Ordering},
@@ -169,15 +169,31 @@ impl PyAstString {
     pub fn canonicalize<'py>(
         &self,
         py: Python<'py>,
-    ) -> Result<Bound<'py, PyAstString>, ClaripyError> {
-        PyAstString::new(
+    ) -> Result<
+        (
+            HashMap<u64, Bound<'py, PyAny>>,
+            usize,
+            Bound<'py, PyAstString>,
+        ),
+        ClaripyError,
+    > {
+        let (replacement_map, counter, canonical) = canonicalize(&self.inner.clone().into())?;
+        let canonical_string = PyAstString::new(
             py,
-            &canonicalize(&self.inner.clone().into())?
+            &canonical
                 .into_string()
                 .ok_or(ClaripyError::InvalidOperation(
-                    "Canonicalization did not produce a Bool".to_string(),
+                    "Canonicalization did not produce a String".to_string(),
                 ))?,
-        )
+        )?;
+
+        let mut py_map = HashMap::new();
+        for (hash, dynast) in replacement_map {
+            let py_ast = Base::from_dynast(py, dynast)?;
+            py_map.insert(hash, py_ast.into_any());
+        }
+
+        Ok((py_map, counter, canonical_string))
     }
 
     pub fn identical(&self, other: Bound<'_, Base>) -> Result<bool, ClaripyError> {

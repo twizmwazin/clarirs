@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::LazyLock;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
@@ -274,15 +274,25 @@ impl Bool {
         self.inner.to_smtlib()
     }
 
-    pub fn canonicalize<'py>(&self, py: Python<'py>) -> Result<Bound<'py, Bool>, ClaripyError> {
-        Bool::new(
+    pub fn canonicalize<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> Result<(HashMap<u64, Bound<'py, PyAny>>, usize, Bound<'py, Bool>), ClaripyError> {
+        let (replacement_map, counter, canonical) = canonicalize(&self.inner.clone().into())?;
+        let canonical_bool = Bool::new(
             py,
-            &canonicalize(&self.inner.clone().into())?
-                .into_bool()
-                .ok_or(ClaripyError::InvalidOperation(
-                    "Canonicalization did not produce a Bool".to_string(),
-                ))?,
-        )
+            &canonical.into_bool().ok_or(ClaripyError::InvalidOperation(
+                "Canonicalization did not produce a Bool".to_string(),
+            ))?,
+        )?;
+
+        let mut py_map = HashMap::new();
+        for (hash, dynast) in replacement_map {
+            let py_ast = Base::from_dynast(py, dynast)?;
+            py_map.insert(hash, py_ast.into_any());
+        }
+
+        Ok((py_map, counter, canonical_bool))
     }
 
     pub fn identical(&self, other: Bound<'_, Base>) -> Result<bool, ClaripyError> {
