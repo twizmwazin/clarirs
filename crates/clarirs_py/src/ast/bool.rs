@@ -651,7 +651,7 @@ pub fn ite_cases<'py>(
         let cond = iter.next().ok_or_else(|| {
             PyValueError::new_err("Each case must be a (condition, value) tuple")
         })??;
-        let cond_bool = cond.extract::<CoerceBool>()?.into();
+        let cond_bool = cond.extract::<CoerceBool>()?;
         let value = iter.next().ok_or_else(|| {
             PyValueError::new_err("Each case must be a (condition, value) tuple")
         })??;
