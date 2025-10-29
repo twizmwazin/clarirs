@@ -104,7 +104,7 @@ pub fn or<'py>(
 #[pyfunction(name = "If")]
 pub fn r#if<'py>(
     py: Python<'py>,
-    cond: Bound<'py, Bool>,
+    cond: CoerceBool,
     then_: Bound<'py, PyAny>,
     else_: Bound<'py, PyAny>,
 ) -> Result<Bound<'py, Base>, ClaripyError> {
@@ -114,7 +114,7 @@ pub fn r#if<'py>(
             BV::new(
                 py,
                 &GLOBAL_CONTEXT.if_(
-                    &cond.get().inner,
+                    &cond.0.get().inner,
                     &then_bv.get().inner,
                     &else_bv.get().inner,
                 )?,
@@ -131,7 +131,7 @@ pub fn r#if<'py>(
             let else_bv = else_bv.get().inner.clone();
             Bool::new(
                 py,
-                &GLOBAL_CONTEXT.if_(&cond.get().inner, &then_bv, &else_bv)?,
+                &GLOBAL_CONTEXT.if_(&cond.0.get().inner, &then_bv, &else_bv)?,
             )
             .map(|b| b.into_any().cast::<Base>().unwrap().clone())
         } else {
@@ -145,7 +145,7 @@ pub fn r#if<'py>(
             let else_bv = else_bv.get().inner.clone();
             FP::new(
                 py,
-                &GLOBAL_CONTEXT.if_(&cond.get().inner, &then_bv, &else_bv)?,
+                &GLOBAL_CONTEXT.if_(&cond.0.get().inner, &then_bv, &else_bv)?,
             )
             .map(|b| b.into_any().cast::<Base>().unwrap().clone())
         } else {
@@ -159,7 +159,7 @@ pub fn r#if<'py>(
             let else_bv = else_bv.get().inner.clone();
             PyAstString::new(
                 py,
-                &GLOBAL_CONTEXT.if_(&cond.get().inner, &then_bv, &else_bv)?,
+                &GLOBAL_CONTEXT.if_(&cond.0.get().inner, &then_bv, &else_bv)?,
             )
             .map(|b| b.into_any().cast::<Base>().unwrap().clone())
         } else {

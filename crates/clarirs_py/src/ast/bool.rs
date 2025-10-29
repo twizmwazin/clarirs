@@ -651,7 +651,7 @@ pub fn ite_cases<'py>(
         let cond = iter.next().ok_or_else(|| {
             PyValueError::new_err("Each case must be a (condition, value) tuple")
         })??;
-        let cond_bool = cond.extract::<CoerceBool>()?.into();
+        let cond_bool = cond.extract::<CoerceBool>()?;
         let value = iter.next().ok_or_else(|| {
             PyValueError::new_err("Each case must be a (condition, value) tuple")
         })??;
@@ -795,7 +795,7 @@ pub fn ite_dict<'py>(
         .clone();
 
     // Create If expression: If(cond, val_low, val_high)
-    let result = r#if(py, cond, val_low.clone(), val_high.clone())?;
+    let result = r#if(py, CoerceBool(cond), val_low.clone(), val_high.clone())?;
     let coerced = result.clone().into_any();
     Ok(coerced)
 }
