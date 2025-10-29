@@ -99,6 +99,33 @@ impl<'py> CoerceBV<'py> {
             }
         })
     }
+
+    pub fn unpack_vec(
+        py: Python<'py>,
+        vals: &[CoerceBV<'py>],
+    ) -> Result<Vec<Bound<'py, BV>>, ClaripyError> {
+        if vals.is_empty() {
+            return Ok(vec![]);
+        }
+
+        // First, determine the size to use
+        let size = vals
+            .iter()
+            .find(|val| matches!(val, CoerceBV::BV(_)))
+            .map(|val| match val {
+                CoerceBV::BV(bv) => bv.get().size() as u32,
+                CoerceBV::Int(_) => 0,
+            })
+            .ok_or(ClaripyError::InvalidArgumentType(
+                "Failed to extract size of BVs in list".to_string(),
+            ))?;
+
+        // Round up to the nearest power of 2
+        let size = size.next_power_of_two();
+
+        // Now unpack all values
+        vals.iter().map(|val| val.unpack(py, size, true)).collect()
+    }
 }
 
 impl<'py> FromPyObject<'_, 'py> for CoerceBV<'py> {
@@ -109,6 +136,13 @@ impl<'py> FromPyObject<'_, 'py> for CoerceBV<'py> {
             Ok(CoerceBV::from(bv_val.to_owned()))
         } else if let Ok(int_val) = val.cast::<PyInt>() {
             Ok(CoerceBV::from(int_val.to_owned()))
+        } else if let Ok(bytes_val) = val.extract::<Vec<u8>>() {
+            Ok(CoerceBV::BV(BV::new(
+                val.py(),
+                &GLOBAL_CONTEXT
+                    .bvv(BitVec::from_bytes_be(&bytes_val))
+                    .map_err(ClaripyError::from)?,
+            )?))
         } else {
             Err(ClaripyError::InvalidArgumentType("Expected BV".to_string()).into())
         }
