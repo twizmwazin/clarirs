@@ -129,9 +129,7 @@ impl<'c> Op<'c> for FloatOp<'c> {
             | FloatOp::FpAbs(a)
             | FloatOp::FpSqrt(a, _)
             | FloatOp::FpToFp(a, _, _) => vec![a.into()].into_iter(),
-            FloatOp::FpFP(sign, exp, sig) => {
-                vec![sign.into(), exp.into(), sig.into()].into_iter()
-            }
+            FloatOp::FpFP(sign, exp, sig) => vec![sign.into(), exp.into(), sig.into()].into_iter(),
             FloatOp::BvToFp(a, _)
             | FloatOp::BvToFpSigned(a, _, _)
             | FloatOp::BvToFpUnsigned(a, _, _) => vec![a.into()].into_iter(),

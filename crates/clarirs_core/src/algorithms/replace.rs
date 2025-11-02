@@ -1488,7 +1488,8 @@ impl<'c> Replace<'c, BoolAst<'c>> for FloatAst<'c> {
                 let sign_replaced = sign.replace(from, to)?;
                 let exp_replaced = exp.replace(from, to)?;
                 let sig_replaced = sig.replace(from, to)?;
-                self.context().make_float(FloatOp::FpFP(sign_replaced, exp_replaced, sig_replaced))
+                self.context()
+                    .make_float(FloatOp::FpFP(sign_replaced, exp_replaced, sig_replaced))
             }
             FloatOp::FpNeg(a) => {
                 let a_replaced = a.replace(from, to)?;
@@ -1565,8 +1566,9 @@ impl<'c> Replace<'c, BitVecAst<'c>> for FloatAst<'c> {
                 let sign_replaced = sign.replace(from, to)?;
                 let exp_replaced = exp.replace(from, to)?;
                 let sig_replaced = sig.replace(from, to)?;
-                self.context().make_float(FloatOp::FpFP(sign_replaced, exp_replaced, sig_replaced))
-            },
+                self.context()
+                    .make_float(FloatOp::FpFP(sign_replaced, exp_replaced, sig_replaced))
+            }
             FloatOp::FpNeg(a) => {
                 let a_replaced = a.replace(from, to)?;
                 self.context().make_float(FloatOp::FpNeg(a_replaced))
@@ -1645,7 +1647,11 @@ impl<'c> Replace<'c, FloatAst<'c>> for FloatAst<'c> {
                     let sign_replaced = sign.replace(from, to)?;
                     let exp_replaced = exp.replace(from, to)?;
                     let sig_replaced = sig.replace(from, to)?;
-                    self.context().make_float(FloatOp::FpFP(sign_replaced, exp_replaced, sig_replaced))
+                    self.context().make_float(FloatOp::FpFP(
+                        sign_replaced,
+                        exp_replaced,
+                        sig_replaced,
+                    ))
                 }
                 FloatOp::FpNeg(a) => {
                     let a_replaced = a.replace(from, to)?;
@@ -1723,8 +1729,9 @@ impl<'c> Replace<'c, StringAst<'c>> for FloatAst<'c> {
                 let sign_replaced = sign.replace(from, to)?;
                 let exp_replaced = exp.replace(from, to)?;
                 let sig_replaced = sig.replace(from, to)?;
-                self.context().make_float(FloatOp::FpFP(sign_replaced, exp_replaced, sig_replaced))
-            },
+                self.context()
+                    .make_float(FloatOp::FpFP(sign_replaced, exp_replaced, sig_replaced))
+            }
             FloatOp::FpNeg(a) => {
                 let a_replaced = a.replace(from, to)?;
                 self.context().make_float(FloatOp::FpNeg(a_replaced))

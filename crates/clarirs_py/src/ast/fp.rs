@@ -799,7 +799,11 @@ pub fn fpFP<'py>(
 ) -> Result<Bound<'py, FP>, ClaripyError> {
     FP::new(
         py,
-        &GLOBAL_CONTEXT.fp_fp(&sign.get().inner, &exponent.get().inner, &significand.get().inner)?,
+        &GLOBAL_CONTEXT.fp_fp(
+            &sign.get().inner,
+            &exponent.get().inner,
+            &significand.get().inner,
+        )?,
     )
 }
 
@@ -858,10 +862,7 @@ pub fn FpToUbv<'py>(
     fp: Bound<'py, FP>,
     len: u32,
 ) -> Result<Bound<'py, BV>, ClaripyError> {
-    BV::new(
-        py,
-        &GLOBAL_CONTEXT.fp_to_ubv(&fp.get().inner, len, rm)?,
-    )
+    BV::new(py, &GLOBAL_CONTEXT.fp_to_ubv(&fp.get().inner, len, rm)?)
 }
 
 #[pyfunction(name = "fpToSBV", signature = (rm, fp, len))]
@@ -871,10 +872,7 @@ pub fn FpToBv<'py>(
     fp: Bound<'py, FP>,
     len: u32,
 ) -> Result<Bound<'py, BV>, ClaripyError> {
-    BV::new(
-        py,
-        &GLOBAL_CONTEXT.fp_to_sbv(&fp.get().inner, len, rm)?,
-    )
+    BV::new(py, &GLOBAL_CONTEXT.fp_to_sbv(&fp.get().inner, len, rm)?)
 }
 
 #[pyfunction(name = "fpNeg", signature = (lhs))]
@@ -945,10 +943,7 @@ pub fn FpSqrt<'py>(
     rm: PyRM,
     lhs: Bound<'py, FP>,
 ) -> Result<Bound<'py, FP>, ClaripyError> {
-    FP::new(
-        py,
-        &GLOBAL_CONTEXT.fp_sqrt(&lhs.get().inner, rm)?,
-    )
+    FP::new(py, &GLOBAL_CONTEXT.fp_sqrt(&lhs.get().inner, rm)?)
 }
 
 #[pyfunction(name = "fpEQ", signature = (lhs, rhs))]

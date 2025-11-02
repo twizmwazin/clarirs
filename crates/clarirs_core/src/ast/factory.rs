@@ -347,7 +347,11 @@ pub trait AstFactory<'c>: Sized {
         exponent: &BitVecAst<'c>,
         significand: &BitVecAst<'c>,
     ) -> Result<FloatAst<'c>, ClarirsError> {
-        self.make_float(FloatOp::FpFP(sign.clone(), exponent.clone(), significand.clone()))
+        self.make_float(FloatOp::FpFP(
+            sign.clone(),
+            exponent.clone(),
+            significand.clone(),
+        ))
     }
 
     fn bv_to_fp_signed<RM: Into<FPRM>, FS: Into<FSort>>(
