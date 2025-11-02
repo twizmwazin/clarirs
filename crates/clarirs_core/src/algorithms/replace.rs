@@ -1484,6 +1484,12 @@ impl<'c> Replace<'c, BoolAst<'c>> for FloatAst<'c> {
     fn replace(&self, from: &BoolAst<'c>, to: &BoolAst<'c>) -> Result<Self, ClarirsError> {
         match self.op() {
             FloatOp::FPS(..) | FloatOp::FPV(..) => Ok(self.clone()),
+            FloatOp::FpFP(sign, exp, sig) => {
+                let sign_replaced = sign.replace(from, to)?;
+                let exp_replaced = exp.replace(from, to)?;
+                let sig_replaced = sig.replace(from, to)?;
+                self.context().make_float(FloatOp::FpFP(sign_replaced, exp_replaced, sig_replaced))
+            }
             FloatOp::FpNeg(a) => {
                 let a_replaced = a.replace(from, to)?;
                 self.context().make_float(FloatOp::FpNeg(a_replaced))
@@ -1555,6 +1561,12 @@ impl<'c> Replace<'c, BitVecAst<'c>> for FloatAst<'c> {
     fn replace(&self, from: &BitVecAst<'c>, to: &BitVecAst<'c>) -> Result<Self, ClarirsError> {
         match self.op() {
             FloatOp::FPS(..) | FloatOp::FPV(..) => Ok(self.clone()),
+            FloatOp::FpFP(sign, exp, sig) => {
+                let sign_replaced = sign.replace(from, to)?;
+                let exp_replaced = exp.replace(from, to)?;
+                let sig_replaced = sig.replace(from, to)?;
+                self.context().make_float(FloatOp::FpFP(sign_replaced, exp_replaced, sig_replaced))
+            },
             FloatOp::FpNeg(a) => {
                 let a_replaced = a.replace(from, to)?;
                 self.context().make_float(FloatOp::FpNeg(a_replaced))
@@ -1629,6 +1641,12 @@ impl<'c> Replace<'c, FloatAst<'c>> for FloatAst<'c> {
         } else {
             match self.op() {
                 FloatOp::FPS(..) | FloatOp::FPV(..) => Ok(self.clone()),
+                FloatOp::FpFP(sign, exp, sig) => {
+                    let sign_replaced = sign.replace(from, to)?;
+                    let exp_replaced = exp.replace(from, to)?;
+                    let sig_replaced = sig.replace(from, to)?;
+                    self.context().make_float(FloatOp::FpFP(sign_replaced, exp_replaced, sig_replaced))
+                }
                 FloatOp::FpNeg(a) => {
                     let a_replaced = a.replace(from, to)?;
                     self.context().make_float(FloatOp::FpNeg(a_replaced))
@@ -1701,6 +1719,12 @@ impl<'c> Replace<'c, StringAst<'c>> for FloatAst<'c> {
     fn replace(&self, from: &StringAst<'c>, to: &StringAst<'c>) -> Result<Self, ClarirsError> {
         match self.op() {
             FloatOp::FPS(..) | FloatOp::FPV(..) => Ok(self.clone()),
+            FloatOp::FpFP(sign, exp, sig) => {
+                let sign_replaced = sign.replace(from, to)?;
+                let exp_replaced = exp.replace(from, to)?;
+                let sig_replaced = sig.replace(from, to)?;
+                self.context().make_float(FloatOp::FpFP(sign_replaced, exp_replaced, sig_replaced))
+            },
             FloatOp::FpNeg(a) => {
                 let a_replaced = a.replace(from, to)?;
                 self.context().make_float(FloatOp::FpNeg(a_replaced))

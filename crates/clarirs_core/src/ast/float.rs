@@ -18,6 +18,8 @@ pub enum FloatOp<'c> {
     FpSqrt(FloatAst<'c>, FPRM),
     /// Transform a float to another float of a different size, preserving the value.
     FpToFp(FloatAst<'c>, FSort, FPRM),
+    /// Construct a float from sign, exponent, and significand bitvectors
+    FpFP(BitVecAst<'c>, BitVecAst<'c>, BitVecAst<'c>),
     /// Transform an IEEE 754 bitvector to a float
     BvToFp(BitVecAst<'c>, FSort),
     /// Transform a signed 2's complement bitvector to a float
@@ -85,25 +87,31 @@ impl std::hash::Hash for FloatOp<'_> {
                 sort.hash(state);
                 rm.hash(state);
             }
-            FloatOp::BvToFp(a, sort) => {
+            FloatOp::FpFP(sign, exp, sig) => {
                 10.hash(state);
+                sign.hash(state);
+                exp.hash(state);
+                sig.hash(state);
+            }
+            FloatOp::BvToFp(a, sort) => {
+                11.hash(state);
                 a.hash(state);
                 sort.hash(state);
             }
             FloatOp::BvToFpSigned(a, sort, rm) => {
-                11.hash(state);
-                a.hash(state);
-                sort.hash(state);
-                rm.hash(state);
-            }
-            FloatOp::BvToFpUnsigned(a, sort, rm) => {
                 12.hash(state);
                 a.hash(state);
                 sort.hash(state);
                 rm.hash(state);
             }
-            FloatOp::If(a, b, c) => {
+            FloatOp::BvToFpUnsigned(a, sort, rm) => {
                 13.hash(state);
+                a.hash(state);
+                sort.hash(state);
+                rm.hash(state);
+            }
+            FloatOp::If(a, b, c) => {
+                14.hash(state);
                 a.hash(state);
                 b.hash(state);
                 c.hash(state);
@@ -121,6 +129,9 @@ impl<'c> Op<'c> for FloatOp<'c> {
             | FloatOp::FpAbs(a)
             | FloatOp::FpSqrt(a, _)
             | FloatOp::FpToFp(a, _, _) => vec![a.into()].into_iter(),
+            FloatOp::FpFP(sign, exp, sig) => {
+                vec![sign.into(), exp.into(), sig.into()].into_iter()
+            }
             FloatOp::BvToFp(a, _)
             | FloatOp::BvToFpSigned(a, _, _)
             | FloatOp::BvToFpUnsigned(a, _, _) => vec![a.into()].into_iter(),
@@ -171,6 +182,10 @@ impl<'c> FloatExt<'c> for FloatOp<'c> {
             | FloatOp::BvToFp(_, sort)
             | FloatOp::BvToFpSigned(_, sort, _)
             | FloatOp::BvToFpUnsigned(_, sort, _) => sort.size(),
+            FloatOp::FpFP(sign, exp, sig) => {
+                use crate::ast::bitvec::BitVecOpExt;
+                sign.op().size() + exp.op().size() + sig.op().size()
+            }
         }
     }
 }
@@ -202,6 +217,11 @@ impl<'c> FloatOpExt<'c> for FloatOp<'c> {
             | FloatOp::BvToFp(_, sort)
             | FloatOp::BvToFpSigned(_, sort, _)
             | FloatOp::BvToFpUnsigned(_, sort, _) => *sort,
+            FloatOp::FpFP(_sign, exp, sig) => {
+                use crate::ast::bitvec::BitVecOpExt;
+                // The significand includes the implicit bit, mantissa doesn't
+                FSort::new(exp.op().size(), sig.op().size().saturating_sub(1))
+            }
         }
     }
 }
