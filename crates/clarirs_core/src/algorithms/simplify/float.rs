@@ -16,6 +16,14 @@ pub(crate) fn simplify_float<'c>(
         FloatOp::FPS(name, fsort) => ctx.fps(name.clone(), *fsort),
         FloatOp::FPV(float) => ctx.fpv(float.clone()),
 
+        FloatOp::FpFP(..) => {
+            // FpFP just constructs a float from its components, no simplification needed
+            let sign = extract_bitvec_child(children, 0)?;
+            let exp = extract_bitvec_child(children, 1)?;
+            let sig = extract_bitvec_child(children, 2)?;
+            ctx.fp_fp(&sign, &exp, &sig)
+        }
+
         FloatOp::FpNeg(..) => {
             let arc = extract_float_child(children, 0)?;
             match arc.op() {

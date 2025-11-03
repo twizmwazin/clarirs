@@ -11,7 +11,7 @@ use std::{
 use clarirs_core::algorithms::{canonicalize, structurally_match};
 use clarirs_core::ast::float::{FloatExt, FloatOpExt};
 use dashmap::DashMap;
-use pyo3::types::{PyFrozenSet, PyWeakrefReference};
+use pyo3::types::{PyFrozenSet, PyTuple, PyWeakrefReference};
 
 use crate::prelude::*;
 use clarirs_core::smtlib::ToSmtLib;
@@ -208,6 +208,11 @@ impl FP {
                 let float_value = Float::from(args[0].extract::<f64>(py)?);
                 GLOBAL_CONTEXT.fpv(float_value)?
             }
+            "fpFP" => GLOBAL_CONTEXT.fp_fp(
+                &args[0].cast_bound::<BV>(py)?.get().inner,
+                &args[1].cast_bound::<BV>(py)?.get().inner,
+                &args[2].cast_bound::<BV>(py)?.get().inner,
+            )?,
             "fpNeg" => GLOBAL_CONTEXT.fp_neg(&args[0].cast_bound::<FP>(py)?.get().inner)?,
             "fpAbs" => GLOBAL_CONTEXT.fp_abs(&args[0].cast_bound::<FP>(py)?.get().inner)?,
             "fpAdd" => {
@@ -247,25 +252,23 @@ impl FP {
                 GLOBAL_CONTEXT.fp_sqrt(&args[0].cast_bound::<FP>(py)?.get().inner, rm)?
             }
             "fpToFP" => {
-                let sort: FSort = args[1].extract::<PyFSort>(py)?.into();
-                let rm: FPRM = args
-                    .get(2)
-                    .map(|rm| rm.extract::<PyRM>(py))
-                    .transpose()?
-                    .map(|rm| rm.into())
-                    .unwrap_or_default();
-                GLOBAL_CONTEXT.fp_to_fp(&args[0].cast_bound::<FP>(py)?.get().inner, sort, rm)?
+                // Polymorphic: (RM, FP, FSort) or (BV, FSort)
+                if args.len() == 2 {
+                    // (BV, FSort) case - BV to FP conversion
+                    let sort: FSort = args[1].extract::<PyFSort>(py)?.into();
+                    GLOBAL_CONTEXT.bv_to_fp(&args[0].cast_bound::<BV>(py)?.get().inner, sort)?
+                } else {
+                    // (RM, FP, FSort) case - FP to FP conversion
+                    let rm: FPRM = args[0].extract::<PyRM>(py)?.into();
+                    let sort: FSort = args[2].extract::<PyFSort>(py)?.into();
+                    GLOBAL_CONTEXT.fp_to_fp(&args[1].cast_bound::<FP>(py)?.get().inner, sort, rm)?
+                }
             }
             "fpToFPUnsigned" => {
-                let sort: FSort = args[1].extract::<PyFSort>(py)?.into();
-                let rm: FPRM = args
-                    .get(2)
-                    .map(|rm| rm.extract::<PyRM>(py))
-                    .transpose()?
-                    .map(|rm| rm.into())
-                    .unwrap_or_default();
+                let rm: FPRM = args[0].extract::<PyRM>(py)?.into();
+                let sort: FSort = args[2].extract::<PyFSort>(py)?.into();
                 GLOBAL_CONTEXT.bv_to_fp_unsigned(
-                    &args[0].cast_bound::<BV>(py)?.get().inner,
+                    &args[1].cast_bound::<BV>(py)?.get().inner,
                     sort,
                     rm,
                 )?
@@ -588,8 +591,16 @@ impl FP {
         )
     }
 
-    pub fn to_fp(self_: Bound<'_, FP>) -> Result<Bound<'_, FP>, ClaripyError> {
-        Ok(self_)
+    #[pyo3(signature = (sort, rm = None))]
+    pub fn to_fp<'py>(
+        self_: Bound<'py, FP>,
+        sort: PyFSort,
+        rm: Option<PyRM>,
+    ) -> Result<Bound<'py, FP>, ClaripyError> {
+        FP::new(
+            self_.py(),
+            &GLOBAL_CONTEXT.fp_to_fp(&self_.get().inner, sort, rm.unwrap_or_default())?,
+        )
     }
 
     pub fn __eq__<'py>(
@@ -714,6 +725,44 @@ impl FP {
     pub fn length(&self) -> usize {
         self.size()
     }
+
+    #[getter]
+    pub fn sort(&self) -> PyFSort {
+        PyFSort::from(self.inner.sort())
+    }
+
+    #[pyo3(signature = (size, signed = true, rm = None))]
+    pub fn val_to_bv<'py>(
+        self_: Bound<'py, FP>,
+        size: u32,
+        signed: bool,
+        rm: Option<PyRM>,
+    ) -> Result<Bound<'py, BV>, ClaripyError> {
+        if signed {
+            BV::new(
+                self_.py(),
+                &GLOBAL_CONTEXT.fp_to_sbv(&self_.get().inner, size, rm.unwrap_or_default())?,
+            )
+        } else {
+            BV::new(
+                self_.py(),
+                &GLOBAL_CONTEXT.fp_to_ubv(&self_.get().inner, size, rm.unwrap_or_default())?,
+            )
+        }
+    }
+
+    #[staticmethod]
+    #[pyo3(signature = (lhs, rm = None))]
+    pub fn Sqrt<'py>(
+        py: Python<'py>,
+        lhs: Bound<'py, FP>,
+        rm: Option<PyRM>,
+    ) -> Result<Bound<'py, FP>, ClaripyError> {
+        FP::new(
+            py,
+            &GLOBAL_CONTEXT.fp_sqrt(&lhs.get().inner, rm.unwrap_or_default())?,
+        )
+    }
 }
 
 #[pyfunction(signature = (name, sort, explicit_name = false))]
@@ -743,37 +792,58 @@ pub fn FPV(py: Python<'_>, value: f64, sort: PyFSort) -> Result<Bound<'_, FP>, C
 
 #[pyfunction]
 pub fn fpFP<'py>(
-    _py: Python<'py>,
-    _sign: Bound<'py, BV>,
-    _exponent: Bound<'py, BV>,
-    _significand: Bound<'py, BV>,
-) -> Result<Bound<'py, FP>, ClaripyError> {
-    todo!("fpFP")
-}
-
-#[pyfunction(name = "fpToFP", signature = (fp, sort, rm = None))]
-pub fn FpToFP<'py>(
     py: Python<'py>,
-    fp: CoerceFP<'py>,
-    sort: PyFSort,
-    rm: Option<PyRM>,
+    sign: Bound<'py, BV>,
+    exponent: Bound<'py, BV>,
+    significand: Bound<'py, BV>,
 ) -> Result<Bound<'py, FP>, ClaripyError> {
     FP::new(
         py,
-        &GLOBAL_CONTEXT.fp_to_fp(&fp.0.get().inner, sort, rm.unwrap_or_default())?,
+        &GLOBAL_CONTEXT.fp_fp(
+            &sign.get().inner,
+            &exponent.get().inner,
+            &significand.get().inner,
+        )?,
     )
 }
 
-#[pyfunction(name = "fpToFPUnsigned", signature = (bv, sort, rm = None))]
+#[pyfunction(name = "fpToFP")]
+#[pyo3(signature = (*args))]
+pub fn FpToFP<'py>(
+    py: Python<'py>,
+    args: &Bound<'py, PyTuple>,
+) -> Result<Bound<'py, FP>, ClaripyError> {
+    // Polymorphic: (RM, FP, FSort) or (BV, FSort)
+    if args.len() == 2 {
+        // (BV, FSort) case
+        let bv_item = args.get_item(0)?;
+        let bv = bv_item.cast::<BV>()?;
+        let sort: PyFSort = args.get_item(1)?.extract()?;
+        FP::new(py, &GLOBAL_CONTEXT.bv_to_fp(&bv.get().inner, sort)?)
+    } else if args.len() == 3 {
+        // (RM, FP, FSort) case
+        let rm: PyRM = args.get_item(0)?.extract()?;
+        let fp_item = args.get_item(1)?;
+        let fp = fp_item.cast::<FP>()?;
+        let sort: PyFSort = args.get_item(2)?.extract()?;
+        FP::new(py, &GLOBAL_CONTEXT.fp_to_fp(&fp.get().inner, sort, rm)?)
+    } else {
+        Err(ClaripyError::InvalidOperation(
+            "fpToFP requires 2 or 3 arguments".to_string(),
+        ))
+    }
+}
+
+#[pyfunction(name = "fpToFPUnsigned", signature = (rm, bv, sort))]
 pub fn BvToFpUnsigned<'py>(
     py: Python<'py>,
+    rm: PyRM,
     bv: Bound<'py, BV>,
     sort: PyFSort,
-    rm: Option<PyRM>,
 ) -> Result<Bound<'py, FP>, ClaripyError> {
     FP::new(
         py,
-        &GLOBAL_CONTEXT.bv_to_fp_unsigned(&bv.get().inner, sort, rm.unwrap_or_default())?,
+        &GLOBAL_CONTEXT.bv_to_fp_unsigned(&bv.get().inner, sort, rm)?,
     )
 }
 
@@ -785,30 +855,24 @@ pub fn fpToIEEEBV<'py>(
     BV::new(py, &GLOBAL_CONTEXT.fp_to_ieeebv(&fp.get().inner)?)
 }
 
-#[pyfunction(name = "fpToUBV", signature = (fp, len, rm = None))]
+#[pyfunction(name = "fpToUBV", signature = (rm, fp, len))]
 pub fn FpToUbv<'py>(
     py: Python<'py>,
+    rm: PyRM,
     fp: Bound<'py, FP>,
     len: u32,
-    rm: Option<PyRM>,
 ) -> Result<Bound<'py, BV>, ClaripyError> {
-    BV::new(
-        py,
-        &GLOBAL_CONTEXT.fp_to_ubv(&fp.get().inner, len, rm.unwrap_or_default())?,
-    )
+    BV::new(py, &GLOBAL_CONTEXT.fp_to_ubv(&fp.get().inner, len, rm)?)
 }
 
-#[pyfunction(name = "fpToSBV", signature = (fp, len, rm = None))]
+#[pyfunction(name = "fpToSBV", signature = (rm, fp, len))]
 pub fn FpToBv<'py>(
     py: Python<'py>,
+    rm: PyRM,
     fp: Bound<'py, FP>,
     len: u32,
-    rm: Option<PyRM>,
 ) -> Result<Bound<'py, BV>, ClaripyError> {
-    BV::new(
-        py,
-        &GLOBAL_CONTEXT.fp_to_sbv(&fp.get().inner, len, rm.unwrap_or_default())?,
-    )
+    BV::new(py, &GLOBAL_CONTEXT.fp_to_sbv(&fp.get().inner, len, rm)?)
 }
 
 #[pyfunction(name = "fpNeg", signature = (lhs))]
@@ -821,68 +885,65 @@ pub fn FpAbs<'py>(py: Python<'py>, lhs: Bound<'py, FP>) -> Result<Bound<'py, FP>
     FP::new(py, &GLOBAL_CONTEXT.fp_abs(&lhs.get().inner)?)
 }
 
-#[pyfunction(name = "fpAdd", signature = (lhs, rhs, rm = None))]
+#[pyfunction(name = "fpAdd", signature = (rm, lhs, rhs))]
 pub fn FpAdd<'py>(
     py: Python<'py>,
+    rm: PyRM,
     lhs: Bound<'py, FP>,
     rhs: Bound<'py, FP>,
-    rm: Option<PyRM>,
 ) -> Result<Bound<'py, FP>, ClaripyError> {
     FP::new(
         py,
-        &GLOBAL_CONTEXT.fp_add(&lhs.get().inner, &rhs.get().inner, rm.unwrap_or_default())?,
+        &GLOBAL_CONTEXT.fp_add(&lhs.get().inner, &rhs.get().inner, rm)?,
     )
 }
 
-#[pyfunction(name = "fpSub", signature = (lhs, rhs, rm = None))]
+#[pyfunction(name = "fpSub", signature = (rm, lhs, rhs))]
 pub fn FpSub<'py>(
     py: Python<'py>,
+    rm: PyRM,
     lhs: Bound<'py, FP>,
     rhs: Bound<'py, FP>,
-    rm: Option<PyRM>,
 ) -> Result<Bound<'py, FP>, ClaripyError> {
     FP::new(
         py,
-        &GLOBAL_CONTEXT.fp_sub(&lhs.get().inner, &rhs.get().inner, rm.unwrap_or_default())?,
+        &GLOBAL_CONTEXT.fp_sub(&lhs.get().inner, &rhs.get().inner, rm)?,
     )
 }
 
-#[pyfunction(name = "fpMul", signature = (lhs, rhs, rm = None))]
+#[pyfunction(name = "fpMul", signature = (rm, lhs, rhs))]
 pub fn FpMul<'py>(
     py: Python<'py>,
+    rm: PyRM,
     lhs: Bound<'py, FP>,
     rhs: Bound<'py, FP>,
-    rm: Option<PyRM>,
 ) -> Result<Bound<'py, FP>, ClaripyError> {
     FP::new(
         py,
-        &GLOBAL_CONTEXT.fp_mul(&lhs.get().inner, &rhs.get().inner, rm.unwrap_or_default())?,
+        &GLOBAL_CONTEXT.fp_mul(&lhs.get().inner, &rhs.get().inner, rm)?,
     )
 }
 
-#[pyfunction(name = "fpDiv", signature = (lhs, rhs, rm = None))]
+#[pyfunction(name = "fpDiv", signature = (rm, lhs, rhs))]
 pub fn FpDiv<'py>(
     py: Python<'py>,
+    rm: PyRM,
     lhs: Bound<'py, FP>,
     rhs: Bound<'py, FP>,
-    rm: Option<PyRM>,
 ) -> Result<Bound<'py, FP>, ClaripyError> {
     FP::new(
         py,
-        &GLOBAL_CONTEXT.fp_div(&lhs.get().inner, &rhs.get().inner, rm.unwrap_or_default())?,
+        &GLOBAL_CONTEXT.fp_div(&lhs.get().inner, &rhs.get().inner, rm)?,
     )
 }
 
-#[pyfunction(name = "fpSqrt", signature = (lhs, rm = None))]
+#[pyfunction(name = "fpSqrt", signature = (rm, lhs))]
 pub fn FpSqrt<'py>(
     py: Python<'py>,
+    rm: PyRM,
     lhs: Bound<'py, FP>,
-    rm: Option<PyRM>,
 ) -> Result<Bound<'py, FP>, ClaripyError> {
-    FP::new(
-        py,
-        &GLOBAL_CONTEXT.fp_sqrt(&lhs.get().inner, rm.unwrap_or_default())?,
-    )
+    FP::new(py, &GLOBAL_CONTEXT.fp_sqrt(&lhs.get().inner, rm)?)
 }
 
 #[pyfunction(name = "fpEQ", signature = (lhs, rhs))]
@@ -897,8 +958,8 @@ pub fn FpEq<'py>(
     )
 }
 
-#[pyfunction(name = "fpNeq", signature = (lhs, rhs))]
-pub fn FpNeq<'py>(
+#[pyfunction(name = "fpNEQ", signature = (lhs, rhs))]
+pub fn FpNEQ<'py>(
     py: Python<'py>,
     lhs: Bound<'py, FP>,
     rhs: Bound<'py, FP>,
@@ -989,7 +1050,7 @@ pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
         FpDiv,
         FpSqrt,
         FpEq,
-        FpNeq,
+        FpNEQ,
         FpLt,
         FpLeq,
         FpGt,

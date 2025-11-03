@@ -141,6 +141,11 @@ impl ExtractPyArgs for FloatAst<'static> {
                 Bound::new(py, PyFSort::from(fsort))?.into_any(),
             ],
             FloatOp::FPV(value) => vec![value.to_f64().into_bound_py_any(py)?],
+            FloatOp::FpFP(sign, exp, sig) => vec![
+                BV::new(py, sign)?.into_any(),
+                BV::new(py, exp)?.into_any(),
+                BV::new(py, sig)?.into_any(),
+            ],
             FloatOp::FpNeg(expr) | FloatOp::FpAbs(expr) => vec![FP::new(py, expr)?.into_any()],
             FloatOp::FpAdd(lhs, rhs, rm)
             | FloatOp::FpSub(lhs, rhs, rm)

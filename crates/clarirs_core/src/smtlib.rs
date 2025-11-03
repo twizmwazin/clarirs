@@ -104,6 +104,7 @@ fn to_smtlib_float(ast: &FloatAst, children: &[String]) -> String {
             let sig = float.mantissa().to_biguint().to_string();
             format!("(fp #{sign} #{exp} #{sig})")
         }
+        FloatOp::FpFP(..) => format!("(fp {} {} {})", children[0], children[1], children[2]),
         FloatOp::FpNeg(..) => format!("(fp.neg {})", children[0]),
         FloatOp::FpAbs(..) => format!("(fp.abs {})", children[0]),
         FloatOp::FpAdd(_, _, fprm) => format!(
