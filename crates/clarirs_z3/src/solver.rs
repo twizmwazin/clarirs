@@ -160,23 +160,50 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         n: u32,
     ) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
         let mut results = Vec::new();
-        let mut solver = self.clone();
 
-        for _ in 0..n {
-            if !solver.satisfiable()? {
-                break;
-            }
-
-            let solution = solver.eval_bool(expr)?;
-            results.push(solution.clone());
-
-            if let Ok(()) = solver.add(&solver.context().neq(expr, &solution)?) {
-            } else {
-                break;
-            }
+        // Simplify and check if concrete
+        let expr = expr.simplify_z3()?;
+        if expr.concrete() {
+            return Ok(vec![expr; n as usize]);
         }
 
-        Ok(results)
+        // Convert to Z3 once
+        let z3_expr = expr.to_z3()?;
+
+        Z3_CONTEXT.with(|&z3_ctx| unsafe {
+            // Create and fill the Z3 solver once
+            let z3_solver = z3::mk_solver(z3_ctx);
+            z3::solver_inc_ref(z3_ctx, z3_solver);
+
+            for assertion in &self.assertions {
+                let converted = assertion.to_z3()?;
+                z3::solver_assert(z3_ctx, z3_solver, *converted);
+            }
+
+            for _ in 0..n {
+                if z3::solver_check(z3_ctx, z3_solver) != z3::Lbool::True {
+                    break;
+                }
+
+                let model = z3::solver_get_model(z3_ctx, z3_solver);
+                let mut eval_result: z3::Ast = std::mem::zeroed();
+                let eval_ret = z3::model_eval(z3_ctx, model, *z3_expr, true, &mut eval_result);
+
+                if !eval_ret {
+                    break;
+                }
+
+                let solution = BoolAst::from_z3(self.context(), eval_result)?;
+                results.push(solution.clone());
+
+                // Add constraint to exclude this solution
+                let neq_constraint = self.context().neq(&expr, &solution)?;
+                let z3_neq = neq_constraint.to_z3()?;
+                z3::solver_assert(z3_ctx, z3_solver, *z3_neq);
+            }
+
+            Ok(results)
+        })
     }
 
     fn eval_bitvec_n(
@@ -185,23 +212,50 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         n: u32,
     ) -> Result<Vec<BitVecAst<'c>>, ClarirsError> {
         let mut results = Vec::new();
-        let mut solver = self.clone();
 
-        for _ in 0..n {
-            if !solver.satisfiable()? {
-                break;
-            }
-
-            let solution = solver.eval_bitvec(expr)?;
-            results.push(solution.clone());
-
-            if let Ok(()) = solver.add(&solver.context().neq(expr, &solution)?) {
-            } else {
-                break;
-            }
+        // Simplify and check if concrete
+        let expr = expr.simplify_z3()?;
+        if expr.concrete() {
+            return Ok(vec![expr; n as usize]);
         }
 
-        Ok(results)
+        // Convert to Z3 once
+        let z3_expr = expr.to_z3()?;
+
+        Z3_CONTEXT.with(|&z3_ctx| unsafe {
+            // Create and fill the Z3 solver once
+            let z3_solver = z3::mk_solver(z3_ctx);
+            z3::solver_inc_ref(z3_ctx, z3_solver);
+
+            for assertion in &self.assertions {
+                let converted = assertion.to_z3()?;
+                z3::solver_assert(z3_ctx, z3_solver, *converted);
+            }
+
+            for _ in 0..n {
+                if z3::solver_check(z3_ctx, z3_solver) != z3::Lbool::True {
+                    break;
+                }
+
+                let model = z3::solver_get_model(z3_ctx, z3_solver);
+                let mut eval_result: z3::Ast = std::mem::zeroed();
+                let eval_ret = z3::model_eval(z3_ctx, model, *z3_expr, true, &mut eval_result);
+
+                if !eval_ret {
+                    break;
+                }
+
+                let solution = BitVecAst::from_z3(self.context(), eval_result)?;
+                results.push(solution.clone());
+
+                // Add constraint to exclude this solution
+                let neq_constraint = self.context().neq(&expr, &solution)?;
+                let z3_neq = neq_constraint.to_z3()?;
+                z3::solver_assert(z3_ctx, z3_solver, *z3_neq);
+            }
+
+            Ok(results)
+        })
     }
 
     fn eval_float_n(
@@ -210,23 +264,50 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         n: u32,
     ) -> Result<Vec<FloatAst<'c>>, ClarirsError> {
         let mut results = Vec::new();
-        let mut solver = self.clone();
 
-        for _ in 0..n {
-            if !solver.satisfiable()? {
-                break;
-            }
-
-            let solution = solver.eval_float(expr)?;
-            results.push(solution.clone());
-
-            if let Ok(()) = solver.add(&solver.context().neq(expr, &solution)?) {
-            } else {
-                break;
-            }
+        // Simplify and check if concrete
+        let expr = expr.simplify_z3()?;
+        if expr.concrete() {
+            return Ok(vec![expr; n as usize]);
         }
 
-        Ok(results)
+        // Convert to Z3 once
+        let z3_expr = expr.to_z3()?;
+
+        Z3_CONTEXT.with(|&z3_ctx| unsafe {
+            // Create and fill the Z3 solver once
+            let z3_solver = z3::mk_solver(z3_ctx);
+            z3::solver_inc_ref(z3_ctx, z3_solver);
+
+            for assertion in &self.assertions {
+                let converted = assertion.to_z3()?;
+                z3::solver_assert(z3_ctx, z3_solver, *converted);
+            }
+
+            for _ in 0..n {
+                if z3::solver_check(z3_ctx, z3_solver) != z3::Lbool::True {
+                    break;
+                }
+
+                let model = z3::solver_get_model(z3_ctx, z3_solver);
+                let mut eval_result: z3::Ast = std::mem::zeroed();
+                let eval_ret = z3::model_eval(z3_ctx, model, *z3_expr, true, &mut eval_result);
+
+                if !eval_ret {
+                    break;
+                }
+
+                let solution = FloatAst::from_z3(self.context(), eval_result)?;
+                results.push(solution.clone());
+
+                // Add constraint to exclude this solution
+                let neq_constraint = self.context().neq(&expr, &solution)?;
+                let z3_neq = neq_constraint.to_z3()?;
+                z3::solver_assert(z3_ctx, z3_solver, *z3_neq);
+            }
+
+            Ok(results)
+        })
     }
 
     fn eval_string_n(
@@ -235,23 +316,50 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         n: u32,
     ) -> Result<Vec<StringAst<'c>>, ClarirsError> {
         let mut results = Vec::new();
-        let mut solver = self.clone();
 
-        for _ in 0..n {
-            if !solver.satisfiable()? {
-                break;
-            }
-
-            let solution = solver.eval_string(expr)?;
-            results.push(solution.clone());
-
-            if let Ok(()) = solver.add(&solver.context().neq(expr, &solution)?) {
-            } else {
-                break;
-            }
+        // Simplify and check if concrete
+        let expr = expr.simplify_z3()?;
+        if expr.concrete() {
+            return Ok(vec![expr; n as usize]);
         }
 
-        Ok(results)
+        // Convert to Z3 once
+        let z3_expr = expr.to_z3()?;
+
+        Z3_CONTEXT.with(|&z3_ctx| unsafe {
+            // Create and fill the Z3 solver once
+            let z3_solver = z3::mk_solver(z3_ctx);
+            z3::solver_inc_ref(z3_ctx, z3_solver);
+
+            for assertion in &self.assertions {
+                let converted = assertion.to_z3()?;
+                z3::solver_assert(z3_ctx, z3_solver, *converted);
+            }
+
+            for _ in 0..n {
+                if z3::solver_check(z3_ctx, z3_solver) != z3::Lbool::True {
+                    break;
+                }
+
+                let model = z3::solver_get_model(z3_ctx, z3_solver);
+                let mut eval_result: z3::Ast = std::mem::zeroed();
+                let eval_ret = z3::model_eval(z3_ctx, model, *z3_expr, true, &mut eval_result);
+
+                if !eval_ret {
+                    break;
+                }
+
+                let solution = StringAst::from_z3(self.context(), eval_result)?;
+                results.push(solution.clone());
+
+                // Add constraint to exclude this solution
+                let neq_constraint = self.context().neq(&expr, &solution)?;
+                let z3_neq = neq_constraint.to_z3()?;
+                z3::solver_assert(z3_ctx, z3_solver, *z3_neq);
+            }
+
+            Ok(results)
+        })
     }
     fn constraints(&self) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
         Ok(self.assertions.clone())
