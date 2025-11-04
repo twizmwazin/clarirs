@@ -17,11 +17,22 @@ pub(crate) fn simplify_float<'c>(
         FloatOp::FPV(float) => ctx.fpv(float.clone()),
 
         FloatOp::FpFP(..) => {
-            // FpFP just constructs a float from its components, no simplification needed
             let sign = extract_bitvec_child(children, 0)?;
             let exp = extract_bitvec_child(children, 1)?;
             let sig = extract_bitvec_child(children, 2)?;
-            ctx.fp_fp(&sign, &exp, &sig)
+
+            // If all components are concrete, construct a concrete float
+            match (sign.op(), exp.op(), sig.op()) {
+                (BitVecOp::BVV(sign_bv), BitVecOp::BVV(exp_bv), BitVecOp::BVV(sig_bv)) => {
+                    let float = Float::new(
+                        !sign_bv.is_zero(), // sign is true if bit is 1
+                        exp_bv.clone(),
+                        sig_bv.clone(),
+                    );
+                    ctx.fpv(float)
+                }
+                _ => ctx.fp_fp(&sign, &exp, &sig),
+            }
         }
 
         FloatOp::FpNeg(..) => {
@@ -160,7 +171,32 @@ pub(crate) fn simplify_float<'c>(
         }
         FloatOp::BvToFp(_, fsort) => {
             let arc = extract_bitvec_child(children, 0)?;
-            ctx.bv_to_fp(&arc, *fsort)
+            match arc.op() {
+                BitVecOp::BVV(bv_val) => {
+                    // Extract sign, exponent, and mantissa from IEEE 754 representation
+                    let total_bits = bv_val.len();
+                    let man_bits = fsort.mantissa;
+
+                    // Ensure the bitvector size matches the float sort
+                    if total_bits != fsort.size() {
+                        return Err(ClarirsError::InvalidArguments);
+                    }
+
+                    // Extract components: sign (1 bit) | exponent (exp_bits) | mantissa (man_bits)
+                    let sign_bit = bv_val.extract(0, total_bits - 1)?;
+                    let exponent = bv_val.extract(man_bits, total_bits - 2)?;
+                    let mantissa = bv_val.extract(0, man_bits - 1)?;
+
+                    // Construct Float from components
+                    let float = Float::new(
+                        !sign_bit.is_zero(), // sign is true if bit is 1
+                        exponent,
+                        mantissa,
+                    );
+                    ctx.fpv(float)
+                }
+                _ => ctx.bv_to_fp(&arc, *fsort),
+            }
         }
         FloatOp::BvToFpSigned(_, fsort, fprm) => {
             let arc = extract_bitvec_child(children, 0)?;
