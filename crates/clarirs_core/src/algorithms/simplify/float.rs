@@ -14,7 +14,7 @@ pub(crate) fn simplify_float<'c>(
 
     match &ast.op() {
         FloatOp::FPS(name, fsort) => ctx.fps(name.clone(), *fsort),
-        FloatOp::FPV(float) => ctx.fpv(float.clone()),
+        FloatOp::FPV(float) => ctx.fpv(*float),
 
         FloatOp::FpFP(..) => {
             let sign = extract_bitvec_child(children, 0)?;
@@ -68,9 +68,7 @@ pub(crate) fn simplify_float<'c>(
                 extract_float_child(children, 1)?,
             );
             match (arc.op(), arc1.op()) {
-                (FloatOp::FPV(float1), FloatOp::FPV(float2)) => {
-                    ctx.fpv((float1.clone() + float2.clone())?)
-                }
+                (FloatOp::FPV(float1), FloatOp::FPV(float2)) => ctx.fpv((*float1 + *float2)?),
                 _ => ctx.fp_add(&arc, &arc1, *fprm),
             }
         }
@@ -80,9 +78,7 @@ pub(crate) fn simplify_float<'c>(
                 extract_float_child(children, 1)?,
             );
             match (arc.op(), arc1.op()) {
-                (FloatOp::FPV(float1), FloatOp::FPV(float2)) => {
-                    ctx.fpv((float1.clone() - float2.clone())?)
-                }
+                (FloatOp::FPV(float1), FloatOp::FPV(float2)) => ctx.fpv((*float1 - *float2)?),
                 _ => ctx.fp_sub(&arc, &arc1, *fprm),
             }
         }
@@ -92,9 +88,7 @@ pub(crate) fn simplify_float<'c>(
                 extract_float_child(children, 1)?,
             );
             match (arc.op(), arc1.op()) {
-                (FloatOp::FPV(float1), FloatOp::FPV(float2)) => {
-                    ctx.fpv((float1.clone() * float2.clone())?)
-                }
+                (FloatOp::FPV(float1), FloatOp::FPV(float2)) => ctx.fpv((*float1 * *float2)?),
                 _ => ctx.fp_mul(&arc, &arc1, *fprm),
             }
         }
@@ -104,9 +98,7 @@ pub(crate) fn simplify_float<'c>(
                 extract_float_child(children, 1)?,
             );
             match (arc.op(), arc1.op()) {
-                (FloatOp::FPV(float1), FloatOp::FPV(float2)) => {
-                    ctx.fpv((float1.clone() / float2.clone())?)
-                }
+                (FloatOp::FPV(float1), FloatOp::FPV(float2)) => ctx.fpv((*float1 / *float2)?),
                 _ => ctx.fp_div(&arc, &arc1, *fprm),
             }
         }
