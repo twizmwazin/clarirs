@@ -311,8 +311,9 @@ impl<'c> BitVecOpExt<'c> for BitVecOp<'c> {
             BitVecOp::Extract(_, high, low) => high - low + 1,
             BitVecOp::Concat(a, b) => a.size() + b.size(),
             BitVecOp::ZeroExt(a, ext) | BitVecOp::SignExt(a, ext) => a.size() + ext,
-            BitVecOp::FpToIEEEBV(fp) => fp.size(),
-            BitVecOp::FpToUBV(_, _, _) | BitVecOp::FpToSBV(_, _, _) => 64,
+            BitVecOp::FpToIEEEBV(fp)
+            | BitVecOp::FpToUBV(fp, _, _)
+            | BitVecOp::FpToSBV(fp, _, _) => fp.size(),
             BitVecOp::StrLen(_) | BitVecOp::StrToBV(_) | BitVecOp::StrIndexOf(_, _, _) => 64,
         }
     }
