@@ -648,6 +648,17 @@ pub trait AstFactory<'c>: Sized {
         )
     }
 
+    fn esi(&'c self, size: u32) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec_annotated(
+            BitVecOp::BVS(format!("ESI{size}"), size),
+            HashSet::from([Annotation::new(
+                AnnotationType::EmptyStridedInterval,
+                false,
+                false,
+            )]),
+        )
+    }
+
     fn union(
         &'c self,
         lhs: &BitVecAst<'c>,

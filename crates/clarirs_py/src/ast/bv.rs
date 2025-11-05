@@ -1445,6 +1445,11 @@ pub fn SI(
 }
 
 #[pyfunction]
+pub fn ESI(py: Python<'_>, bits: u32) -> Result<Bound<'_, BV>, ClaripyError> {
+    BV::new(py, &GLOBAL_CONTEXT.esi(bits)?)
+}
+
+#[pyfunction]
 pub fn VS<'py>(
     py: Python<'py>,
     bits: u32,
@@ -1534,6 +1539,7 @@ pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
         Eq_,
         super::r#if,
         SI,
+        ESI,
         VS,
         Union,
         Intersection,

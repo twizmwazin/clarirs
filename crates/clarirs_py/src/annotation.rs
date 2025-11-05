@@ -188,6 +188,12 @@ impl<'py> IntoPyObject<'py> for PyAnnotation {
                     upper_bound,
                 ))?
             }
+            AnnotationType::EmptyStridedInterval => {
+                let module = py.import("claripy.annotation")?;
+                module
+                    .getattr("EmptyStridedIntervalAnnotation")?
+                    .call1(())?
+            }
             AnnotationType::Region {
                 region_id,
                 region_base_addr,
@@ -216,6 +222,9 @@ class SimplificationAvoidanceAnnotation(Annotation):
     relocatable = False
     eliminatable = False
 
+    def __repr__(self):
+        return "SimplificationAvoidanceAnnotation()"
+
 class StridedIntervalAnnotation(Annotation):
     relocatable = False
     eliminatable = False
@@ -225,6 +234,16 @@ class StridedIntervalAnnotation(Annotation):
         self.lower_bound = lower_bound
         self.upper_bound = upper_bound
 
+    def __repr__(self):
+        return f"StridedIntervalAnnotation(stride={self.stride}, lower_bound={self.lower_bound}, upper_bound={self.upper_bound})"
+
+class EmptyStridedIntervalAnnotation(Annotation):
+    relocatable = False
+    eliminatable = False
+
+    def __repr__(self):
+        return "EmptyStridedIntervalAnnotation()"
+
 class RegionAnnotation(Annotation):
     relocatable = False
     eliminatable = False
@@ -233,9 +252,15 @@ class RegionAnnotation(Annotation):
         self.region_id = region_id
         self.region_base_addr = region_base_addr
 
+    def __repr__(self):
+        return f"RegionAnnotation(region_id={self.region_id}, region_base_addr={self.region_base_addr})"
+
 class UninitializedAnnotation(Annotation):
     relocatable = True
     eliminatable = False
+
+    def __repr__(self):
+        return "UninitializedAnnotation()"
 "#;
 
 pub(crate) fn build_module(py: Python<'_>) -> PyResult<Bound<'_, PyModule>> {
