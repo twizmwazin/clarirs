@@ -33,7 +33,7 @@ pub(crate) fn reduce_bv(
 ) -> Result<StridedInterval, ClarirsError> {
     Ok(match ast.op() {
         BitVecOp::BVS(_, bits) => {
-            // If there is an SI annotation, use it. Otherwise, return top.
+            // If there is an SI or ESI annotation, use it. Otherwise, return top.
             ast.annotations()
                 .iter()
                 .find_map(|ann| {
@@ -49,6 +49,8 @@ pub(crate) fn reduce_bv(
                             lower_bound.clone(),
                             upper_bound.clone(),
                         ))
+                    } else if let AnnotationType::EmptyStridedInterval = ann.type_() {
+                        Some(StridedInterval::empty(*bits))
                     } else {
                         None
                     }
