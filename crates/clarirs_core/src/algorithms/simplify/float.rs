@@ -29,7 +29,7 @@ pub(crate) fn simplify_float<'c>(
                         exp_bv.clone(),
                         sig_bv.clone(),
                     );
-                    ctx.fpv(float)
+                    ctx.fpv(float?)
                 }
                 _ => ctx.fp_fp(&sign, &exp, &sig),
             }
@@ -45,7 +45,7 @@ pub(crate) fn simplify_float<'c>(
                         float.exponent().clone(),
                         float.mantissa().clone(),
                     );
-                    ctx.fpv(neg_float)
+                    ctx.fpv(neg_float?)
                 }
                 _ => ctx.fp_neg(&arc), // Handle non-concrete cases
             }
@@ -57,7 +57,7 @@ pub(crate) fn simplify_float<'c>(
                     // Create an absolute value by setting the sign to `false`
                     let abs_float =
                         Float::new(false, float.exponent().clone(), float.mantissa().clone());
-                    ctx.fpv(abs_float)
+                    ctx.fpv(abs_float?)
                 }
                 _ => ctx.fp_abs(&arc), // Handle non-concrete cases
             }
@@ -129,7 +129,7 @@ pub(crate) fn simplify_float<'c>(
                             false,
                             BitVec::ones(float_val.exponent().len()),
                             BitVec::ones(float_val.mantissa().len()),
-                        ));
+                        )?);
                     }
 
                     // Positive infinity
@@ -193,7 +193,7 @@ pub(crate) fn simplify_float<'c>(
                         exponent,
                         mantissa,
                     );
-                    ctx.fpv(float)
+                    ctx.fpv(float?)
                 }
                 _ => ctx.bv_to_fp(&arc, *fsort),
             }

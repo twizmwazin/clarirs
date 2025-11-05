@@ -73,28 +73,40 @@ impl std::hash::Hash for Float {
 }
 
 impl Float {
-    pub fn new(sign: bool, exponent: BitVec, mantissa: BitVec) -> Self {
+    pub fn new(sign: bool, exponent: BitVec, mantissa: BitVec) -> Result<Self, BitVecError> {
         let fsort = FSort::new(exponent.len(), mantissa.len());
 
         match fsort {
             F32_SORT => {
                 let sign_bit = if sign { 1u8 } else { 0u8 };
-                let exp_val = exponent.to_biguint().to_u8().unwrap_or(0);
-                let mant_val = mantissa.to_biguint().to_u32().unwrap_or(0);
-                Float::F32(recompose_f32(sign_bit, exp_val, mant_val))
+                let exp_val = exponent
+                    .to_biguint()
+                    .to_u8()
+                    .ok_or(BitVecError::ConversionError)?;
+                let mant_val = mantissa
+                    .to_biguint()
+                    .to_u32()
+                    .ok_or(BitVecError::ConversionError)?;
+                Ok(Float::F32(recompose_f32(sign_bit, exp_val, mant_val)))
             }
             F64_SORT => {
                 let sign_bit = if sign { 1u8 } else { 0u8 };
-                let exp_val = exponent.to_biguint().to_u16().unwrap_or(0);
-                let mant_val = mantissa.to_u64().unwrap_or(0);
-                Float::F64(recompose_f64(sign_bit, exp_val, mant_val))
+                let exp_val = exponent
+                    .to_biguint()
+                    .to_u16()
+                    .ok_or(BitVecError::ConversionError)?;
+                let mant_val = mantissa.to_u64().ok_or(BitVecError::ConversionError)?;
+                Ok(Float::F64(recompose_f64(sign_bit, exp_val, mant_val)))
             }
             _ => {
                 // For other formats, convert through f64
                 let sign_bit = if sign { 1u8 } else { 0u8 };
-                let exp_val = exponent.to_biguint().to_u16().unwrap_or(0);
-                let mant_val = mantissa.to_u64().unwrap_or(0);
-                Float::F64(recompose_f64(sign_bit, exp_val, mant_val))
+                let exp_val = exponent
+                    .to_biguint()
+                    .to_u16()
+                    .ok_or(BitVecError::ConversionError)?;
+                let mant_val = mantissa.to_u64().ok_or(BitVecError::ConversionError)?;
+                Ok(Float::F64(recompose_f64(sign_bit, exp_val, mant_val)))
             }
         }
     }
@@ -287,12 +299,16 @@ impl Float {
         }
     }
 
-    pub fn to_unsigned_biguint(&self) -> Option<BigUint> {
-        self.to_f64().map(|value| BigUint::from(value as u64))
+    pub fn to_unsigned_biguint(&self) -> Result<BigUint, BitVecError> {
+        self.to_f64()
+            .ok_or(BitVecError::ConversionError)
+            .map(|value| BigUint::from(value as u64))
     }
 
-    pub fn to_signed_bigint(&self) -> Option<BigInt> {
-        self.to_f64().map(|value| BigInt::from(value as i64))
+    pub fn to_signed_bigint(&self) -> Result<BigInt, BitVecError> {
+        self.to_f64()
+            .ok_or(BitVecError::ConversionError)
+            .map(|value| BigInt::from(value as i64))
     }
 
     pub fn to_f32(&self) -> Option<f32> {
@@ -316,19 +332,19 @@ impl Float {
     pub fn from_bigint_with_rounding(
         value: &BigInt,
         fsort: FSort,
-        _fprm: FPRM,
+        fprm: FPRM,
     ) -> Result<Self, BitVecError> {
-        let float_value = value.to_f64().unwrap_or(0.0);
-        Float::from_f64_with_rounding(float_value, _fprm, fsort)
+        let float_value = value.to_f64().ok_or(BitVecError::ConversionError)?;
+        Float::from_f64_with_rounding(float_value, fprm, fsort)
     }
 
     pub fn from_biguint_with_rounding(
         value: &BigUint,
         fsort: FSort,
-        _fprm: FPRM,
+        fprm: FPRM,
     ) -> Result<Self, BitVecError> {
-        let float_value = value.to_f64().unwrap_or(0.0);
-        Float::from_f64_with_rounding(float_value, _fprm, fsort)
+        let float_value = value.to_f64().ok_or(BitVecError::ConversionError)?;
+        Float::from_f64_with_rounding(float_value, fprm, fsort)
     }
 
     pub fn shift_with_grs(value: BigUint, shift: u32) -> (BigUint, bool, bool) {

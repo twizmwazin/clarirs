@@ -31,6 +31,8 @@ pub enum BitVecError {
     DivisionByZero { dividend: BigUint },
     #[error(" BitVector length {size} must be a multiple of {bits}.")]
     InvalidChopSize { size: u32, bits: u32 },
+    #[error("Conversion error occurred.")]
+    ConversionError,
 }
 
 /// BitVec are represented as a SmallVec of usize, where each usize is a word of
