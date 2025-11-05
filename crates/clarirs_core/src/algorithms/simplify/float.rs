@@ -14,7 +14,7 @@ pub(crate) fn simplify_float<'c>(
 
     match &ast.op() {
         FloatOp::FPS(name, fsort) => ctx.fps(name.clone(), *fsort),
-        FloatOp::FPV(float) => ctx.fpv(float.clone()),
+        FloatOp::FPV(float) => ctx.fpv(*float),
 
         FloatOp::FpFP(..) => {
             let sign = extract_bitvec_child(children, 0)?;
@@ -29,7 +29,7 @@ pub(crate) fn simplify_float<'c>(
                         exp_bv.clone(),
                         sig_bv.clone(),
                     );
-                    ctx.fpv(float)
+                    ctx.fpv(float?)
                 }
                 _ => ctx.fp_fp(&sign, &exp, &sig),
             }
@@ -45,7 +45,7 @@ pub(crate) fn simplify_float<'c>(
                         float.exponent().clone(),
                         float.mantissa().clone(),
                     );
-                    ctx.fpv(neg_float)
+                    ctx.fpv(neg_float?)
                 }
                 _ => ctx.fp_neg(&arc), // Handle non-concrete cases
             }
@@ -57,7 +57,7 @@ pub(crate) fn simplify_float<'c>(
                     // Create an absolute value by setting the sign to `false`
                     let abs_float =
                         Float::new(false, float.exponent().clone(), float.mantissa().clone());
-                    ctx.fpv(abs_float)
+                    ctx.fpv(abs_float?)
                 }
                 _ => ctx.fp_abs(&arc), // Handle non-concrete cases
             }
@@ -68,9 +68,7 @@ pub(crate) fn simplify_float<'c>(
                 extract_float_child(children, 1)?,
             );
             match (arc.op(), arc1.op()) {
-                (FloatOp::FPV(float1), FloatOp::FPV(float2)) => {
-                    ctx.fpv((float1.clone() + float2.clone())?)
-                }
+                (FloatOp::FPV(float1), FloatOp::FPV(float2)) => ctx.fpv((*float1 + *float2)?),
                 _ => ctx.fp_add(&arc, &arc1, *fprm),
             }
         }
@@ -80,9 +78,7 @@ pub(crate) fn simplify_float<'c>(
                 extract_float_child(children, 1)?,
             );
             match (arc.op(), arc1.op()) {
-                (FloatOp::FPV(float1), FloatOp::FPV(float2)) => {
-                    ctx.fpv((float1.clone() - float2.clone())?)
-                }
+                (FloatOp::FPV(float1), FloatOp::FPV(float2)) => ctx.fpv((*float1 - *float2)?),
                 _ => ctx.fp_sub(&arc, &arc1, *fprm),
             }
         }
@@ -92,9 +88,7 @@ pub(crate) fn simplify_float<'c>(
                 extract_float_child(children, 1)?,
             );
             match (arc.op(), arc1.op()) {
-                (FloatOp::FPV(float1), FloatOp::FPV(float2)) => {
-                    ctx.fpv((float1.clone() * float2.clone())?)
-                }
+                (FloatOp::FPV(float1), FloatOp::FPV(float2)) => ctx.fpv((*float1 * *float2)?),
                 _ => ctx.fp_mul(&arc, &arc1, *fprm),
             }
         }
@@ -104,9 +98,7 @@ pub(crate) fn simplify_float<'c>(
                 extract_float_child(children, 1)?,
             );
             match (arc.op(), arc1.op()) {
-                (FloatOp::FPV(float1), FloatOp::FPV(float2)) => {
-                    ctx.fpv((float1.clone() / float2.clone())?)
-                }
+                (FloatOp::FPV(float1), FloatOp::FPV(float2)) => ctx.fpv((*float1 / *float2)?),
                 _ => ctx.fp_div(&arc, &arc1, *fprm),
             }
         }
@@ -129,7 +121,7 @@ pub(crate) fn simplify_float<'c>(
                             false,
                             BitVec::ones(float_val.exponent().len()),
                             BitVec::ones(float_val.mantissa().len()),
-                        ));
+                        )?);
                     }
 
                     // Positive infinity
@@ -193,7 +185,7 @@ pub(crate) fn simplify_float<'c>(
                         exponent,
                         mantissa,
                     );
-                    ctx.fpv(float)
+                    ctx.fpv(float?)
                 }
                 _ => ctx.bv_to_fp(&arc, *fsort),
             }

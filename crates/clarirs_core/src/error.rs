@@ -56,6 +56,7 @@ impl From<BitVecError> for ClarirsError {
                 ClarirsError::InvalidChopSize { size, bits }
             }
             BitVecError::DivisionByZero { dividend } => ClarirsError::DivisionByZero { dividend },
+            BitVecError::ConversionError => ClarirsError::ConversionError("".to_string()),
         }
     }
 }
