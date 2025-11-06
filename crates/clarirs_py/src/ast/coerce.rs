@@ -73,7 +73,17 @@ impl<'py> CoerceBV<'py> {
         rhs: &CoerceBV<'py>,
     ) -> Result<(Bound<'py, BV>, Bound<'py, BV>), ClaripyError> {
         Ok(match (lhs, rhs) {
-            (CoerceBV::BV(lhs), CoerceBV::BV(rhs)) => (lhs.clone(), rhs.clone()),
+            (CoerceBV::BV(lhs), CoerceBV::BV(rhs)) => {
+                // Check for size mismatch when both are BVs
+                let lhs_size = lhs.get().size() as u32;
+                let rhs_size = rhs.get().size() as u32;
+                if lhs_size != rhs_size {
+                    return Err(ClaripyError::CastingError(format!(
+                        "BV size mismatch: left operand has {lhs_size} bits, right operand has {rhs_size} bits"
+                    )));
+                }
+                (lhs.clone(), rhs.clone())
+            }
             (CoerceBV::Int(_), CoerceBV::BV(rhs)) => {
                 let lhs = lhs.unpack_like(py, rhs.get())?;
                 (lhs, rhs.clone())
