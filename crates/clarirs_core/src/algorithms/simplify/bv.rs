@@ -198,7 +198,7 @@ pub(crate) fn simplify_bv<'c>(
                 (BitVecOp::BVV(value), BitVecOp::BVV(shift_amount)) => {
                     let bit_width = value.len();
                     let shift_amount_u32 = shift_amount.to_u64().unwrap_or(0) as u32;
-                    
+
                     // If shifting >= bit_width, result is 0
                     if shift_amount_u32 >= bit_width {
                         ctx.bvv(BitVec::zeros(bit_width))
@@ -512,15 +512,16 @@ pub(crate) fn simplify_bv<'c>(
 
                     // Use character count for Unicode-aware indexing
                     let char_count = s.chars().count();
-                    
+
                     // Check if `t` exists in `s` starting from character index `i`
                     if i < char_count {
                         // Convert character index to byte index
-                        let byte_index = s.char_indices()
+                        let byte_index = s
+                            .char_indices()
                             .nth(i)
                             .map(|(idx, _)| idx)
                             .unwrap_or(s.len());
-                        
+
                         match s[byte_index..].find(t) {
                             Some(pos) => {
                                 // Convert byte position back to character position

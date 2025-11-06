@@ -33,7 +33,7 @@ fn test_xor_double_negation() -> Result<()> {
     // Verify with concrete values
     let true_ast = ctx.true_()?;
     let false_ast = ctx.false_()?;
-    
+
     // ¬T ⊕ ¬T = F ⊕ F = F, and T ⊕ T = F
     let not_true = ctx.not(&true_ast)?;
     let result = ctx.xor(&not_true, &not_true)?.simplify()?;
