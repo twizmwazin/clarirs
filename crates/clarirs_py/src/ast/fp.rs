@@ -942,13 +942,13 @@ pub fn FpDiv<'py>(
     )
 }
 
-#[pyfunction(name = "fpSqrt", signature = (rm, lhs))]
+#[pyfunction(name = "fpSqrt", signature = (lhs, rm = None))]
 pub fn FpSqrt<'py>(
     py: Python<'py>,
-    rm: PyRM,
     lhs: Bound<'py, FP>,
+    rm: Option<PyRM>,
 ) -> Result<Bound<'py, FP>, ClaripyError> {
-    FP::new(py, &GLOBAL_CONTEXT.fp_sqrt(&lhs.get().inner, rm)?)
+    FP::new(py, &GLOBAL_CONTEXT.fp_sqrt(&lhs.get().inner, rm.unwrap_or_default())?)
 }
 
 #[pyfunction(name = "fpEQ", signature = (lhs, rhs))]

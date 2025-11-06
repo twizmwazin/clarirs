@@ -355,19 +355,25 @@ impl BV {
 
             // Validate extract bounds
             if start < 0 || stop < 0 {
-                return Err(ClaripyError::InvalidOperation(
-                    "Extract high and low must be nonnegative".to_string(),
-                ));
+                return Err(ClaripyError::InvalidExtractBounds {
+                    upper: start.max(0) as u32,
+                    lower: stop.max(0) as u32,
+                    length: size as u32,
+                });
             }
             if stop > start {
-                return Err(ClaripyError::InvalidOperation(
-                    "Extract low must be <= high".to_string(),
-                ));
+                return Err(ClaripyError::InvalidExtractBounds {
+                    upper: start as u32,
+                    lower: stop as u32,
+                    length: size as u32,
+                });
             }
             if start >= size {
-                return Err(ClaripyError::InvalidOperation(
-                    "Extract bound must be less than BV size".to_string(),
-                ));
+                return Err(ClaripyError::InvalidExtractBounds {
+                    upper: start as u32,
+                    lower: stop as u32,
+                    length: size as u32,
+                });
             }
 
             Extract(self_.py(), start as u32, stop as u32, self_)?
@@ -376,9 +382,11 @@ impl BV {
         } else if let Ok(int_val) = range.extract::<u32>() {
             let size = self_.get().size() as u32;
             if int_val >= size {
-                return Err(ClaripyError::InvalidOperation(
-                    "Extract bound must be less than BV size".to_string(),
-                ));
+                return Err(ClaripyError::InvalidExtractBounds {
+                    upper: int_val,
+                    lower: int_val,
+                    length: size,
+                });
             }
             Extract(self_.py(), int_val, int_val, self_)
         } else {
