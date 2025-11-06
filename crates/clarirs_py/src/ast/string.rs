@@ -214,13 +214,18 @@ impl PyAstString {
         self.inner.depth() == 1
     }
 
-    pub fn simplify<'py>(&self, py: Python<'py>) -> Result<Bound<'py, PyAstString>, ClaripyError> {
-        PyAstString::new(py, &self.inner.simplify()?)
+    #[pyo3(signature = (respect_annotations=true))]
+    pub fn simplify<'py>(
+        &self,
+        py: Python<'py>,
+        respect_annotations: bool,
+    ) -> Result<Bound<'py, PyAstString>, ClaripyError> {
+        PyAstString::new(py, &self.inner.simplify_ext(respect_annotations)?)
     }
 
     #[getter]
     pub fn concrete_value(&self) -> Result<Option<String>, ClaripyError> {
-        Ok(match self.inner.simplify()?.op() {
+        Ok(match self.inner.simplify_ext(false)?.op() {
             StringOp::StringV(value) => Some(value.clone()),
             _ => None,
         })

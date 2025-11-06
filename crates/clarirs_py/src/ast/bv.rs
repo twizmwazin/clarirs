@@ -296,8 +296,13 @@ impl BV {
         self.inner.depth() == 1
     }
 
-    pub fn simplify<'py>(&self, py: Python<'py>) -> Result<Bound<'py, BV>, ClaripyError> {
-        BV::new(py, &self.inner.simplify()?)
+    #[pyo3(signature = (respect_annotations=true))]
+    pub fn simplify<'py>(
+        &self,
+        py: Python<'py>,
+        respect_annotations: bool,
+    ) -> Result<Bound<'py, BV>, ClaripyError> {
+        BV::new(py, &self.inner.simplify_ext(respect_annotations)?)
     }
 
     pub fn size(&self) -> usize {
@@ -315,7 +320,7 @@ impl BV {
 
     #[getter]
     pub fn concrete_value(&self) -> Result<Option<BigUint>, ClaripyError> {
-        Ok(match self.inner.simplify()?.op() {
+        Ok(match self.inner.simplify_ext(false)?.op() {
             BitVecOp::BVV(bv) => Some(bv.to_biguint()),
             _ => None,
         })
@@ -367,7 +372,7 @@ impl BV {
 
             Extract(self_.py(), start as u32, stop as u32, self_)?
                 .get()
-                .simplify(py)
+                .simplify(py, true)
         } else if let Ok(int_val) = range.extract::<u32>() {
             let size = self_.get().size() as u32;
             if int_val >= size {

@@ -313,8 +313,13 @@ impl Bool {
         self.inner.depth() == 1
     }
 
-    pub fn simplify<'py>(&self, py: Python<'py>) -> Result<Bound<'py, Bool>, ClaripyError> {
-        Bool::new(py, &self.inner.simplify()?)
+    #[pyo3(signature = (respect_annotations=true))]
+    pub fn simplify<'py>(
+        &self,
+        py: Python<'py>,
+        respect_annotations: bool,
+    ) -> Result<Bound<'py, Bool>, ClaripyError> {
+        Bool::new(py, &self.inner.simplify_ext(respect_annotations)?)
     }
 
     pub fn size(&self) -> usize {
@@ -335,7 +340,7 @@ impl Bool {
 
     #[getter]
     pub fn concrete_value(&self) -> Result<Option<bool>, ClaripyError> {
-        Ok(match self.inner.simplify()?.op() {
+        Ok(match self.inner.simplify_ext(false)?.op() {
             BooleanOp::BoolV(value) => Some(*value),
             _ => None,
         })
