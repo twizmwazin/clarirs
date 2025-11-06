@@ -181,7 +181,7 @@ impl FP {
     }
 
     pub fn concrete_value(&self) -> Result<Option<f64>, ClaripyError> {
-        Ok(match self.inner.simplify_with_respect_annotations(false)?.op() {
+        Ok(match self.inner.simplify_ext(false)?.op() {
             FloatOp::FPV(value) => value.to_f64(),
             _ => None,
         })
@@ -393,7 +393,7 @@ impl FP {
 
     #[pyo3(signature = (respect_annotations=true))]
     pub fn simplify<'py>(&self, py: Python<'py>, respect_annotations: bool) -> Result<Bound<'py, FP>, ClaripyError> {
-        FP::new(py, &self.inner.simplify_with_respect_annotations(respect_annotations)?)
+        FP::new(py, &self.inner.simplify_ext(respect_annotations)?)
     }
 
     pub fn size(&self) -> usize {
