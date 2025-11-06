@@ -948,7 +948,10 @@ pub fn FpSqrt<'py>(
     lhs: Bound<'py, FP>,
     rm: Option<PyRM>,
 ) -> Result<Bound<'py, FP>, ClaripyError> {
-    FP::new(py, &GLOBAL_CONTEXT.fp_sqrt(&lhs.get().inner, rm.unwrap_or_default())?)
+    FP::new(
+        py,
+        &GLOBAL_CONTEXT.fp_sqrt(&lhs.get().inner, rm.unwrap_or_default())?,
+    )
 }
 
 #[pyfunction(name = "fpEQ", signature = (lhs, rhs))]

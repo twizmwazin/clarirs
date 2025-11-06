@@ -151,16 +151,21 @@ impl<'c> Simplify<'c> for DynAst<'c> {
                                 .and_then(|ast| {
                                     // If the result has StridedInterval annotations, preserve them
                                     // instead of replacing with parent's relocatable annotations
-                                    let has_si_annotation = ast.annotations().iter().any(|a| matches!(
-                                        a.type_(),
-                                        AnnotationType::StridedInterval { .. } | AnnotationType::EmptyStridedInterval
-                                    ));
-                                    
+                                    let has_si_annotation = ast.annotations().iter().any(|a| {
+                                        matches!(
+                                            a.type_(),
+                                            AnnotationType::StridedInterval { .. }
+                                                | AnnotationType::EmptyStridedInterval
+                                        )
+                                    });
+
                                     if has_si_annotation {
                                         Ok(ast)
                                     } else {
-                                        ast.context()
-                                            .make_bitvec_annotated(ast.op().clone(), relocatable_annos)
+                                        ast.context().make_bitvec_annotated(
+                                            ast.op().clone(),
+                                            relocatable_annos,
+                                        )
                                     }
                                 })
                                 .map(DynAst::BitVec),
@@ -202,11 +207,14 @@ impl<'c> Simplify<'c> for DynAst<'c> {
                             .and_then(|ast| {
                                 // If the result has StridedInterval annotations, preserve them
                                 // instead of replacing with parent's relocatable annotations
-                                let has_si_annotation = ast.annotations().iter().any(|a| matches!(
-                                    a.type_(),
-                                    AnnotationType::StridedInterval { .. } | AnnotationType::EmptyStridedInterval
-                                ));
-                                
+                                let has_si_annotation = ast.annotations().iter().any(|a| {
+                                    matches!(
+                                        a.type_(),
+                                        AnnotationType::StridedInterval { .. }
+                                            | AnnotationType::EmptyStridedInterval
+                                    )
+                                });
+
                                 if has_si_annotation {
                                     Ok(ast)
                                 } else {
