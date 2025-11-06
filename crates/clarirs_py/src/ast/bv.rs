@@ -1197,10 +1197,18 @@ impl BV {
             upper_bound,
         } = reduced
         {
-            BV::new(
-                self_.py(),
-                &GLOBAL_CONTEXT.si(bits, stride, lower_bound, upper_bound)?,
-            )
+            // If lower_bound == upper_bound, return a concrete BVV instead of an annotated BVS
+            if lower_bound == upper_bound {
+                BV::new(
+                    self_.py(),
+                    &GLOBAL_CONTEXT.bvv_from_biguint_with_size(&lower_bound, bits)?,
+                )
+            } else {
+                BV::new(
+                    self_.py(),
+                    &GLOBAL_CONTEXT.si(bits, stride, lower_bound, upper_bound)?,
+                )
+            }
         } else {
             Err(ClaripyError::InvalidOperation(
                 "Cannot reduce non-normal StridedInterval".to_string(),
