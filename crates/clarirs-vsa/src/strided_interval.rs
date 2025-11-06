@@ -1073,12 +1073,41 @@ impl StridedInterval {
                 let new_lower = &shifted_lower & &mask;
                 let new_upper = &shifted_upper & &mask;
 
-                // Compute new stride
-                let new_stride = if stride == &BigUint::zero() {
+                // Compute new stride - preserve if possible
+                let new_stride = if stride.is_zero() {
                     BigUint::zero()
                 } else {
-                    // For more complex stride patterns, this is a conservative approximation
-                    BigUint::one()
+                    // Check if stride is preserved after extraction
+                    let shift_divisor = BigUint::one() << low_bit;
+                    
+                    // If stride is divisible by 2^low_bit, we can preserve it
+                    if stride % &shift_divisor == BigUint::zero() {
+                        let preserved_stride = stride / &shift_divisor;
+                        // Make sure the preserved stride doesn't exceed the new range
+                        let range = if &new_upper >= &new_lower {
+                            &new_upper - &new_lower
+                        } else {
+                            BigUint::zero()
+                        };
+                        if &preserved_stride <= &range {
+                            preserved_stride
+                        } else {
+                            BigUint::one()
+                        }
+                    } else {
+                        // Find GCD to get the best stride we can preserve
+                        let gcd = Self::gcd(stride, &shift_divisor);
+                        if gcd > BigUint::one() {
+                            let candidate = &gcd / &shift_divisor;
+                            if candidate.is_zero() {
+                                BigUint::one()
+                            } else {
+                                candidate
+                            }
+                        } else {
+                            BigUint::one()
+                        }
+                    }
                 };
 
                 Self::new(high_bit - low_bit + 1, new_stride, new_lower, new_upper)
@@ -1105,15 +1134,15 @@ impl StridedInterval {
             (
                 StridedInterval::Normal {
                     bits: bits1,
+                    stride: stride1,
                     lower_bound: lb1,
                     upper_bound: ub1,
-                    ..
                 },
                 StridedInterval::Normal {
                     bits: bits2,
+                    stride: stride2,
                     lower_bound: lb2,
                     upper_bound: ub2,
-                    ..
                 },
             ) => {
                 // Simple case: if both are constants
@@ -1121,6 +1150,21 @@ impl StridedInterval {
                     let new_value = (lb1 << bits2) | lb2;
                     return Self::constant(bits1 + bits2, new_value);
                 }
+
+                // Improved stride computation
+                let new_stride = if stride1.is_zero() && stride2.is_zero() {
+                    BigUint::zero()
+                } else if stride1.is_zero() {
+                    // High bits constant, low bits have stride
+                    stride2.clone()
+                } else if stride2.is_zero() {
+                    // Low bits constant, high bits have stride
+                    stride1 << bits2
+                } else {
+                    // Both have strides - use GCD of their contribution
+                    let high_contribution = stride1 << bits2;
+                    Self::gcd(&high_contribution, stride2)
+                };
 
                 // General case - compute all corner combinations
                 let a = lb1 << bits2;
@@ -1136,12 +1180,7 @@ impl StridedInterval {
                 let new_lower = ac.clone().min(ad.clone()).min(bc.clone()).min(bd.clone());
                 let new_upper = ac.max(ad).max(bc).max(bd);
 
-                Self::new(
-                    bits1 + bits2,
-                    BigUint::one(), // Conservative stride
-                    new_lower,
-                    new_upper,
-                )
+                Self::new(bits1 + bits2, new_stride, new_lower, new_upper)
             }
         }
     }
@@ -1460,8 +1499,36 @@ impl StridedInterval {
                         return Ok(Self::new(*bits, new_stride, new_lower, new_upper));
                     }
                 }
-                // If shift amount is a range, we need to consider all possible shifts
-                // This is a conservative approximation
+                
+                // Improved: compute union of min and max shift results
+                if let (Some(min_shift), Some(max_shift)) = (o_lb.to_u32(), o_ub.to_u32()) {
+                    let min_shift = min_shift.min(*bits);
+                    let max_shift = max_shift.min(*bits);
+                    
+                    // Compute result for minimum shift
+                    let min_result = if min_shift >= *bits {
+                        Self::constant(*bits, 0)
+                    } else {
+                        let factor = BigUint::one() << min_shift;
+                        let new_lower = StridedInterval::modular_mul(lower_bound, &factor, *bits);
+                        let new_upper = StridedInterval::modular_mul(upper_bound, &factor, *bits);
+                        Self::new(*bits, BigUint::one(), new_lower, new_upper)
+                    };
+                    
+                    // Compute result for maximum shift
+                    let max_result = if max_shift >= *bits {
+                        Self::constant(*bits, 0)
+                    } else {
+                        let factor = BigUint::one() << max_shift;
+                        let new_lower = StridedInterval::modular_mul(lower_bound, &factor, *bits);
+                        let new_upper = StridedInterval::modular_mul(upper_bound, &factor, *bits);
+                        Self::new(*bits, BigUint::one(), new_lower, new_upper)
+                    };
+                    
+                    return Ok(min_result.union(&max_result));
+                }
+                
+                // Fallback to top if shift amount is too large to convert
                 Ok(Self::top(*bits))
             }
         }
@@ -1482,11 +1549,13 @@ impl StridedInterval {
                     ..
                 },
                 StridedInterval::Normal {
-                    lower_bound: o_lb, ..
+                    lower_bound: o_lb,
+                    upper_bound: o_ub,
+                    ..
                 },
             ) => {
                 // Simple case: constant shift amount
-                if o_lb == upper_bound {
+                if o_lb == o_ub {
                     if let Some(shift) = o_lb.to_u32() {
                         if shift >= *bits {
                             return Ok(Self::constant(*bits, 0));
@@ -1502,8 +1571,34 @@ impl StridedInterval {
                         return Ok(Self::new(*bits, new_stride, new_lower, new_upper));
                     }
                 }
-                // If shift amount is a range, we need to consider all possible shifts
-                // This is a conservative approximation
+                
+                // Improved: compute union of min and max shift results
+                if let (Some(min_shift), Some(max_shift)) = (o_lb.to_u32(), o_ub.to_u32()) {
+                    let min_shift = min_shift.min(*bits);
+                    let max_shift = max_shift.min(*bits);
+                    
+                    // Compute result for minimum shift
+                    let min_result = if min_shift >= *bits {
+                        Self::constant(*bits, 0)
+                    } else {
+                        let new_lower = lower_bound >> min_shift;
+                        let new_upper = upper_bound >> min_shift;
+                        Self::new(*bits, BigUint::one(), new_lower, new_upper)
+                    };
+                    
+                    // Compute result for maximum shift
+                    let max_result = if max_shift >= *bits {
+                        Self::constant(*bits, 0)
+                    } else {
+                        let new_lower = lower_bound >> max_shift;
+                        let new_upper = upper_bound >> max_shift;
+                        Self::new(*bits, BigUint::one(), new_lower, new_upper)
+                    };
+                    
+                    return Ok(min_result.union(&max_result));
+                }
+                
+                // Fallback to top if shift amount is too large to convert
                 Ok(Self::top(*bits))
             }
         }
@@ -1582,8 +1677,64 @@ impl StridedInterval {
                         return Ok(Self::new(*bits, new_stride, new_lower, new_upper));
                     }
                 }
-                // If shift amount is a range, we need to consider all possible shifts
-                // This is a conservative approximation
+                
+                // Improved: compute union of min and max shift results
+                if let (Some(min_shift), Some(max_shift)) = (o_lb.to_u32(), o_ub.to_u32()) {
+                    let min_shift = min_shift.min(*bits);
+                    let max_shift = max_shift.min(*bits);
+                    
+                    // Helper to compute ashr for a specific shift amount
+                    let compute_ashr = |shift: u32| -> Self {
+                        if shift >= *bits {
+                            // Check the sign bit of the lower and upper bounds
+                            let sign_bit_mask = BigUint::one() << (*bits - 1);
+                            let lower_sign = lower_bound & &sign_bit_mask != BigUint::zero();
+                            let upper_sign = upper_bound & &sign_bit_mask != BigUint::zero();
+
+                            if lower_sign && upper_sign {
+                                // Both are negative, result is all 1s (-1)
+                                Self::constant(*bits, Self::max_int(*bits))
+                            } else if !lower_sign && !upper_sign {
+                                // Both are positive, result is 0
+                                Self::constant(*bits, 0)
+                            } else {
+                                // Mixed signs, result is either 0 or -1
+                                Self::range(*bits, 0, Self::max_int(*bits))
+                            }
+                        } else {
+                            // For arithmetic right shift, preserve the sign bit
+                            let sign_bit_mask = BigUint::one() << (*bits - 1);
+                            let lower_sign = lower_bound & &sign_bit_mask != BigUint::zero();
+                            let upper_sign = upper_bound & &sign_bit_mask != BigUint::zero();
+
+                            // Generate sign extension mask
+                            let sign_ext_mask =
+                                ((BigUint::one() << shift) - BigUint::one()) << (*bits - shift);
+
+                            // Perform logical right shift
+                            let mut new_lower = lower_bound >> shift;
+                            let mut new_upper = upper_bound >> shift;
+
+                            // Apply sign extension if needed
+                            if lower_sign {
+                                new_lower |= &sign_ext_mask;
+                            }
+
+                            if upper_sign {
+                                new_upper |= &sign_ext_mask;
+                            }
+
+                            Self::new(*bits, BigUint::one(), new_lower, new_upper)
+                        }
+                    };
+                    
+                    let min_result = compute_ashr(min_shift);
+                    let max_result = compute_ashr(max_shift);
+                    
+                    return Ok(min_result.union(&max_result));
+                }
+                
+                // Fallback to top if shift amount is too large to convert
                 Ok(Self::top(*bits))
             }
         }
@@ -1599,10 +1750,13 @@ impl StridedInterval {
                 StridedInterval::Normal {
                     bits,
                     lower_bound: s_lb,
+                    upper_bound: s_ub,
                     ..
                 },
                 StridedInterval::Normal {
-                    lower_bound: o_lb, ..
+                    lower_bound: o_lb,
+                    upper_bound: o_ub,
+                    ..
                 },
             ) => {
                 // Simple case: both are constants
@@ -1618,8 +1772,43 @@ impl StridedInterval {
                         return Ok(Self::constant(*bits, rotated));
                     }
                 }
-                // For the general case, this is a complex operation
-                // Return a conservative approximation
+                
+                // Improved: compute union for min and max rotation amounts
+                if let (Some(min_rot), Some(max_rot)) = (o_lb.to_u32(), o_ub.to_u32()) {
+                    // If rotation range is small enough, compute union
+                    let min_rot = min_rot % *bits;
+                    let max_rot = max_rot % *bits;
+                    
+                    // Helper to compute rotate_left for specific amount
+                    let compute_rotate = |val: &BigUint, rot: u32| -> BigUint {
+                        if rot == 0 {
+                            val.clone()
+                        } else {
+                            let left_part = val << rot;
+                            let right_part = val >> (*bits - rot);
+                            (left_part | right_part) & Self::max_int(*bits)
+                        }
+                    };
+                    
+                    // Compute rotations for corners
+                    let min_val_min_rot = compute_rotate(s_lb, min_rot);
+                    let min_val_max_rot = compute_rotate(s_lb, max_rot);
+                    let max_val_min_rot = compute_rotate(s_ub, min_rot);
+                    let max_val_max_rot = compute_rotate(s_ub, max_rot);
+                    
+                    let lower = min_val_min_rot.clone()
+                        .min(min_val_max_rot.clone())
+                        .min(max_val_min_rot.clone())
+                        .min(max_val_max_rot.clone());
+                    let upper = min_val_min_rot
+                        .max(min_val_max_rot)
+                        .max(max_val_min_rot)
+                        .max(max_val_max_rot);
+                    
+                    return Ok(Self::range(*bits, lower, upper));
+                }
+                
+                // Fallback to top for complex cases
                 Ok(Self::top(*bits))
             }
         }
@@ -1635,10 +1824,13 @@ impl StridedInterval {
                 StridedInterval::Normal {
                     bits,
                     lower_bound: s_lb,
+                    upper_bound: s_ub,
                     ..
                 },
                 StridedInterval::Normal {
-                    lower_bound: o_lb, ..
+                    lower_bound: o_lb,
+                    upper_bound: o_ub,
+                    ..
                 },
             ) => {
                 // Simple case: both are constants
@@ -1654,8 +1846,42 @@ impl StridedInterval {
                         return Ok(Self::constant(*bits, rotated));
                     }
                 }
-                // For the general case, this is a complex operation
-                // Return a conservative approximation
+                
+                // Improved: compute union for min and max rotation amounts
+                if let (Some(min_rot), Some(max_rot)) = (o_lb.to_u32(), o_ub.to_u32()) {
+                    let min_rot = min_rot % *bits;
+                    let max_rot = max_rot % *bits;
+                    
+                    // Helper to compute rotate_right for specific amount
+                    let compute_rotate = |val: &BigUint, rot: u32| -> BigUint {
+                        if rot == 0 {
+                            val.clone()
+                        } else {
+                            let right_part = val >> rot;
+                            let left_part = val << (*bits - rot);
+                            (left_part | right_part) & Self::max_int(*bits)
+                        }
+                    };
+                    
+                    // Compute rotations for corners
+                    let min_val_min_rot = compute_rotate(s_lb, min_rot);
+                    let min_val_max_rot = compute_rotate(s_lb, max_rot);
+                    let max_val_min_rot = compute_rotate(s_ub, min_rot);
+                    let max_val_max_rot = compute_rotate(s_ub, max_rot);
+                    
+                    let lower = min_val_min_rot.clone()
+                        .min(min_val_max_rot.clone())
+                        .min(max_val_min_rot.clone())
+                        .min(max_val_max_rot.clone());
+                    let upper = min_val_min_rot
+                        .max(min_val_max_rot)
+                        .max(max_val_min_rot)
+                        .max(max_val_max_rot);
+                    
+                    return Ok(Self::range(*bits, lower, upper));
+                }
+                
+                // Fallback to top for complex cases
                 Ok(Self::top(*bits))
             }
         }
@@ -2103,18 +2329,34 @@ impl BitAnd for &StridedInterval {
                 },
             ) => {
                 let bits = max(*bits1, *bits2);
-                // Simple case: one is constant
+                
+                // Simple case: both are constants
                 if s_lb == s_ub && o_lb == o_ub {
                     let result = s_lb & o_lb;
                     return StridedInterval::constant(bits, result);
                 }
-                // For bitwise AND, a conservative but sound approximation
-                let lower_bound = BigUint::zero();
-                let upper_bound = StridedInterval::max_int(bits);
-                if self.is_top() || other.is_top() {
-                    return StridedInterval::top(bits);
+                
+                // Special case: one operand is constant
+                if s_lb == s_ub {
+                    let mask = s_lb;
+                    // x & constant: result is at most the constant value
+                    let upper = mask.clone();
+                    return StridedInterval::range(bits, 0u32, upper);
                 }
-                StridedInterval::new(bits, BigUint::one(), lower_bound, upper_bound)
+                if o_lb == o_ub {
+                    let mask = o_lb;
+                    let upper = mask.clone();
+                    return StridedInterval::range(bits, 0u32, upper);
+                }
+                
+                // General case: compute tighter bounds
+                // For AND, result is at most min(max(self), max(other))
+                let (_, self_max) = self.get_unsigned_bounds();
+                let (_, other_max) = other.get_unsigned_bounds();
+                let upper = self_max.min(other_max);
+                
+                // Lower bound is 0 (can always produce 0)
+                StridedInterval::range(bits, 0u32, upper)
             }
         }
     }
@@ -2151,17 +2393,42 @@ impl BitOr for &StridedInterval {
                 },
             ) => {
                 let bits = max(*bits1, *bits2);
+                
                 // Simple case: both are constants
                 if s_lb == s_ub && o_lb == o_ub {
                     let result = s_lb | o_lb;
                     return StridedInterval::constant(bits, result);
                 }
+                
                 if self.is_top() || other.is_top() {
                     return StridedInterval::top(bits);
                 }
-                let lower_bound = BigUint::zero();
-                let upper_bound = StridedInterval::max_int(bits);
-                StridedInterval::new(bits, BigUint::one(), lower_bound, upper_bound)
+                
+                // Compute tighter bounds
+                let (self_min, self_max) = self.get_unsigned_bounds();
+                let (other_min, other_max) = other.get_unsigned_bounds();
+                
+                // Lower bound: OR of minimums
+                let lower = &self_min | &other_min;
+                
+                // Upper bound: compute highest possible OR
+                // Find the highest bit set in either maximum
+                let combined_max = &self_max | &other_max;
+                let highest_bit = if combined_max.bits() > 0 {
+                    combined_max.bits() as u32
+                } else {
+                    0
+                };
+                
+                // Upper bound is at most all bits up to highest_bit set to 1
+                let upper = if highest_bit >= bits {
+                    StridedInterval::max_int(bits)
+                } else {
+                    let max_possible = (BigUint::one() << highest_bit) - BigUint::one();
+                    max_possible.max(combined_max)
+                };
+                
+                StridedInterval::range(bits, lower, upper)
             }
         }
     }
@@ -2198,17 +2465,39 @@ impl BitXor for &StridedInterval {
                 },
             ) => {
                 let bits = max(*bits1, *bits2);
+                
                 // Simple case: both are constants
                 if s_lb == s_ub && o_lb == o_ub {
                     let result = s_lb ^ o_lb;
                     return StridedInterval::constant(bits, result);
                 }
+                
                 if self.is_top() || other.is_top() {
                     return StridedInterval::top(bits);
                 }
-                let lower_bound = BigUint::zero();
-                let upper_bound = StridedInterval::max_int(bits);
-                StridedInterval::new(bits, BigUint::one(), lower_bound, upper_bound)
+                
+                // XOR can produce values from 0 to max based on highest bit position
+                let (_, self_max) = self.get_unsigned_bounds();
+                let (_, other_max) = other.get_unsigned_bounds();
+                
+                // Find highest bit position in either operand
+                let max_val = self_max.max(other_max);
+                let highest_bit = if max_val.bits() > 0 {
+                    max_val.bits() as u32
+                } else {
+                    0
+                };
+                
+                // Upper bound: all bits up to highest_bit could be set
+                let upper = if highest_bit >= bits {
+                    StridedInterval::max_int(bits)
+                } else if highest_bit == 0 {
+                    BigUint::zero()
+                } else {
+                    (BigUint::one() << highest_bit) - BigUint::one()
+                };
+                
+                StridedInterval::range(bits, 0u32, upper)
             }
         }
     }
@@ -2818,5 +3107,154 @@ mod tests {
         assert_eq!(clamped, StridedInterval::constant(8, 12u32));
         let clamped = si.clamp_lower_signed(15i32);
         assert!(clamped.is_empty());
+    }
+
+    #[test]
+    fn test_bitand_with_mask() {
+        // Test: x & 0xFF should give [0, 255]
+        let x = StridedInterval::range(32, 0u32, 1000u32);
+        let mask = StridedInterval::constant(32, 0xFFu32);
+        let result = &x & &mask;
+        assert_eq!(result, StridedInterval::range(32, 0u32, 0xFFu32));
+    }
+
+    #[test]
+    fn test_bitand_constants() {
+        // Test: constant & constant
+        let a = StridedInterval::constant(8, 0xF0u32);
+        let b = StridedInterval::constant(8, 0x0Fu32);
+        let result = &a & &b;
+        assert_eq!(result, StridedInterval::constant(8, 0u32));
+    }
+
+    #[test]
+    fn test_bitand_tighter_bounds() {
+        // Test: [0, 100] & [0, 200] should give [0, 100]
+        let a = StridedInterval::range(8, 0u32, 100u32);
+        let b = StridedInterval::range(8, 0u32, 200u32);
+        let result = &a & &b;
+        let (_, upper) = result.get_unsigned_bounds();
+        assert!(upper <= BigUint::from(100u32));
+    }
+
+    #[test]
+    fn test_bitor_bounds() {
+        // Test: [0, 15] | [16, 31] should give reasonable bounds
+        let a = StridedInterval::range(8, 0u32, 15u32);
+        let b = StridedInterval::range(8, 16u32, 31u32);
+        let result = &a | &b;
+        let (lower, upper) = result.get_unsigned_bounds();
+        assert!(lower >= BigUint::from(16u32));
+        assert!(upper <= BigUint::from(31u32));
+    }
+
+    #[test]
+    fn test_bitor_constants() {
+        // Test: constant | constant
+        let a = StridedInterval::constant(8, 0xF0u32);
+        let b = StridedInterval::constant(8, 0x0Fu32);
+        let result = &a | &b;
+        assert_eq!(result, StridedInterval::constant(8, 0xFFu32));
+    }
+
+    #[test]
+    fn test_bitxor_constants() {
+        // Test: constant ^ constant
+        let a = StridedInterval::constant(8, 0xFFu32);
+        let b = StridedInterval::constant(8, 0xFFu32);
+        let result = &a ^ &b;
+        assert_eq!(result, StridedInterval::constant(8, 0u32));
+    }
+
+    #[test]
+    fn test_bitxor_bounds() {
+        // Test: XOR produces reasonable bounds
+        let a = StridedInterval::range(8, 0u32, 15u32);
+        let b = StridedInterval::range(8, 0u32, 15u32);
+        let result = &a ^ &b;
+        let (_, upper) = result.get_unsigned_bounds();
+        // XOR of [0,15] and [0,15] can produce at most 15 (0b1111)
+        assert!(upper <= BigUint::from(15u32));
+    }
+
+    #[test]
+    fn test_shl_with_range() {
+        // Test: [100, 200] << [0, 2] should give union of results
+        let val = StridedInterval::range(32, 100u32, 200u32);
+        let shift = StridedInterval::range(32, 0u32, 2u32);
+        let result = StridedInterval::shl(&val, &shift).unwrap();
+        
+        // Should contain 100 (shift by 0) and 800 (200 << 2)
+        assert!(result.contains_value(&BigUint::from(100u32)));
+        assert!(result.contains_value(&BigUint::from(800u32)));
+        
+        // Should not be top
+        assert!(!result.is_top());
+    }
+
+    #[test]
+    fn test_lshr_with_range() {
+        // Test: [100, 200] >> [0, 2] should give union of results
+        let val = StridedInterval::range(32, 100u32, 200u32);
+        let shift = StridedInterval::range(32, 0u32, 2u32);
+        let result = StridedInterval::lshr(&val, &shift).unwrap();
+        
+        // Should contain 100 (shift by 0) and 50 (200 >> 2)
+        assert!(result.contains_value(&BigUint::from(100u32)));
+        assert!(result.contains_value(&BigUint::from(50u32)));
+        
+        // Should not be top
+        assert!(!result.is_top());
+    }
+
+    #[test]
+    fn test_extract_preserves_stride() {
+        // Test: extracting from a strided interval
+        let si = StridedInterval::new(8, BigUint::from(4u32), BigUint::zero(), BigUint::from(16u32));
+        let extracted = si.extract(7, 2);
+        
+        // Extracting bits [7:2] from values {0,4,8,12,16}
+        // After >> 2: {0,1,2,3,4}
+        let (lower, upper) = extracted.get_unsigned_bounds();
+        assert_eq!(lower, BigUint::zero());
+        assert!(upper <= BigUint::from(4u32));
+    }
+
+    #[test]
+    fn test_concat_with_strides() {
+        // Test: concatenating intervals with strides
+        let high = StridedInterval::new(4, BigUint::from(2u32), BigUint::from(0u32), BigUint::from(4u32));
+        let low = StridedInterval::constant(4, 0xFu32);
+        let result = high.concat(&low);
+        
+        // High bits {0,2,4} concat with low bits {15}
+        // Should give {0x0F, 0x2F, 0x4F}
+        assert!(result.contains_value(&BigUint::from(0x0Fu32)));
+        assert!(result.contains_value(&BigUint::from(0x2Fu32)));
+        assert!(result.contains_value(&BigUint::from(0x4Fu32)));
+    }
+
+    #[test]
+    fn test_rotate_left_with_range() {
+        // Test: rotate with a range of rotation amounts
+        let val = StridedInterval::constant(8, 0b10000001u32);
+        let rot = StridedInterval::range(8, 0u32, 1u32);
+        let result = StridedInterval::rotate_left(&val, &rot).unwrap();
+        
+        // Should contain both original (rot=0) and rotated by 1
+        assert!(result.contains_value(&BigUint::from(0b10000001u32)));
+        assert!(result.contains_value(&BigUint::from(0b00000011u32)));
+    }
+
+    #[test]
+    fn test_rotate_right_with_range() {
+        // Test: rotate with a range of rotation amounts
+        let val = StridedInterval::constant(8, 0b10000001u32);
+        let rot = StridedInterval::range(8, 0u32, 1u32);
+        let result = StridedInterval::rotate_right(&val, &rot).unwrap();
+        
+        // Should contain both original (rot=0) and rotated by 1
+        assert!(result.contains_value(&BigUint::from(0b10000001u32)));
+        assert!(result.contains_value(&BigUint::from(0b11000000u32)));
     }
 }
