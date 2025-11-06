@@ -78,7 +78,8 @@ pub(crate) fn simplify_bool<'c>(
                 }
                 (BooleanOp::Not(lhs), rhs) if lhs.op() == rhs => ctx.true_(),
                 (lhs, BooleanOp::Not(rhs)) if lhs == rhs.op() => ctx.true_(),
-                (BooleanOp::Not(lhs), BooleanOp::Not(rhs)) => ctx.not(&ctx.and(lhs, rhs)?),
+                // ¬a ⊕ ¬b = a ⊕ b (XOR is invariant under double negation)
+                (BooleanOp::Not(lhs), BooleanOp::Not(rhs)) => ctx.xor(lhs, rhs),
                 _ if arc == arc1 => ctx.false_(),
                 _ => ctx.xor(&arc, &arc1),
             }
@@ -107,6 +108,13 @@ pub(crate) fn simplify_bool<'c>(
             );
             match (arc.op(), arc1.op()) {
                 (BooleanOp::BoolV(arc), BooleanOp::BoolV(arc1)) => ctx.boolv(arc != arc1),
+                (BooleanOp::BoolV(true), v) | (v, BooleanOp::BoolV(true)) => {
+                    ctx.not(&ctx.make_bool(v.clone())?)
+                }
+                (BooleanOp::BoolV(false), v) | (v, BooleanOp::BoolV(false)) => {
+                    ctx.make_bool(v.clone())
+                }
+                _ if arc == arc1 => ctx.false_(),
                 _ => ctx.neq(&arc, &arc1),
             }
         }

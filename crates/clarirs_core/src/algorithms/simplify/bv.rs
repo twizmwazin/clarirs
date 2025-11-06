@@ -37,6 +37,9 @@ pub(crate) fn simplify_bv<'c>(
                 (_, BitVecOp::BVV(v)) if v.is_zero() => ctx.bvv(v.clone()),
                 (BitVecOp::BVV(v), _) if v.is_all_ones() => Ok(arc1.clone()),
                 (_, BitVecOp::BVV(v)) if v.is_all_ones() => Ok(arc.clone()),
+                // x & ¬x = 0
+                (BitVecOp::Not(lhs), rhs) if lhs.op() == rhs => ctx.bvv(BitVec::zeros(arc.size())),
+                (lhs, BitVecOp::Not(rhs)) if lhs == rhs.op() => ctx.bvv(BitVec::zeros(arc.size())),
                 _ => ctx.and(&arc, &arc1),
             }
         }
@@ -53,6 +56,19 @@ pub(crate) fn simplify_bv<'c>(
                 (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
                 (BitVecOp::BVV(v), _) if v.is_all_ones() => ctx.bvv(v.clone()),
                 (_, BitVecOp::BVV(v)) if v.is_all_ones() => ctx.bvv(v.clone()),
+                // x | ¬x = -1 (all ones)
+                (BitVecOp::Not(lhs), rhs) if lhs.op() == rhs => {
+                    ctx.bvv(BitVec::from_biguint_trunc(
+                        &((BigUint::one() << arc.size()) - BigUint::one()),
+                        arc.size(),
+                    ))
+                }
+                (lhs, BitVecOp::Not(rhs)) if lhs == rhs.op() => {
+                    ctx.bvv(BitVec::from_biguint_trunc(
+                        &((BigUint::one() << arc.size()) - BigUint::one()),
+                        arc.size(),
+                    ))
+                }
                 _ => ctx.or(&arc, &arc1),
             }
         }
@@ -76,6 +92,8 @@ pub(crate) fn simplify_bv<'c>(
             let arc = extract_bitvec_child(children, 0)?;
             match arc.op() {
                 BitVecOp::BVV(value) => ctx.bvv((-value.clone())?),
+                // -(-x) = x (double negation)
+                BitVecOp::Neg(inner) => Ok(inner.clone()),
                 _ => ctx.neg(&arc),
             }
         }
@@ -178,10 +196,20 @@ pub(crate) fn simplify_bv<'c>(
             );
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value), BitVecOp::BVV(shift_amount)) => {
+                    let bit_width = value.len();
                     let shift_amount_u32 = shift_amount.to_u64().unwrap_or(0) as u32;
-                    let result = value.clone() << shift_amount_u32;
-                    ctx.bvv(result?)
+                    
+                    // If shifting >= bit_width, result is 0
+                    if shift_amount_u32 >= bit_width {
+                        ctx.bvv(BitVec::zeros(bit_width))
+                    } else if shift_amount_u32 == 0 {
+                        Ok(arc.clone())
+                    } else {
+                        let result = value.clone() << shift_amount_u32;
+                        ctx.bvv(result?)
+                    }
                 }
+                (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
                 _ => ctx.shl(&arc, &arc1),
             }
         }
@@ -204,6 +232,7 @@ pub(crate) fn simplify_bv<'c>(
                     };
                     ctx.bvv(result)
                 }
+                (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
                 _ => ctx.lshr(&arc, &arc1),
             }
         }
@@ -252,6 +281,7 @@ pub(crate) fn simplify_bv<'c>(
 
                     ctx.bvv(BitVec::from_biguint_trunc(&result, bit_length))
                 }
+                (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
                 _ => ctx.ashr(&arc, &arc1),
             }
         }
@@ -266,6 +296,7 @@ pub(crate) fn simplify_bv<'c>(
                     let rotated_bv = value_bv.rotate_left(rotate_u32)?;
                     ctx.bvv(rotated_bv)
                 }
+                (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
                 _ => ctx.rotate_left(&arc, &arc1),
             }
         }
@@ -280,6 +311,7 @@ pub(crate) fn simplify_bv<'c>(
                     let rotated_bv = value_bv.rotate_right(rotate_u32)?;
                     ctx.bvv(rotated_bv)
                 }
+                (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
                 _ => ctx.rotate_right(&arc, &arc1),
             }
         }
@@ -478,12 +510,23 @@ pub(crate) fn simplify_bv<'c>(
                     let t = substring;
                     let i = start_index.to_usize().unwrap_or(0);
 
-                    // Check if `t` exists in `s` starting from `i`
-                    if i < s.len() {
-                        match s[i..].find(t) {
+                    // Use character count for Unicode-aware indexing
+                    let char_count = s.chars().count();
+                    
+                    // Check if `t` exists in `s` starting from character index `i`
+                    if i < char_count {
+                        // Convert character index to byte index
+                        let byte_index = s.char_indices()
+                            .nth(i)
+                            .map(|(idx, _)| idx)
+                            .unwrap_or(s.len());
+                        
+                        match s[byte_index..].find(t) {
                             Some(pos) => {
-                                let result_index = (i + pos) as u64;
-                                ctx.bvv(BitVec::from_prim_with_size(result_index, 64)?)
+                                // Convert byte position back to character position
+                                let byte_pos = byte_index + pos;
+                                let char_pos = s[..byte_pos].chars().count();
+                                ctx.bvv(BitVec::from_prim_with_size(char_pos as u64, 64)?)
                             }
                             None => ctx.bvv(BitVec::from_prim_with_size(-1i64 as u64, 64)?), // -1 if not found
                         }
