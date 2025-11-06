@@ -297,7 +297,11 @@ impl BV {
     }
 
     #[pyo3(signature = (respect_annotations=true))]
-    pub fn simplify<'py>(&self, py: Python<'py>, respect_annotations: bool) -> Result<Bound<'py, BV>, ClaripyError> {
+    pub fn simplify<'py>(
+        &self,
+        py: Python<'py>,
+        respect_annotations: bool,
+    ) -> Result<Bound<'py, BV>, ClaripyError> {
         BV::new(py, &self.inner.simplify_ext(respect_annotations)?)
     }
 

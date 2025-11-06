@@ -392,7 +392,11 @@ impl FP {
     }
 
     #[pyo3(signature = (respect_annotations=true))]
-    pub fn simplify<'py>(&self, py: Python<'py>, respect_annotations: bool) -> Result<Bound<'py, FP>, ClaripyError> {
+    pub fn simplify<'py>(
+        &self,
+        py: Python<'py>,
+        respect_annotations: bool,
+    ) -> Result<Bound<'py, FP>, ClaripyError> {
         FP::new(py, &self.inner.simplify_ext(respect_annotations)?)
     }
 
