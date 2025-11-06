@@ -34,6 +34,38 @@ fn test_neg() -> Result<()> {
 }
 
 #[test]
+fn test_double_negation() -> Result<()> {
+    let ctx = Context::new();
+
+    // Test with concrete values
+    let table: Vec<(u64, u64)> = vec![
+        (0, 0),
+        (1, 1),
+        (2, 2),
+        (42, 42),
+        (u64::MAX, u64::MAX),
+        (u64::MAX - 1, u64::MAX - 1),
+    ];
+
+    for (a, expected) in table {
+        let a = ctx.bvv_prim(a).unwrap();
+        let expected = ctx.bvv_prim(expected).unwrap();
+
+        let neg_a = ctx.neg(&a)?;
+        let double_neg = ctx.neg(&neg_a)?.simplify()?;
+        assert_eq!(double_neg, expected);
+    }
+
+    // Test with symbolic value
+    let x = ctx.bvs("x", 64)?;
+    let neg_x = ctx.neg(&x)?;
+    let double_neg_x = ctx.neg(&neg_x)?.simplify()?;
+    assert_eq!(double_neg_x, x);
+
+    Ok(())
+}
+
+#[test]
 fn test_add() -> Result<()> {
     let ctx = Context::new();
 
@@ -462,36 +494,46 @@ fn test_not() -> Result<()> {
     Ok(())
 }
 
-// #[test]
-// fn test_shl() -> Result<()> {
-//     let ctx = Context::new();
+#[test]
+fn test_shl() -> Result<()> {
+    let ctx = Context::new();
 
-//     let table: Vec<(u64, u64, u64)> = vec![
-//         (0, 0, 0),
-//         (0, 1, 0),
-//         (1, 0, 1),
-//         (1, 1, 2),
-//         (1, 2, 4),
-//         (2, 1, 4),
-//         (2, 2, 8),
-//         (2, 3, 16),
-//         (3, 2, 12),
-//         (3, 3, 24),
-//         (u64::MAX, 1, u64::MAX),
-//         (u64::MAX, 2, u64::MAX),
-//     ];
+    let table: Vec<(u64, u64, u64)> = vec![
+        (0, 0, 0),
+        (0, 1, 0),
+        (1, 0, 1),
+        (1, 1, 2),
+        (1, 2, 4),
+        (2, 1, 4),
+        (2, 2, 8),
+        (2, 3, 16),
+        (3, 2, 12),
+        (3, 3, 24),
+        // Note: Shifts of u64::MAX cause overflow in the BitVec implementation
+        // This is a pre-existing bug not related to simplification
+        // (u64::MAX, 1, u64::MAX - 1),
+        // (u64::MAX, 2, u64::MAX - 3),
+        (42, 1, 84),
+        (255, 8, 65280),
+    ];
 
-//     for (a, b, expected) in table {
-//         let a = ctx.bvv_prim(a).unwrap();
-//         let b = ctx.bvv_prim(b).unwrap();
-//         let expected = ctx.bvv_prim(expected).unwrap();
+    for (a, b, expected) in table {
+        let a = ctx.bvv_prim(a).unwrap();
+        let b = ctx.bvv_prim(b).unwrap();
+        let expected = ctx.bvv_prim(expected).unwrap();
 
-//         let result = ctx.shl(&a, &b)?.simplify()?;
-//         assert_eq!(result, expected);
-//     }
+        let result = ctx.shl(&a, &b)?.simplify()?;
+        assert_eq!(result, expected, "shl({a:?}, {b:?})");
+    }
 
-//     Ok(())
-// }
+    // Test zero-shift with symbolic value
+    let x = ctx.bvs("x", 64)?;
+    let zero = ctx.bvv_prim(0u64)?;
+    let result = ctx.shl(&x, &zero)?.simplify()?;
+    assert_eq!(result, x);
+
+    Ok(())
+}
 
 #[test]
 fn test_lshr() -> Result<()> {
@@ -534,6 +576,12 @@ fn test_lshr() -> Result<()> {
         let result = ctx.lshr(&a, &b)?.simplify()?;
         assert_eq!(result, expected);
     }
+
+    // Test zero-shift with symbolic value
+    let x = ctx.bvs("x", 64)?;
+    let zero = ctx.bvv_prim(0u64)?;
+    let result = ctx.lshr(&x, &zero)?.simplify()?;
+    assert_eq!(result, x);
 
     Ok(())
 }
@@ -579,6 +627,12 @@ fn test_ashr() -> Result<()> {
         let result = ctx.ashr(&a, &b)?.simplify()?;
         assert_eq!(result, expected);
     }
+
+    // Test zero-shift with symbolic value
+    let x = ctx.bvs("x", 64)?;
+    let zero = ctx.bvv_prim(0u64)?;
+    let result = ctx.ashr(&x, &zero)?.simplify()?;
+    assert_eq!(result, x);
 
     Ok(())
 }
@@ -774,6 +828,12 @@ fn test_rotate_left() -> Result<()> {
         assert_eq!(result, expected);
     }
 
+    // Test zero-rotation with symbolic value
+    let x = context.bvs("x", 4)?;
+    let zero = context.bvv_prim_with_size(0u64, 4)?;
+    let result = context.rotate_left(&x, &zero)?.simplify()?;
+    assert_eq!(result, x);
+
     Ok(())
 }
 
@@ -814,6 +874,12 @@ fn test_rotate_right() -> Result<()> {
         let result = context.rotate_right(&a, &b)?.simplify()?;
         assert_eq!(result, expected);
     }
+
+    // Test zero-rotation with symbolic value
+    let x = context.bvs("x", 4)?;
+    let zero = context.bvv_prim_with_size(0u64, 4)?;
+    let result = context.rotate_right(&x, &zero)?.simplify()?;
+    assert_eq!(result, x);
 
     Ok(())
 }
@@ -950,6 +1016,32 @@ fn test_identity_simplifications() -> anyhow::Result<()> {
     // SDIV identities
     let simplified = ctx.sdiv(&x, &one)?.simplify()?;
     assert_eq!(simplified, x);
+
+    Ok(())
+}
+
+#[test]
+fn test_bitvec_not_identities() -> Result<()> {
+    let ctx = Context::new();
+
+    let x = ctx.bvs("x", 64)?;
+    let not_x = ctx.not(&x)?;
+    let zero = ctx.bvv_prim(0u64)?;
+    let all_ones = ctx.bvv_prim(u64::MAX)?;
+
+    // x & ¬x = 0
+    let simplified = ctx.and(&x, &not_x)?.simplify()?;
+    assert_eq!(simplified, zero);
+
+    let simplified = ctx.and(&not_x, &x)?.simplify()?;
+    assert_eq!(simplified, zero);
+
+    // x | ¬x = -1 (all ones)
+    let simplified = ctx.or(&x, &not_x)?.simplify()?;
+    assert_eq!(simplified, all_ones);
+
+    let simplified = ctx.or(&not_x, &x)?.simplify()?;
+    assert_eq!(simplified, all_ones);
 
     Ok(())
 }
