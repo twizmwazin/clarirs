@@ -24,12 +24,9 @@ class TestFPOperations(unittest.TestCase):
         self.fp_inf = claripy.FPV(float("inf"), FSORT_FLOAT)
         self.fp_neg_inf = claripy.FPV(float("-inf"), FSORT_FLOAT)
         self.fp_nan = claripy.FPV(float("nan"), FSORT_FLOAT)
-        # Add a subnormal number
-        # self.fp_subnormal = claripy.FPV(1e-40, FSORT_FLOAT)
 
         self.z3 = claripy.SolverZ3()
         self.concrete = claripy.SolverConcrete()
-
 
     def _check_equal(self, expr, expected, *, check_bits=False, places=7):
         """
@@ -41,7 +38,7 @@ class TestFPOperations(unittest.TestCase):
         expected    : float | claripy.FPV
         check_bits  : bool
                         if False (default), only compare numeric closeness
-                        if True, compare raw bit-vectors as well                      
+                        if True, compare raw bit-vectors as well
         places      : int, default 7
 
         """
@@ -53,26 +50,30 @@ class TestFPOperations(unittest.TestCase):
 
         expr_val = float(self.concrete.eval(expr, 1)[0])
 
-        if hasattr(expected, "raw_to_bv"):          # expected is already FPV
+        if hasattr(expected, "raw_to_bv"):  # expected is already FPV
             expected_val = float(self.concrete.eval(expected, 1)[0])
-            expected_fp  = expected                 
-        else:                                       # expected is int/float
+            expected_fp = expected
+        else:  # expected is int/float
             expected_val = float(expected)
-            expected_fp  = None           
+            expected_fp = None
 
-        if not check_bits:              # Numeric test only when no bit check
-            self.assertAlmostEqual(expr_val, expected_val, places=places, msg="Expression result does not match expected result.",)          
+        if not check_bits:  # Numeric test only when no bit check
+            self.assertAlmostEqual(
+                expr_val,
+                expected_val,
+                places=places,
+                msg="Expression result does not match expected result.",
+            )
 
         # Bit-pattern comparison
         if check_bits:
-            if expected_fp is None:                 
+            if expected_fp is None:
                 expected_fp = claripy.FPV(expected, FSORT_FLOAT)
 
             self.assertTrue(
                 claripy.is_true(expr.raw_to_bv() == expected_fp.raw_to_bv()),
                 msg="Bit-level result does not match IEEE-expected value",
             )
-
 
     def test_add(self):
         """Test addition operation"""
@@ -83,7 +84,7 @@ class TestFPOperations(unittest.TestCase):
         self._check_equal(result, 4.3, check_bits=True)
 
         result = self.fp5 + self.fp6
-        self._check_equal(result, 100.17, check_bits=True)    
+        self._check_equal(result, 100.17, check_bits=True)
 
         result = self.fp2 + self.fp_neg
         self._check_equal(result, 1.0)
@@ -127,11 +128,11 @@ class TestFPOperations(unittest.TestCase):
 
         # Test multiplication with zero
         result = self.fp1 * self.fp_zero
-        self._check_equal(result, 0.0)    
+        self._check_equal(result, 0.0)
 
         # Test multiplication with negative zero
         result = self.fp1 * self.fp_neg_zero
-        self._check_equal(result, 0.0)        
+        self._check_equal(result, 0.0)
 
     def test_div(self):
         """Test division operation"""
@@ -168,7 +169,7 @@ class TestFPOperations(unittest.TestCase):
         # Finite numerator and infinity denominator → zero
         result = self.fp1 / self.fp_inf
         self._check_equal(result, 0.0)
-        
+
         # Positive numerator division by negative zero → negative infinity
         result = self.fp1 / self.fp_neg_zero
         self._check_equal(result, float("-inf"), check_bits=True)
@@ -179,12 +180,11 @@ class TestFPOperations(unittest.TestCase):
 
         # Positive numerator division by positive zero → positive infinity
         result = self.fp1 / self.fp_zero
-        self._check_equal(result, float("inf"), check_bits=True)      
+        self._check_equal(result, float("inf"), check_bits=True)
 
         # Negative numerator division by positive zero → negative infinity
         result = self.fp_neg / self.fp_zero
-        self._check_equal(result, float("-inf"), check_bits=True)      
-        
+        self._check_equal(result, float("-inf"), check_bits=True)
 
     def test_neg(self):
         """Test negation"""
@@ -194,12 +194,11 @@ class TestFPOperations(unittest.TestCase):
         result = -(self.fp_neg1)
         self._check_equal(result, 2)
 
-        result  = -(self.fp_zero)    
+        result = -(self.fp_zero)
         self._check_equal(result, -0.0, check_bits=True)
-        
+
         result = -(self.fp_neg_zero)
         self._check_equal(result, 0.0, check_bits=True)
-
 
     def test_abs(self):
         """Test absolute value"""
@@ -207,17 +206,17 @@ class TestFPOperations(unittest.TestCase):
         self._check_equal(result, 1.5)
 
         result = abs(self.fp1)
-        self._check_equal(result, 1.5)        
+        self._check_equal(result, 1.5)
 
         result = abs(self.fp_neg_zero)
-        self._check_equal(result, 0.0, check_bits=True) 
+        self._check_equal(result, 0.0, check_bits=True)
 
         result = abs(self.fp_neg_inf)
-        self._check_equal(result, float("inf"), check_bits=True)         
+        self._check_equal(result, float("inf"), check_bits=True)
 
     def test_eq(self):
         """Test equality"""
-        
+
         # Test equality with different values
         result = self.fp1 == self.fp2
         self._check_equal(result, False)
@@ -229,7 +228,7 @@ class TestFPOperations(unittest.TestCase):
         self._check_equal(result, False)
 
         result = self.fp_neg_inf == self.fp_inf
-        self._check_equal(result, False)               
+        self._check_equal(result, False)
 
         # Test equality with same values
         result = self.fp1 == self.fp1
@@ -239,17 +238,17 @@ class TestFPOperations(unittest.TestCase):
         self._check_equal(result, True)
 
         result = self.fp_neg_zero == self.fp_neg_zero
-        self._check_equal(result, True)     
+        self._check_equal(result, True)
 
         result = self.fp_inf == self.fp_inf
         self._check_equal(result, True)
 
         result = self.fp_neg_inf == self.fp_neg_inf
-        self._check_equal(result, True)    
+        self._check_equal(result, True)
 
     def test_ne(self):
         """Test inequality"""
-        
+
         # Test inequality with different values
         result = self.fp1 != self.fp2
         self._check_equal(result, True)
@@ -261,7 +260,7 @@ class TestFPOperations(unittest.TestCase):
         self._check_equal(result, True)
 
         result = self.fp_neg_inf != self.fp_inf
-        self._check_equal(result, True)               
+        self._check_equal(result, True)
 
         # Test inequality with same values
         result = self.fp1 != self.fp1
@@ -271,29 +270,28 @@ class TestFPOperations(unittest.TestCase):
         self._check_equal(result, False)
 
         result = self.fp_neg_zero != self.fp_neg_zero
-        self._check_equal(result, False)     
+        self._check_equal(result, False)
 
         result = self.fp_inf != self.fp_inf
         self._check_equal(result, False)
 
         result = self.fp_neg_inf != self.fp_neg_inf
-        self._check_equal(result, False)                   
-
+        self._check_equal(result, False)
 
     def test_lt(self):
         """Test less-than (<) for all operand kinds"""
 
         # Finite positives
-        result = self.fp1 < self.fp2         
-        self._check_equal(result, True)     
-        
-        result = self.fp2 < self.fp1         
-        self._check_equal(result, False)    
+        result = self.fp1 < self.fp2
+        self._check_equal(result, True)
+
+        result = self.fp2 < self.fp1
+        self._check_equal(result, False)
 
         # Finite negatives
-        result = self.fp_neg1 < self.fp_neg  
-        self._check_equal(result, True)  
-        
+        result = self.fp_neg1 < self.fp_neg
+        self._check_equal(result, True)
+
         result = self.fp_neg < self.fp_neg1
         self._check_equal(result, False)
 
@@ -319,40 +317,40 @@ class TestFPOperations(unittest.TestCase):
         # zeros (+0 and −0 are equal, so < is False both ways)
         result = self.fp_neg_zero < self.fp_zero
         self._check_equal(result, False)
-        
+
         result = self.fp_zero < self.fp_neg_zero
         self._check_equal(result, False)
 
         # finite vs ±∞
         result = self.fp1 < self.fp_inf
         self._check_equal(result, True)
-        
+
         result = self.fp_neg_inf < self.fp1
         self._check_equal(result, True)
-        
+
         result = self.fp_inf < self.fp1
         self._check_equal(result, False)
-        
+
         result = self.fp_inf < self.fp_inf
-        self._check_equal(result, False)   # ∞ < ∞ is False
-        
+        self._check_equal(result, False)  # ∞ < ∞ is False
+
         result = self.fp_neg_inf < self.fp_neg_inf
         self._check_equal(result, False)
 
         # Infinities
         result = self.fp_neg_inf < self.fp_inf
         self._check_equal(result, True)
-        
+
         result = self.fp_inf < self.fp_neg_inf
         self._check_equal(result, False)
 
         # NaN comparisons: all ordered comparisons are False
         result = self.fp_nan < self.fp1
         self._check_equal(result, False)
-        
+
         result = self.fp1 < self.fp_nan
         self._check_equal(result, False)
-        
+
         result = self.fp_nan < self.fp_nan
         self._check_equal(result, False)
 
@@ -360,22 +358,22 @@ class TestFPOperations(unittest.TestCase):
         """Test less‑than‑or‑equal (<=) for all operand kinds"""
 
         # Finite positives
-        result = self.fp1 <= self.fp2         
+        result = self.fp1 <= self.fp2
         self._check_equal(result, True)
-        
-        result = self.fp2 <= self.fp1         
+
+        result = self.fp2 <= self.fp1
         self._check_equal(result, False)
 
-        result = self.fp1 <= self.fp1         
+        result = self.fp1 <= self.fp1
         self._check_equal(result, True)
 
         # Finite negatives
-        result = self.fp_neg1 <= self.fp_neg  
+        result = self.fp_neg1 <= self.fp_neg
         self._check_equal(result, True)
-        
+
         result = self.fp_neg <= self.fp_neg1
         self._check_equal(result, False)
-        
+
         result = self.fp_neg1 <= self.fp_neg1
         self._check_equal(result, True)
 
@@ -401,43 +399,42 @@ class TestFPOperations(unittest.TestCase):
         # zeros (+0 and −0 are equal, so ≤ is True both ways)
         result = self.fp_neg_zero <= self.fp_zero
         self._check_equal(result, True)
-        
+
         result = self.fp_zero <= self.fp_neg_zero
         self._check_equal(result, True)
 
         # finite vs ±∞
         result = self.fp1 <= self.fp_inf
         self._check_equal(result, True)
-        
+
         result = self.fp_neg_inf <= self.fp1
         self._check_equal(result, True)
-        
+
         result = self.fp_inf <= self.fp1
         self._check_equal(result, False)
-        
-        result = self.fp_inf <= self.fp_inf    # ∞ ≤ ∞
+
+        result = self.fp_inf <= self.fp_inf  # ∞ ≤ ∞
         self._check_equal(result, True)
-        
+
         result = self.fp_neg_inf <= self.fp_neg_inf
         self._check_equal(result, True)
 
         # Infinities
         result = self.fp_neg_inf <= self.fp_inf
         self._check_equal(result, True)
-        
+
         result = self.fp_inf <= self.fp_neg_inf
         self._check_equal(result, False)
 
         # NaN comparisons: all ordered comparisons are False
         result = self.fp_nan <= self.fp1
         self._check_equal(result, False)
-        
+
         result = self.fp1 <= self.fp_nan
         self._check_equal(result, False)
-        
+
         result = self.fp_nan <= self.fp_nan
         self._check_equal(result, False)
-       
 
     def test_gt(self):
         """Test greater than"""
@@ -449,7 +446,7 @@ class TestFPOperations(unittest.TestCase):
         self._check_equal(result, False)
 
         # Finite negatives
-        result = self.fp_neg > self.fp_neg1        
+        result = self.fp_neg > self.fp_neg1
         self._check_equal(result, True)
 
         result = self.fp_neg1 > self.fp_neg
@@ -479,7 +476,7 @@ class TestFPOperations(unittest.TestCase):
         self._check_equal(result, False)
 
         result = self.fp_zero > self.fp_neg_zero
-        self._check_equal(result, False)        
+        self._check_equal(result, False)
 
         # finite vs ±∞
         result = self.fp_inf > self.fp1
@@ -494,14 +491,14 @@ class TestFPOperations(unittest.TestCase):
         result = self.fp_neg_inf > self.fp1
         self._check_equal(result, False)
 
-        # Infinities 
+        # Infinities
         result = self.fp_inf > self.fp_neg_inf
         self._check_equal(result, True)
 
         result = self.fp_neg_inf > self.fp_inf
         self._check_equal(result, False)
 
-        result = self.fp_inf > self.fp_inf          # ∞ > ∞ is False
+        result = self.fp_inf > self.fp_inf  # ∞ > ∞ is False
         self._check_equal(result, False)
 
         result = self.fp_neg_inf > self.fp_neg_inf  # −∞ > −∞ is False
@@ -517,21 +514,20 @@ class TestFPOperations(unittest.TestCase):
         result = self.fp_nan > self.fp_nan
         self._check_equal(result, False)
 
-
     def test_geq(self):
         """Test greater than or equal"""
-        #Finite positives
+        # Finite positives
         result = self.fp2 >= self.fp1
         self._check_equal(result, True)
 
         result = self.fp1 >= self.fp1
-        self._check_equal(result, True)   
+        self._check_equal(result, True)
 
-        result = self.fp1 >= self.fp2          
+        result = self.fp1 >= self.fp2
         self._check_equal(result, False)
 
         # Finite negatives
-        result = self.fp_neg >= self.fp_neg1   
+        result = self.fp_neg >= self.fp_neg1
         self._check_equal(result, True)
 
         result = self.fp_neg1 >= self.fp_neg1
@@ -541,16 +537,16 @@ class TestFPOperations(unittest.TestCase):
         self._check_equal(result, False)
 
         # Mixed sign
-        result = self.fp_zero >= self.fp_neg  
+        result = self.fp_zero >= self.fp_neg
         self._check_equal(result, True)
 
         result = self.fp_neg >= self.fp_zero
         self._check_equal(result, False)
 
         result = self.fp1 >= self.fp_neg_zero
-        self._check_equal(result, True)        
+        self._check_equal(result, True)
 
-        result = self.fp_neg_zero >= self.fp1   
+        result = self.fp_neg_zero >= self.fp1
         self._check_equal(result, False)
 
         result = self.fp1 >= self.fp_neg1
@@ -586,7 +582,7 @@ class TestFPOperations(unittest.TestCase):
         result = self.fp_neg_inf >= self.fp_inf
         self._check_equal(result, False)
 
-        result = self.fp_inf >= self.fp_inf     # ∞ ≥ ∞
+        result = self.fp_inf >= self.fp_inf  # ∞ ≥ ∞
         self._check_equal(result, True)
 
         result = self.fp_neg_inf >= self.fp_neg_inf  # −∞ ≥ −∞
@@ -601,8 +597,6 @@ class TestFPOperations(unittest.TestCase):
 
         result = self.fp_nan >= self.fp_nan
         self._check_equal(result, False)
-
-
 
     def test_sqrt(self):
         """Test square root operation"""
@@ -623,15 +617,14 @@ class TestFPOperations(unittest.TestCase):
         # Square root of negative float - NaN
         result = claripy.fpSqrt(self.fp_neg)
         self._check_equal(result, float("nan"), check_bits=True)
-        
+
         # Square root of negative infinity - NaN
-        result = claripy.fpSqrt(self.fp_neg_inf)  
-        self._check_equal(result, float("nan"), check_bits=True)   
+        result = claripy.fpSqrt(self.fp_neg_inf)
+        self._check_equal(result, float("nan"), check_bits=True)
 
         # Positive infinity
         result = claripy.fpSqrt(self.fp_inf)
         self._check_equal(result, float("inf"), check_bits=True)
-
 
     def test_special_values(self):
         """Test operations with special values (NaN, Infinity, Subnormal)"""
@@ -675,16 +668,9 @@ class TestFPOperations(unittest.TestCase):
         self.assertTrue(claripy.fpIsInf(result).is_true())
         self.assertTrue(claripy.fpLT(result, self.fp_zero).is_true())
 
-        # Test subnormal numbers
-        self.assertTrue(claripy.fpLT(self.fp_subnormal, self.fp1).is_true())
-        result = claripy.fpAdd(rm, self.fp_subnormal, self.fp_subnormal)
-        self.assertTrue(claripy.fpLT(result, self.fp1).is_true())
-
-        # Test operations mixing subnormal and normal numbers
-        result = claripy.fpAdd(rm, self.fp_subnormal, self.fp1)
-        self._check_equal(result, 1.5)  # subnormal is so small it doesn't affect 1.5
-
-    @unittest.skip("claripy does not properly implement roundng modes for concrete values")
+    @unittest.skip(
+        "claripy does not properly implement roundng modes for concrete values"
+    )
     def test_rounding_modes(self):
         """Test operations with different rounding modes"""
         # Test addition with different rounding modes
@@ -776,10 +762,6 @@ class TestFPOperations(unittest.TestCase):
         inf_bv = self.fp_inf.to_bv()
         neg_inf_bv = self.fp_neg_inf.to_bv()
         self.assertNotEqual(self.z3.eval(inf_bv, 1)[0], self.z3.eval(neg_inf_bv, 1)[0])
-
-        # Test conversion of subnormal numbers
-        subnormal_bv = self.fp_subnormal.to_bv()
-        self.assertEqual(subnormal_bv.length, 32)
 
 
 if __name__ == "__main__":

@@ -942,13 +942,38 @@ pub fn FpDiv<'py>(
     )
 }
 
-#[pyfunction(name = "fpSqrt", signature = (rm, lhs))]
+#[pyfunction(name = "fpSqrt", signature = (*args))]
 pub fn FpSqrt<'py>(
     py: Python<'py>,
-    rm: PyRM,
-    lhs: Bound<'py, FP>,
+    args: Vec<Bound<'py, PyAny>>,
 ) -> Result<Bound<'py, FP>, ClaripyError> {
-    FP::new(py, &GLOBAL_CONTEXT.fp_sqrt(&lhs.get().inner, rm)?)
+    // fpSqrt can be called as:
+    // - fpSqrt(fp) - uses default rounding mode
+    // - fpSqrt(rm, fp) - uses specified rounding mode
+    let (lhs, rm) = match args.len() {
+        1 => (
+            &args[0]
+                .cast::<FP>()
+                .map_err(|e| ClaripyError::CastingError(format!("{e}")))?,
+            None,
+        ),
+        2 => (
+            &args[1]
+                .cast::<FP>()
+                .map_err(|e| ClaripyError::CastingError(format!("{e}")))?,
+            Some(args[0].extract::<PyRM>()?),
+        ),
+        _ => {
+            return Err(ClaripyError::InvalidOperation(
+                "fpSqrt requires 1 or 2 arguments".to_string(),
+            ));
+        }
+    };
+
+    FP::new(
+        py,
+        &GLOBAL_CONTEXT.fp_sqrt(&lhs.get().inner, rm.unwrap_or_default())?,
+    )
 }
 
 #[pyfunction(name = "fpEQ", signature = (lhs, rhs))]
