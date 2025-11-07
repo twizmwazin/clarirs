@@ -954,13 +954,13 @@ pub fn FpSqrt<'py>(
         1 => (
             &args[0]
                 .cast::<FP>()
-                .map_err(|e| ClaripyError::CastingError(format!("{}", e)))?,
+                .map_err(|e| ClaripyError::CastingError(format!("{e}")))?,
             None,
         ),
         2 => (
             &args[1]
                 .cast::<FP>()
-                .map_err(|e| ClaripyError::CastingError(format!("{}", e)))?,
+                .map_err(|e| ClaripyError::CastingError(format!("{e}")))?,
             Some(args[0].extract::<PyRM>()?),
         ),
         _ => {

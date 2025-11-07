@@ -339,7 +339,7 @@ mod tests {
     #[test]
     fn test_float_value_f32() {
         let ctx = Context::new();
-        let f = ctx.fpv(Float::F32(3.14)).unwrap();
+        let f = ctx.fpv(Float::F32(std::f32::consts::PI)).unwrap();
         let result = round_trip(&ctx, &f).unwrap();
         assert_eq!(f, result);
     }
@@ -347,7 +347,7 @@ mod tests {
     #[test]
     fn test_float_value_f64() {
         let ctx = Context::new();
-        let f = ctx.fpv(Float::F64(2.71828)).unwrap();
+        let f = ctx.fpv(Float::F64(std::f64::consts::E)).unwrap();
         let result = round_trip(&ctx, &f).unwrap();
         assert_eq!(f, result);
     }
