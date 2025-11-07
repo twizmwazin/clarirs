@@ -179,13 +179,6 @@ impl FP {
             Ok(this.into_bound(py))
         }
     }
-
-    pub fn concrete_value(&self) -> Result<Option<f64>, ClaripyError> {
-        Ok(match self.inner.simplify_ext(false)?.op() {
-            FloatOp::FPV(value) => value.to_f64(),
-            _ => None,
-        })
-    }
 }
 
 #[pymethods]
@@ -406,6 +399,14 @@ impl FP {
 
     pub fn __len__(&self) -> usize {
         self.size()
+    }
+
+    #[getter]
+    pub fn concrete_value(&self) -> Result<Option<f64>, ClaripyError> {
+        Ok(match self.inner.simplify_ext(false)?.op() {
+            FloatOp::FPV(value) => value.to_f64(),
+            _ => None,
+        })
     }
 
     pub fn has_annotation_type(
