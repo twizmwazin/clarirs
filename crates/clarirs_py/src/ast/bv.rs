@@ -15,6 +15,7 @@ use num_bigint::{BigInt, BigUint, Sign};
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::types::{PyFrozenSet, PySlice, PyWeakrefReference};
 
+use crate::ast::fp::{PyFSort, PyRM};
 use crate::ast::{and, not, or, xor};
 use crate::prelude::*;
 use crate::pyslicemethodsext::PySliceMethodsExt;
@@ -583,6 +584,32 @@ impl BV {
 
     pub fn to_bv(self_: Bound<'_, BV>) -> Result<Bound<'_, BV>, ClaripyError> {
         Ok(self_)
+    }
+
+    #[pyo3(signature = (sort = None, signed = true, rm = None))]
+    pub fn val_to_fp<'py>(
+        self_: Bound<'py, BV>,
+        sort: Option<PyFSort>,
+        signed: bool,
+        rm: Option<PyRM>,
+    ) -> Result<Bound<'py, FP>, ClaripyError> {
+        let sort = sort.unwrap_or_else(|| {
+            PyFSort::from_size(self_.get().size() as u32)
+                .expect("Failed to create FSort from BV size")
+        });
+        let rm = rm.unwrap_or_default();
+
+        if signed {
+            FP::new(
+                self_.py(),
+                &GLOBAL_CONTEXT.bv_to_fp_signed(&self_.get().inner, sort, rm)?,
+            )
+        } else {
+            FP::new(
+                self_.py(),
+                &GLOBAL_CONTEXT.bv_to_fp_unsigned(&self_.get().inner, sort, rm)?,
+            )
+        }
     }
 
     pub fn __add__<'py>(
