@@ -410,31 +410,118 @@ impl StridedInterval {
             }
         }
 
-        let (gcd, s_stride, o_stride) = match (self, other) {
+        // Extract strides and lower bounds
+        let (s_stride, s_lb, o_stride, o_lb) = match (self, other) {
             (
                 StridedInterval::Normal {
-                    stride: s_stride, ..
+                    stride: s_stride,
+                    lower_bound: s_lb,
+                    ..
                 },
                 StridedInterval::Normal {
-                    stride: o_stride, ..
+                    stride: o_stride,
+                    lower_bound: o_lb,
+                    ..
                 },
-            ) => {
-                let gcd = Self::gcd(s_stride, o_stride);
-                (gcd, s_stride, o_stride)
-            }
-            _ => (BigUint::zero(), &BigUint::zero(), &BigUint::zero()),
+            ) => (s_stride, s_lb, o_stride, o_lb),
+            _ => return Self::empty(self.bits()),
         };
+
+        // Compute LCM as the new stride
+        let gcd = Self::gcd(s_stride, o_stride);
         let new_stride = if gcd.is_zero() {
             BigUint::zero()
         } else {
             (s_stride * o_stride) / &gcd
         };
 
-        // Find the smallest value >= lower_bound that satisfies both intervals
-        let new_lower = max(self_min, other_min);
-        let new_upper = min(self_max, other_max);
+        // Find the bounds of the intersection
+        let new_lower_bound = max(self_min.clone(), other_min.clone());
+        let new_upper_bound = min(self_max.clone(), other_max.clone());
 
-        Self::new(self.bits(), new_stride, new_lower, new_upper)
+        if new_lower_bound > new_upper_bound {
+            return Self::empty(self.bits());
+        }
+
+        // Now find the actual lower bound that satisfies both stride patterns
+        // We need to find x such that:
+        //   x ≡ s_lb (mod s_stride)
+        //   x ≡ o_lb (mod o_stride)
+        //   x >= new_lower_bound
+        //   x <= new_upper_bound
+        
+        // Use Chinese Remainder Theorem approach
+        // First check if the bases are compatible
+        let base_diff = if s_lb >= o_lb {
+            s_lb - o_lb
+        } else {
+            // Handle modular arithmetic
+            Self::modular_sub(s_lb, o_lb, self.bits())
+        };
+
+        // Check if bases are compatible: base_diff must be divisible by gcd
+        if gcd != BigUint::zero() && &base_diff % &gcd != BigUint::zero() {
+            // No solution exists - the stride patterns are incompatible
+            return Self::empty(self.bits());
+        }
+
+        // Find the first value in [new_lower_bound, new_upper_bound] that satisfies both strides
+        // Start from self's lower bound and align to other's stride pattern
+        let mut candidate = s_lb.clone();
+        let max_iterations = 10000u32; // Safety limit
+        let mut iterations = 0;
+
+        // Find first candidate >= new_lower_bound that matches self's stride
+        if candidate < new_lower_bound {
+            if s_stride.is_zero() {
+                // Can't reach new_lower_bound with this constant
+                return Self::empty(self.bits());
+            }
+            let diff = &new_lower_bound - &candidate;
+            let steps = (&diff + s_stride - BigUint::one()) / s_stride;
+            candidate = Self::modular_add(&candidate, &(steps * s_stride), self.bits());
+        }
+
+        // Now find a candidate that also satisfies other's stride
+        while iterations < max_iterations {
+            if candidate > new_upper_bound {
+                return Self::empty(self.bits());
+            }
+
+            // Check if candidate satisfies other's stride pattern
+            let other_diff = if candidate >= *o_lb {
+                &candidate - o_lb
+            } else {
+                Self::modular_sub(&candidate, o_lb, self.bits())
+            };
+
+            if o_stride.is_zero() {
+                if candidate == *o_lb {
+                    break;
+                }
+                return Self::empty(self.bits());
+            } else if &other_diff % o_stride == BigUint::zero() {
+                break;
+            }
+
+            // Move to next value in self's stride pattern
+            candidate = Self::modular_add(&candidate, s_stride, self.bits());
+            iterations += 1;
+
+            // Check for wrap-around
+            if !s_stride.is_zero() && candidate < *s_lb {
+                // Wrapped around, no solution in range
+                return Self::empty(self.bits());
+            }
+        }
+
+        if iterations >= max_iterations || candidate > new_upper_bound {
+            // Couldn't find a valid starting point, return conservative result
+            return Self::new(self.bits(), new_stride.clone(), new_lower_bound, new_upper_bound);
+        }
+
+        let final_lower = candidate;
+        Self::new(self.bits(), new_stride, final_lower, new_upper_bound)
     }
 
     /// Finds the union of two StridedIntervals
@@ -556,9 +643,29 @@ impl StridedInterval {
                 },
             ) => {
                 if s_stride.is_zero() {
+                    // Self is a constant, other must be the same constant
                     s_lb == o_lb && o_stride.is_zero()
+                } else if o_stride.is_zero() {
+                    // Other is a constant, check if it's in self's stride pattern
+                    let diff = if o_lb >= s_lb {
+                        o_lb - s_lb
+                    } else {
+                        Self::modular_sub(o_lb, s_lb, self.bits())
+                    };
+                    &diff % s_stride == BigUint::zero()
                 } else {
-                    o_stride % s_stride == BigUint::zero()
+                    // Both have strides: check divisibility and alignment
+                    // Other's stride must be a multiple of self's stride
+                    if o_stride % s_stride != BigUint::zero() {
+                        return false;
+                    }
+                    // Check if the bases are aligned: (o_lb - s_lb) must be divisible by s_stride
+                    let diff = if o_lb >= s_lb {
+                        o_lb - s_lb
+                    } else {
+                        Self::modular_sub(o_lb, s_lb, self.bits())
+                    };
+                    &diff % s_stride == BigUint::zero()
                 }
             }
             _ => false,
@@ -576,6 +683,10 @@ impl StridedInterval {
     }
 
     /// Gets the unsigned bounds as a tuple (min, max)
+    /// For wrap-around intervals (lower > upper), returns (lower_bound, MAX)
+    /// This represents the interval [lower..MAX] ∪ [0..upper]
+    /// Note: This doesn't return actual min/max values for wrap-around cases,
+    /// but rather a conservative approximation for comparison operations
     pub fn get_unsigned_bounds(&self) -> (BigUint, BigUint) {
         match self {
             StridedInterval::Empty { .. } => (BigUint::zero(), BigUint::zero()),
@@ -590,6 +701,8 @@ impl StridedInterval {
                 } else if self.is_top() {
                     (BigUint::zero(), Self::max_int(*bits))
                 } else {
+                    // Wrap-around: return (lower_bound, MAX) as approximation
+                    // This is conservative for comparison operations
                     (lower_bound.clone(), Self::max_int(*bits))
                 }
             }
@@ -629,15 +742,19 @@ impl StridedInterval {
     }
 
     /// Compute the greatest common divisor of two BigUint values
+    /// For stride calculations: gcd(0,0) returns 0 (representing no stride constraint)
     fn gcd(a: &BigUint, b: &BigUint) -> BigUint {
         if a.is_zero() && b.is_zero() {
-            BigUint::one()
+            // Both strides are 0 (constants), return 0
+            BigUint::zero()
         } else if b.is_zero() {
             a.clone()
         } else {
             Self::gcd(b, &(a % b))
         }
     }
+
+
 
     /// Check if the interval contains zero
     pub fn contains_zero(&self) -> bool {
@@ -2235,11 +2352,13 @@ impl Div for &StridedInterval {
                 let bits = max(*bits1, *bits2);
                 // Check for division by zero
                 let other_contains_zero = if o_lb <= o_ub {
-                    // Non-wrapping case
-                    *o_lb == BigUint::zero() || *o_ub == BigUint::zero()
+                    // Non-wrapping case: check if zero is in [o_lb, o_ub]
+                    *o_lb <= BigUint::zero() && *o_ub >= BigUint::zero()
                 } else {
-                    // Wrapping case
-                    *o_lb >= BigUint::zero() && *o_ub <= BigUint::zero()
+                    // Wrapping case: interval wraps from o_lb through max back to o_ub
+                    // This means it contains values [o_lb..MAX] and [0..o_ub]
+                    // So it contains zero if o_ub >= 0 (which is always true for unsigned)
+                    true
                 };
                 if other_contains_zero {
                     return StridedInterval::top(bits);
