@@ -593,18 +593,44 @@ impl StridedInterval {
                 },
             ) => {
                 if s_stride.is_zero() && o_stride.is_zero() {
+                    // Both are constants
                     if s_lb == o_lb && s_ub == o_ub {
+                        // Same constant
                         BigUint::zero()
-                    } else if s_lb > o_lb {
-                        s_lb - o_lb
                     } else {
-                        o_lb - s_lb
+                        // Two different constants: compute GCD of their difference and range
+                        let diff = if s_lb > o_lb { s_lb - o_lb } else { o_lb - s_lb };
+                        let range = &new_upper - &new_lower;
+                        if range.is_zero() {
+                            BigUint::zero()
+                        } else {
+                            // The stride is the GCD of the difference and the range
+                            Self::gcd(&diff, &range)
+                        }
                     }
                 } else if s_stride.is_zero() {
-                    o_stride.clone()
+                    // Self is constant, other has stride
+                    // Check if constant aligns with other's stride
+                    let diff = if s_lb >= o_lb {
+                        s_lb - o_lb
+                    } else if s_lb >= &new_lower {
+                        Self::modular_sub(s_lb, o_lb, self.bits())
+                    } else {
+                        o_lb - s_lb
+                    };
+                    Self::gcd(&diff, o_stride)
                 } else if o_stride.is_zero() {
-                    s_stride.clone()
+                    // Other is constant, self has stride
+                    let diff = if o_lb >= s_lb {
+                        o_lb - s_lb
+                    } else if o_lb >= &new_lower {
+                        Self::modular_sub(o_lb, s_lb, self.bits())
+                    } else {
+                        s_lb - o_lb
+                    };
+                    Self::gcd(&diff, s_stride)
                 } else {
+                    // Both have strides: use GCD
                     Self::gcd(s_stride, o_stride)
                 }
             }
@@ -893,7 +919,22 @@ impl StridedInterval {
         } else if self_min >= other_max {
             ComparisonResult::False
         } else {
-            ComparisonResult::Maybe
+            // Check if intervals actually overlap given their strides
+            // If they don't overlap, we might be able to determine the result
+            let intersection = self.intersection(other);
+            if intersection.is_empty() {
+                // No overlap - determine relationship by comparing bounds
+                if self_max < other_min {
+                    ComparisonResult::True
+                } else if self_min > other_max {
+                    ComparisonResult::False
+                } else {
+                    // Intervals are interleaved but don't share values
+                    ComparisonResult::Maybe
+                }
+            } else {
+                ComparisonResult::Maybe
+            }
         }
     }
 
@@ -2192,8 +2233,28 @@ impl Add for &StridedInterval {
                 },
             ) => {
                 let new_stride = StridedInterval::gcd(s_stride, o_stride);
+                
+                // Detect overflow: if adding the upper bounds wraps around, widen to TOP
+                let max_val = StridedInterval::max_int(*bits);
+                let sum_upper = s_ub + o_ub;
+                let sum_lower = s_lb + o_lb;
+                
+                // Check if overflow occurred
+                let upper_overflow = sum_upper > max_val;
+                let lower_overflow = sum_lower > max_val;
+                
+                // If both overflow or bounds cross after modular arithmetic, we may need to widen
                 let new_lower = StridedInterval::modular_add(s_lb, o_lb, *bits);
                 let new_upper = StridedInterval::modular_add(s_ub, o_ub, *bits);
+                
+                // If we detect wrap-around and intervals weren't already wrapping, widen to top
+                if (upper_overflow || lower_overflow) && 
+                   s_lb <= s_ub && o_lb <= o_ub &&
+                   new_lower > new_upper {
+                    // Significant overflow detected, widen to top for safety
+                    return StridedInterval::top(*bits);
+                }
+                
                 StridedInterval::new(*bits, new_stride, new_lower, new_upper)
             }
         }
@@ -2231,8 +2292,23 @@ impl Sub for &StridedInterval {
                 },
             ) => {
                 let new_stride = StridedInterval::gcd(s_stride, o_stride);
+                
+                // Detect underflow: similar logic to addition
+                // For subtraction a - b, underflow occurs if a < b
                 let new_lower = StridedInterval::modular_sub(s_lb, o_ub, *bits);
                 let new_upper = StridedInterval::modular_sub(s_ub, o_lb, *bits);
+                
+                // Check if we had non-wrapping intervals that now wrap
+                let underflow_lower = s_lb < o_ub;
+                let underflow_upper = s_ub < o_lb;
+                
+                if (underflow_lower || underflow_upper) &&
+                   s_lb <= s_ub && o_lb <= o_ub &&
+                   new_lower > new_upper {
+                    // Significant underflow detected, widen to top for safety
+                    return StridedInterval::top(*bits);
+                }
+                
                 StridedInterval::new(*bits, new_stride, new_lower, new_upper)
             }
         }
@@ -2314,8 +2390,40 @@ impl Mul for &StridedInterval {
                 let bd = (b * d) & StridedInterval::max_int(bits);
                 let min_val = ac.clone().min(ad.clone()).min(bc.clone()).min(bd.clone());
                 let max_val = ac.max(ad).max(bc).max(bd);
-                // Conservative stride
-                let stride = BigUint::one();
+                
+                // Improved stride calculation for multiplication
+                // The result stride is GCD of: s_stride * c, s_stride * d, o_stride * a, o_stride * b
+                let mut stride = if s_stride.is_zero() && o_stride.is_zero() {
+                    BigUint::zero()
+                } else if s_stride.is_zero() {
+                    // Self is constant, stride is o_stride * a (or b, they're equal)
+                    o_stride * a
+                } else if o_stride.is_zero() {
+                    // Other is constant, stride is s_stride * c (or d, they're equal)
+                    s_stride * c
+                } else {
+                    // Both have strides: compute GCD of stride contributions
+                    let stride_ac = s_stride * c;
+                    let stride_ad = s_stride * d;
+                    let stride_bc = o_stride * a;
+                    let stride_bd = o_stride * b;
+                    let gcd1 = StridedInterval::gcd(&stride_ac, &stride_ad);
+                    let gcd2 = StridedInterval::gcd(&stride_bc, &stride_bd);
+                    StridedInterval::gcd(&gcd1, &gcd2)
+                };
+                
+                // Ensure stride isn't larger than the range
+                if !stride.is_zero() {
+                    let range = if max_val >= min_val {
+                        &max_val - &min_val
+                    } else {
+                        BigUint::zero()
+                    };
+                    if stride > range {
+                        stride = BigUint::one();
+                    }
+                }
+                
                 StridedInterval::new(bits, stride, min_val, max_val)
             }
         }
@@ -2460,17 +2568,84 @@ impl BitAnd for &StridedInterval {
                     return StridedInterval::constant(bits, result);
                 }
 
-                // Special case: one operand is constant
+                // Special case: one operand is constant (mask)
                 if s_lb == s_ub {
                     let mask = s_lb;
                     // x & constant: result is at most the constant value
                     let upper = mask.clone();
-                    return StridedInterval::range(bits, 0u32, upper);
+                    
+                    // Check if mask preserves stride
+                    // For example, x & 0xFFFFFFF0 with stride 16 preserves stride 16
+                    let (_, _, o_stride) = match other {
+                        StridedInterval::Normal { stride, lower_bound, .. } => {
+                            (lower_bound, s_ub, stride)
+                        }
+                        _ => return StridedInterval::range(bits, 0u32, upper),
+                    };
+                    
+                    // Check if mask clears low bits that match stride
+                    // Count trailing zeros in mask
+                    let mask_trailing_zeros = if mask.is_zero() {
+                        bits
+                    } else {
+                        mask.trailing_zeros().unwrap_or(0) as u32
+                    };
+                    
+                    // Check if stride is preserved
+                    let stride = if !o_stride.is_zero() {
+                        let stride_trailing_zeros = if o_stride.is_zero() {
+                            0u32
+                        } else {
+                            o_stride.trailing_zeros().unwrap_or(0) as u32
+                        };
+                        
+                        if mask_trailing_zeros >= stride_trailing_zeros {
+                            // Mask preserves or increases alignment
+                            o_stride.clone()
+                        } else {
+                            BigUint::one()
+                        }
+                    } else {
+                        BigUint::zero()
+                    };
+                    
+                    return StridedInterval::new(bits, stride, BigUint::zero(), upper);
                 }
                 if o_lb == o_ub {
                     let mask = o_lb;
                     let upper = mask.clone();
-                    return StridedInterval::range(bits, 0u32, upper);
+                    
+                    // Check if mask preserves stride (same logic as above)
+                    let (_, _, s_stride) = match self {
+                        StridedInterval::Normal { stride, lower_bound, .. } => {
+                            (lower_bound, s_ub, stride)
+                        }
+                        _ => return StridedInterval::range(bits, 0u32, upper),
+                    };
+                    
+                    let mask_trailing_zeros = if mask.is_zero() {
+                        bits
+                    } else {
+                        mask.trailing_zeros().unwrap_or(0) as u32
+                    };
+                    
+                    let stride = if !s_stride.is_zero() {
+                        let stride_trailing_zeros = if s_stride.is_zero() {
+                            0u32
+                        } else {
+                            s_stride.trailing_zeros().unwrap_or(0) as u32
+                        };
+                        
+                        if mask_trailing_zeros >= stride_trailing_zeros {
+                            s_stride.clone()
+                        } else {
+                            BigUint::one()
+                        }
+                    } else {
+                        BigUint::zero()
+                    };
+                    
+                    return StridedInterval::new(bits, stride, BigUint::zero(), upper);
                 }
 
                 // General case: compute tighter bounds
