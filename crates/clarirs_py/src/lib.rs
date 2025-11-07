@@ -326,5 +326,36 @@ pub fn claripy(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
         Ok(())
     })?;
 
+    // errors
+    import_submodule(py, m, "claripy", "errors", |py, errors| {
+        errors.add("ClaripyError", py.get_type::<py_err::ClaripyError>())?;
+        errors.add(
+            "ClaripyTypeError",
+            py.get_type::<py_err::ClaripyTypeError>(),
+        )?;
+        errors.add("UnsatError", py.get_type::<py_err::UnsatError>())?;
+        errors.add(
+            "ClaripyFrontendError",
+            py.get_type::<py_err::ClaripyFrontendError>(),
+        )?;
+        errors.add(
+            "ClaripySolverInterruptError",
+            py.get_type::<py_err::ClaripySolverInterruptError>(),
+        )?;
+        errors.add(
+            "ClaripyOperationError",
+            py.get_type::<py_err::ClaripyOperationError>(),
+        )?;
+        errors.add(
+            "ClaripyZeroDivisionError",
+            py.get_type::<py_err::ClaripyZeroDivisionError>(),
+        )?;
+        errors.add(
+            "InvalidExtractBounds",
+            py.get_type::<py_err::InvalidExtractBoundsError>(),
+        )?;
+        Ok(())
+    })?;
+
     Ok(())
 }
