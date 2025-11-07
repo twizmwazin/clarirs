@@ -1,5 +1,5 @@
 use num_bigint::{BigInt, BigUint, ToBigInt, ToBigUint};
-use num_traits::{One, ToPrimitive, Zero};
+use num_traits::{One, Signed, ToPrimitive, Zero};
 use std::cmp::{max, min};
 use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Not, Shl, Shr, Sub};
 
@@ -639,6 +639,432 @@ impl StridedInterval {
         }
     }
 
+    /// Compute the least common multiple of two BigUint values
+    fn lcm(a: &BigUint, b: &BigUint) -> BigUint {
+        if a.is_zero() || b.is_zero() {
+            BigUint::zero()
+        } else {
+            (a * b) / Self::gcd(a, b)
+        }
+    }
+
+    /// Number of trailing zeros in binary representation
+    fn ntz(x: &BigUint) -> u32 {
+        if x.is_zero() {
+            return 0;
+        }
+        let mut count = 0;
+        let mut val = x.clone();
+        while (&val & BigUint::one()).is_zero() {
+            count += 1;
+            val >>= 1;
+        }
+        count
+    }
+
+    /// Check if value surrounds a member (lexicographical comparison)
+    fn surrounds_member(&self, v: &BigUint) -> bool {
+        match self {
+            StridedInterval::Empty { .. } => false,
+            StridedInterval::Normal {
+                lower_bound,
+                upper_bound,
+                bits,
+                ..
+            } => {
+                let mask = Self::max_int(*bits);
+                let diff = Self::modular_sub(v, lower_bound, *bits);
+                let range = Self::modular_sub(upper_bound, lower_bound, *bits);
+                (&diff & &mask) <= (&range & &mask)
+            }
+        }
+    }
+
+    /// Split at the south pole (0/MAX boundary for unsigned)
+    /// Returns 1 or 2 intervals depending on whether wrapping occurs
+    pub fn ssplit(&self) -> Vec<Self> {
+        match self {
+            StridedInterval::Empty { bits } => vec![Self::empty(*bits)],
+            StridedInterval::Normal {
+                bits,
+                stride,
+                lower_bound,
+                upper_bound,
+            } => {
+                // South pole is at MAX_INT (unsigned wrap point)
+                let south_pole_right = Self::max_int(*bits);
+                
+                // Check if interval straddles the south pole
+                if upper_bound < lower_bound {
+                    // It straddles! Split into two intervals
+                    // First part: [lower_bound, south_pole_right]
+                    let a_upper = &south_pole_right - 
+                        ((&south_pole_right - lower_bound) % stride);
+                    let a = Self::new(
+                        *bits,
+                        stride.clone(),
+                        lower_bound.clone(),
+                        a_upper.clone(),
+                    );
+                    
+                    // Second part: [0 or next stride point, upper_bound]
+                    let b_lower = Self::modular_add(&a_upper, stride, *bits);
+                    let b = Self::new(
+                        *bits,
+                        stride.clone(),
+                        b_lower,
+                        upper_bound.clone(),
+                    );
+                    
+                    vec![a, b]
+                } else {
+                    vec![self.clone()]
+                }
+            }
+        }
+    }
+
+    /// Split at the north pole (sign bit boundary for signed)
+    /// Returns 1 or 2 intervals depending on whether wrapping occurs
+    pub fn nsplit(&self) -> Vec<Self> {
+        match self {
+            StridedInterval::Empty { bits } => vec![Self::empty(*bits)],
+            StridedInterval::Normal {
+                bits,
+                stride,
+                lower_bound,
+                upper_bound,
+            } => {
+                // North pole: boundary between positive and negative in signed arithmetic
+                let north_pole_left = Self::signed_max_int(*bits); // 0x7FFF...
+                let north_pole_right = BigUint::one() << (*bits - 1); // 0x8000...
+                
+                // Check if interval straddles the north pole
+                let mut straddling = false;
+                
+                if upper_bound >= &north_pole_right {
+                    if lower_bound > upper_bound {
+                        straddling = true;
+                    } else if lower_bound <= &north_pole_left {
+                        straddling = true;
+                    }
+                } else if lower_bound > upper_bound && lower_bound <= &north_pole_left {
+                    straddling = true;
+                }
+                
+                if straddling {
+                    // Split into two parts
+                    // First part: [lower_bound, north_pole_left] aligned to stride
+                    let a_upper = &north_pole_left - 
+                        ((&north_pole_left - lower_bound) % stride);
+                    let a = Self::new(
+                        *bits,
+                        stride.clone(),
+                        lower_bound.clone(),
+                        a_upper.clone(),
+                    );
+                    
+                    // Second part: [north_pole_right or next stride point, upper_bound]
+                    let b_lower = &a_upper + stride;
+                    let b = Self::new(
+                        *bits,
+                        stride.clone(),
+                        b_lower,
+                        upper_bound.clone(),
+                    );
+                    
+                    vec![a, b]
+                } else {
+                    vec![self.clone()]
+                }
+            }
+        }
+    }
+
+    /// Split at both north and south poles
+    pub fn psplit(&self) -> Vec<Self> {
+        let nsplit_list = self.nsplit();
+        let mut psplit_list = Vec::new();
+        for si in nsplit_list {
+            psplit_list.extend(si.ssplit());
+        }
+        psplit_list
+    }
+
+    /// Check for wrapped overflow in addition
+    fn wrapped_overflow_add(&self, other: &Self) -> bool {
+        match (self, other) {
+            (
+                StridedInterval::Normal {
+                    bits,
+                    lower_bound: s_lb,
+                    upper_bound: s_ub,
+                    ..
+                },
+                StridedInterval::Normal {
+                    lower_bound: o_lb,
+                    upper_bound: o_ub,
+                    ..
+                },
+            ) => {
+                // Calculate cardinality of each interval
+                let card_self = if s_lb.is_zero() && s_ub.is_zero() {
+                    BigUint::zero()
+                } else {
+                    let diff = if s_ub >= s_lb {
+                        s_ub - s_lb + BigUint::one()
+                    } else {
+                        &Self::max_int(*bits) - s_lb + s_ub + BigUint::one()
+                    };
+                    diff
+                };
+                
+                let card_other = if o_lb.is_zero() && o_ub.is_zero() {
+                    BigUint::zero()
+                } else {
+                    let diff = if o_ub >= o_lb {
+                        o_ub - o_lb + BigUint::one()
+                    } else {
+                        &Self::max_int(*bits) - o_lb + o_ub + BigUint::one()
+                    };
+                    diff
+                };
+                
+                // Overflow if sum of cardinalities exceeds max_int + 1
+                &card_self + &card_other > Self::max_int(*bits) + BigUint::one()
+            }
+            _ => false,
+        }
+    }
+
+    /// Helper to convert unsigned BigUint to signed BigInt
+    fn to_signed(v: &BigUint, bits: u32) -> BigInt {
+        let msb_mask = BigUint::one() << (bits - 1);
+        if (v & &msb_mask) != BigUint::zero() {
+            v.to_bigint().unwrap() - (BigInt::one() << bits)
+        } else {
+            v.to_bigint().unwrap()
+        }
+    }
+
+    /// Helper to convert signed BigInt to unsigned BigUint
+    fn to_unsigned(v: &BigInt, bits: u32) -> BigUint {
+        if v < &BigInt::zero() {
+            let modulus = BigInt::one() << bits;
+            let result = (modulus + v) % (BigInt::one() << bits);
+            result.to_biguint().unwrap()
+        } else {
+            v.to_biguint().unwrap() & Self::max_int(bits)
+        }
+    }
+
+    /// Wrapped unsigned multiplication
+    fn wrapped_unsigned_mul(&self, other: &Self) -> Self {
+        match (self, other) {
+            (
+                StridedInterval::Normal {
+                    bits: bits1,
+                    stride: s_stride,
+                    lower_bound: s_lb,
+                    upper_bound: s_ub,
+                },
+                StridedInterval::Normal {
+                    bits: bits2,
+                    stride: o_stride,
+                    lower_bound: o_lb,
+                    upper_bound: o_ub,
+                },
+            ) => {
+                let bits = max(*bits1, *bits2);
+                let lb = Self::modular_mul(s_lb, o_lb, bits);
+                let ub = Self::modular_mul(s_ub, o_ub, bits);
+                
+                // Check if result fits within range without wrapping
+                let max_val = Self::max_int(bits);
+                let lb_big = s_lb.to_bigint().unwrap() * o_lb.to_bigint().unwrap();
+                let ub_big = s_ub.to_bigint().unwrap() * o_ub.to_bigint().unwrap();
+                let range = &ub_big - &lb_big;
+                
+                if range < BigInt::zero() || range > max_val.to_bigint().unwrap() {
+                    // Overflow occurred
+                    return Self::top(bits);
+                }
+                
+                // Determine stride
+                let stride = if other.is_integer() {
+                    // Multiplication with an integer
+                    (s_stride * o_lb) & &max_val
+                } else if self.is_integer() {
+                    (o_stride * s_lb) & &max_val
+                } else {
+                    Self::gcd(s_stride, o_stride)
+                };
+                
+                Self::new(bits, stride, lb, ub)
+            }
+            _ => Self::empty(max(self.bits(), other.bits())),
+        }
+    }
+
+    /// Wrapped signed multiplication
+    fn wrapped_signed_mul(&self, other: &Self) -> Self {
+        match (self, other) {
+            (
+                StridedInterval::Normal {
+                    bits: bits1,
+                    stride: s_stride,
+                    lower_bound: s_lb,
+                    upper_bound: s_ub,
+                },
+                StridedInterval::Normal {
+                    bits: bits2,
+                    stride: o_stride,
+                    lower_bound: o_lb,
+                    upper_bound: o_ub,
+                },
+            ) => {
+                let bits = max(*bits1, *bits2);
+                
+                // Convert to signed
+                let s_lb_signed = Self::to_signed(s_lb, bits);
+                let s_ub_signed = Self::to_signed(s_ub, bits);
+                let o_lb_signed = Self::to_signed(o_lb, bits);
+                let o_ub_signed = Self::to_signed(o_ub, bits);
+                
+                // Determine stride
+                let stride = if other.is_integer() {
+                    let multiplier = if o_lb_signed >= BigInt::zero() {
+                        o_lb.clone()
+                    } else {
+                        o_lb_signed.abs().to_biguint().unwrap()
+                    };
+                    (s_stride * &multiplier) & Self::max_int(bits)
+                } else if self.is_integer() {
+                    let multiplier = if s_lb_signed >= BigInt::zero() {
+                        s_lb.clone()
+                    } else {
+                        s_lb_signed.abs().to_biguint().unwrap()
+                    };
+                    (o_stride * &multiplier) & Self::max_int(bits)
+                } else {
+                    Self::gcd(s_stride, o_stride)
+                };
+                
+                // Check signs and compute bounds
+                let (lb, ub) = if s_lb_signed >= BigInt::zero() && s_ub_signed >= BigInt::zero() 
+                    && o_lb_signed >= BigInt::zero() && o_ub_signed >= BigInt::zero() {
+                    // Both positive: [a*c, b*d]
+                    (&s_lb_signed * &o_lb_signed, &s_ub_signed * &o_ub_signed)
+                } else if s_lb_signed < BigInt::zero() && s_ub_signed < BigInt::zero()
+                    && o_lb_signed < BigInt::zero() && o_ub_signed < BigInt::zero() {
+                    // Both negative: [b*d, a*c]
+                    (&s_ub_signed * &o_ub_signed, &s_lb_signed * &o_lb_signed)
+                } else if s_lb_signed < BigInt::zero() && s_ub_signed < BigInt::zero()
+                    && o_lb_signed >= BigInt::zero() && o_ub_signed >= BigInt::zero() {
+                    // Self negative, other positive: [a*d, b*c]
+                    (&s_lb_signed * &o_ub_signed, &s_ub_signed * &o_lb_signed)
+                } else if s_lb_signed >= BigInt::zero() && s_ub_signed >= BigInt::zero()
+                    && o_lb_signed < BigInt::zero() && o_ub_signed < BigInt::zero() {
+                    // Self positive, other negative: [b*c, a*d]
+                    (&s_ub_signed * &o_lb_signed, &s_lb_signed * &o_ub_signed)
+                } else {
+                    // Mixed signs - return TOP conservatively
+                    return Self::top(bits);
+                };
+                
+                // Check for overflow
+                let max_val_signed = Self::signed_max_int(bits).to_bigint().unwrap();
+                let min_val_signed = -(BigInt::one() << (bits - 1));
+                if &lb < &min_val_signed || &ub > &max_val_signed || &ub - &lb > max_val_signed {
+                    return Self::top(bits);
+                }
+                
+                // Convert back to unsigned
+                let lb_unsigned = Self::to_unsigned(&lb, bits);
+                let ub_unsigned = Self::to_unsigned(&ub, bits);
+                
+                Self::new(bits, stride, lb_unsigned, ub_unsigned)
+            }
+            _ => Self::empty(max(self.bits(), other.bits())),
+        }
+    }
+
+    /// Warren's min_or algorithm - computes minimum possible value of OR operation
+    fn min_or(a: &BigUint, b: &BigUint, c: &BigUint, d: &BigUint, bits: u32) -> BigUint {
+        // min(a|c, a|d, b|c, b|d) with special handling for bit patterns
+        let mut m = BigUint::one() << (bits - 1);
+        let mut result = BigUint::zero();
+        
+        while !m.is_zero() {
+            let a_bit = (a & &m) != BigUint::zero();
+            let b_bit = (b & &m) != BigUint::zero();
+            let c_bit = (c & &m) != BigUint::zero();
+            let d_bit = (d & &m) != BigUint::zero();
+            
+            if !a_bit && !c_bit {
+                // Both intervals have 0 in this bit position
+                // result already has 0, continue
+            } else if !a_bit && c_bit {
+                // First interval has 0, second has 1
+                let test_val = &result | &m;
+                if &test_val <= b && &test_val <= d {
+                    result |= &m;
+                }
+            } else if a_bit && !c_bit {
+                // First interval has 1, second has 0
+                let test_val = &result | &m;
+                if &test_val <= b && &test_val <= d {
+                    result |= &m;
+                }
+            } else {
+                // Both have 1
+                result |= &m;
+            }
+            
+            m >>= 1;
+        }
+        
+        result
+    }
+
+    /// Warren's max_or algorithm - computes maximum possible value of OR operation
+    fn max_or(a: &BigUint, b: &BigUint, c: &BigUint, d: &BigUint, bits: u32) -> BigUint {
+        // max(a|c, a|d, b|c, b|d) with special handling for bit patterns
+        let mut m = BigUint::one() << (bits - 1);
+        let mut result = BigUint::zero();
+        
+        while !m.is_zero() {
+            let a_bit = (a & &m) != BigUint::zero();
+            let b_bit = (b & &m) != BigUint::zero();
+            let c_bit = (c & &m) != BigUint::zero();
+            let d_bit = (d & &m) != BigUint::zero();
+            
+            if a_bit || c_bit {
+                // At least one interval can have 1 in this bit
+                if !b_bit {
+                    // First interval is bounded, check if we can set this bit
+                    let test_val = &result | &m;
+                    if &test_val <= b {
+                        result |= &m;
+                    }
+                } else if !d_bit {
+                    // Second interval is bounded, check if we can set this bit
+                    let test_val = &result | &m;
+                    if &test_val <= d {
+                        result |= &m;
+                    }
+                } else {
+                    // Both can reach this bit being 1
+                    result |= &m;
+                }
+            }
+            
+            m >>= 1;
+        }
+        
+        result
+    }
+
     /// Check if the interval contains zero
     pub fn contains_zero(&self) -> bool {
         match self {
@@ -1243,7 +1669,7 @@ impl StridedInterval {
         }
     }
 
-    /// Performs unsigned division
+    /// Performs unsigned division with pole splitting for better precision
     pub fn udiv(&self, other: &Self) -> Result<Self, ClarirsError> {
         match (self, other) {
             (StridedInterval::Empty { bits }, _) | (_, StridedInterval::Empty { bits }) => {
@@ -1265,17 +1691,45 @@ impl StridedInterval {
             ) => {
                 let bits = max(*bits1, *bits2);
 
-                // Avoid division by zero
+                // Check if divisor could be zero
                 if (o_lb == &BigUint::zero() && o_ub == &BigUint::zero())
                     || (o_stride.is_zero() && o_lb.is_zero())
-                    || other.contains_zero()
                 {
-                    return Ok(Self::top(bits));
+                    // Divisor is definitely zero - return empty
+                    return Ok(Self::empty(bits));
                 }
+
+                // Adjust divisor bounds to avoid zero if it contains zero
+                let (divisor_lb, divisor_ub) = if other.contains_zero() {
+                    let mut new_lb = o_lb.clone();
+                    let mut new_ub = o_ub.clone();
+                    
+                    // If lower bound is 0, increment it
+                    if new_lb.is_zero() && !new_ub.is_zero() {
+                        new_lb = BigUint::one();
+                    }
+                    
+                    // If upper bound is 0, decrement it
+                    if new_ub.is_zero() && !new_lb.is_zero() {
+                        new_ub = Self::modular_sub(&new_ub, &BigUint::one(), bits);
+                    }
+                    
+                    // If both would be zero, return top conservatively
+                    if new_lb.is_zero() && new_ub.is_zero() {
+                        return Ok(Self::top(bits));
+                    }
+                    
+                    (new_lb, new_ub)
+                } else {
+                    (o_lb.clone(), o_ub.clone())
+                };
 
                 // Simple case: dividing by a constant
                 if o_lb == o_ub {
-                    let divisor = o_lb.clone();
+                    let divisor = divisor_lb;
+                    if divisor.is_zero() {
+                        return Ok(Self::empty(bits));
+                    }
                     let new_stride = if s_stride == &BigUint::zero() {
                         BigUint::zero()
                     } else {
@@ -1286,55 +1740,59 @@ impl StridedInterval {
                     return Ok(Self::new(bits, new_stride, new_lower, new_upper));
                 }
 
-                // Special case: numerator is constant, denominator is interval
-                if s_lb == s_ub {
-                    let dividend = s_lb.clone();
-                    let (c, d) = (o_lb, o_ub);
-
-                    let mut min_val = &dividend / d;
-                    let mut max_val = &dividend / c;
-
-                    if min_val > max_val {
-                        std::mem::swap(&mut min_val, &mut max_val);
+                // Split at south pole for better precision
+                let splitted_dividends = self.ssplit();
+                let splitted_divisors = other.ssplit();
+                
+                let mut resulting_intervals = Vec::new();
+                
+                for dividend in &splitted_dividends {
+                    for divisor in &splitted_divisors {
+                        match (dividend, divisor) {
+                            (
+                                StridedInterval::Normal {
+                                    lower_bound: d_lb,
+                                    upper_bound: d_ub,
+                                    ..
+                                },
+                                StridedInterval::Normal {
+                                    lower_bound: div_lb,
+                                    upper_bound: div_ub,
+                                    ..
+                                },
+                            ) => {
+                                // Skip if divisor contains zero
+                                if div_lb.is_zero() || div_ub.is_zero() {
+                                    continue;
+                                }
+                                
+                                let lb = d_lb / div_ub;
+                                let ub = d_ub / div_lb;
+                                
+                                let tmp = Self::new(bits, BigUint::one(), lb, ub);
+                                resulting_intervals.push(tmp);
+                            }
+                            _ => {}
+                        }
                     }
-
-                    return Ok(Self::new(bits, BigUint::one(), min_val, max_val));
                 }
-
-                // General case: both numerator and denominator are intervals
-                let (a, b) = (s_lb, s_ub);
-                let (c, d) = (o_lb, o_ub);
-
-                let ac = if *c != BigUint::zero() {
-                    a / c
-                } else {
-                    BigUint::zero()
-                };
-                let ad = if *d != BigUint::zero() {
-                    a / d
-                } else {
-                    BigUint::zero()
-                };
-                let bc = if *c != BigUint::zero() {
-                    b / c
-                } else {
-                    BigUint::zero()
-                };
-                let bd = if *d != BigUint::zero() {
-                    b / d
-                } else {
-                    BigUint::zero()
-                };
-
-                let min_val = ac.clone().min(ad.clone()).min(bc.clone()).min(bd.clone());
-                let max_val = ac.max(ad).max(bc).max(bd);
-
-                Ok(Self::new(bits, BigUint::one(), min_val, max_val))
+                
+                // Union all resulting intervals
+                if resulting_intervals.is_empty() {
+                    return Ok(Self::empty(bits));
+                }
+                
+                let mut result = resulting_intervals[0].clone();
+                for si in &resulting_intervals[1..] {
+                    result = result.union(si);
+                }
+                
+                Ok(result)
             }
         }
     }
 
-    /// Performs signed division
+    /// Performs signed division with pole splitting for better precision
     pub fn sdiv(&self, other: &Self) -> Result<Self, ClarirsError> {
         match (self, other) {
             (StridedInterval::Empty { bits }, _) | (_, StridedInterval::Empty { bits }) => {
@@ -1351,8 +1809,13 @@ impl StridedInterval {
             ) => {
                 let bits = max(*bits1, *bits2);
 
-                // Avoid division by zero
-                if (o_stride.is_zero() && o_lb.is_zero()) || other.contains_zero() {
+                // Check if divisor is definitely zero
+                if o_stride.is_zero() && o_lb.is_zero() {
+                    return Ok(Self::empty(bits));
+                }
+
+                // If divisor could be zero, return TOP conservatively
+                if other.contains_zero() {
                     return Ok(Self::top(bits));
                 }
 
@@ -1365,20 +1828,76 @@ impl StridedInterval {
                     let result = self_signed / other_signed;
 
                     // Convert back to unsigned representation
-                    let result_unsigned = if result < BigInt::zero() {
-                        // For negative results, compute two's complement
-                        let abs_result = -result.clone();
-                        let mask = Self::max_int(bits);
-                        (&mask + BigUint::one() - abs_result.to_biguint().unwrap()) & &mask
-                    } else {
-                        result.to_biguint().unwrap()
-                    };
+                    let result_unsigned = Self::to_unsigned(&result, bits);
 
                     return Ok(Self::constant(bits, result_unsigned));
                 }
 
-                // For the general case, provide a conservative approximation
-                Ok(Self::top(bits))
+                // Split at poles for better precision
+                let splitted_dividends = self.psplit();
+                let splitted_divisors = other.psplit();
+                
+                let mut resulting_intervals = Vec::new();
+                
+                for dividend in &splitted_dividends {
+                    for divisor in &splitted_divisors {
+                        match (dividend, divisor) {
+                            (
+                                StridedInterval::Normal {
+                                    lower_bound: d_lb,
+                                    upper_bound: d_ub,
+                                    ..
+                                },
+                                StridedInterval::Normal {
+                                    lower_bound: div_lb,
+                                    upper_bound: div_ub,
+                                    ..
+                                },
+                            ) => {
+                                // Skip if divisor contains zero
+                                if divisor.contains_zero() {
+                                    continue;
+                                }
+                                
+                                // Convert to signed
+                                let d_lb_signed = Self::to_signed(d_lb, bits);
+                                let d_ub_signed = Self::to_signed(d_ub, bits);
+                                let div_lb_signed = Self::to_signed(div_lb, bits);
+                                let div_ub_signed = Self::to_signed(div_ub, bits);
+                                
+                                // Compute all four corner cases
+                                let r1 = &d_lb_signed / &div_lb_signed;
+                                let r2 = &d_lb_signed / &div_ub_signed;
+                                let r3 = &d_ub_signed / &div_lb_signed;
+                                let r4 = &d_ub_signed / &div_ub_signed;
+                                
+                                // Find min and max
+                                let lb = r1.clone().min(r2.clone()).min(r3.clone()).min(r4.clone());
+                                let ub = r1.max(r2).max(r3).max(r4);
+                                
+                                // Convert back to unsigned
+                                let lb_unsigned = Self::to_unsigned(&lb, bits);
+                                let ub_unsigned = Self::to_unsigned(&ub, bits);
+                                
+                                let tmp = Self::new(bits, BigUint::one(), lb_unsigned, ub_unsigned);
+                                resulting_intervals.push(tmp);
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                
+                // Union all resulting intervals
+                if resulting_intervals.is_empty() {
+                    return Ok(Self::top(bits));
+                }
+                
+                let mut result = resulting_intervals[0].clone();
+                for si in &resulting_intervals[1..] {
+                    result = result.union(si);
+                }
+                
+                Ok(result)
             }
         }
     }
@@ -2071,10 +2590,17 @@ impl Add for &StridedInterval {
                     ..
                 },
             ) => {
+                let new_bits = max(*bits, other.bits());
+                
+                // Check for overflow
+                if self.wrapped_overflow_add(other) {
+                    return StridedInterval::top(new_bits);
+                }
+                
                 let new_stride = StridedInterval::gcd(s_stride, o_stride);
-                let new_lower = StridedInterval::modular_add(s_lb, o_lb, *bits);
-                let new_upper = StridedInterval::modular_add(s_ub, o_ub, *bits);
-                StridedInterval::new(*bits, new_stride, new_lower, new_upper)
+                let new_lower = StridedInterval::modular_add(s_lb, o_lb, new_bits);
+                let new_upper = StridedInterval::modular_add(s_ub, o_ub, new_bits);
+                StridedInterval::new(new_bits, new_stride, new_lower, new_upper)
             }
         }
     }
@@ -2110,10 +2636,17 @@ impl Sub for &StridedInterval {
                     ..
                 },
             ) => {
+                let new_bits = max(*bits, other.bits());
+                
+                // Check for overflow (same as addition overflow)
+                if self.wrapped_overflow_add(other) {
+                    return StridedInterval::top(new_bits);
+                }
+                
                 let new_stride = StridedInterval::gcd(s_stride, o_stride);
-                let new_lower = StridedInterval::modular_sub(s_lb, o_ub, *bits);
-                let new_upper = StridedInterval::modular_sub(s_ub, o_lb, *bits);
-                StridedInterval::new(*bits, new_stride, new_lower, new_upper)
+                let new_lower = StridedInterval::modular_sub(s_lb, o_ub, new_bits);
+                let new_upper = StridedInterval::modular_sub(s_ub, o_lb, new_bits);
+                StridedInterval::new(new_bits, new_stride, new_lower, new_upper)
             }
         }
     }
@@ -2150,26 +2683,13 @@ impl Mul for &StridedInterval {
                 },
             ) => {
                 let bits = max(*bits1, *bits2);
-                // Conservative: if either operand straddles unsigned or signed poles, return TOP
-                let msb_mask = BigUint::one() << (bits - 1);
-                let to_signed = |v: &BigUint| -> BigInt {
-                    if (v & &msb_mask) != BigUint::zero() {
-                        v.to_bigint().unwrap() - (BigInt::one() << bits)
-                    } else {
-                        v.to_bigint().unwrap()
-                    }
-                };
-                let s_low = to_signed(s_lb);
-                let s_high = to_signed(s_ub);
-                let s_low_other = to_signed(o_lb);
-                let s_high_other = to_signed(o_ub);
-                if (s_lb > s_ub && !self.is_top())
-                    || (o_lb > o_ub && !other.is_top())
-                    || (s_low.sign() != s_high.sign())
-                    || (s_low_other.sign() != s_high_other.sign())
-                {
-                    return StridedInterval::top(bits);
+                
+                // Simple case: both are integers
+                if self.is_integer() && other.is_integer() {
+                    let result = StridedInterval::modular_mul(s_lb, o_lb, bits);
+                    return StridedInterval::constant(bits, result);
                 }
+                
                 // Simple case: one operand is a constant
                 if s_lb == s_ub {
                     let factor = s_lb.clone();
@@ -2185,18 +2705,32 @@ impl Mul for &StridedInterval {
                     let new_upper = StridedInterval::modular_mul(s_ub, &factor, bits);
                     return StridedInterval::new(bits, new_stride, new_lower, new_upper);
                 }
-                // Both are intervals: compute min/max of all combinations
-                let (a, b) = (s_lb, s_ub);
-                let (c, d) = (o_lb, o_ub);
-                let ac = (a * c) & StridedInterval::max_int(bits);
-                let ad = (a * d) & StridedInterval::max_int(bits);
-                let bc = (b * c) & StridedInterval::max_int(bits);
-                let bd = (b * d) & StridedInterval::max_int(bits);
-                let min_val = ac.clone().min(ad.clone()).min(bc.clone()).min(bd.clone());
-                let max_val = ac.max(ad).max(bc).max(bd);
-                // Conservative stride
-                let stride = BigUint::one();
-                StridedInterval::new(bits, stride, min_val, max_val)
+                
+                // Complex case: split at poles and compute unsigned and signed multiplication
+                // Then take their intersection for better precision
+                let si1_psplit = self.psplit();
+                let si2_psplit = other.psplit();
+                
+                let mut all_results = Vec::new();
+                for si1 in &si1_psplit {
+                    for si2 in &si2_psplit {
+                        let unsigned_result = si1.wrapped_unsigned_mul(si2);
+                        let signed_result = si1.wrapped_signed_mul(si2);
+                        let intersection = unsigned_result.intersection(&signed_result);
+                        all_results.push(intersection);
+                    }
+                }
+                
+                // Union all results (least upper bound)
+                if all_results.is_empty() {
+                    return StridedInterval::empty(bits);
+                }
+                
+                let mut result = all_results[0].clone();
+                for si in &all_results[1..] {
+                    result = result.union(si);
+                }
+                result
             }
         }
     }
@@ -2338,27 +2872,74 @@ impl BitAnd for &StridedInterval {
                     return StridedInterval::constant(bits, result);
                 }
 
-                // Special case: one operand is constant
-                if s_lb == s_ub {
-                    let mask = s_lb;
-                    // x & constant: result is at most the constant value
-                    let upper = mask.clone();
-                    return StridedInterval::range(bits, 0u32, upper);
+                // Optimization: check for sign bit testing (single bit set at MSB)
+                let msb_mask = BigUint::one() << (bits - 1);
+                if s_lb == s_ub && s_lb == &msb_mask {
+                    // Testing sign bit
+                    let stride = msb_mask.clone();
+                    if other.is_integer() {
+                        if o_lb == &stride {
+                            return StridedInterval::constant(bits, stride);
+                        }
+                        return StridedInterval::constant(bits, 0u32);
+                    }
+                    // Check if stride is a solution
+                    let is_sol = if !other.is_empty() {
+                        match other {
+                            StridedInterval::Normal { stride: o_stride, lower_bound: o_lb, upper_bound: o_ub, .. } => {
+                                let diff = StridedInterval::modular_sub(&stride, o_lb, bits);
+                                !o_stride.is_zero() && 
+                                (&diff % o_stride).is_zero() &&
+                                other.surrounds_member(&stride)
+                            }
+                            _ => false,
+                        }
+                    } else {
+                        false
+                    };
+                    
+                    if is_sol {
+                        return StridedInterval::new(bits, stride.clone(), BigUint::zero(), stride);
+                    }
+                    return StridedInterval::constant(bits, 0u32);
                 }
-                if o_lb == o_ub {
-                    let mask = o_lb;
-                    let upper = mask.clone();
-                    return StridedInterval::range(bits, 0u32, upper);
+                
+                // Same check for other operand
+                if o_lb == o_ub && o_lb == &msb_mask {
+                    let stride = msb_mask.clone();
+                    if self.is_integer() {
+                        if s_lb == &stride {
+                            return StridedInterval::constant(bits, stride);
+                        }
+                        return StridedInterval::constant(bits, 0u32);
+                    }
+                    
+                    let is_sol = if !self.is_empty() {
+                        match self {
+                            StridedInterval::Normal { stride: s_stride, lower_bound: s_lb, upper_bound: s_ub, .. } => {
+                                let diff = StridedInterval::modular_sub(&stride, s_lb, bits);
+                                !s_stride.is_zero() && 
+                                (&diff % s_stride).is_zero() &&
+                                self.surrounds_member(&stride)
+                            }
+                            _ => false,
+                        }
+                    } else {
+                        false
+                    };
+                    
+                    if is_sol {
+                        return StridedInterval::new(bits, stride.clone(), BigUint::zero(), stride);
+                    }
+                    return StridedInterval::constant(bits, 0u32);
                 }
 
-                // General case: compute tighter bounds
-                // For AND, result is at most min(max(self), max(other))
-                let (_, self_max) = self.get_unsigned_bounds();
-                let (_, other_max) = other.get_unsigned_bounds();
-                let upper = self_max.min(other_max);
-
-                // Lower bound is 0 (can always produce 0)
-                StridedInterval::range(bits, 0u32, upper)
+                // General case: Use De Morgan's law
+                // a & b = ~(~a | ~b)
+                let not_self = !self;
+                let not_other = !other;
+                let or_result = &not_self | &not_other;
+                !&or_result
             }
         }
     }
@@ -2383,15 +2964,15 @@ impl BitOr for &StridedInterval {
             (
                 StridedInterval::Normal {
                     bits: bits1,
+                    stride: s_stride,
                     lower_bound: s_lb,
                     upper_bound: s_ub,
-                    ..
                 },
                 StridedInterval::Normal {
                     bits: bits2,
+                    stride: o_stride,
                     lower_bound: o_lb,
                     upper_bound: o_ub,
-                    ..
                 },
             ) => {
                 let bits = max(*bits1, *bits2);
@@ -2406,31 +2987,100 @@ impl BitOr for &StridedInterval {
                     return StridedInterval::top(bits);
                 }
 
-                // Compute tighter bounds
-                let (self_min, self_max) = self.get_unsigned_bounds();
-                let (other_min, other_max) = other.get_unsigned_bounds();
-
-                // Lower bound: OR of minimums
-                let lower = &self_min | &other_min;
-
-                // Upper bound: compute highest possible OR
-                // Find the highest bit set in either maximum
-                let combined_max = &self_max | &other_max;
-                let highest_bit = if combined_max.bits() > 0 {
-                    combined_max.bits() as u32
-                } else {
-                    0
-                };
-
-                // Upper bound is at most all bits up to highest_bit set to 1
-                let upper = if highest_bit >= bits {
-                    StridedInterval::max_int(bits)
-                } else {
-                    let max_possible = (BigUint::one() << highest_bit) - BigUint::one();
-                    max_possible.max(combined_max)
-                };
-
-                StridedInterval::range(bits, lower, upper)
+                // Split at south pole for precision
+                let s_splits = self.ssplit();
+                let o_splits = other.ssplit();
+                
+                let mut result_intervals = Vec::new();
+                
+                for u in &s_splits {
+                    for v in &o_splits {
+                        let (u_lb, u_ub, u_stride) = match u {
+                            StridedInterval::Normal { lower_bound, upper_bound, stride, .. } => {
+                                (lower_bound, upper_bound, stride)
+                            }
+                            _ => continue,
+                        };
+                        
+                        let (v_lb, v_ub, v_stride) = match v {
+                            StridedInterval::Normal { lower_bound, upper_bound, stride, .. } => {
+                                (lower_bound, upper_bound, stride)
+                            }
+                            _ => continue,
+                        };
+                        
+                        // Compute stride based on trailing zeros
+                        let s_t = if u.is_integer() {
+                            StridedInterval::ntz(v_stride)
+                        } else if v.is_integer() {
+                            StridedInterval::ntz(u_stride)
+                        } else {
+                            min(StridedInterval::ntz(u_stride), StridedInterval::ntz(v_stride))
+                        };
+                        
+                        let new_stride = if u.is_integer() && u_lb.is_zero() {
+                            v_stride.clone()
+                        } else if v.is_integer() && v_lb.is_zero() {
+                            u_stride.clone()
+                        } else {
+                            BigUint::one() << s_t
+                        };
+                        
+                        // Compute r (remainder part)
+                        let mask = if s_t > 0 {
+                            (BigUint::one() << s_t) - BigUint::one()
+                        } else {
+                            BigUint::zero()
+                        };
+                        let r = (u_lb & &mask) | (v_lb & &mask);
+                        
+                        // Compute bounds using Warren's algorithms
+                        let max_val = StridedInterval::max_int(bits);
+                        let inv_mask = &max_val ^ &mask;
+                        
+                        let low_bound = StridedInterval::min_or(
+                            &(u_lb & &inv_mask),
+                            &(u_ub & &inv_mask),
+                            &(v_lb & &inv_mask),
+                            &(v_ub & &inv_mask),
+                            bits,
+                        );
+                        
+                        let upper_bound = StridedInterval::max_or(
+                            &(u_lb & &inv_mask),
+                            &(u_ub & &inv_mask),
+                            &(v_lb & &inv_mask),
+                            &(v_ub & &inv_mask),
+                            bits,
+                        );
+                        
+                        let final_stride = if low_bound == upper_bound {
+                            BigUint::zero()
+                        } else {
+                            new_stride
+                        };
+                        
+                        let new_interval = StridedInterval::new(
+                            bits,
+                            final_stride,
+                            (&low_bound & &inv_mask) | &r,
+                            (&upper_bound & &inv_mask) | &r,
+                        );
+                        
+                        result_intervals.push(new_interval);
+                    }
+                }
+                
+                // Union all results
+                if result_intervals.is_empty() {
+                    return StridedInterval::empty(bits);
+                }
+                
+                let mut result = result_intervals[0].clone();
+                for si in &result_intervals[1..] {
+                    result = result.union(si);
+                }
+                result
             }
         }
     }
@@ -2478,28 +3128,21 @@ impl BitXor for &StridedInterval {
                     return StridedInterval::top(bits);
                 }
 
-                // XOR can produce values from 0 to max based on highest bit position
-                let (_, self_max) = self.get_unsigned_bounds();
-                let (_, other_max) = other.get_unsigned_bounds();
-
-                // Find highest bit position in either operand
-                let max_val = self_max.max(other_max);
-                let highest_bit = if max_val.bits() > 0 {
-                    max_val.bits() as u32
-                } else {
-                    0
-                };
-
-                // Upper bound: all bits up to highest_bit could be set
-                let upper = if highest_bit >= bits {
-                    StridedInterval::max_int(bits)
-                } else if highest_bit == 0 {
-                    BigUint::zero()
-                } else {
-                    (BigUint::one() << highest_bit) - BigUint::one()
-                };
-
-                StridedInterval::range(bits, 0u32, upper)
+                // XOR using logical combination: (a XOR b) = (~a & b) | (a & ~b)
+                // Which can also be written as: (~a | ~b) & ~(~a & ~b)
+                // Let's use Python's approach: (~a | b) & ~(~a & ~b)
+                let not_self = !self;
+                let not_other = !other;
+                
+                // First part: (~a | b)
+                let part1 = &not_self | other;
+                
+                // Second part: ~(~a & ~b) = (a | b)
+                let part2_inner = &not_self & &not_other;
+                let part2 = !&part2_inner;
+                
+                // Final: part1 & part2
+                &part1 & &part2
             }
         }
     }
@@ -2532,13 +3175,49 @@ impl Not for &StridedInterval {
                     let result = StridedInterval::max_int(*bits) - lower_bound;
                     return StridedInterval::constant(*bits, result);
                 }
-                // For intervals, NOT(x) is equivalent to (MAX_INT - x)
-                // For stride S[a,b], NOT would be S[NOT(b), NOT(a)]
-                let max_value = StridedInterval::max_int(*bits);
-                let new_lower = &max_value - upper_bound;
-                let new_upper = &max_value - lower_bound;
-                // Stride remains the same
-                StridedInterval::new(*bits, stride.clone(), new_lower, new_upper)
+                
+                // Split at south pole for precision
+                let splitted = self.ssplit();
+                
+                if splitted.is_empty() {
+                    return StridedInterval::empty(*bits);
+                }
+                
+                let mut result_intervals = Vec::new();
+                
+                for si in splitted {
+                    match si {
+                        StridedInterval::Normal {
+                            bits,
+                            stride,
+                            lower_bound,
+                            upper_bound,
+                        } => {
+                            // For each split: NOT(x) where x in [lb, ub]
+                            // Result: [NOT(ub), NOT(lb)]
+                            let max_value = StridedInterval::max_int(bits);
+                            let new_lower = &max_value - &upper_bound;
+                            let new_upper = &max_value - &lower_bound;
+                            // Stride remains the same
+                            let tmp = StridedInterval::new(bits, stride, new_lower, new_upper);
+                            result_intervals.push(tmp);
+                        }
+                        StridedInterval::Empty { bits } => {
+                            result_intervals.push(StridedInterval::empty(bits));
+                        }
+                    }
+                }
+                
+                // Union all results (least upper bound)
+                if result_intervals.is_empty() {
+                    return StridedInterval::empty(*bits);
+                }
+                
+                let mut result = result_intervals[0].clone();
+                for si in &result_intervals[1..] {
+                    result = result.union(si);
+                }
+                result
             }
         }
     }
@@ -2559,10 +3238,10 @@ impl Neg for &StridedInterval {
         match self {
             StridedInterval::Empty { bits } => StridedInterval::empty(*bits),
             _ => {
-                // Negation in two's complement is: -x = ~x + 1
-                let one = StridedInterval::constant(self.bits(), 1);
-                let not_interval = !self;
-                &not_interval + &one
+                // Negation is: 0 - self
+                // This matches Python's implementation and preserves all subtraction logic
+                let zero = StridedInterval::constant(self.bits(), 0);
+                &zero - self
             }
         }
     }
