@@ -4,7 +4,7 @@ use clarirs_z3_sys as z3;
 use super::AstExtZ3;
 use crate::{Z3_CONTEXT, rc::RcAst};
 
-fn fprm_to_z3(rm: FPRM) -> z3::Ast {
+pub(crate) fn fprm_to_z3(rm: FPRM) -> z3::Ast {
     Z3_CONTEXT.with(|&z3_ctx| unsafe {
         match rm {
             FPRM::NearestTiesToEven => z3::mk_fpa_rne(z3_ctx),
