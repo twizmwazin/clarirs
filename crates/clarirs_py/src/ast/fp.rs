@@ -952,14 +952,14 @@ pub fn FpSqrt<'py>(
     // - fpSqrt(rm, fp) - uses specified rounding mode
     let (lhs, rm) = match args.len() {
         1 => (
-            args[0]
-                .downcast::<FP>()
+            &args[0]
+                .cast::<FP>()
                 .map_err(|e| ClaripyError::CastingError(format!("{}", e)))?,
             None,
         ),
         2 => (
-            args[1]
-                .downcast::<FP>()
+            &args[1]
+                .cast::<FP>()
                 .map_err(|e| ClaripyError::CastingError(format!("{}", e)))?,
             Some(args[0].extract::<PyRM>()?),
         ),
