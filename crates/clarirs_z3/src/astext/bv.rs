@@ -89,9 +89,20 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, Clarir
                 let else_ = child!(children, 2);
                 z3::mk_ite(z3_ctx, cond.0, then.0, else_.0).into()
             }
-            BitVecOp::FpToIEEEBV(..) => todo!("FpToIEEEBV"),
-            BitVecOp::FpToUBV(..) => todo!("FpToUBV"),
-            BitVecOp::FpToSBV(..) => todo!("FpToSBV"),
+            BitVecOp::FpToIEEEBV(..) => {
+                let a = child!(children, 0);
+                z3::mk_fpa_to_ieee_bv(z3_ctx, a.0).into()
+            }
+            BitVecOp::FpToUBV(_, size, rm) => {
+                let rm_ast = super::float::fprm_to_z3(*rm);
+                let a = child!(children, 0);
+                z3::mk_fpa_to_ubv(z3_ctx, rm_ast, a.0, *size).into()
+            }
+            BitVecOp::FpToSBV(_, size, rm) => {
+                let rm_ast = super::float::fprm_to_z3(*rm);
+                let a = child!(children, 0);
+                z3::mk_fpa_to_sbv(z3_ctx, rm_ast, a.0, *size).into()
+            }
             BitVecOp::StrLen(..) => todo!("StrLen"),
             BitVecOp::StrIndexOf(..) => todo!("StrIndexOf"),
             BitVecOp::StrToBV(..) => todo!("StrToBV"),
@@ -1647,6 +1658,39 @@ mod tests {
             let if_bv = ctx.if_(&cond, &then_bv, &else_bv).unwrap();
             let result = round_trip(&ctx, &if_bv).unwrap();
             assert_eq!(if_bv, result);
+        }
+
+        #[test]
+        fn fp_to_ieeebv() {
+            let ctx = Context::new();
+            let fp = ctx.fps("x", FSort::f32()).unwrap();
+            let ieee_bv = ctx.fp_to_ieeebv(&fp).unwrap();
+
+            // Should convert to Z3 without panicking
+            let z3_ast = ieee_bv.to_z3();
+            assert!(z3_ast.is_ok());
+        }
+
+        #[test]
+        fn fp_to_ubv() {
+            let ctx = Context::new();
+            let fp = ctx.fps("y", FSort::f32()).unwrap();
+            let ubv = ctx.fp_to_ubv(&fp, 32, FPRM::TowardZero).unwrap();
+
+            // Should convert to Z3 without panicking
+            let z3_ast = ubv.to_z3();
+            assert!(z3_ast.is_ok());
+        }
+
+        #[test]
+        fn fp_to_sbv() {
+            let ctx = Context::new();
+            let fp = ctx.fps("z", FSort::f32()).unwrap();
+            let sbv = ctx.fp_to_sbv(&fp, 32, FPRM::TowardZero).unwrap();
+
+            // Should convert to Z3 without panicking
+            let z3_ast = sbv.to_z3();
+            assert!(z3_ast.is_ok());
         }
     }
 }
