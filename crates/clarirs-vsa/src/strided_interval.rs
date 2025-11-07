@@ -449,7 +449,7 @@ impl StridedInterval {
         //   x ≡ o_lb (mod o_stride)
         //   x >= new_lower_bound
         //   x <= new_upper_bound
-        
+
         // Use Chinese Remainder Theorem approach
         // First check if the bases are compatible
         let base_diff = if s_lb >= o_lb {
@@ -517,7 +517,12 @@ impl StridedInterval {
 
         if iterations >= max_iterations || candidate > new_upper_bound {
             // Couldn't find a valid starting point, return conservative result
-            return Self::new(self.bits(), new_stride.clone(), new_lower_bound, new_upper_bound);
+            return Self::new(
+                self.bits(),
+                new_stride.clone(),
+                new_lower_bound,
+                new_upper_bound,
+            );
         }
 
         let final_lower = candidate;
@@ -753,8 +758,6 @@ impl StridedInterval {
             Self::gcd(b, &(a % b))
         }
     }
-
-
 
     /// Check if the interval contains zero
     pub fn contains_zero(&self) -> bool {
