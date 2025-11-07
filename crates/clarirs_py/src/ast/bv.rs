@@ -1358,16 +1358,18 @@ binop!(LShR, lshr, BV);
 binop!(AShR, ashr, BV);
 binop!(RotateLeft, rotate_left, BV);
 binop!(RotateRight, rotate_right, BV);
-binop!(Concat_inner, concat, BV);
 
 #[pyfunction(signature = (*args))]
 pub fn Concat<'py>(
     py: Python<'py>,
     args: Vec<CoerceBV<'py>>,
 ) -> Result<Bound<'py, BV>, ClaripyError> {
-    let mut args = CoerceBV::unpack_vec(py, &args)?.into_iter();
+    let mut args = CoerceBV::unpack_vec_mismatch(py, &args)?.into_iter();
     let first = args.next().ok_or(ClaripyError::MissingArgIndex(0))?;
-    args.try_fold(first, |acc, arg| Concat_inner(py, acc.into(), arg.into()))
+    args.try_fold(first, |acc, arg| {
+        let result = GLOBAL_CONTEXT.concat(&acc.get().inner, &arg.get().inner)?;
+        BV::new(py, &result)
+    })
 }
 
 #[pyfunction]

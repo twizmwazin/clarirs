@@ -136,6 +136,45 @@ impl<'py> CoerceBV<'py> {
         // Now unpack all values
         vals.iter().map(|val| val.unpack(py, size, true)).collect()
     }
+
+    pub fn unpack_vec_mismatch(
+        py: Python<'py>,
+        vals: &[CoerceBV<'py>],
+    ) -> Result<Vec<Bound<'py, BV>>, ClaripyError> {
+        // If len is 1 and it is an Int, then we can't determine size, so just return error
+        if vals.len() == 1 && matches!(vals[0], CoerceBV::Int(_)) {
+            return Err(ClaripyError::InvalidArgumentType(
+                "Cannot determine size from single Int".to_string(),
+            ));
+        }
+
+        let default_size = vals
+            .iter()
+            .find(|val| matches!(val, CoerceBV::BV(_)))
+            .map(|val| match val {
+                CoerceBV::BV(bv) => bv.get().size() as u32,
+                CoerceBV::Int(_) => 0,
+            })
+            .ok_or(ClaripyError::InvalidArgumentType(
+                "Failed to extract size of BVs in list".to_string(),
+            ))?;
+
+        let mut results = Vec::with_capacity(vals.len());
+
+        for val in vals {
+            let unpacked = match val {
+                CoerceBV::BV(bv) => Ok(bv.clone()),
+                CoerceBV::Int(int) => {
+                    // Match the size of the first BV in the list, otherwise default to 64 bits
+                    let bv = BitVec::from_bigint_trunc(int, default_size);
+                    BV::new(py, &GLOBAL_CONTEXT.bvv(bv).map_err(ClaripyError::from)?)
+                }
+            };
+            results.push(unpacked?);
+        }
+
+        Ok(results)
+    }
 }
 
 impl<'py> FromPyObject<'_, 'py> for CoerceBV<'py> {
