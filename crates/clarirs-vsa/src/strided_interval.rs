@@ -3829,12 +3829,6 @@ mod tests {
         // The key properties to test:
         // 1. The operation should not crash
         // 2. The result should be valid (not produce an error state)
-        // 3. Some specific values should be possible: 16 (0|16), 31 (15|31)
-
-        // Test that specific expected values are in the result
-        let val_16 = StridedInterval::constant(8, 16u32);
-        let val_31 = StridedInterval::constant(8, 31u32);
-
         // The result should contain at least some reasonable values
         // If it's TOP, that's also acceptable (conservative)
         assert!(!result.is_empty() || result.is_top());
