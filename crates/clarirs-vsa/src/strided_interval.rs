@@ -639,16 +639,6 @@ impl StridedInterval {
         }
     }
 
-    /// Compute the least common multiple of two BigUint values
-    #[allow(dead_code)]
-    fn lcm(a: &BigUint, b: &BigUint) -> BigUint {
-        if a.is_zero() || b.is_zero() {
-            BigUint::zero()
-        } else {
-            (a * b) / Self::gcd(a, b)
-        }
-    }
-
     /// Number of trailing zeros in binary representation
     fn ntz(x: &BigUint) -> u32 {
         if x.is_zero() {
