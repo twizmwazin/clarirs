@@ -730,17 +730,11 @@ impl StridedInterval {
                 let north_pole_right = BigUint::one() << (*bits - 1); // 0x8000...
 
                 // Check if interval straddles the north pole
-                let mut straddling = false;
-
-                if upper_bound >= &north_pole_right {
-                    if lower_bound > upper_bound {
-                        straddling = true;
-                    } else if lower_bound <= &north_pole_left {
-                        straddling = true;
-                    }
-                } else if lower_bound > upper_bound && lower_bound <= &north_pole_left {
-                    straddling = true;
-                }
+                let straddling = if upper_bound >= &north_pole_right {
+                    lower_bound > upper_bound || lower_bound <= &north_pole_left
+                } else {
+                    lower_bound > upper_bound && lower_bound <= &north_pole_left
+                };
 
                 if straddling {
                     // Split into two parts
@@ -979,11 +973,13 @@ impl StridedInterval {
         // min(a|c, a|d, b|c, b|d) with special handling for bit patterns
         let mut m = BigUint::one() << (bits - 1);
         let mut result = BigUint::zero();
-
+        
         while !m.is_zero() {
             let a_bit = (a & &m) != BigUint::zero();
+            #[allow(unused_variables)]
             let b_bit = (b & &m) != BigUint::zero();
             let c_bit = (c & &m) != BigUint::zero();
+            #[allow(unused_variables)]
             let d_bit = (d & &m) != BigUint::zero();
 
             if !a_bit && !c_bit {
