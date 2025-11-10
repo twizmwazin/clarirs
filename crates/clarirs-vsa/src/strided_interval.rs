@@ -966,11 +966,9 @@ impl StridedInterval {
 
         while !m.is_zero() {
             let a_bit = (a & &m) != BigUint::zero();
-            #[allow(unused_variables)]
-            let b_bit = (b & &m) != BigUint::zero();
+            let _b_bit = (b & &m) != BigUint::zero();
             let c_bit = (c & &m) != BigUint::zero();
-            #[allow(unused_variables)]
-            let d_bit = (d & &m) != BigUint::zero();
+            let _d_bit = (d & &m) != BigUint::zero();
 
             if !a_bit && !c_bit {
                 // Both intervals have 0 in this bit position
