@@ -281,11 +281,21 @@ impl BV {
     }
 
     pub fn identical(&self, other: Bound<'_, Base>) -> Result<bool, ClaripyError> {
-        let other_dyn = Base::to_dynast(other)?;
+        let other_bv = other.cast::<BV>()?.clone();
+
+        // Try reducing and comparing first
+        if let Ok(result) = {
+            let reduced_self = self.inner.reduce()?;
+            let reduced_other = other_bv.get().inner.reduce()?;
+            Ok::<_, ClarirsError>(reduced_self == reduced_other)
+        } {
+            Ok(result)
+        } else {
         Ok(structurally_match(
             &DynAst::BitVec(self.inner.clone()),
-            &other_dyn,
+                &Base::to_dynast(other)?,
         )?)
+        }
     }
 
     #[getter]
@@ -1230,13 +1240,14 @@ impl BV {
 
     pub fn reduce(self_: Bound<'_, BV>) -> Result<Bound<'_, BV>, ClaripyError> {
         let reduced = self_.get().inner.reduce()?;
-        if let StridedInterval::Normal {
+        match reduced {
+            StridedInterval::Empty { .. } => Ok(self_),
+            StridedInterval::Normal {
             bits,
             stride,
             lower_bound,
             upper_bound,
-        } = reduced
-        {
+            } => {
             // If lower_bound == upper_bound, return a concrete BVV instead of an annotated BVS
             if lower_bound == upper_bound {
                 BV::new(
@@ -1249,10 +1260,7 @@ impl BV {
                     &GLOBAL_CONTEXT.si(bits, stride, lower_bound, upper_bound)?,
                 )
             }
-        } else {
-            Err(ClaripyError::InvalidOperation(
-                "Cannot reduce non-normal StridedInterval".to_string(),
-            ))
+            }
         }
     }
 
