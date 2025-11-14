@@ -1525,7 +1525,7 @@ pub fn VS<'py>(
 }
 
 #[pyfunction]
-pub fn Union<'py>(
+pub fn union<'py>(
     py: Python<'py>,
     lhs: CoerceBV,
     rhs: CoerceBV,
@@ -1538,7 +1538,7 @@ pub fn Union<'py>(
 }
 
 #[pyfunction]
-pub fn Intersection<'py>(
+pub fn intersection<'py>(
     py: Python<'py>,
     lhs: CoerceBV,
     rhs: CoerceBV,
@@ -1591,8 +1591,8 @@ pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
         SI,
         ESI,
         VS,
-        Union,
-        Intersection,
+        union,
+        intersection,
     );
 
     Ok(())
