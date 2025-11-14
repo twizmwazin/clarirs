@@ -5,7 +5,7 @@ use clarirs_core::{
 use clarirs_z3_sys as z3;
 
 use super::AstExtZ3;
-use crate::{Z3_CONTEXT, rc::RcAst};
+use crate::{Z3_CONTEXT, get_z3_error_msg, rc::RcAst};
 
 pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, ClarirsError> {
     Z3_CONTEXT.with(|&z3_ctx| unsafe {
@@ -113,13 +113,15 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, Clarir
                 ));
             }
         })
-        .and_then(|ast| {
-            if ast.is_null() {
-                Err(ClarirsError::ConversionError(
-                    "failed to create Z3 AST, got null".to_string(),
-                ))
+        .and_then(|maybe_null| {
+            if maybe_null.is_null() {
+                eprintln!("uhoh");
+                Err(ClarirsError::ConversionError(format!(
+                    "Failed to create Z3 for bv AST: {}",
+                    get_z3_error_msg()
+                )))
             } else {
-                Ok(ast)
+                Ok(maybe_null)
             }
         })
     })

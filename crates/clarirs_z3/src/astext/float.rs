@@ -2,7 +2,7 @@ use clarirs_core::prelude::*;
 use clarirs_z3_sys as z3;
 
 use super::AstExtZ3;
-use crate::{Z3_CONTEXT, rc::RcAst};
+use crate::{Z3_CONTEXT, get_z3_error_msg, rc::RcAst};
 
 pub(crate) fn fprm_to_z3(rm: FPRM) -> z3::Ast {
     Z3_CONTEXT.with(|&z3_ctx| unsafe {
@@ -103,13 +103,14 @@ pub(crate) fn to_z3(ast: &FloatAst, children: &[RcAst]) -> Result<RcAst, Clarirs
                 z3::mk_ite(z3_ctx, cond.0, then.0, else_.0).into()
             }
         })
-        .and_then(|ast| {
-            if ast.is_null() {
-                Err(ClarirsError::ConversionError(
-                    "failed to create Z3 AST, got null".to_string(),
-                ))
+        .and_then(|maybe_null| {
+            if maybe_null.is_null() {
+                Err(ClarirsError::ConversionError(format!(
+                    "Failed to create Z3 for string AST: {}",
+                    get_z3_error_msg()
+                )))
             } else {
-                Ok(ast)
+                Ok(maybe_null)
             }
         })
     })
