@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::ops::{Add, Div, Mul, Sub};
+use std::ops::{Add, Div, Mul, Neg, Sub};
 
 use super::{BitVec, BitVecError};
 use num_bigint::{BigInt, BigUint};
@@ -366,56 +366,81 @@ impl Float {
 
         (value >> k, guard, sticky)
     }
+
+    pub fn sqrt(&self) -> Self {
+        match self {
+            Float::F32(f) => Float::F32(f.sqrt()),
+            Float::F64(f) => Float::F64(f.sqrt()),
+        }
+    }
+
+    pub fn abs(&self) -> Self {
+        match self {
+            Float::F32(f) => Float::F32(f.abs()),
+            Float::F64(f) => Float::F64(f.abs()),
+        }
+    }
+}
+
+impl Neg for Float {
+    type Output = Float;
+
+    fn neg(self) -> Self::Output {
+        match self {
+            Float::F32(f) => Float::F32(-f),
+            Float::F64(f) => Float::F64(-f),
+        }
+    }
 }
 
 impl Add for Float {
-    type Output = Result<Float, BitVecError>;
+    type Output = Float;
 
     fn add(self, other: Float) -> Self::Output {
         match (self, other) {
-            (Float::F32(a), Float::F32(b)) => Ok(Float::F32(a + b)),
-            (Float::F64(a), Float::F64(b)) => Ok(Float::F64(a + b)),
-            (Float::F32(a), Float::F64(b)) => Ok(Float::F64(a as f64 + b)),
-            (Float::F64(a), Float::F32(b)) => Ok(Float::F64(a + b as f64)),
+            (Float::F32(a), Float::F32(b)) => Float::F32(a + b),
+            (Float::F64(a), Float::F64(b)) => Float::F64(a + b),
+            (Float::F32(a), Float::F64(b)) => Float::F64(a as f64 + b),
+            (Float::F64(a), Float::F32(b)) => Float::F64(a + b as f64),
         }
     }
 }
 
 impl Sub for Float {
-    type Output = Result<Self, BitVecError>;
+    type Output = Float;
 
     fn sub(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (Float::F32(a), Float::F32(b)) => Ok(Float::F32(a - b)),
-            (Float::F64(a), Float::F64(b)) => Ok(Float::F64(a - b)),
-            (Float::F32(a), Float::F64(b)) => Ok(Float::F64(a as f64 - b)),
-            (Float::F64(a), Float::F32(b)) => Ok(Float::F64(a - b as f64)),
+            (Float::F32(a), Float::F32(b)) => Float::F32(a - b),
+            (Float::F64(a), Float::F64(b)) => Float::F64(a - b),
+            (Float::F32(a), Float::F64(b)) => Float::F64(a as f64 - b),
+            (Float::F64(a), Float::F32(b)) => Float::F64(a - b as f64),
         }
     }
 }
 
 impl Mul for Float {
-    type Output = Result<Self, BitVecError>;
+    type Output = Float;
 
     fn mul(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (Float::F32(a), Float::F32(b)) => Ok(Float::F32(a * b)),
-            (Float::F64(a), Float::F64(b)) => Ok(Float::F64(a * b)),
-            (Float::F32(a), Float::F64(b)) => Ok(Float::F64(a as f64 * b)),
-            (Float::F64(a), Float::F32(b)) => Ok(Float::F64(a * b as f64)),
+            (Float::F32(a), Float::F32(b)) => Float::F32(a * b),
+            (Float::F64(a), Float::F64(b)) => Float::F64(a * b),
+            (Float::F32(a), Float::F64(b)) => Float::F64(a as f64 * b),
+            (Float::F64(a), Float::F32(b)) => Float::F64(a * b as f64),
         }
     }
 }
 
 impl Div for Float {
-    type Output = Result<Self, BitVecError>;
+    type Output = Float;
 
     fn div(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (Float::F32(a), Float::F32(b)) => Ok(Float::F32(a / b)),
-            (Float::F64(a), Float::F64(b)) => Ok(Float::F64(a / b)),
-            (Float::F32(a), Float::F64(b)) => Ok(Float::F64(a as f64 / b)),
-            (Float::F64(a), Float::F32(b)) => Ok(Float::F64(a / b as f64)),
+            (Float::F32(a), Float::F32(b)) => Float::F32(a / b),
+            (Float::F64(a), Float::F64(b)) => Float::F64(a / b),
+            (Float::F32(a), Float::F64(b)) => Float::F64(a as f64 / b),
+            (Float::F64(a), Float::F32(b)) => Float::F64(a / b as f64),
         }
     }
 }
