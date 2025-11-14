@@ -291,10 +291,10 @@ impl BV {
         } {
             Ok(result)
         } else {
-        Ok(structurally_match(
-            &DynAst::BitVec(self.inner.clone()),
+            Ok(structurally_match(
+                &DynAst::BitVec(self.inner.clone()),
                 &Base::to_dynast(other)?,
-        )?)
+            )?)
         }
     }
 
@@ -1243,23 +1243,23 @@ impl BV {
         match reduced {
             StridedInterval::Empty { .. } => Ok(self_),
             StridedInterval::Normal {
-            bits,
-            stride,
-            lower_bound,
-            upper_bound,
+                bits,
+                stride,
+                lower_bound,
+                upper_bound,
             } => {
-            // If lower_bound == upper_bound, return a concrete BVV instead of an annotated BVS
-            if lower_bound == upper_bound {
-                BV::new(
-                    self_.py(),
-                    &GLOBAL_CONTEXT.bvv_from_biguint_with_size(&lower_bound, bits)?,
-                )
-            } else {
-                BV::new(
-                    self_.py(),
-                    &GLOBAL_CONTEXT.si(bits, stride, lower_bound, upper_bound)?,
-                )
-            }
+                // If lower_bound == upper_bound, return a concrete BVV instead of an annotated BVS
+                if lower_bound == upper_bound {
+                    BV::new(
+                        self_.py(),
+                        &GLOBAL_CONTEXT.bvv_from_biguint_with_size(&lower_bound, bits)?,
+                    )
+                } else {
+                    BV::new(
+                        self_.py(),
+                        &GLOBAL_CONTEXT.si(bits, stride, lower_bound, upper_bound)?,
+                    )
+                }
             }
         }
     }
