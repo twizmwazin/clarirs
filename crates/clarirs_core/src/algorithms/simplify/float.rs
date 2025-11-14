@@ -1,6 +1,3 @@
-use clarirs_num::{F32_SORT, F64_SORT};
-use core::f32;
-
 use crate::{
     algorithms::simplify::{extract_bitvec_child, extract_bool_child, extract_float_child},
     prelude::*,
@@ -38,28 +35,15 @@ pub(crate) fn simplify_float<'c>(
         FloatOp::FpNeg(..) => {
             let arc = extract_float_child(children, 0)?;
             match arc.op() {
-                FloatOp::FPV(float) => {
-                    // Reverse the sign of the float
-                    let neg_float = Float::new(
-                        !float.sign(),
-                        float.exponent().clone(),
-                        float.mantissa().clone(),
-                    );
-                    ctx.fpv(neg_float?)
-                }
-                _ => ctx.fp_neg(&arc), // Handle non-concrete cases
+                FloatOp::FPV(float) => ctx.fpv(-*float),
+                _ => ctx.fp_neg(&arc),
             }
         }
         FloatOp::FpAbs(..) => {
             let arc = extract_float_child(children, 0)?;
             match arc.op() {
-                FloatOp::FPV(float) => {
-                    // Create an absolute value by setting the sign to `false`
-                    let abs_float =
-                        Float::new(false, float.exponent().clone(), float.mantissa().clone());
-                    ctx.fpv(abs_float?)
-                }
-                _ => ctx.fp_abs(&arc), // Handle non-concrete cases
+                FloatOp::FPV(float) => ctx.fpv(float.abs()),
+                _ => ctx.fp_abs(&arc),
             }
         }
         FloatOp::FpAdd(_, _, fprm) => {
@@ -68,7 +52,7 @@ pub(crate) fn simplify_float<'c>(
                 extract_float_child(children, 1)?,
             );
             match (arc.op(), arc1.op()) {
-                (FloatOp::FPV(float1), FloatOp::FPV(float2)) => ctx.fpv((*float1 + *float2)?),
+                (FloatOp::FPV(float1), FloatOp::FPV(float2)) => ctx.fpv(*float1 + *float2),
                 _ => ctx.fp_add(&arc, &arc1, *fprm),
             }
         }
@@ -78,7 +62,7 @@ pub(crate) fn simplify_float<'c>(
                 extract_float_child(children, 1)?,
             );
             match (arc.op(), arc1.op()) {
-                (FloatOp::FPV(float1), FloatOp::FPV(float2)) => ctx.fpv((*float1 - *float2)?),
+                (FloatOp::FPV(float1), FloatOp::FPV(float2)) => ctx.fpv(*float1 - *float2),
                 _ => ctx.fp_sub(&arc, &arc1, *fprm),
             }
         }
@@ -88,7 +72,7 @@ pub(crate) fn simplify_float<'c>(
                 extract_float_child(children, 1)?,
             );
             match (arc.op(), arc1.op()) {
-                (FloatOp::FPV(float1), FloatOp::FPV(float2)) => ctx.fpv((*float1 * *float2)?),
+                (FloatOp::FPV(float1), FloatOp::FPV(float2)) => ctx.fpv(*float1 * *float2),
                 _ => ctx.fp_mul(&arc, &arc1, *fprm),
             }
         }
@@ -98,62 +82,21 @@ pub(crate) fn simplify_float<'c>(
                 extract_float_child(children, 1)?,
             );
             match (arc.op(), arc1.op()) {
-                (FloatOp::FPV(float1), FloatOp::FPV(float2)) => ctx.fpv((*float1 / *float2)?),
+                (FloatOp::FPV(float1), FloatOp::FPV(float2)) => ctx.fpv(*float1 / *float2),
                 _ => ctx.fp_div(&arc, &arc1, *fprm),
             }
         }
         FloatOp::FpSqrt(_, fprm) => {
             let arc = extract_float_child(children, 0)?;
             match arc.op() {
-                FloatOp::FPV(float_val) => {
-                    // Zero
-                    if float_val.is_zero() {
-                        return Ok(arc.clone());
-                    }
-
-                    // If input = NaN, negative float, or negative infinity, return NaN
-                    if float_val.is_nan()
-                        || float_val.sign()
-                        || (float_val.is_infinity() && float_val.sign())
-                    {
-                        // Create a NaN
-                        return ctx.fpv(Float::new(
-                            false,
-                            BitVec::ones(float_val.exponent().len()),
-                            BitVec::ones(float_val.mantissa().len()),
-                        )?);
-                    }
-
-                    // Positive infinity
-                    if float_val.is_infinity() && !float_val.sign() {
-                        let inf = match float_val.fsort() {
-                            F32_SORT => Float::from(f32::INFINITY),
-                            F64_SORT => Float::from(f64::INFINITY),
-                            other => unreachable!("unsupported format {:?}", other),
-                        };
-
-                        return ctx.fpv(inf);
-                    }
-
-                    // Calculate the square root, handling potential `None` from `to_f64()`
-                    if let Some(float_f64) = float_val.to_f64() {
-                        let sqrt_value = float_f64.sqrt();
-
-                        ctx.fpv(Float::from_f64_with_rounding(
-                            sqrt_value,
-                            *fprm,
-                            float_val.fsort(),
-                        )?)
-                    } else {
-                        Err(ClarirsError::InvalidArguments)
-                    }
-                }
+                FloatOp::FPV(float_val) => ctx.fpv(float_val.sqrt()),
                 _ => ctx.fp_sqrt(&arc, *fprm),
             }
         }
         FloatOp::FpToFp(_, fsort, fprm) => {
             let arc = extract_float_child(children, 0)?;
             match arc.op() {
+                FloatOp::FPV(float_val) if float_val.fsort() == *fsort => Ok(arc),
                 FloatOp::FPV(float_val) => {
                     let converted_value = float_val.convert_to_format(*fsort, *fprm);
                     ctx.fpv(converted_value?)
