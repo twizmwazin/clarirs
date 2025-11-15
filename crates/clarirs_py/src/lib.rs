@@ -197,8 +197,8 @@ pub fn claripy(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
         ast::bv::SI,
         ast::bv::ESI,
         ast::bv::VS,
-        ast::bv::Union,
-        ast::bv::Intersection,
+        ast::bv::union,
+        ast::bv::intersection,
         // FP
         ast::fp::FPS,
         ast::fp::FPV,
