@@ -256,8 +256,8 @@ pub trait AstFactory<'c>: Sized {
         self.make_bitvec(BitVecOp::Concat(lhs.clone(), rhs.clone()))
     }
 
-    fn reverse(&'c self, lhs: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::Reverse(lhs.clone()))
+    fn byte_reverse(&'c self, lhs: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::ByteReverse(lhs.clone()))
     }
 
     fn ult(

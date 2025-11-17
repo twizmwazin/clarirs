@@ -422,14 +422,14 @@ pub(crate) fn simplify_bv<'c>(
                 _ => ctx.concat(&arc, &arc1),
             }
         }
-        BitVecOp::Reverse(..) => {
+        BitVecOp::ByteReverse(..) => {
             let arc = extract_bitvec_child(children, 0)?;
             match arc.op() {
                 BitVecOp::BVV(value) => {
                     let reversed_bits = value.reverse_bytes()?;
                     ctx.bvv(reversed_bits)
                 }
-                _ => ctx.reverse(&arc),
+                _ => ctx.byte_reverse(&arc),
             }
         }
         BitVecOp::FpToIEEEBV(..) => {

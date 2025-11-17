@@ -81,7 +81,7 @@ pub(crate) fn reduce_bv(
         BitVecOp::SignExt(_, amount) => child_si(children, 0)?.sign_ext(*amount),
         BitVecOp::Extract(_, high, low) => child_si(children, 0)?.extract(*high, *low),
         BitVecOp::Concat(..) => child_si(children, 0)?.concat(&child_si(children, 1)?),
-        BitVecOp::Reverse(..) => child_si(children, 0)?.reverse(),
+        BitVecOp::ByteReverse(..) => child_si(children, 0)?.reverse_bytes()?,
         BitVecOp::FpToIEEEBV(..) | BitVecOp::FpToUBV(..) | BitVecOp::FpToSBV(..) => {
             return Err(ClarirsError::UnsupportedOperation(
                 "Floating point operations are not supported".to_string(),

@@ -883,9 +883,10 @@ impl<'c> Replace<'c, BoolAst<'c>> for BitVecAst<'c> {
                 self.context()
                     .make_bitvec(BitVecOp::Concat(a_replaced, b_replaced))
             }
-            BitVecOp::Reverse(a) => {
+            BitVecOp::ByteReverse(a) => {
                 let a_replaced = a.replace(from, to)?;
-                self.context().make_bitvec(BitVecOp::Reverse(a_replaced))
+                self.context()
+                    .make_bitvec(BitVecOp::ByteReverse(a_replaced))
             }
             BitVecOp::FpToIEEEBV(a) => {
                 let a_replaced = a.replace(from, to)?;
@@ -1065,9 +1066,10 @@ impl<'c> Replace<'c, BitVecAst<'c>> for BitVecAst<'c> {
                     self.context()
                         .make_bitvec(BitVecOp::Concat(a_replaced, b_replaced))
                 }
-                BitVecOp::Reverse(a) => {
+                BitVecOp::ByteReverse(a) => {
                     let a_replaced = a.replace(from, to)?;
-                    self.context().make_bitvec(BitVecOp::Reverse(a_replaced))
+                    self.context()
+                        .make_bitvec(BitVecOp::ByteReverse(a_replaced))
                 }
                 BitVecOp::FpToIEEEBV(a) => {
                     let a_replaced = a.replace(from, to)?;
@@ -1245,9 +1247,10 @@ impl<'c> Replace<'c, FloatAst<'c>> for BitVecAst<'c> {
                 self.context()
                     .make_bitvec(BitVecOp::Concat(a_replaced, b_replaced))
             }
-            BitVecOp::Reverse(a) => {
+            BitVecOp::ByteReverse(a) => {
                 let a_replaced = a.replace(from, to)?;
-                self.context().make_bitvec(BitVecOp::Reverse(a_replaced))
+                self.context()
+                    .make_bitvec(BitVecOp::ByteReverse(a_replaced))
             }
             BitVecOp::FpToIEEEBV(a) => {
                 let a_replaced = a.replace(from, to)?;
@@ -1424,9 +1427,10 @@ impl<'c> Replace<'c, StringAst<'c>> for BitVecAst<'c> {
                 self.context()
                     .make_bitvec(BitVecOp::Concat(a_replaced, b_replaced))
             }
-            BitVecOp::Reverse(a) => {
+            BitVecOp::ByteReverse(a) => {
                 let a_replaced = a.replace(from, to)?;
-                self.context().make_bitvec(BitVecOp::Reverse(a_replaced))
+                self.context()
+                    .make_bitvec(BitVecOp::ByteReverse(a_replaced))
             }
             BitVecOp::FpToIEEEBV(a) => {
                 let a_replaced = a.replace(from, to)?;

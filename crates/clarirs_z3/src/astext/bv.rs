@@ -61,7 +61,7 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, Clarir
                 z3::mk_extract(z3_ctx, *high, *low, a.0).into()
             }
             BitVecOp::Concat(..) => binop!(z3_ctx, children, mk_concat),
-            BitVecOp::Reverse(a) => {
+            BitVecOp::ByteReverse(a) => {
                 if a.size() == 0 || a.size() % 8 != 0 {
                     return Err(ClarirsError::ConversionError(
                         "reverse only supports bitvectors with size multiple of 8".to_string(),
