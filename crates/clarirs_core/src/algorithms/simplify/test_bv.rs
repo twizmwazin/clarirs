@@ -736,7 +736,7 @@ fn test_sext() -> Result<()> {
 }
 
 #[test]
-fn test_reverse() -> Result<()> {
+fn test_byte_reverse() -> Result<()> {
     let context = Context::new();
 
     let table: Vec<(u64, u64)> = vec![
@@ -755,7 +755,7 @@ fn test_reverse() -> Result<()> {
         let a = context.bvv_prim(a).unwrap();
         let expected = context.bvv_prim(expected).unwrap();
 
-        let result = context.reverse(&a)?.simplify()?;
+        let result = context.byte_reverse(&a)?.simplify()?;
         assert_eq!(result, expected);
     }
 

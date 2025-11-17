@@ -67,7 +67,7 @@ fn to_smtlib_bv(ast: &BitVecAst, children: &[String]) -> String {
             format!("((_ extract {} {}) {})", high, low, children[0])
         }
         BitVecOp::Concat(..) => format!("(concat {} {})", children[0], children[1]),
-        BitVecOp::Reverse(..) => format!("(bvreverse {})", children[0]),
+        BitVecOp::ByteReverse(..) => format!("(bvreverse {})", children[0]),
         BitVecOp::FpToIEEEBV(..) => format!("(fp.to_ieee_bv {})", children[0]),
         BitVecOp::FpToUBV(_, size, fprm) => format!(
             "((_ fp.to_ubv {}) {} {})",

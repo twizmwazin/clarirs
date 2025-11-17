@@ -32,7 +32,7 @@ pub enum BitVecOp<'c> {
     SignExt(BitVecAst<'c>, u32),
     Extract(BitVecAst<'c>, u32, u32),
     Concat(BitVecAst<'c>, BitVecAst<'c>),
-    Reverse(BitVecAst<'c>),
+    ByteReverse(BitVecAst<'c>),
     FpToIEEEBV(FloatAst<'c>),
     FpToUBV(FloatAst<'c>, u32, FPRM),
     FpToSBV(FloatAst<'c>, u32, FPRM),
@@ -165,7 +165,7 @@ impl std::hash::Hash for BitVecOp<'_> {
                 a.hash(state);
                 b.hash(state);
             }
-            BitVecOp::Reverse(a) => {
+            BitVecOp::ByteReverse(a) => {
                 24.hash(state);
                 a.hash(state);
             }
@@ -225,7 +225,7 @@ impl<'c> Op<'c> for BitVecOp<'c> {
             BitVecOp::BVS(..) | BitVecOp::BVV(..) => vec![],
             BitVecOp::Not(a)
             | BitVecOp::Neg(a)
-            | BitVecOp::Reverse(a)
+            | BitVecOp::ByteReverse(a)
             | BitVecOp::ZeroExt(a, _)
             | BitVecOp::SignExt(a, _)
             | BitVecOp::Extract(a, _, _) => vec![a.into()],
@@ -288,9 +288,10 @@ impl<'c> BitVecOpExt<'c> for BitVecOp<'c> {
         match self {
             BitVecOp::BVS(_, size) => *size,
             BitVecOp::BVV(bv) => bv.len(),
-            BitVecOp::Not(a) | BitVecOp::Neg(a) | BitVecOp::Reverse(a) | BitVecOp::If(_, a, _) => {
-                a.size()
-            }
+            BitVecOp::Not(a)
+            | BitVecOp::Neg(a)
+            | BitVecOp::ByteReverse(a)
+            | BitVecOp::If(_, a, _) => a.size(),
             BitVecOp::And(a, _)
             | BitVecOp::Or(a, _)
             | BitVecOp::Xor(a, _)

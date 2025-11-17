@@ -420,13 +420,13 @@ pub(crate) fn excavate_ite<'c>(
                 Ok(ctx.concat(&lhs, &rhs)?)
             }
         }
-        BitVecOp::Reverse(..) => {
+        BitVecOp::ByteReverse(..) => {
             let ast = extract_bitvec_child(children, 0)?;
 
             if let BitVecOp::If(cond, then_, else_) = ast.op() {
-                Ok(ctx.if_(cond, &ctx.reverse(then_)?, &ctx.reverse(else_)?)?)
+                Ok(ctx.if_(cond, &ctx.byte_reverse(then_)?, &ctx.byte_reverse(else_)?)?)
             } else {
-                Ok(ctx.reverse(&ast)?)
+                Ok(ctx.byte_reverse(&ast)?)
             }
         }
         BitVecOp::FpToIEEEBV(..) | BitVecOp::FpToUBV(..) | BitVecOp::FpToSBV(..) => {

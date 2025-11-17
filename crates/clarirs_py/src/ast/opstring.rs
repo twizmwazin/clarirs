@@ -70,7 +70,7 @@ impl ToOpString for BitVecAst<'static> {
             BitVecOp::SignExt(..) => "SignExt".to_string(),
             BitVecOp::Extract(..) => "Extract".to_string(),
             BitVecOp::Concat(..) => "Concat".to_string(),
-            BitVecOp::Reverse(..) => "Reverse".to_string(),
+            BitVecOp::ByteReverse(..) => "Reverse".to_string(),
             BitVecOp::FpToIEEEBV(..) => "fpToIEEEBV".to_string(),
             BitVecOp::FpToUBV(..) => "fpToUBV".to_string(),
             BitVecOp::FpToSBV(..) => "fpToSBV".to_string(),

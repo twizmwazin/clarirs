@@ -158,7 +158,7 @@ impl BV {
                 &args[0].cast_bound::<BV>(py)?.get().inner,
                 &args[1].cast_bound::<BV>(py)?.get().inner,
             )?,
-            "Reverse" => GLOBAL_CONTEXT.reverse(&args[0].cast_bound::<BV>(py)?.get().inner)?,
+            "Reverse" => GLOBAL_CONTEXT.byte_reverse(&args[0].cast_bound::<BV>(py)?.get().inner)?,
             "fpToIEEEBV" => {
                 GLOBAL_CONTEXT.fp_to_ieeebv(&args[0].cast_bound::<FP>(py)?.get().inner)?
             }
@@ -1069,7 +1069,7 @@ impl BV {
 
     #[getter]
     pub fn reversed<'py>(&self, py: Python<'py>) -> Result<Bound<'py, BV>, ClaripyError> {
-        BV::new(py, &GLOBAL_CONTEXT.reverse(&self.inner)?)
+        BV::new(py, &GLOBAL_CONTEXT.byte_reverse(&self.inner)?)
     }
 
     pub fn get_bytes<'py>(
@@ -1454,7 +1454,7 @@ pub fn SignExt<'py>(
 
 #[pyfunction]
 pub fn Reverse<'py>(py: Python<'py>, base: Bound<'py, BV>) -> Result<Bound<'py, BV>, ClaripyError> {
-    BV::new(py, &GLOBAL_CONTEXT.reverse(&base.get().inner)?)
+    BV::new(py, &GLOBAL_CONTEXT.byte_reverse(&base.get().inner)?)
 }
 
 binop!(ULT, ult, Bool);

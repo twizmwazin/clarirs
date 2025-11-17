@@ -109,7 +109,7 @@ impl ExtractPyArgs for BitVecAst<'static> {
                 start.into_bound_py_any(py)?,
                 BV::new(py, expr)?.into_any(),
             ],
-            BitVecOp::Reverse(expr) => vec![BV::new(py, expr)?.into_any()],
+            BitVecOp::ByteReverse(expr) => vec![BV::new(py, expr)?.into_any()],
             BitVecOp::FpToIEEEBV(expr) => vec![FP::new(py, expr)?.into_any()],
             BitVecOp::FpToUBV(arc, _, _) => vec![FP::new(py, arc)?.into_any()],
             BitVecOp::FpToSBV(arc, _, _) => vec![FP::new(py, arc)?.into_any()],

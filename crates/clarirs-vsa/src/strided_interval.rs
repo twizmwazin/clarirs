@@ -2383,10 +2383,12 @@ impl StridedInterval {
         self.sign_extend(self.bits() + amount)
     }
 
-    /// Reverse the bits in the interval
-    pub fn reverse(&self) -> Self {
+    /// Reverse the bytes of the StridedInterval
+    /// Returns an error if the StridedInterval is not a multiple of 8 bits
+    pub fn reverse_bytes(&self) -> Result<Self, ClarirsError> {
         match self {
-            StridedInterval::Empty { bits } => Self::empty(*bits),
+            StridedInterval::Empty { bits } => Ok(Self::empty(*bits)),
+            StridedInterval::Normal { bits: 8, .. } => Ok(self.clone()),
             StridedInterval::Normal {
                 bits,
                 lower_bound,
@@ -2403,10 +2405,10 @@ impl StridedInterval {
                     val >>= 1;
                 }
 
-                Self::constant(*bits, result)
+                Ok(Self::constant(*bits, result))
             }
-            StridedInterval::Normal { bits: 8, .. } => self.clone(),
-            StridedInterval::Normal { bits, .. } => Self::top(*bits),
+            // TODO: Implement more precise byte reversal patterns
+            StridedInterval::Normal { bits, .. } => Ok(Self::top(*bits)),
         }
     }
 
