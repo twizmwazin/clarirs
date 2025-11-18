@@ -118,7 +118,7 @@ pub(crate) fn simplify_float<'c>(
                     }
 
                     // Extract components: sign (1 bit) | exponent (exp_bits) | mantissa (man_bits)
-                    let sign_bit = bv_val.extract(0, total_bits - 1)?;
+                    let sign_bit = bv_val.extract(total_bits - 1, total_bits - 1)?;
                     let exponent = bv_val.extract(man_bits, total_bits - 2)?;
                     let mantissa = bv_val.extract(0, man_bits - 1)?;
 
