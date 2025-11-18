@@ -30,11 +30,12 @@ impl BitVec {
             (true, false) => true,  // Negative < Positive
             (false, true) => false, // Positive > Negative
             _ => {
-                // Same sign - compare magnitudes
+                // Same sign - compare unsigned values
+                // For positive numbers: smaller unsigned value = smaller number
+                // For negative numbers (two's complement): smaller unsigned value = more negative (larger magnitude)
                 for (a, b) in self.words.iter().zip(other.words.iter()).rev() {
                     if a != b {
-                        // If negative, reverse the comparison
-                        return (a < b) ^ self.sign();
+                        return a < b;
                     }
                 }
                 false // Equal numbers
@@ -94,14 +95,15 @@ mod tests {
         assert!(!pos2.signed_lt(&pos1));
 
         // Test negative numbers (-5 = 0xFB and -10 = 0xF6 in 8-bit two's complement)
-        let neg1 = BitVec::from_prim_with_size(0xFBu8, 8)?;
-        let neg2 = BitVec::from_prim_with_size(0xF6u8, 8)?;
-        assert!(neg1.signed_lt(&neg2));
-        assert!(!neg2.signed_lt(&neg1));
+        // -10 < -5 because -10 is more negative (further from zero)
+        let neg5 = BitVec::from_prim_with_size(0xFBu8, 8)?; // -5
+        let neg10 = BitVec::from_prim_with_size(0xF6u8, 8)?; // -10
+        assert!(neg10.signed_lt(&neg5)); // -10 < -5
+        assert!(!neg5.signed_lt(&neg10)); // -5 NOT< -10
 
-        // Test mixed signs
-        assert!(neg1.signed_lt(&pos1));
-        assert!(!pos1.signed_lt(&neg1));
+        // Test mixed signs (any negative < any positive)
+        assert!(neg5.signed_lt(&pos1)); // -5 < 5
+        assert!(!pos1.signed_lt(&neg5)); // 5 NOT< -5
 
         // Test equality
         let pos1_dup = BitVec::from_prim_with_size(0x05u8, 8)?;
@@ -120,10 +122,10 @@ mod tests {
         assert!(!pos2.signed_le(&pos1));
 
         // Test negative numbers (-5 = 0xFB and -10 = 0xF6 in 8-bit two's complement)
-        let neg1 = BitVec::from_prim_with_size(0xFBu8, 8)?;
-        let neg2 = BitVec::from_prim_with_size(0xF6u8, 8)?;
-        assert!(neg1.signed_le(&neg2));
-        assert!(!neg2.signed_le(&neg1));
+        let neg5 = BitVec::from_prim_with_size(0xFBu8, 8)?; // -5
+        let neg10 = BitVec::from_prim_with_size(0xF6u8, 8)?; // -10
+        assert!(neg10.signed_le(&neg5)); // -10 <= -5
+        assert!(!neg5.signed_le(&neg10)); // -5 NOT<= -10
 
         // Test equality
         let pos1_dup = BitVec::from_prim_with_size(0x05u8, 8)?;
@@ -142,14 +144,14 @@ mod tests {
         assert!(pos2.signed_gt(&pos1));
 
         // Test negative numbers (-5 = 0xFB and -10 = 0xF6 in 8-bit two's complement)
-        let neg1 = BitVec::from_prim_with_size(0xFBu8, 8)?;
-        let neg2 = BitVec::from_prim_with_size(0xF6u8, 8)?;
-        assert!(!neg1.signed_gt(&neg2));
-        assert!(neg2.signed_gt(&neg1));
+        let neg5 = BitVec::from_prim_with_size(0xFBu8, 8)?; // -5
+        let neg10 = BitVec::from_prim_with_size(0xF6u8, 8)?; // -10
+        assert!(neg5.signed_gt(&neg10)); // -5 > -10
+        assert!(!neg10.signed_gt(&neg5)); // -10 NOT> -5
 
         // Test mixed signs
-        assert!(pos1.signed_gt(&neg1));
-        assert!(!neg1.signed_gt(&pos1));
+        assert!(pos1.signed_gt(&neg5)); // 5 > -5
+        assert!(!neg5.signed_gt(&pos1)); // -5 NOT> 5
 
         // Test equality
         let pos1_dup = BitVec::from_prim_with_size(0x05u8, 8)?;
@@ -168,10 +170,10 @@ mod tests {
         assert!(pos2.signed_ge(&pos1));
 
         // Test negative numbers (-5 = 0xFB and -10 = 0xF6 in 8-bit two's complement)
-        let neg1 = BitVec::from_prim_with_size(0xFBu8, 8)?;
-        let neg2 = BitVec::from_prim_with_size(0xF6u8, 8)?;
-        assert!(!neg1.signed_ge(&neg2));
-        assert!(neg2.signed_ge(&neg1));
+        let neg5 = BitVec::from_prim_with_size(0xFBu8, 8)?; // -5
+        let neg10 = BitVec::from_prim_with_size(0xF6u8, 8)?; // -10
+        assert!(neg5.signed_ge(&neg10)); // -5 >= -10
+        assert!(!neg10.signed_ge(&neg5)); // -10 NOT>= -5
 
         // Test equality
         let pos1_dup = BitVec::from_prim_with_size(0x05u8, 8)?;
