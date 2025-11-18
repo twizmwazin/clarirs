@@ -616,7 +616,7 @@ impl FP {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.fp_eq(&self.inner, &other.unpack_like(py, &self)?.get().inner)?,
+            &GLOBAL_CONTEXT.fp_eq(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -627,7 +627,7 @@ impl FP {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.fp_neq(&self.inner, &other.unpack_like(py, &self)?.get().inner)?,
+            &GLOBAL_CONTEXT.fp_neq(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -638,7 +638,7 @@ impl FP {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.fp_lt(&self.inner, &other.unpack_like(py, &self)?.get().inner)?,
+            &GLOBAL_CONTEXT.fp_lt(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -649,7 +649,7 @@ impl FP {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.fp_leq(&self.inner, &other.unpack_like(py, &self)?.get().inner)?,
+            &GLOBAL_CONTEXT.fp_leq(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -660,7 +660,7 @@ impl FP {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.fp_gt(&self.inner, &other.unpack_like(py, &self)?.get().inner)?,
+            &GLOBAL_CONTEXT.fp_gt(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -671,7 +671,7 @@ impl FP {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.fp_geq(&self.inner, &other.unpack_like(py, &self)?.get().inner)?,
+            &GLOBAL_CONTEXT.fp_geq(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -692,7 +692,7 @@ impl FP {
             py,
             &GLOBAL_CONTEXT.fp_add(
                 &self.inner,
-                &other.unpack_like(py, &self)?.get().inner,
+                &other.unpack_like(py, self)?.get().inner,
                 PyRM::default(),
             )?,
         )
@@ -707,7 +707,7 @@ impl FP {
             py,
             &GLOBAL_CONTEXT.fp_sub(
                 &self.inner,
-                &other.unpack_like(py, &self)?.get().inner,
+                &other.unpack_like(py, self)?.get().inner,
                 PyRM::default(),
             )?,
         )
@@ -722,7 +722,7 @@ impl FP {
             py,
             &GLOBAL_CONTEXT.fp_mul(
                 &self.inner,
-                &other.unpack_like(py, &self)?.get().inner,
+                &other.unpack_like(py, self)?.get().inner,
                 PyRM::default(),
             )?,
         )
@@ -737,7 +737,7 @@ impl FP {
             py,
             &GLOBAL_CONTEXT.fp_div(
                 &self.inner,
-                &other.unpack_like(py, &self)?.get().inner,
+                &other.unpack_like(py, self)?.get().inner,
                 PyRM::default(),
             )?,
         )
