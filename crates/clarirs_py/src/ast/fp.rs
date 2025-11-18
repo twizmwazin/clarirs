@@ -589,11 +589,7 @@ impl FP {
     pub fn to_bv(self_: Bound<'_, FP>) -> Result<Bound<'_, BV>, ClaripyError> {
         BV::new(
             self_.py(),
-            &GLOBAL_CONTEXT.fp_to_sbv(
-                &self_.get().inner,
-                self_.get().inner.sort().size(),
-                FPRM::default(),
-            )?,
+            &GLOBAL_CONTEXT.fp_to_ieeebv(&self_.get().inner)?,
         )
     }
 
