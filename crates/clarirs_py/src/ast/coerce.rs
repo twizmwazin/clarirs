@@ -290,9 +290,7 @@ impl<'py> TryFrom<CoerceFP<'py>> for Bound<'py, FP> {
     fn try_from(val: CoerceFP<'py>) -> Result<Self, Self::Error> {
         match val {
             CoerceFP::FP(fp) => Ok(fp),
-            CoerceFP::Py(_) => {
-                Err(ClaripyError::InvalidArgumentType("Expected FP".to_string()))
-            }
+            CoerceFP::Py(_) => Err(ClaripyError::InvalidArgumentType("Expected FP".to_string())),
         }
     }
 }
@@ -303,9 +301,7 @@ impl<'py> TryFrom<CoerceFP<'py>> for FloatAst<'static> {
     fn try_from(val: CoerceFP<'py>) -> Result<Self, Self::Error> {
         match val {
             CoerceFP::FP(fp) => Ok(fp.get().inner.clone()),
-            CoerceFP::Py(_) => {
-                Err(ClaripyError::InvalidArgumentType("Expected FP".to_string()))
-            }
+            CoerceFP::Py(_) => Err(ClaripyError::InvalidArgumentType("Expected FP".to_string())),
         }
     }
 }
