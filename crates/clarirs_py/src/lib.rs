@@ -119,7 +119,10 @@ fn is_true(expr: Bound<'_, PyAny>) -> Result<bool, ClaripyError> {
             CoerceBV::Int(int_expr) => Ok(int_expr != BigInt::ZERO),
         }
     } else if let Ok(fp_expr) = expr.clone().extract::<CoerceFP>() {
-        Ok(fp_expr.0.get().inner.simplify()?.is_true())
+        match fp_expr {
+            CoerceFP::FP(fp_expr) => Ok(fp_expr.get().inner.simplify()?.is_true()),
+            CoerceFP::Py(float) => Ok(float.extract::<f64>()? != 0.0),
+        }
     } else if let Ok(string_expr) = expr.clone().extract::<CoerceString>() {
         Ok(string_expr.0.get().inner.simplify()?.is_true())
     } else {
@@ -140,7 +143,10 @@ fn is_false(expr: Bound<'_, PyAny>) -> Result<bool, ClaripyError> {
             CoerceBV::Int(int_expr) => Ok(int_expr == BigInt::ZERO),
         }
     } else if let Ok(fp_expr) = expr.clone().extract::<CoerceFP>() {
-        Ok(fp_expr.0.get().inner.simplify()?.is_false())
+        match fp_expr {
+            CoerceFP::FP(fp_expr) => Ok(fp_expr.get().inner.simplify()?.is_false()),
+            CoerceFP::Py(float) => Ok(float.extract::<f64>()? == 0.0),
+        }
     } else if let Ok(string_expr) = expr.clone().extract::<CoerceString>() {
         Ok(string_expr.0.get().inner.simplify()?.is_false())
     } else {
