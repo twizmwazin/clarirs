@@ -1,7 +1,7 @@
 use std::{cmp::max, str};
 
 use num_bigint::BigInt;
-use pyo3::types::PyInt;
+use pyo3::types::{PyFloat, PyInt};
 
 use crate::prelude::*;
 
@@ -210,33 +210,105 @@ impl<'py> From<Bound<'py, PyInt>> for CoerceBV<'py> {
     }
 }
 
-pub struct CoerceFP<'py>(pub Bound<'py, FP>);
+pub enum CoerceFP<'py> {
+    FP(Bound<'py, FP>),
+    Py(Bound<'py, PyFloat>),
+}
+
+impl<'py> CoerceFP<'py> {
+    pub fn unpack_like(&self, py: Python<'py>, like: &FP) -> Result<Bound<'py, FP>, ClaripyError> {
+        match self {
+            CoerceFP::FP(fp) => Ok(fp.clone()),
+            CoerceFP::Py(py_float) => match like.size() {
+                32 => {
+                    let val = py_float.extract::<f32>().map_err(|e| {
+                        ClaripyError::InvalidArgumentType(format!(
+                            "Failed to extract f32 from Python float: {}",
+                            e
+                        ))
+                    })?;
+                    FP::new(py, &GLOBAL_CONTEXT.fpv(val)?)
+                }
+                64 => {
+                    let val = py_float.extract::<f64>().map_err(|e| {
+                        ClaripyError::InvalidArgumentType(format!(
+                            "Failed to extract f64 from Python float: {}",
+                            e
+                        ))
+                    })?;
+                    FP::new(py, &GLOBAL_CONTEXT.fpv(val)?)
+                }
+                _ => Err(ClaripyError::InvalidArgumentType(
+                    "Unsupported FP size".to_string(),
+                )),
+            },
+        }
+    }
+
+    pub fn unpack_pair(
+        py: Python<'py>,
+        lhs: &CoerceFP<'py>,
+        rhs: &CoerceFP<'py>,
+    ) -> Result<(Bound<'py, FP>, Bound<'py, FP>), ClaripyError> {
+        Ok(match (lhs, rhs) {
+            (CoerceFP::FP(lhs), CoerceFP::FP(rhs)) => {
+                // Both are FPs, so just return them
+                (lhs.clone(), rhs.clone())
+            }
+            (CoerceFP::Py(_), CoerceFP::FP(rhs)) => {
+                let lhs = lhs.unpack_like(py, rhs.get())?;
+                (lhs, rhs.clone())
+            }
+            (CoerceFP::FP(lhs), CoerceFP::Py(_)) => {
+                let rhs = rhs.unpack_like(py, lhs.get())?;
+                (lhs.clone(), rhs)
+            }
+            (CoerceFP::Py(_), CoerceFP::Py(_)) => {
+                return Err(ClaripyError::InvalidArgumentType(
+                    "Cannot determine FP size from two Python floats".to_string(),
+                ));
+            }
+        })
+    }
+}
 
 impl<'py> FromPyObject<'_, 'py> for CoerceFP<'py> {
     type Error = PyErr;
 
     fn extract(val: Borrowed<'_, 'py, PyAny>) -> PyResult<Self> {
         if let Ok(fp_val) = val.cast::<FP>() {
-            Ok(CoerceFP(fp_val.to_owned()))
-        } else if let Ok(fp_val) = val.extract::<f64>() {
-            Ok(CoerceFP(
-                FP::new(val.py(), &GLOBAL_CONTEXT.fpv(Float::from(fp_val)).unwrap()).unwrap(),
-            ))
+            Ok(CoerceFP::FP(fp_val.to_owned()))
+        } else if let Ok(fp_val) = val.cast::<PyFloat>() {
+            Ok(CoerceFP::Py(fp_val.to_owned()))
         } else {
             Err(ClaripyError::InvalidArgumentType("Expected FP".to_string()).into())
         }
     }
 }
 
-impl<'py> From<CoerceFP<'py>> for Bound<'py, FP> {
-    fn from(val: CoerceFP<'py>) -> Self {
-        val.0
+impl<'py> TryFrom<CoerceFP<'py>> for Bound<'py, FP> {
+    type Error = ClaripyError;
+
+    fn try_from(val: CoerceFP<'py>) -> Result<Self, Self::Error> {
+        match val {
+            CoerceFP::FP(fp) => Ok(fp),
+            CoerceFP::Py(py_float) => {
+                Err(ClaripyError::InvalidArgumentType("Expected FP".to_string()).into())
+            }
+        }
     }
 }
 
-impl<'py> From<CoerceFP<'py>> for FloatAst<'static> {
-    fn from(val: CoerceFP<'py>) -> Self {
-        val.0.get().inner.clone()
+impl<'py> TryFrom<CoerceFP<'py>> for FloatAst<'static> {
+    type Error = ClaripyError;
+
+    fn try_from(val: CoerceFP<'py>) -> Result<Self, Self::Error> {
+        match val {
+            CoerceFP::FP(fp) => Ok(fp.get().inner.clone()),
+            CoerceFP::Py(_) => {
+                Err(ClaripyError::InvalidArgumentType("Expected FP".to_string()).into())
+            }
+        }
     }
 }
 
@@ -291,7 +363,12 @@ impl<'a, 'py> FromPyObject<'a, 'py> for CoerceBase<'py> {
                 }
             }
         } else if let Ok(fp) = CoerceFP::extract(val) {
-            Ok(CoerceBase(fp.0.cast()?.clone()))
+            match fp {
+                CoerceFP::FP(fp) => Ok(CoerceBase(fp.cast()?.clone())),
+                CoerceFP::Py(_) => {
+                    Err(ClaripyError::InvalidArgumentType("Expected FP".to_string()).into())
+                }
+            }
         } else if let Ok(string) = CoerceString::extract(val) {
             Ok(CoerceBase(string.0.cast()?.clone()))
         } else {
