@@ -84,22 +84,27 @@ impl PySolver {
         &mut self,
         exprs: Bound<'py, PyAny>,
     ) -> Result<Vec<Bound<'py, Bool>>, ClaripyError> {
-        // Handle both tuple of expressions and single expression
-        let bool_exprs = if let Ok(tuple) = exprs.cast::<PyTuple>() {
-            // Convert tuple of expressions to Vec<Bound<Bool>>
-            tuple
-                .iter()
-                .map(|expr| {
-                    expr.cast_into::<Bool>().map_err(|_| {
-                        ClaripyError::TypeError("add: expression must be a boolean".to_string())
-                    })
+        // Try to handle as iterable first (supports tuple, list, and any iterable)
+        let bool_exprs = if let Ok(iter) = exprs.try_iter() {
+            // Convert iterable of expressions to Vec<Bound<Bool>>
+            iter.map(|expr_result| {
+                let expr = expr_result
+                    .map_err(|e| ClaripyError::TypeError(format!("add: iteration error: {}", e)))?;
+                expr.extract::<CoerceBool>().map(|b| b.0).map_err(|_| {
+                    ClaripyError::TypeError("add: expression must be a boolean".to_string())
                 })
-                .collect::<Result<Vec<_>, _>>()?
+            })
+            .collect::<Result<Vec<_>, _>>()?
         } else {
             // Handle single expression case
-            vec![exprs.cast_into::<Bool>().map_err(|_| {
-                ClaripyError::TypeError("add: expression must be a boolean".to_string())
-            })?]
+            vec![
+                exprs
+                    .extract::<CoerceBool>()
+                    .map_err(|_| {
+                        ClaripyError::TypeError("add: expression must be a boolean".to_string())
+                    })?
+                    .0,
+            ]
         };
 
         // Add all expressions to the solver
@@ -328,12 +333,10 @@ impl PySolver {
             }
         } else if let Ok(fp_ast) = expr.cast::<FP>() {
             if let Ok(value) = value.extract::<CoerceFP>() {
-                Ok(solver.has_true(
-                    &self
-                        .inner
-                        .context()
-                        .eq_(&fp_ast.get().inner, &value.into())?,
-                )?)
+                Ok(solver.has_true(&self.inner.context().eq_(
+                    &fp_ast.get().inner,
+                    &value.unpack_like(fp_ast.py(), fp_ast.get())?.get().inner,
+                )?)?)
             } else {
                 let value_type = value.get_type().name()?.extract::<String>()?;
                 Err(ClaripyError::TypeError(format!(

@@ -292,7 +292,7 @@ impl<'py> TryFrom<CoerceFP<'py>> for Bound<'py, FP> {
     fn try_from(val: CoerceFP<'py>) -> Result<Self, Self::Error> {
         match val {
             CoerceFP::FP(fp) => Ok(fp),
-            CoerceFP::Py(py_float) => {
+            CoerceFP::Py(_) => {
                 Err(ClaripyError::InvalidArgumentType("Expected FP".to_string()).into())
             }
         }
