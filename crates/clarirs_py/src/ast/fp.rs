@@ -614,7 +614,10 @@ impl FP {
         py: Python<'py>,
         other: CoerceFP<'py>,
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
-        Bool::new(py, &GLOBAL_CONTEXT.fp_eq(&self.inner, &other.into())?)
+        Bool::new(
+            py,
+            &GLOBAL_CONTEXT.fp_eq(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
+        )
     }
 
     pub fn __ne__<'py>(
@@ -622,7 +625,10 @@ impl FP {
         py: Python<'py>,
         other: CoerceFP<'py>,
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
-        Bool::new(py, &GLOBAL_CONTEXT.fp_neq(&self.inner, &other.into())?)
+        Bool::new(
+            py,
+            &GLOBAL_CONTEXT.fp_neq(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
+        )
     }
 
     pub fn __lt__<'py>(
@@ -630,7 +636,10 @@ impl FP {
         py: Python<'py>,
         other: CoerceFP<'py>,
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
-        Bool::new(py, &GLOBAL_CONTEXT.fp_lt(&self.inner, &other.into())?)
+        Bool::new(
+            py,
+            &GLOBAL_CONTEXT.fp_lt(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
+        )
     }
 
     pub fn __le__<'py>(
@@ -638,7 +647,10 @@ impl FP {
         py: Python<'py>,
         other: CoerceFP<'py>,
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
-        Bool::new(py, &GLOBAL_CONTEXT.fp_leq(&self.inner, &other.into())?)
+        Bool::new(
+            py,
+            &GLOBAL_CONTEXT.fp_leq(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
+        )
     }
 
     pub fn __gt__<'py>(
@@ -646,7 +658,10 @@ impl FP {
         py: Python<'py>,
         other: CoerceFP<'py>,
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
-        Bool::new(py, &GLOBAL_CONTEXT.fp_gt(&self.inner, &other.into())?)
+        Bool::new(
+            py,
+            &GLOBAL_CONTEXT.fp_gt(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
+        )
     }
 
     pub fn __ge__<'py>(
@@ -654,7 +669,10 @@ impl FP {
         py: Python<'py>,
         other: CoerceFP<'py>,
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
-        Bool::new(py, &GLOBAL_CONTEXT.fp_geq(&self.inner, &other.into())?)
+        Bool::new(
+            py,
+            &GLOBAL_CONTEXT.fp_geq(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
+        )
     }
 
     pub fn __abs__<'py>(&self, py: Python<'py>) -> Result<Bound<'py, FP>, ClaripyError> {
@@ -672,7 +690,11 @@ impl FP {
     ) -> Result<Bound<'py, FP>, ClaripyError> {
         FP::new(
             py,
-            &GLOBAL_CONTEXT.fp_add(&self.inner, &other.into(), PyRM::default())?,
+            &GLOBAL_CONTEXT.fp_add(
+                &self.inner,
+                &other.unpack_like(py, self)?.get().inner,
+                PyRM::default(),
+            )?,
         )
     }
 
@@ -683,7 +705,11 @@ impl FP {
     ) -> Result<Bound<'py, FP>, ClaripyError> {
         FP::new(
             py,
-            &GLOBAL_CONTEXT.fp_sub(&self.inner, &other.into(), PyRM::default())?,
+            &GLOBAL_CONTEXT.fp_sub(
+                &self.inner,
+                &other.unpack_like(py, self)?.get().inner,
+                PyRM::default(),
+            )?,
         )
     }
 
@@ -694,7 +720,11 @@ impl FP {
     ) -> Result<Bound<'py, FP>, ClaripyError> {
         FP::new(
             py,
-            &GLOBAL_CONTEXT.fp_mul(&self.inner, &other.into(), PyRM::default())?,
+            &GLOBAL_CONTEXT.fp_mul(
+                &self.inner,
+                &other.unpack_like(py, self)?.get().inner,
+                PyRM::default(),
+            )?,
         )
     }
 
@@ -705,7 +735,11 @@ impl FP {
     ) -> Result<Bound<'py, FP>, ClaripyError> {
         FP::new(
             py,
-            &GLOBAL_CONTEXT.fp_div(&self.inner, &other.into(), PyRM::default())?,
+            &GLOBAL_CONTEXT.fp_div(
+                &self.inner,
+                &other.unpack_like(py, self)?.get().inner,
+                PyRM::default(),
+            )?,
         )
     }
 

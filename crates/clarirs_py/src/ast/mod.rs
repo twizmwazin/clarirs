@@ -125,10 +125,10 @@ pub fn r#if<'py>(
                 "Sort mismatch in if-then-else: {then_:?} and {else_:?}"
             )))
         }
-    } else if let Ok(then_bool) = then_.clone().into_any().cast::<Bool>() {
-        if let Ok(else_bv) = else_.clone().into_any().cast::<Bool>() {
-            let then_bv = then_bool.get().inner.clone();
-            let else_bv = else_bv.get().inner.clone();
+    } else if let Ok(then_bool) = then_.clone().into_any().extract::<CoerceBool>() {
+        if let Ok(else_bv) = else_.clone().into_any().extract::<CoerceBool>() {
+            let then_bv = then_bool.0.get().inner.clone();
+            let else_bv = else_bv.0.get().inner.clone();
             Bool::new(
                 py,
                 &GLOBAL_CONTEXT.if_(&cond.0.get().inner, &then_bv, &else_bv)?,
@@ -139,13 +139,16 @@ pub fn r#if<'py>(
                 "Sort mismatch in if-then-else: {then_:?} and {else_:?}"
             )))
         }
-    } else if let Ok(then_fp) = then_.clone().into_any().cast::<FP>() {
-        if let Ok(else_bv) = else_.clone().into_any().cast::<FP>() {
-            let then_bv = then_fp.get().inner.clone();
-            let else_bv = else_bv.get().inner.clone();
+    } else if let Ok(then_fp) = then_.clone().into_any().extract::<CoerceFP>() {
+        if let Ok(else_fp) = else_.clone().into_any().extract::<CoerceFP>() {
+            let (then_fp, else_fp) = CoerceFP::unpack_pair(py, &then_fp, &else_fp)?;
             FP::new(
                 py,
-                &GLOBAL_CONTEXT.if_(&cond.0.get().inner, &then_bv, &else_bv)?,
+                &GLOBAL_CONTEXT.if_(
+                    &cond.0.get().inner,
+                    &then_fp.get().inner,
+                    &else_fp.get().inner,
+                )?,
             )
             .map(|b| b.into_any().cast::<Base>().unwrap().clone())
         } else {
@@ -153,10 +156,10 @@ pub fn r#if<'py>(
                 "Sort mismatch in if-then-else: {then_:?} and {else_:?}"
             )))
         }
-    } else if let Ok(then_string) = then_.clone().into_any().cast::<PyAstString>() {
-        if let Ok(else_bv) = else_.clone().into_any().cast::<PyAstString>() {
-            let then_bv = then_string.get().inner.clone();
-            let else_bv = else_bv.get().inner.clone();
+    } else if let Ok(then_string) = then_.clone().into_any().extract::<CoerceString>() {
+        if let Ok(else_string) = else_.clone().into_any().extract::<CoerceString>() {
+            let then_bv = then_string.0.get().inner.clone();
+            let else_bv = else_string.0.get().inner.clone();
             PyAstString::new(
                 py,
                 &GLOBAL_CONTEXT.if_(&cond.0.get().inner, &then_bv, &else_bv)?,
