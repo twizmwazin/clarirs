@@ -89,7 +89,7 @@ impl PySolver {
             // Convert iterable of expressions to Vec<Bound<Bool>>
             iter.map(|expr_result| {
                 let expr = expr_result
-                    .map_err(|e| ClaripyError::TypeError(format!("add: iteration error: {}", e)))?;
+                    .map_err(|e| ClaripyError::TypeError(format!("add: iteration error: {e}")))?;
                 expr.extract::<CoerceBool>().map(|b| b.0).map_err(|_| {
                     ClaripyError::TypeError("add: expression must be a boolean".to_string())
                 })

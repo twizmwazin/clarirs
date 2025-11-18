@@ -223,8 +223,7 @@ impl<'py> CoerceFP<'py> {
                 32 => {
                     let val = py_float.extract::<f32>().map_err(|e| {
                         ClaripyError::InvalidArgumentType(format!(
-                            "Failed to extract f32 from Python float: {}",
-                            e
+                            "Failed to extract f32 from Python float: {e}"
                         ))
                     })?;
                     FP::new(py, &GLOBAL_CONTEXT.fpv(val)?)
@@ -232,8 +231,7 @@ impl<'py> CoerceFP<'py> {
                 64 => {
                     let val = py_float.extract::<f64>().map_err(|e| {
                         ClaripyError::InvalidArgumentType(format!(
-                            "Failed to extract f64 from Python float: {}",
-                            e
+                            "Failed to extract f64 from Python float: {e}"
                         ))
                     })?;
                     FP::new(py, &GLOBAL_CONTEXT.fpv(val)?)
@@ -293,7 +291,7 @@ impl<'py> TryFrom<CoerceFP<'py>> for Bound<'py, FP> {
         match val {
             CoerceFP::FP(fp) => Ok(fp),
             CoerceFP::Py(_) => {
-                Err(ClaripyError::InvalidArgumentType("Expected FP".to_string()).into())
+                Err(ClaripyError::InvalidArgumentType("Expected FP".to_string()))
             }
         }
     }
@@ -306,7 +304,7 @@ impl<'py> TryFrom<CoerceFP<'py>> for FloatAst<'static> {
         match val {
             CoerceFP::FP(fp) => Ok(fp.get().inner.clone()),
             CoerceFP::Py(_) => {
-                Err(ClaripyError::InvalidArgumentType("Expected FP".to_string()).into())
+                Err(ClaripyError::InvalidArgumentType("Expected FP".to_string()))
             }
         }
     }
