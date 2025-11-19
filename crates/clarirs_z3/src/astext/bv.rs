@@ -96,12 +96,12 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, Clarir
             BitVecOp::FpToUBV(_, size, rm) => {
                 let rm_ast = super::float::fprm_to_z3(*rm);
                 let a = child!(children, 0);
-                z3::mk_fpa_to_ubv(z3_ctx, rm_ast, a.0, *size).into()
+                z3::mk_fpa_to_ubv(z3_ctx, rm_ast.0, a.0, *size).into()
             }
             BitVecOp::FpToSBV(_, size, rm) => {
                 let rm_ast = super::float::fprm_to_z3(*rm);
                 let a = child!(children, 0);
-                z3::mk_fpa_to_sbv(z3_ctx, rm_ast, a.0, *size).into()
+                z3::mk_fpa_to_sbv(z3_ctx, rm_ast.0, a.0, *size).into()
             }
             BitVecOp::StrLen(..) => todo!("StrLen"),
             BitVecOp::StrIndexOf(..) => todo!("StrIndexOf"),
