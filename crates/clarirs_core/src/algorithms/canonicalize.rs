@@ -67,7 +67,7 @@ pub fn canonicalize<'c>(
     }
 
     // Sort variable names to ensure deterministic ordering
-    let mut var_names: Vec<String> = vars
+    let mut var_names: Vec<InternedString> = vars
         .iter()
         .flat_map(|v| v.variables().into_iter())
         .collect();
@@ -75,10 +75,11 @@ pub fn canonicalize<'c>(
     var_names.dedup();
 
     // Create mapping from original names to canonical names
-    let var_mapping: HashMap<String, String> = var_names
+    let ctx_ref = ast.context();
+    let var_mapping: HashMap<InternedString, InternedString> = var_names
         .iter()
         .enumerate()
-        .map(|(i, name)| (name.clone(), format!("v{i}")))
+        .map(|(i, name)| (name.clone(), ctx_ref.intern_string(format!("v{i}"))))
         .collect();
 
     // Build replacement map: original var AST -> canonical var AST
@@ -93,16 +94,16 @@ pub fn canonicalize<'c>(
             if let Some(canonical_name) = var_mapping.get(original_name) {
                 // Create the canonical variable with the same type and size as the original
                 let canonical_var = match &var {
-                    DynAst::Boolean(_) => DynAst::Boolean(ctx.bools(canonical_name)?),
+                    DynAst::Boolean(_) => DynAst::Boolean(ctx.bools(canonical_name.as_str())?),
                     DynAst::BitVec(bv) => {
                         let size = bv.size();
-                        DynAst::BitVec(ctx.bvs(canonical_name, size)?)
+                        DynAst::BitVec(ctx.bvs(canonical_name.as_str(), size)?)
                     }
                     DynAst::Float(fp) => {
                         let sort = fp.sort();
-                        DynAst::Float(ctx.fps(canonical_name, sort)?)
+                        DynAst::Float(ctx.fps(canonical_name.as_str(), sort)?)
                     }
-                    DynAst::String(_) => DynAst::String(ctx.strings(canonical_name)?),
+                    DynAst::String(_) => DynAst::String(ctx.strings(canonical_name.as_str())?),
                 };
                 replacement_map.insert(var.inner_hash(), canonical_var.clone());
                 replacements.insert(var.clone(), canonical_var);

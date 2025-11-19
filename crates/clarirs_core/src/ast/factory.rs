@@ -9,6 +9,8 @@ use crate::prelude::*;
 
 pub trait AstFactory<'c>: Sized {
     // Required methods
+    fn intern_string(&self, s: impl AsRef<str>) -> InternedString;
+
     fn make_bool_annotated(
         &'c self,
         op: BooleanOp<'c>,
@@ -48,36 +50,40 @@ pub trait AstFactory<'c>: Sized {
         self.make_string_annotated(op, BTreeSet::new())
     }
 
-    fn bools<S: Into<String>>(&'c self, name: S) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::BoolS(name.into()))
+    fn bools<S: AsRef<str>>(&'c self, name: S) -> Result<BoolAst<'c>, ClarirsError> {
+        let interned = self.intern_string(name);
+        self.make_bool(BooleanOp::BoolS(interned))
     }
 
     fn boolv(&'c self, value: bool) -> Result<BoolAst<'c>, ClarirsError> {
         self.make_bool(BooleanOp::BoolV(value))
     }
 
-    fn bvs<S: Into<String>>(&'c self, name: S, width: u32) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::BVS(name.into(), width))
+    fn bvs<S: AsRef<str>>(&'c self, name: S, width: u32) -> Result<BitVecAst<'c>, ClarirsError> {
+        let interned = self.intern_string(name);
+        self.make_bitvec(BitVecOp::BVS(interned, width))
     }
 
     fn bvv(&'c self, value: BitVec) -> Result<BitVecAst<'c>, ClarirsError> {
         self.make_bitvec(BitVecOp::BVV(value))
     }
 
-    fn fps<S: Into<String>, FS: Into<FSort>>(
+    fn fps<S: AsRef<str>, FS: Into<FSort>>(
         &'c self,
         name: S,
         sort: FS,
     ) -> Result<FloatAst<'c>, ClarirsError> {
-        self.make_float(FloatOp::FPS(name.into(), sort.into()))
+        let interned = self.intern_string(name);
+        self.make_float(FloatOp::FPS(interned, sort.into()))
     }
 
     fn fpv<F: Into<Float>>(&'c self, value: F) -> Result<FloatAst<'c>, ClarirsError> {
         self.make_float(FloatOp::FPV(value.into()))
     }
 
-    fn strings<S: Into<String>>(&'c self, name: S) -> Result<StringAst<'c>, ClarirsError> {
-        self.make_string(StringOp::StringS(name.into()))
+    fn strings<S: AsRef<str>>(&'c self, name: S) -> Result<StringAst<'c>, ClarirsError> {
+        let interned = self.intern_string(name);
+        self.make_string(StringOp::StringS(interned))
     }
 
     fn stringv<S: Into<String>>(&'c self, value: S) -> Result<StringAst<'c>, ClarirsError> {
@@ -631,11 +637,10 @@ pub trait AstFactory<'c>: Sized {
         lower_bound: BigUint,
         upper_bound: BigUint,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
+        let name = format!("SI{size}_{stride}_{lower_bound}_{upper_bound}");
+        let interned = self.intern_string(name);
         self.make_bitvec_annotated(
-            BitVecOp::BVS(
-                format!("SI{size}_{stride}_{lower_bound}_{upper_bound}"),
-                size,
-            ),
+            BitVecOp::BVS(interned, size),
             BTreeSet::from([Annotation::new(
                 AnnotationType::StridedInterval {
                     stride,
@@ -649,8 +654,10 @@ pub trait AstFactory<'c>: Sized {
     }
 
     fn esi(&'c self, size: u32) -> Result<BitVecAst<'c>, ClarirsError> {
+        let name = format!("ESI{size}");
+        let interned = self.intern_string(name);
         self.make_bitvec_annotated(
-            BitVecOp::BVS(format!("ESI{size}"), size),
+            BitVecOp::BVS(interned, size),
             BTreeSet::from([Annotation::new(
                 AnnotationType::EmptyStridedInterval,
                 false,

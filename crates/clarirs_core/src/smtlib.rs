@@ -4,7 +4,7 @@ use crate::{algorithms::walk_post_order, prelude::*};
 /// have not verified them for correctness.
 fn to_smtlib_bool(ast: &BoolAst, children: &[String]) -> String {
     match ast.op() {
-        BooleanOp::BoolS(s) => s.clone(),
+        BooleanOp::BoolS(s) => s.to_string(),
         BooleanOp::BoolV(b) => b.to_string(),
         BooleanOp::Not(..) => format!("(not {})", children[0]),
         BooleanOp::And(..) => format!("(and {} {})", children[0], children[1]),
@@ -42,7 +42,7 @@ fn to_smtlib_bool(ast: &BoolAst, children: &[String]) -> String {
 
 fn to_smtlib_bv(ast: &BitVecAst, children: &[String]) -> String {
     match ast.op() {
-        BitVecOp::BVS(s, _) => s.clone(),
+        BitVecOp::BVS(s, _) => s.to_string(),
         BitVecOp::BVV(bit_vec) => format!("(_ bv{} {})", bit_vec.to_biguint(), bit_vec.len()),
         BitVecOp::Not(..) => format!("(bvnot {})", children[0]),
         BitVecOp::And(..) => format!("(bvand {} {})", children[0], children[1]),
@@ -97,7 +97,7 @@ fn to_smtlib_bv(ast: &BitVecAst, children: &[String]) -> String {
 
 fn to_smtlib_float(ast: &FloatAst, children: &[String]) -> String {
     match ast.op() {
-        FloatOp::FPS(s, _) => s.clone(),
+        FloatOp::FPS(s, _) => s.to_string(),
         FloatOp::FPV(float) => {
             let sign = if float.sign() { "1" } else { "0" };
             let exp = float.exponent().to_biguint().to_string();
@@ -169,7 +169,7 @@ fn to_smtlib_float(ast: &FloatAst, children: &[String]) -> String {
 
 fn to_smtlib_string(ast: &StringAst, children: &[String]) -> String {
     match ast.op() {
-        StringOp::StringS(s) => s.clone(),
+        StringOp::StringS(s) => s.to_string(),
         StringOp::StringV(s) => format!("\"{}\"", s.replace("\"", "\\\"")),
         StringOp::StrConcat(..) => format!("(str.++ {} {})", children[0], children[1]),
         StringOp::StrSubstr(..) => format!(

@@ -30,7 +30,7 @@ pub trait Op<'c>: Debug + Hash + Serialize + PartialEq {
         false
     }
 
-    fn variables(&self) -> BTreeSet<String>;
+    fn variables(&self) -> BTreeSet<InternedString>;
 
     fn symbolic(&self) -> bool {
         !self.variables().is_empty()
