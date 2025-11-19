@@ -1,13 +1,14 @@
 use crate::prelude::*;
 
 pub fn find_variable<'c>(ast: DynAst<'c>, name: &str) -> Option<DynAst<'c>> {
-    if !ast.variables().contains(name) {
+    let interned = ast.context().intern_string(name);
+    if !ast.variables().contains(&interned) {
         return None;
     }
 
     ast.children()
         .into_iter()
-        .find(|child| child.variables().contains(name))
+        .find(|child| child.variables().contains(&interned))
         .and_then(|child| find_variable(child, name))
         .or(Some(ast))
 }

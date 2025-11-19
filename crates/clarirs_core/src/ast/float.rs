@@ -7,7 +7,7 @@ use crate::prelude::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub enum FloatOp<'c> {
-    FPS(String, FSort),
+    FPS(InternedString, FSort),
     FPV(Float),
     FpNeg(FloatAst<'c>),
     FpAbs(FloatAst<'c>),
@@ -142,7 +142,7 @@ impl<'c> Op<'c> for FloatOp<'c> {
         }
     }
 
-    fn variables(&self) -> BTreeSet<String> {
+    fn variables(&self) -> BTreeSet<InternedString> {
         if let FloatOp::FPS(s, _) = self {
             let mut set = BTreeSet::new();
             set.insert(s.clone());

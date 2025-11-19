@@ -9,7 +9,7 @@ use super::float::FloatExt;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub enum BitVecOp<'c> {
-    BVS(String, u32),
+    BVS(InternedString, u32),
     BVV(BitVec),
     Not(BitVecAst<'c>),
     And(BitVecAst<'c>, BitVecAst<'c>),
@@ -257,7 +257,7 @@ impl<'c> Op<'c> for BitVecOp<'c> {
         .into_iter()
     }
 
-    fn variables(&self) -> BTreeSet<String> {
+    fn variables(&self) -> BTreeSet<InternedString> {
         if let BitVecOp::BVS(s, _) = self {
             let mut set = BTreeSet::new();
             set.insert(s.clone());

@@ -235,7 +235,7 @@ impl Bool {
             self.inner
                 .variables()
                 .iter()
-                .map(|v| v.into_py_any(py))
+                .map(|v| v.as_str().into_py_any(py))
                 .collect::<Result<Vec<_>, _>>()?
                 .iter(),
         )?)

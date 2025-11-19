@@ -7,7 +7,7 @@ pub trait Solver<'c>: Clone + HasContext<'c> {
     fn add(&mut self, constraint: &BoolAst<'c>) -> Result<(), ClarirsError>;
 
     fn constraints(&self) -> Result<Vec<BoolAst<'c>>, ClarirsError>;
-    fn variables(&self) -> Result<BTreeSet<String>, ClarirsError> {
+    fn variables(&self) -> Result<BTreeSet<InternedString>, ClarirsError> {
         Ok(self
             .constraints()?
             .iter()

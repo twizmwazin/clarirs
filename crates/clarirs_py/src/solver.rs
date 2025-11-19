@@ -53,7 +53,12 @@ impl PySolver {
 
     #[getter]
     fn variables(&self) -> Result<BTreeSet<String>, ClaripyError> {
-        Ok(self.inner.variables()?)
+        Ok(self
+            .inner
+            .variables()?
+            .iter()
+            .map(|s| s.to_string())
+            .collect())
     }
 
     fn branch<'py>(&self, py: Python<'py>) -> Result<Bound<'py, PySolver>, ClaripyError> {

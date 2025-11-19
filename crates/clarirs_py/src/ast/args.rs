@@ -13,7 +13,7 @@ impl ExtractPyArgs for BoolAst<'static> {
         py: Python<'py>,
     ) -> Result<Vec<Bound<'py, PyAny>>, ClaripyError> {
         Ok(match self.op() {
-            BooleanOp::BoolS(name) => vec![name.into_bound_py_any(py)?],
+            BooleanOp::BoolS(name) => vec![name.as_str().into_bound_py_any(py)?],
             BooleanOp::BoolV(val) => vec![val.into_bound_py_any(py)?],
             BooleanOp::Not(expr) => vec![Bool::new(py, expr)?.into_any()],
             BooleanOp::And(lhs, rhs)
@@ -72,7 +72,10 @@ impl ExtractPyArgs for BitVecAst<'static> {
     ) -> Result<Vec<Bound<'py, PyAny>>, ClaripyError> {
         Ok(match self.op() {
             BitVecOp::BVS(name, size) => {
-                vec![name.into_bound_py_any(py)?, size.into_bound_py_any(py)?]
+                vec![
+                    name.as_str().into_bound_py_any(py)?,
+                    size.into_bound_py_any(py)?,
+                ]
             }
             BitVecOp::BVV(bit_vec) => vec![
                 bit_vec.to_biguint().into_bound_py_any(py)?,
@@ -137,7 +140,7 @@ impl ExtractPyArgs for FloatAst<'static> {
     ) -> Result<Vec<Bound<'py, PyAny>>, ClaripyError> {
         Ok(match self.op() {
             FloatOp::FPS(name, fsort) => vec![
-                name.into_bound_py_any(py)?,
+                name.as_str().into_bound_py_any(py)?,
                 Bound::new(py, PyFSort::from(fsort))?.into_any(),
             ],
             FloatOp::FPV(value) => vec![value.to_f64().into_bound_py_any(py)?],
@@ -178,7 +181,7 @@ impl ExtractPyArgs for StringAst<'static> {
         py: Python<'py>,
     ) -> Result<Vec<Bound<'py, PyAny>>, ClaripyError> {
         Ok(match self.op() {
-            StringOp::StringS(name) => vec![name.into_bound_py_any(py)?],
+            StringOp::StringS(name) => vec![name.as_str().into_bound_py_any(py)?],
             StringOp::StringV(value) => vec![value.into_bound_py_any(py)?],
             StringOp::StrConcat(lhs, rhs) => vec![
                 PyAstString::new(py, lhs)?.into_any(),

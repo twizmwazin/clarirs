@@ -7,7 +7,7 @@ use crate::prelude::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub enum BooleanOp<'c> {
-    BoolS(String),
+    BoolS(InternedString),
     BoolV(bool),
     Not(BoolAst<'c>),
     And(BoolAst<'c>, BoolAst<'c>),
@@ -268,7 +268,7 @@ impl<'c> Op<'c> for BooleanOp<'c> {
         matches!(self, BooleanOp::BoolV(false))
     }
 
-    fn variables(&self) -> BTreeSet<String> {
+    fn variables(&self) -> BTreeSet<InternedString> {
         if let BooleanOp::BoolS(s) = self {
             let mut set = BTreeSet::new();
             set.insert(s.clone());

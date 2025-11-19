@@ -19,7 +19,7 @@ pub struct AstNode<'c, O: Op<'c>> {
     #[serde(skip)]
     hash: u64,
     #[serde(skip)]
-    variables: BTreeSet<String>,
+    variables: BTreeSet<InternedString>,
     #[serde(skip)]
     depth: u32,
 }
@@ -100,7 +100,7 @@ impl<'c, O: Op<'c> + Serialize + SupportsAnnotate<'c>> AstNode<'c, O> {
         !self.variables.is_empty()
     }
 
-    pub fn variables(&self) -> &BTreeSet<String> {
+    pub fn variables(&self) -> &BTreeSet<InternedString> {
         &self.variables
     }
 }
@@ -122,7 +122,7 @@ impl<'c, O: Op<'c>> Op<'c> for AstNode<'c, O> {
         self.op.is_false()
     }
 
-    fn variables(&self) -> BTreeSet<String> {
+    fn variables(&self) -> BTreeSet<InternedString> {
         self.variables.clone()
     }
 
@@ -196,7 +196,7 @@ impl<'c> Op<'c> for DynAst<'c> {
         }
     }
 
-    fn variables(&self) -> BTreeSet<String> {
+    fn variables(&self) -> BTreeSet<InternedString> {
         match self {
             DynAst::Boolean(ast) => ast.variables(),
             DynAst::BitVec(ast) => ast.variables(),

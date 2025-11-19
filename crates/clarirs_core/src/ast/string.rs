@@ -7,7 +7,7 @@ use crate::prelude::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub enum StringOp<'c> {
-    StringS(String),
+    StringS(InternedString),
     StringV(String),
     StrConcat(StringAst<'c>, StringAst<'c>),
     StrSubstr(StringAst<'c>, BitVecAst<'c>, BitVecAst<'c>),
@@ -78,7 +78,7 @@ impl<'c> Op<'c> for StringOp<'c> {
         .into_iter()
     }
 
-    fn variables(&self) -> BTreeSet<String> {
+    fn variables(&self) -> BTreeSet<InternedString> {
         if let StringOp::StringS(s) = self {
             let mut set = BTreeSet::new();
             set.insert(s.clone());
