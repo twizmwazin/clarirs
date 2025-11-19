@@ -4,8 +4,8 @@ use clarirs_z3_sys as z3;
 use super::AstExtZ3;
 use crate::{Z3_CONTEXT, check_z3_error, rc::RcAst};
 
-pub(crate) fn fprm_to_z3(rm: FPRM) -> z3::Ast {
-    Z3_CONTEXT.with(|&z3_ctx| unsafe {
+pub(crate) fn fprm_to_z3(rm: FPRM) -> RcAst {
+    RcAst(Z3_CONTEXT.with(|&z3_ctx| unsafe {
         match rm {
             FPRM::NearestTiesToEven => z3::mk_fpa_rne(z3_ctx),
             FPRM::TowardPositive => z3::mk_fpa_rtp(z3_ctx),
@@ -13,7 +13,7 @@ pub(crate) fn fprm_to_z3(rm: FPRM) -> z3::Ast {
             FPRM::TowardZero => z3::mk_fpa_rtz(z3_ctx),
             FPRM::NearestTiesToAway => z3::mk_fpa_rna(z3_ctx),
         }
-    })
+    }))
 }
 
 fn fsort_to_z3(sort: FSort) -> z3::Sort {
@@ -42,36 +42,36 @@ pub(crate) fn to_z3(ast: &FloatAst, children: &[RcAst]) -> Result<RcAst, Clarirs
                 let rm_ast = fprm_to_z3(*rm);
                 let a = child!(children, 0);
                 let b = child!(children, 1);
-                z3::mk_fpa_add(z3_ctx, rm_ast, a.0, b.0).into()
+                z3::mk_fpa_add(z3_ctx, *rm_ast, a.0, b.0).into()
             }
             FloatOp::FpSub(_, _, rm) => {
                 let rm_ast = fprm_to_z3(*rm);
                 let a = child!(children, 0);
                 let b = child!(children, 1);
-                z3::mk_fpa_sub(z3_ctx, rm_ast, a.0, b.0).into()
+                z3::mk_fpa_sub(z3_ctx, *rm_ast, a.0, b.0).into()
             }
             FloatOp::FpMul(_, _, rm) => {
                 let rm_ast = fprm_to_z3(*rm);
                 let a = child!(children, 0);
                 let b = child!(children, 1);
-                z3::mk_fpa_mul(z3_ctx, rm_ast, a.0, b.0).into()
+                z3::mk_fpa_mul(z3_ctx, *rm_ast, a.0, b.0).into()
             }
             FloatOp::FpDiv(_, _, rm) => {
                 let rm_ast = fprm_to_z3(*rm);
                 let a = child!(children, 0);
                 let b = child!(children, 1);
-                z3::mk_fpa_div(z3_ctx, rm_ast, a.0, b.0).into()
+                z3::mk_fpa_div(z3_ctx, *rm_ast, a.0, b.0).into()
             }
             FloatOp::FpSqrt(_, rm) => {
                 let rm_ast = fprm_to_z3(*rm);
                 let a = child!(children, 0);
-                z3::mk_fpa_sqrt(z3_ctx, rm_ast, a.0).into()
+                z3::mk_fpa_sqrt(z3_ctx, rm_ast.0, a.0).into()
             }
             FloatOp::FpToFp(_, sort, rm) => {
                 let rm_ast = fprm_to_z3(*rm);
                 let a = child!(children, 0);
                 let z3_sort = fsort_to_z3(*sort);
-                z3::mk_fpa_to_fp_float(z3_ctx, rm_ast, a.0, z3_sort).into()
+                z3::mk_fpa_to_fp_float(z3_ctx, rm_ast.0, a.0, z3_sort).into()
             }
             FloatOp::FpFP(..) => {
                 let sign = child!(children, 0);
@@ -88,13 +88,13 @@ pub(crate) fn to_z3(ast: &FloatAst, children: &[RcAst]) -> Result<RcAst, Clarirs
                 let rm_ast = fprm_to_z3(*rm);
                 let a = child!(children, 0);
                 let z3_sort = fsort_to_z3(*sort);
-                z3::mk_fpa_to_fp_signed(z3_ctx, rm_ast, a.0, z3_sort).into()
+                z3::mk_fpa_to_fp_signed(z3_ctx, rm_ast.0, a.0, z3_sort).into()
             }
             FloatOp::BvToFpUnsigned(_, sort, rm) => {
                 let rm_ast = fprm_to_z3(*rm);
                 let a = child!(children, 0);
                 let z3_sort = fsort_to_z3(*sort);
-                z3::mk_fpa_to_fp_unsigned(z3_ctx, rm_ast, a.0, z3_sort).into()
+                z3::mk_fpa_to_fp_unsigned(z3_ctx, rm_ast.0, a.0, z3_sort).into()
             }
             FloatOp::If(..) => {
                 let cond = child!(children, 0);
