@@ -35,25 +35,27 @@ pub(crate) fn reduce_bv(
         BitVecOp::BVS(_, bits) => {
             // If there is an SI or ESI annotation, use it. Otherwise, return top.
             ast.annotations()
-                .iter()
-                .find_map(|ann| {
-                    if let AnnotationType::StridedInterval {
-                        stride,
-                        lower_bound,
-                        upper_bound,
-                    } = ann.type_()
-                    {
-                        Some(StridedInterval::new(
-                            *bits,
-                            stride.clone(),
-                            lower_bound.clone(),
-                            upper_bound.clone(),
-                        ))
-                    } else if let AnnotationType::EmptyStridedInterval = ann.type_() {
-                        Some(StridedInterval::empty(*bits))
-                    } else {
-                        None
-                    }
+                .as_ref()
+                .and_then(|annots| {
+                    annots.iter().find_map(|ann| {
+                        if let AnnotationType::StridedInterval {
+                            stride,
+                            lower_bound,
+                            upper_bound,
+                        } = ann.type_()
+                        {
+                            Some(StridedInterval::new(
+                                *bits,
+                                stride.clone(),
+                                lower_bound.clone(),
+                                upper_bound.clone(),
+                            ))
+                        } else if let AnnotationType::EmptyStridedInterval = ann.type_() {
+                            Some(StridedInterval::empty(*bits))
+                        } else {
+                            None
+                        }
+                    })
                 })
                 .unwrap_or_else(|| StridedInterval::top(*bits))
         }

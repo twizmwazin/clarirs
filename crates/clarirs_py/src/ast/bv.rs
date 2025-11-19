@@ -238,10 +238,8 @@ impl BV {
         Ok(self
             .inner
             .annotations()
-            .iter()
-            .cloned()
-            .map(PyAnnotation::from)
-            .collect())
+            .map(|annots| annots.iter().cloned().map(PyAnnotation::from).collect())
+            .unwrap_or_default())
     }
 
     pub fn hash(&self) -> u64 {
@@ -482,7 +480,7 @@ impl BV {
         let inner = self
             .inner
             .context()
-            .make_bitvec_annotated(self.inner.op().clone(), new_annotations)?;
+            .make_bitvec_annotated(self.inner.op().clone(), Some(new_annotations))?;
         Self::new(py, &inner)
     }
 
@@ -506,7 +504,7 @@ impl BV {
     ) -> Result<Bound<'py, Self>, ClaripyError> {
         let inner = self.inner.context().make_bitvec_annotated(
             self.inner.op().clone(),
-            annotations.into_iter().map(|a| a.0).collect(),
+            Some(annotations.into_iter().map(|a| a.0).collect()),
         )?;
         Self::new(py, &inner)
     }
@@ -518,12 +516,13 @@ impl BV {
     ) -> Result<Bound<'py, Self>, ClaripyError> {
         let inner = self.inner.context().make_bitvec_annotated(
             self.inner.op().clone(),
-            self.inner
-                .annotations()
-                .iter()
-                .filter(|a| **a != annotation.0)
-                .cloned()
-                .collect(),
+            self.inner.annotations().map(|annots| {
+                annots
+                    .iter()
+                    .filter(|a| **a != annotation.0)
+                    .cloned()
+                    .collect()
+            }),
         )?;
         Self::new(py, &inner)
     }
@@ -536,12 +535,13 @@ impl BV {
         let annotations_set: HashSet<_> = annotations.into_iter().map(|a| a.0).collect();
         let inner = self.inner.context().make_bitvec_annotated(
             self.inner.op().clone(),
-            self.inner
-                .annotations()
-                .iter()
-                .filter(|a| !annotations_set.contains(a))
-                .cloned()
-                .collect(),
+            self.inner.annotations().map(|annots| {
+                annots
+                    .iter()
+                    .filter(|a| !annotations_set.contains(a))
+                    .cloned()
+                    .collect()
+            }),
         )?;
         Self::new(py, &inner)
     }
@@ -561,12 +561,13 @@ impl BV {
     ) -> Result<Bound<'py, Self>, ClaripyError> {
         let inner = self.inner.context().make_bitvec_annotated(
             self.inner.op().clone(),
-            self.inner
-                .annotations()
-                .iter()
-                .filter(|a| !annotation_type.matches(a.type_()))
-                .cloned()
-                .collect(),
+            self.inner.annotations().map(|annots| {
+                annots
+                    .iter()
+                    .filter(|a| !annotation_type.matches(a.type_()))
+                    .cloned()
+                    .collect()
+            }),
         )?;
         Self::new(py, &inner)
     }

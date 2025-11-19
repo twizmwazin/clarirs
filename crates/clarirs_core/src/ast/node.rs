@@ -13,7 +13,7 @@ use crate::{ast::factory_support::SupportsAnnotate, prelude::*};
 #[derive(Clone, Eq, serde::Serialize)]
 pub struct AstNode<'c, O: Op<'c>> {
     op: O,
-    annotations: HashSet<Annotation>,
+    annotations: Option<HashSet<Annotation>>,
     #[serde(skip)]
     ctx: &'c Context<'c>,
     #[serde(skip)]
@@ -64,7 +64,7 @@ impl<'c, O: Op<'c> + Serialize + SupportsAnnotate<'c>> AstNode<'c, O> {
     pub(crate) fn new(
         ctx: &'c Context<'c>,
         op: O,
-        annotations: HashSet<Annotation>,
+        annotations: Option<HashSet<Annotation>>,
         hash: u64,
     ) -> Self {
         let variables = op.variables();
@@ -84,8 +84,8 @@ impl<'c, O: Op<'c> + Serialize + SupportsAnnotate<'c>> AstNode<'c, O> {
         &self.op
     }
 
-    pub fn annotations(&self) -> &HashSet<Annotation> {
-        &self.annotations
+    pub fn annotations(&self) -> Option<&HashSet<Annotation>> {
+        self.annotations.as_ref()
     }
 
     pub fn annotate(self: Arc<Self>, annotation: Annotation) -> Result<Arc<Self>, ClarirsError> {
@@ -142,12 +142,12 @@ pub enum DynAst<'c> {
 }
 
 impl DynAst<'_> {
-    pub fn annotations(&self) -> HashSet<Annotation> {
+    pub fn annotations(&self) -> Option<HashSet<Annotation>> {
         match self {
-            DynAst::Boolean(ast) => ast.annotations().clone(),
-            DynAst::BitVec(ast) => ast.annotations().clone(),
-            DynAst::Float(ast) => ast.annotations().clone(),
-            DynAst::String(ast) => ast.annotations().clone(),
+            DynAst::Boolean(ast) => ast.annotations().cloned(),
+            DynAst::BitVec(ast) => ast.annotations().cloned(),
+            DynAst::Float(ast) => ast.annotations().cloned(),
+            DynAst::String(ast) => ast.annotations().cloned(),
         }
     }
 }

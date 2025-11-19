@@ -40,19 +40,31 @@ impl<'c> AstFactory<'c> for Context<'c> {
     fn make_bool_annotated(
         &'c self,
         op: BooleanOp<'c>,
-        mut annotations: HashSet<Annotation>,
+        annotations: Option<HashSet<Annotation>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        annotations.extend(
-            op.child_iter()
-                .flat_map(|c| c.annotations())
-                .filter(|a| a.relocatable()),
-        );
+        let mut annotations = annotations;
+
+        // Collect relocatable annotations from children
+        let child_annotations: Vec<Annotation> = op
+            .child_iter()
+            .flat_map(|c| c.annotations())
+            .flat_map(|set| set.into_iter())
+            .filter(|a| a.relocatable())
+            .collect();
+
+        if !child_annotations.is_empty() {
+            annotations
+                .get_or_insert_with(HashSet::new)
+                .extend(child_annotations);
+        }
 
         let mut hasher = AHasher::default();
         0u32.hash(&mut hasher); // Domain separation for bools
         op.hash(&mut hasher);
-        for a in &annotations {
-            a.hash(&mut hasher);
+        if let Some(ref annots) = annotations {
+            for a in annots {
+                a.hash(&mut hasher);
+            }
         }
         let hash = hasher.finish();
 
@@ -74,19 +86,31 @@ impl<'c> AstFactory<'c> for Context<'c> {
     fn make_bitvec_annotated(
         &'c self,
         op: BitVecOp<'c>,
-        mut annotations: HashSet<Annotation>,
+        annotations: Option<HashSet<Annotation>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        annotations.extend(
-            op.child_iter()
-                .flat_map(|c| c.annotations())
-                .filter(|a| a.relocatable()),
-        );
+        let mut annotations = annotations;
+
+        // Collect relocatable annotations from children
+        let child_annotations: Vec<Annotation> = op
+            .child_iter()
+            .flat_map(|c| c.annotations())
+            .flat_map(|set| set.into_iter())
+            .filter(|a| a.relocatable())
+            .collect();
+
+        if !child_annotations.is_empty() {
+            annotations
+                .get_or_insert_with(HashSet::new)
+                .extend(child_annotations);
+        }
 
         let mut hasher = AHasher::default();
         1u32.hash(&mut hasher); // Domain separation for bitvecs
         op.hash(&mut hasher);
-        for a in &annotations {
-            a.hash(&mut hasher);
+        if let Some(ref annots) = annotations {
+            for a in annots {
+                a.hash(&mut hasher);
+            }
         }
         let hash = hasher.finish();
 
@@ -108,19 +132,31 @@ impl<'c> AstFactory<'c> for Context<'c> {
     fn make_float_annotated(
         &'c self,
         op: FloatOp<'c>,
-        mut annotations: HashSet<Annotation>,
+        annotations: Option<HashSet<Annotation>>,
     ) -> std::result::Result<FloatAst<'c>, ClarirsError> {
-        annotations.extend(
-            op.child_iter()
-                .flat_map(|c| c.annotations())
-                .filter(|a| a.relocatable()),
-        );
+        let mut annotations = annotations;
+
+        // Collect relocatable annotations from children
+        let child_annotations: Vec<Annotation> = op
+            .child_iter()
+            .flat_map(|c| c.annotations())
+            .flat_map(|set| set.into_iter())
+            .filter(|a| a.relocatable())
+            .collect();
+
+        if !child_annotations.is_empty() {
+            annotations
+                .get_or_insert_with(HashSet::new)
+                .extend(child_annotations);
+        }
 
         let mut hasher = AHasher::default();
         2u32.hash(&mut hasher); // Domain separation for floats
         op.hash(&mut hasher);
-        for a in &annotations {
-            a.hash(&mut hasher);
+        if let Some(ref annots) = annotations {
+            for a in annots {
+                a.hash(&mut hasher);
+            }
         }
         let hash = hasher.finish();
 
@@ -142,19 +178,31 @@ impl<'c> AstFactory<'c> for Context<'c> {
     fn make_string_annotated(
         &'c self,
         op: StringOp<'c>,
-        mut annotations: HashSet<Annotation>,
+        annotations: Option<HashSet<Annotation>>,
     ) -> Result<StringAst<'c>, ClarirsError> {
-        annotations.extend(
-            op.child_iter()
-                .flat_map(|c| c.annotations())
-                .filter(|a| a.relocatable()),
-        );
+        let mut annotations = annotations;
+
+        // Collect relocatable annotations from children
+        let child_annotations: Vec<Annotation> = op
+            .child_iter()
+            .flat_map(|c| c.annotations())
+            .flat_map(|set| set.into_iter())
+            .filter(|a| a.relocatable())
+            .collect();
+
+        if !child_annotations.is_empty() {
+            annotations
+                .get_or_insert_with(HashSet::new)
+                .extend(child_annotations);
+        }
 
         let mut hasher = AHasher::default();
         3u32.hash(&mut hasher); // Domain separation for strings
         op.hash(&mut hasher);
-        for a in &annotations {
-            a.hash(&mut hasher);
+        if let Some(ref annots) = annotations {
+            for a in annots {
+                a.hash(&mut hasher);
+            }
         }
         let hash = hasher.finish();
 

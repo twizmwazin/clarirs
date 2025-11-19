@@ -127,26 +127,32 @@ impl<'c> Simplify<'c> for DynAst<'c> {
             walk_post_order(
                 self.clone(),
                 |node, children| {
-                    if node
-                        .annotations()
-                        .iter()
-                        .any(|a| !a.eliminatable() && !a.relocatable())
-                    {
+                    if node.annotations().as_ref().is_some_and(|annots| {
+                        annots.iter().any(|a| !a.eliminatable() && !a.relocatable())
+                    }) {
                         Ok(node)
                     } else {
-                        let relocatable_annos: HashSet<Annotation> = HashSet::from_iter(
-                            node.annotations()
-                                .iter()
-                                .filter(|a| !a.eliminatable() && a.relocatable())
-                                .cloned(),
-                        );
+                        let relocatable_annos: Vec<Annotation> = node
+                            .annotations()
+                            .as_ref()
+                            .map(|annots| {
+                                annots
+                                    .iter()
+                                    .filter(|a| !a.eliminatable() && a.relocatable())
+                                    .cloned()
+                                    .collect()
+                            })
+                            .unwrap_or_default();
                         match node {
                             DynAst::Boolean(ast) => bool::simplify_bool(&ast, children)
                                 .and_then(|ast| {
                                     // Preserve original annotations and add relocatable ones from parent
-                                    let mut annotations: HashSet<Annotation> =
-                                        ast.annotations().iter().cloned().collect();
-                                    annotations.extend(relocatable_annos);
+                                    let mut annotations = ast.annotations().cloned();
+                                    if !relocatable_annos.is_empty() {
+                                        annotations
+                                            .get_or_insert_with(HashSet::new)
+                                            .extend(relocatable_annos.clone());
+                                    }
                                     ast.context()
                                         .make_bool_annotated(ast.op().clone(), annotations)
                                 })
@@ -154,9 +160,12 @@ impl<'c> Simplify<'c> for DynAst<'c> {
                             DynAst::BitVec(ast) => bv::simplify_bv(&ast, children)
                                 .and_then(|ast| {
                                     // Preserve original annotations and add relocatable ones from parent
-                                    let mut annotations: HashSet<Annotation> =
-                                        ast.annotations().iter().cloned().collect();
-                                    annotations.extend(relocatable_annos);
+                                    let mut annotations = ast.annotations().cloned();
+                                    if !relocatable_annos.is_empty() {
+                                        annotations
+                                            .get_or_insert_with(HashSet::new)
+                                            .extend(relocatable_annos.clone());
+                                    }
                                     ast.context()
                                         .make_bitvec_annotated(ast.op().clone(), annotations)
                                 })
@@ -164,9 +173,12 @@ impl<'c> Simplify<'c> for DynAst<'c> {
                             DynAst::Float(ast) => float::simplify_float(&ast, children)
                                 .and_then(|ast| {
                                     // Preserve original annotations and add relocatable ones from parent
-                                    let mut annotations: HashSet<Annotation> =
-                                        ast.annotations().iter().cloned().collect();
-                                    annotations.extend(relocatable_annos);
+                                    let mut annotations = ast.annotations().cloned();
+                                    if !relocatable_annos.is_empty() {
+                                        annotations
+                                            .get_or_insert_with(HashSet::new)
+                                            .extend(relocatable_annos.clone());
+                                    }
                                     ast.context()
                                         .make_float_annotated(ast.op().clone(), annotations)
                                 })
@@ -174,9 +186,12 @@ impl<'c> Simplify<'c> for DynAst<'c> {
                             DynAst::String(ast) => string::simplify_string(&ast, children)
                                 .and_then(|ast| {
                                     // Preserve original annotations and add relocatable ones from parent
-                                    let mut annotations: HashSet<Annotation> =
-                                        ast.annotations().iter().cloned().collect();
-                                    annotations.extend(relocatable_annos);
+                                    let mut annotations = ast.annotations().cloned();
+                                    if !relocatable_annos.is_empty() {
+                                        annotations
+                                            .get_or_insert_with(HashSet::new)
+                                            .extend(relocatable_annos.clone());
+                                    }
                                     ast.context()
                                         .make_string_annotated(ast.op().clone(), annotations)
                                 })
@@ -190,19 +205,27 @@ impl<'c> Simplify<'c> for DynAst<'c> {
             walk_post_order(
                 self.clone(),
                 |node, children| {
-                    let relocatable_annos: HashSet<Annotation> = HashSet::from_iter(
-                        node.annotations()
-                            .iter()
-                            .filter(|a| !a.eliminatable() && a.relocatable())
-                            .cloned(),
-                    );
+                    let relocatable_annos: Vec<Annotation> = node
+                        .annotations()
+                        .as_ref()
+                        .map(|annots| {
+                            annots
+                                .iter()
+                                .filter(|a| !a.eliminatable() && a.relocatable())
+                                .cloned()
+                                .collect()
+                        })
+                        .unwrap_or_default();
                     match node {
                         DynAst::Boolean(ast) => bool::simplify_bool(&ast, children)
                             .and_then(|ast| {
                                 // Preserve original annotations and add relocatable ones from parent
-                                let mut annotations: HashSet<Annotation> =
-                                    ast.annotations().iter().cloned().collect();
-                                annotations.extend(relocatable_annos);
+                                let mut annotations = ast.annotations().cloned();
+                                if !relocatable_annos.is_empty() {
+                                    annotations
+                                        .get_or_insert_with(HashSet::new)
+                                        .extend(relocatable_annos.clone());
+                                }
                                 ast.context()
                                     .make_bool_annotated(ast.op().clone(), annotations)
                             })
@@ -210,9 +233,12 @@ impl<'c> Simplify<'c> for DynAst<'c> {
                         DynAst::BitVec(ast) => bv::simplify_bv(&ast, children)
                             .and_then(|ast| {
                                 // Preserve original annotations and add relocatable ones from parent
-                                let mut annotations: HashSet<Annotation> =
-                                    ast.annotations().iter().cloned().collect();
-                                annotations.extend(relocatable_annos);
+                                let mut annotations = ast.annotations().cloned();
+                                if !relocatable_annos.is_empty() {
+                                    annotations
+                                        .get_or_insert_with(HashSet::new)
+                                        .extend(relocatable_annos.clone());
+                                }
                                 ast.context()
                                     .make_bitvec_annotated(ast.op().clone(), annotations)
                             })
@@ -220,9 +246,12 @@ impl<'c> Simplify<'c> for DynAst<'c> {
                         DynAst::Float(ast) => float::simplify_float(&ast, children)
                             .and_then(|ast| {
                                 // Preserve original annotations and add relocatable ones from parent
-                                let mut annotations: HashSet<Annotation> =
-                                    ast.annotations().iter().cloned().collect();
-                                annotations.extend(relocatable_annos);
+                                let mut annotations = ast.annotations().cloned();
+                                if !relocatable_annos.is_empty() {
+                                    annotations
+                                        .get_or_insert_with(HashSet::new)
+                                        .extend(relocatable_annos.clone());
+                                }
                                 ast.context()
                                     .make_float_annotated(ast.op().clone(), annotations)
                             })
@@ -230,9 +259,12 @@ impl<'c> Simplify<'c> for DynAst<'c> {
                         DynAst::String(ast) => string::simplify_string(&ast, children)
                             .and_then(|ast| {
                                 // Preserve original annotations and add relocatable ones from parent
-                                let mut annotations: HashSet<Annotation> =
-                                    ast.annotations().iter().cloned().collect();
-                                annotations.extend(relocatable_annos);
+                                let mut annotations = ast.annotations().cloned();
+                                if !relocatable_annos.is_empty() {
+                                    annotations
+                                        .get_or_insert_with(HashSet::new)
+                                        .extend(relocatable_annos.clone());
+                                }
                                 ast.context()
                                     .make_string_annotated(ast.op().clone(), annotations)
                             })

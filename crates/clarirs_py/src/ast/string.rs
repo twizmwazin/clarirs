@@ -148,10 +148,8 @@ impl PyAstString {
         Ok(self
             .inner
             .annotations()
-            .iter()
-            .cloned()
-            .map(PyAnnotation::from)
-            .collect())
+            .map(|annots| annots.iter().cloned().map(PyAnnotation::from).collect())
+            .unwrap_or_default())
     }
 
     pub fn hash(&self) -> u64 {
@@ -308,7 +306,7 @@ impl PyAstString {
         let inner = self
             .inner
             .context()
-            .make_string_annotated(self.inner.op().clone(), new_annotations)?;
+            .make_string_annotated(self.inner.op().clone(), Some(new_annotations))?;
         Self::new(py, &inner)
     }
 
@@ -332,7 +330,7 @@ impl PyAstString {
     ) -> Result<Bound<'py, Self>, ClaripyError> {
         let inner = self.inner.context().make_string_annotated(
             self.inner.op().clone(),
-            annotations.into_iter().map(|a| a.0).collect(),
+            Some(annotations.into_iter().map(|a| a.0).collect()),
         )?;
         Self::new(py, &inner)
     }
@@ -346,10 +344,7 @@ impl PyAstString {
             self.inner.op().clone(),
             self.inner
                 .annotations()
-                .iter()
-                .filter(|a| **a != annotation.0)
-                .cloned()
-                .collect(),
+                .map(|annots| annots.iter().filter(|a| **a != annotation.0).cloned().collect()),
         )?;
         Self::new(py, &inner)
     }
@@ -364,10 +359,7 @@ impl PyAstString {
             self.inner.op().clone(),
             self.inner
                 .annotations()
-                .iter()
-                .filter(|a| !annotations_set.contains(a))
-                .cloned()
-                .collect(),
+                .map(|annots| annots.iter().filter(|a| !annotations_set.contains(a)).cloned().collect()),
         )?;
         Self::new(py, &inner)
     }
@@ -389,10 +381,7 @@ impl PyAstString {
             self.inner.op().clone(),
             self.inner
                 .annotations()
-                .iter()
-                .filter(|a| !annotation_type.matches(a.type_()))
-                .cloned()
-                .collect(),
+                .map(|annots| annots.iter().filter(|a| !annotation_type.matches(a.type_())).cloned().collect()),
         )?;
         Self::new(py, &inner)
     }
