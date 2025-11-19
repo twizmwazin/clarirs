@@ -1,6 +1,6 @@
 use std::ffi::CStr;
 
-use crate::{Z3_CONTEXT, get_z3_error_msg, rc::RcAst};
+use crate::{Z3_CONTEXT, check_z3_error, rc::RcAst};
 use clarirs_core::prelude::*;
 use clarirs_z3_sys as z3;
 
@@ -91,14 +91,8 @@ pub(crate) fn to_z3(ast: &BoolAst, children: &[RcAst]) -> Result<RcAst, ClarirsE
             }
         })
         .and_then(|maybe_null| {
-            if maybe_null.is_null() {
-                Err(ClarirsError::ConversionError(format!(
-                    "Failed to create Z3 for bool AST: {}",
-                    get_z3_error_msg()
-                )))
-            } else {
-                Ok(maybe_null)
-            }
+            check_z3_error()?;
+            Ok(maybe_null)
         })
     })
 }
