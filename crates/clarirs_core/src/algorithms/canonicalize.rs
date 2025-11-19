@@ -67,10 +67,10 @@ pub fn canonicalize<'c>(
     }
 
     // Sort variable names to ensure deterministic ordering
-    let mut var_names: Vec<InternedString> = vars
-        .iter()
-        .flat_map(|v| v.variables().into_iter())
-        .collect();
+    let mut var_names: Vec<InternedString> = Vec::new();
+    for v in &vars {
+        var_names.extend(v.variables().iter().cloned());
+    }
     var_names.sort();
     var_names.dedup();
 

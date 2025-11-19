@@ -8,12 +8,11 @@ pub trait Solver<'c>: Clone + HasContext<'c> {
 
     fn constraints(&self) -> Result<Vec<BoolAst<'c>>, ClarirsError>;
     fn variables(&self) -> Result<BTreeSet<InternedString>, ClarirsError> {
-        Ok(self
-            .constraints()?
-            .iter()
-            .flat_map(|c| c.variables())
-            .cloned()
-            .collect())
+        let mut result = BTreeSet::new();
+        for constraint in self.constraints()? {
+            result.extend(constraint.variables().iter().cloned());
+        }
+        Ok(result)
     }
 
     /// Check if the current set of constraints is satisfiable

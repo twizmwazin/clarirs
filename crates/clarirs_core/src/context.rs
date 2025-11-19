@@ -137,11 +137,19 @@ impl<'c> AstFactory<'c> for Context<'c> {
         op: BooleanOp<'c>,
         mut annotations: BTreeSet<Annotation>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        annotations.extend(
-            op.child_iter()
-                .flat_map(|c| c.annotations())
-                .filter(|a| a.relocatable()),
-        );
+        // Collect child annotations that are relocatable
+        let children: Vec<_> = op.child_iter().collect();
+        for child in &children {
+            let child_annotations = child.annotations();
+            for ann in child_annotations.iter() {
+                if ann.relocatable() {
+                    annotations.insert(ann.clone());
+                }
+            }
+        }
+
+        // Get variables from the op
+        let variables = op.variables();
 
         let mut hasher = AHasher::default();
         0u32.hash(&mut hasher); // Domain separation for bools
@@ -151,13 +159,16 @@ impl<'c> AstFactory<'c> for Context<'c> {
         }
         let hash = hasher.finish();
 
+        let annotations_arc = Arc::new(annotations);
+
         Ok(self
             .ast_cache
             .get_or_insert(hash, || {
                 Ok(DynAst::from(Arc::new(AstNode::new(
                     self,
                     op.clone(),
-                    annotations.clone(),
+                    Arc::clone(&annotations_arc),
+                    variables.clone(),
                     hash,
                 ))))
             })?
@@ -171,11 +182,19 @@ impl<'c> AstFactory<'c> for Context<'c> {
         op: BitVecOp<'c>,
         mut annotations: BTreeSet<Annotation>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        annotations.extend(
-            op.child_iter()
-                .flat_map(|c| c.annotations())
-                .filter(|a| a.relocatable()),
-        );
+        // Collect child annotations that are relocatable
+        let children: Vec<_> = op.child_iter().collect();
+        for child in &children {
+            let child_annotations = child.annotations();
+            for ann in child_annotations.iter() {
+                if ann.relocatable() {
+                    annotations.insert(ann.clone());
+                }
+            }
+        }
+
+        // Get variables from the op
+        let variables = op.variables();
 
         let mut hasher = AHasher::default();
         1u32.hash(&mut hasher); // Domain separation for bitvecs
@@ -185,13 +204,16 @@ impl<'c> AstFactory<'c> for Context<'c> {
         }
         let hash = hasher.finish();
 
+        let annotations_arc = Arc::new(annotations);
+
         Ok(self
             .ast_cache
             .get_or_insert(hash, || {
                 Ok(DynAst::from(Arc::new(AstNode::new(
                     self,
                     op.clone(),
-                    annotations.clone(),
+                    Arc::clone(&annotations_arc),
+                    variables.clone(),
                     hash,
                 ))))
             })?
@@ -205,11 +227,19 @@ impl<'c> AstFactory<'c> for Context<'c> {
         op: FloatOp<'c>,
         mut annotations: BTreeSet<Annotation>,
     ) -> std::result::Result<FloatAst<'c>, ClarirsError> {
-        annotations.extend(
-            op.child_iter()
-                .flat_map(|c| c.annotations())
-                .filter(|a| a.relocatable()),
-        );
+        // Collect child annotations that are relocatable
+        let children: Vec<_> = op.child_iter().collect();
+        for child in &children {
+            let child_annotations = child.annotations();
+            for ann in child_annotations.iter() {
+                if ann.relocatable() {
+                    annotations.insert(ann.clone());
+                }
+            }
+        }
+
+        // Get variables from the op
+        let variables = op.variables();
 
         let mut hasher = AHasher::default();
         2u32.hash(&mut hasher); // Domain separation for floats
@@ -219,13 +249,16 @@ impl<'c> AstFactory<'c> for Context<'c> {
         }
         let hash = hasher.finish();
 
+        let annotations_arc = Arc::new(annotations);
+
         Ok(self
             .ast_cache
             .get_or_insert(hash, || {
                 Ok(DynAst::from(Arc::new(AstNode::new(
                     self,
                     op.clone(),
-                    annotations.clone(),
+                    Arc::clone(&annotations_arc),
+                    variables.clone(),
                     hash,
                 ))))
             })?
@@ -239,11 +272,19 @@ impl<'c> AstFactory<'c> for Context<'c> {
         op: StringOp<'c>,
         mut annotations: BTreeSet<Annotation>,
     ) -> Result<StringAst<'c>, ClarirsError> {
-        annotations.extend(
-            op.child_iter()
-                .flat_map(|c| c.annotations())
-                .filter(|a| a.relocatable()),
-        );
+        // Collect child annotations that are relocatable
+        let children: Vec<_> = op.child_iter().collect();
+        for child in &children {
+            let child_annotations = child.annotations();
+            for ann in child_annotations.iter() {
+                if ann.relocatable() {
+                    annotations.insert(ann.clone());
+                }
+            }
+        }
+
+        // Get variables from the op
+        let variables = op.variables();
 
         let mut hasher = AHasher::default();
         3u32.hash(&mut hasher); // Domain separation for strings
@@ -253,13 +294,16 @@ impl<'c> AstFactory<'c> for Context<'c> {
         }
         let hash = hasher.finish();
 
+        let annotations_arc = Arc::new(annotations);
+
         Ok(self
             .ast_cache
             .get_or_insert(hash, || {
                 Ok(DynAst::from(Arc::new(AstNode::new(
                     self,
                     op.clone(),
-                    annotations.clone(),
+                    Arc::clone(&annotations_arc),
+                    variables.clone(),
                     hash,
                 ))))
             })?

@@ -1,4 +1,5 @@
 use std::collections::BTreeSet;
+use std::sync::Arc;
 use std::vec::IntoIter;
 
 use serde::Serialize;
@@ -78,15 +79,56 @@ impl<'c> Op<'c> for StringOp<'c> {
         .into_iter()
     }
 
-    fn variables(&self) -> BTreeSet<InternedString> {
+    fn variables(&self) -> Arc<BTreeSet<InternedString>> {
         if let StringOp::StringS(s) = self {
             let mut set = BTreeSet::new();
             set.insert(s.clone());
-            set
+            Arc::new(set)
         } else {
-            self.child_iter()
-                .map(|x| x.variables())
-                .fold(BTreeSet::new(), |acc, x| acc.union(&x).cloned().collect())
+            let children: Vec<_> = self.child_iter().collect();
+
+            // If there are no children, return empty set
+            if children.is_empty() {
+                return Arc::new(BTreeSet::new());
+            }
+
+            // If there's only one child, reuse its variables
+            if children.len() == 1 {
+                return children[0].variables();
+            }
+
+            // For multiple children, check if we can reuse one child's set
+            let child_vars: Vec<_> = children.iter().map(|c| c.variables()).collect();
+
+            // Check if all children have the same variables (common case)
+            let first_vars = &child_vars[0];
+            if child_vars.iter().all(|v| Arc::ptr_eq(v, first_vars)) {
+                return Arc::clone(first_vars);
+            }
+
+            // Check if one child's variables is a superset of all others
+            for candidate in &child_vars {
+                let mut is_superset = true;
+                for other in &child_vars {
+                    if Arc::ptr_eq(candidate, other) {
+                        continue;
+                    }
+                    if !other.iter().all(|v| candidate.contains(v)) {
+                        is_superset = false;
+                        break;
+                    }
+                }
+                if is_superset {
+                    return Arc::clone(candidate);
+                }
+            }
+
+            // Need to create a new set - compute union
+            let mut result = BTreeSet::new();
+            for vars in child_vars {
+                result.extend(vars.iter().cloned());
+            }
+            Arc::new(result)
         }
     }
 

@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 use std::fmt::Debug;
 use std::hash::Hash;
+use std::sync::Arc;
 use std::vec::IntoIter;
 
 use serde::Serialize;
@@ -30,7 +31,7 @@ pub trait Op<'c>: Debug + Hash + Serialize + PartialEq {
         false
     }
 
-    fn variables(&self) -> BTreeSet<InternedString>;
+    fn variables(&self) -> Arc<BTreeSet<InternedString>>;
 
     fn symbolic(&self) -> bool {
         !self.variables().is_empty()
