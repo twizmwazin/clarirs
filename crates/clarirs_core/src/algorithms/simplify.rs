@@ -8,7 +8,7 @@ mod test_bool;
 #[cfg(test)]
 mod test_bv;
 
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 use crate::prelude::*;
 
@@ -134,7 +134,7 @@ impl<'c> Simplify<'c> for DynAst<'c> {
                     {
                         Ok(node)
                     } else {
-                        let relocatable_annos: HashSet<Annotation> = HashSet::from_iter(
+                        let relocatable_annos: BTreeSet<Annotation> = BTreeSet::from_iter(
                             node.annotations()
                                 .iter()
                                 .filter(|a| !a.eliminatable() && a.relocatable())
@@ -144,7 +144,7 @@ impl<'c> Simplify<'c> for DynAst<'c> {
                             DynAst::Boolean(ast) => bool::simplify_bool(&ast, children)
                                 .and_then(|ast| {
                                     // Preserve original annotations and add relocatable ones from parent
-                                    let mut annotations: HashSet<Annotation> =
+                                    let mut annotations: BTreeSet<Annotation> =
                                         ast.annotations().iter().cloned().collect();
                                     annotations.extend(relocatable_annos);
                                     ast.context()
@@ -154,7 +154,7 @@ impl<'c> Simplify<'c> for DynAst<'c> {
                             DynAst::BitVec(ast) => bv::simplify_bv(&ast, children)
                                 .and_then(|ast| {
                                     // Preserve original annotations and add relocatable ones from parent
-                                    let mut annotations: HashSet<Annotation> =
+                                    let mut annotations: BTreeSet<Annotation> =
                                         ast.annotations().iter().cloned().collect();
                                     annotations.extend(relocatable_annos);
                                     ast.context()
@@ -164,7 +164,7 @@ impl<'c> Simplify<'c> for DynAst<'c> {
                             DynAst::Float(ast) => float::simplify_float(&ast, children)
                                 .and_then(|ast| {
                                     // Preserve original annotations and add relocatable ones from parent
-                                    let mut annotations: HashSet<Annotation> =
+                                    let mut annotations: BTreeSet<Annotation> =
                                         ast.annotations().iter().cloned().collect();
                                     annotations.extend(relocatable_annos);
                                     ast.context()
@@ -174,7 +174,7 @@ impl<'c> Simplify<'c> for DynAst<'c> {
                             DynAst::String(ast) => string::simplify_string(&ast, children)
                                 .and_then(|ast| {
                                     // Preserve original annotations and add relocatable ones from parent
-                                    let mut annotations: HashSet<Annotation> =
+                                    let mut annotations: BTreeSet<Annotation> =
                                         ast.annotations().iter().cloned().collect();
                                     annotations.extend(relocatable_annos);
                                     ast.context()
@@ -190,7 +190,7 @@ impl<'c> Simplify<'c> for DynAst<'c> {
             walk_post_order(
                 self.clone(),
                 |node, children| {
-                    let relocatable_annos: HashSet<Annotation> = HashSet::from_iter(
+                    let relocatable_annos: BTreeSet<Annotation> = BTreeSet::from_iter(
                         node.annotations()
                             .iter()
                             .filter(|a| !a.eliminatable() && a.relocatable())
@@ -200,7 +200,7 @@ impl<'c> Simplify<'c> for DynAst<'c> {
                         DynAst::Boolean(ast) => bool::simplify_bool(&ast, children)
                             .and_then(|ast| {
                                 // Preserve original annotations and add relocatable ones from parent
-                                let mut annotations: HashSet<Annotation> =
+                                let mut annotations: BTreeSet<Annotation> =
                                     ast.annotations().iter().cloned().collect();
                                 annotations.extend(relocatable_annos);
                                 ast.context()
@@ -210,7 +210,7 @@ impl<'c> Simplify<'c> for DynAst<'c> {
                         DynAst::BitVec(ast) => bv::simplify_bv(&ast, children)
                             .and_then(|ast| {
                                 // Preserve original annotations and add relocatable ones from parent
-                                let mut annotations: HashSet<Annotation> =
+                                let mut annotations: BTreeSet<Annotation> =
                                     ast.annotations().iter().cloned().collect();
                                 annotations.extend(relocatable_annos);
                                 ast.context()
@@ -220,7 +220,7 @@ impl<'c> Simplify<'c> for DynAst<'c> {
                         DynAst::Float(ast) => float::simplify_float(&ast, children)
                             .and_then(|ast| {
                                 // Preserve original annotations and add relocatable ones from parent
-                                let mut annotations: HashSet<Annotation> =
+                                let mut annotations: BTreeSet<Annotation> =
                                     ast.annotations().iter().cloned().collect();
                                 annotations.extend(relocatable_annos);
                                 ast.context()
@@ -230,7 +230,7 @@ impl<'c> Simplify<'c> for DynAst<'c> {
                         DynAst::String(ast) => string::simplify_string(&ast, children)
                             .and_then(|ast| {
                                 // Preserve original annotations and add relocatable ones from parent
-                                let mut annotations: HashSet<Annotation> =
+                                let mut annotations: BTreeSet<Annotation> =
                                     ast.annotations().iter().cloned().collect();
                                 annotations.extend(relocatable_annos);
                                 ast.context()

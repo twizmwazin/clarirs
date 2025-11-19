@@ -3,7 +3,7 @@ use serde::Serialize;
 
 /// This struct is a sort of hack to allow us to access data in python
 /// annotations, while supporting unknown annotations.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 pub enum AnnotationType {
     Unknown {
         name: String,
@@ -23,7 +23,7 @@ pub enum AnnotationType {
     Uninitialized,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 pub struct Annotation {
     type_: AnnotationType,
     eliminatable: bool,

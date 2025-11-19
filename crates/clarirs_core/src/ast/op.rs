@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::vec::IntoIter;
@@ -30,7 +30,7 @@ pub trait Op<'c>: Debug + Hash + Serialize + PartialEq {
         false
     }
 
-    fn variables(&self) -> HashSet<String>;
+    fn variables(&self) -> BTreeSet<String>;
 
     fn symbolic(&self) -> bool {
         !self.variables().is_empty()

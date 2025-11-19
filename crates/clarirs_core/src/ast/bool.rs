@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 use std::vec::IntoIter;
 
 use serde::Serialize;
@@ -268,15 +268,15 @@ impl<'c> Op<'c> for BooleanOp<'c> {
         matches!(self, BooleanOp::BoolV(false))
     }
 
-    fn variables(&self) -> HashSet<String> {
+    fn variables(&self) -> BTreeSet<String> {
         if let BooleanOp::BoolS(s) = self {
-            let mut set = HashSet::new();
+            let mut set = BTreeSet::new();
             set.insert(s.clone());
             set
         } else {
             self.child_iter()
                 .map(|x| x.variables())
-                .fold(HashSet::new(), |acc, x| acc.union(&x).cloned().collect())
+                .fold(BTreeSet::new(), |acc, x| acc.union(&x).cloned().collect())
         }
     }
 
