@@ -176,6 +176,12 @@ pub(crate) fn from_z3<'c>(
                             ctx.fpv(Float::F64(val))
                         }
                     }
+                    z3::DeclKind::FpaNan => {
+                        if fsort == FSort::f32() {
+                            return ctx.fpv(Float::F32(f32::NAN));
+                        }
+                        ctx.fpv(Float::F64(f64::NAN))
+                    }
                     z3::DeclKind::Uninterpreted => {
                         let sym = z3::get_decl_name(*z3_ctx, decl);
                         let name = z3::get_symbol_string(*z3_ctx, sym);
