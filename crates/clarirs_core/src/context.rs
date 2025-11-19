@@ -1,6 +1,6 @@
 use ahash::AHasher;
 use std::{
-    collections::HashSet,
+    collections::BTreeSet,
     fmt::Debug,
     hash::{Hash, Hasher},
     sync::Arc,
@@ -40,7 +40,7 @@ impl<'c> AstFactory<'c> for Context<'c> {
     fn make_bool_annotated(
         &'c self,
         op: BooleanOp<'c>,
-        mut annotations: HashSet<Annotation>,
+        mut annotations: BTreeSet<Annotation>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
         annotations.extend(
             op.child_iter()
@@ -74,7 +74,7 @@ impl<'c> AstFactory<'c> for Context<'c> {
     fn make_bitvec_annotated(
         &'c self,
         op: BitVecOp<'c>,
-        mut annotations: HashSet<Annotation>,
+        mut annotations: BTreeSet<Annotation>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
         annotations.extend(
             op.child_iter()
@@ -108,7 +108,7 @@ impl<'c> AstFactory<'c> for Context<'c> {
     fn make_float_annotated(
         &'c self,
         op: FloatOp<'c>,
-        mut annotations: HashSet<Annotation>,
+        mut annotations: BTreeSet<Annotation>,
     ) -> std::result::Result<FloatAst<'c>, ClarirsError> {
         annotations.extend(
             op.child_iter()
@@ -142,7 +142,7 @@ impl<'c> AstFactory<'c> for Context<'c> {
     fn make_string_annotated(
         &'c self,
         op: StringOp<'c>,
-        mut annotations: HashSet<Annotation>,
+        mut annotations: BTreeSet<Annotation>,
     ) -> Result<StringAst<'c>, ClarirsError> {
         annotations.extend(
             op.child_iter()

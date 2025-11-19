@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 use nonempty::NonEmpty;
 use num_bigint::BigUint;
@@ -12,40 +12,40 @@ pub trait AstFactory<'c>: Sized {
     fn make_bool_annotated(
         &'c self,
         op: BooleanOp<'c>,
-        annotations: HashSet<Annotation>,
+        annotations: BTreeSet<Annotation>,
     ) -> Result<BoolAst<'c>, ClarirsError>;
     fn make_bitvec_annotated(
         &'c self,
         op: BitVecOp<'c>,
-        annotations: HashSet<Annotation>,
+        annotations: BTreeSet<Annotation>,
     ) -> Result<BitVecAst<'c>, ClarirsError>;
     fn make_float_annotated(
         &'c self,
         op: FloatOp<'c>,
-        annotations: HashSet<Annotation>,
+        annotations: BTreeSet<Annotation>,
     ) -> Result<FloatAst<'c>, ClarirsError>;
     fn make_string_annotated(
         &'c self,
         op: StringOp<'c>,
-        annotations: HashSet<Annotation>,
+        annotations: BTreeSet<Annotation>,
     ) -> Result<StringAst<'c>, ClarirsError>;
 
     // Provided methods
 
     fn make_bool(&'c self, op: BooleanOp<'c>) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool_annotated(op, HashSet::new())
+        self.make_bool_annotated(op, BTreeSet::new())
     }
 
     fn make_bitvec(&'c self, op: BitVecOp<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec_annotated(op, HashSet::new())
+        self.make_bitvec_annotated(op, BTreeSet::new())
     }
 
     fn make_float(&'c self, op: FloatOp<'c>) -> Result<FloatAst<'c>, ClarirsError> {
-        self.make_float_annotated(op, HashSet::new())
+        self.make_float_annotated(op, BTreeSet::new())
     }
 
     fn make_string(&'c self, op: StringOp<'c>) -> Result<StringAst<'c>, ClarirsError> {
-        self.make_string_annotated(op, HashSet::new())
+        self.make_string_annotated(op, BTreeSet::new())
     }
 
     fn bools<S: Into<String>>(&'c self, name: S) -> Result<BoolAst<'c>, ClarirsError> {
@@ -636,7 +636,7 @@ pub trait AstFactory<'c>: Sized {
                 format!("SI{size}_{stride}_{lower_bound}_{upper_bound}"),
                 size,
             ),
-            HashSet::from([Annotation::new(
+            BTreeSet::from([Annotation::new(
                 AnnotationType::StridedInterval {
                     stride,
                     lower_bound,
@@ -651,7 +651,7 @@ pub trait AstFactory<'c>: Sized {
     fn esi(&'c self, size: u32) -> Result<BitVecAst<'c>, ClarirsError> {
         self.make_bitvec_annotated(
             BitVecOp::BVS(format!("ESI{size}"), size),
-            HashSet::from([Annotation::new(
+            BTreeSet::from([Annotation::new(
                 AnnotationType::EmptyStridedInterval,
                 false,
                 false,

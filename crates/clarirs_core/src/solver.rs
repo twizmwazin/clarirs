@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 use crate::prelude::*;
 
@@ -7,7 +7,7 @@ pub trait Solver<'c>: Clone + HasContext<'c> {
     fn add(&mut self, constraint: &BoolAst<'c>) -> Result<(), ClarirsError>;
 
     fn constraints(&self) -> Result<Vec<BoolAst<'c>>, ClarirsError>;
-    fn variables(&self) -> Result<HashSet<String>, ClarirsError> {
+    fn variables(&self) -> Result<BTreeSet<String>, ClarirsError> {
         Ok(self
             .constraints()?
             .iter()

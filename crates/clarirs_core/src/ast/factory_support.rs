@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 use crate::prelude::*;
 
@@ -103,7 +103,7 @@ impl<'c> SupportsAnnotate<'c> for BooleanOp<'c> {
         annotation: Annotation,
     ) -> Result<AstRef<'c, Self>, ClarirsError> {
         ast.context()
-            .make_bool_annotated(ast.op().clone(), HashSet::from([annotation]))
+            .make_bool_annotated(ast.op().clone(), BTreeSet::from([annotation]))
     }
 }
 
@@ -113,7 +113,7 @@ impl<'c> SupportsAnnotate<'c> for BitVecOp<'c> {
         annotation: Annotation,
     ) -> Result<AstRef<'c, Self>, ClarirsError> {
         ast.context()
-            .make_bitvec_annotated(ast.op().clone(), HashSet::from([annotation]))
+            .make_bitvec_annotated(ast.op().clone(), BTreeSet::from([annotation]))
     }
 }
 
@@ -123,7 +123,7 @@ impl<'c> SupportsAnnotate<'c> for FloatOp<'c> {
         annotation: Annotation,
     ) -> Result<AstRef<'c, Self>, ClarirsError> {
         ast.context()
-            .make_float_annotated(ast.op().clone(), HashSet::from([annotation]))
+            .make_float_annotated(ast.op().clone(), BTreeSet::from([annotation]))
     }
 }
 
@@ -133,7 +133,7 @@ impl<'c> SupportsAnnotate<'c> for StringOp<'c> {
         annotation: Annotation,
     ) -> Result<AstRef<'c, Self>, ClarirsError> {
         ast.context()
-            .make_string_annotated(ast.op().clone(), HashSet::from([annotation]))
+            .make_string_annotated(ast.op().clone(), BTreeSet::from([annotation]))
     }
 }
 

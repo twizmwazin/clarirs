@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::BTreeSet,
     fmt::Debug,
     hash::{Hash, Hasher},
     sync::Arc,
@@ -13,13 +13,13 @@ use crate::{ast::factory_support::SupportsAnnotate, prelude::*};
 #[derive(Clone, Eq, serde::Serialize)]
 pub struct AstNode<'c, O: Op<'c>> {
     op: O,
-    annotations: HashSet<Annotation>,
+    annotations: BTreeSet<Annotation>,
     #[serde(skip)]
     ctx: &'c Context<'c>,
     #[serde(skip)]
     hash: u64,
     #[serde(skip)]
-    variables: HashSet<String>,
+    variables: BTreeSet<String>,
     #[serde(skip)]
     depth: u32,
 }
@@ -64,7 +64,7 @@ impl<'c, O: Op<'c> + Serialize + SupportsAnnotate<'c>> AstNode<'c, O> {
     pub(crate) fn new(
         ctx: &'c Context<'c>,
         op: O,
-        annotations: HashSet<Annotation>,
+        annotations: BTreeSet<Annotation>,
         hash: u64,
     ) -> Self {
         let variables = op.variables();
@@ -84,7 +84,7 @@ impl<'c, O: Op<'c> + Serialize + SupportsAnnotate<'c>> AstNode<'c, O> {
         &self.op
     }
 
-    pub fn annotations(&self) -> &HashSet<Annotation> {
+    pub fn annotations(&self) -> &BTreeSet<Annotation> {
         &self.annotations
     }
 
@@ -100,7 +100,7 @@ impl<'c, O: Op<'c> + Serialize + SupportsAnnotate<'c>> AstNode<'c, O> {
         !self.variables.is_empty()
     }
 
-    pub fn variables(&self) -> &HashSet<String> {
+    pub fn variables(&self) -> &BTreeSet<String> {
         &self.variables
     }
 }
@@ -122,7 +122,7 @@ impl<'c, O: Op<'c>> Op<'c> for AstNode<'c, O> {
         self.op.is_false()
     }
 
-    fn variables(&self) -> HashSet<String> {
+    fn variables(&self) -> BTreeSet<String> {
         self.variables.clone()
     }
 
@@ -142,7 +142,7 @@ pub enum DynAst<'c> {
 }
 
 impl DynAst<'_> {
-    pub fn annotations(&self) -> HashSet<Annotation> {
+    pub fn annotations(&self) -> BTreeSet<Annotation> {
         match self {
             DynAst::Boolean(ast) => ast.annotations().clone(),
             DynAst::BitVec(ast) => ast.annotations().clone(),
@@ -196,7 +196,7 @@ impl<'c> Op<'c> for DynAst<'c> {
         }
     }
 
-    fn variables(&self) -> HashSet<String> {
+    fn variables(&self) -> BTreeSet<String> {
         match self {
             DynAst::Boolean(ast) => ast.variables(),
             DynAst::BitVec(ast) => ast.variables(),

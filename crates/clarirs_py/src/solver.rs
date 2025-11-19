@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 use crate::{dynsolver::DynSolver, prelude::*};
 use clarirs_core::ast::bitvec::BitVecOpExt;
@@ -52,7 +52,7 @@ impl PySolver {
     }
 
     #[getter]
-    fn variables(&self) -> Result<HashSet<String>, ClaripyError> {
+    fn variables(&self) -> Result<BTreeSet<String>, ClaripyError> {
         Ok(self.inner.variables()?)
     }
 

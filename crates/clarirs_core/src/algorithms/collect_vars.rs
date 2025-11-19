@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 
 use crate::prelude::*;
 
@@ -7,7 +7,7 @@ use super::dfs::{DfsResult, walk_dfs};
 #[allow(clippy::mutable_key_type)]
 pub fn collect_vars<'c>(ast: &DynAst<'c>) -> Result<HashSet<DynAst<'c>>, ClarirsError> {
     let mut vars: HashSet<DynAst<'c>> = HashSet::new();
-    let mut interesting: HashSet<String> = ast.variables();
+    let mut interesting: BTreeSet<String> = ast.variables();
 
     walk_dfs(ast, |node| {
         if interesting.is_empty() {

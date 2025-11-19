@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap};
 use std::iter::once;
 use std::sync::LazyLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -533,7 +533,7 @@ impl BV {
         py: Python<'py>,
         annotations: Vec<PyAnnotation>,
     ) -> Result<Bound<'py, Self>, ClaripyError> {
-        let annotations_set: HashSet<_> = annotations.into_iter().map(|a| a.0).collect();
+        let annotations_set: BTreeSet<_> = annotations.into_iter().map(|a| a.0).collect();
         let inner = self.inner.context().make_bitvec_annotated(
             self.inner.op().clone(),
             self.inner
