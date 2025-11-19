@@ -1,4 +1,4 @@
-use crate::{Z3_CONTEXT, get_z3_error_msg, rc::RcAst};
+use crate::{Z3_CONTEXT, check_z3_error, rc::RcAst};
 use clarirs_core::prelude::*;
 use clarirs_z3_sys::{self as z3};
 use regex::Regex;
@@ -74,14 +74,8 @@ pub(crate) fn to_z3(ast: &StringAst, children: &[RcAst]) -> Result<RcAst, Clarir
             }
         })
         .and_then(|maybe_null| {
-            if maybe_null.is_null() {
-                Err(ClarirsError::ConversionError(format!(
-                    "Failed to create Z3 for string AST: {}",
-                    get_z3_error_msg()
-                )))
-            } else {
-                Ok(maybe_null)
-            }
+            check_z3_error()?;
+            Ok(maybe_null)
         })
     })
 }

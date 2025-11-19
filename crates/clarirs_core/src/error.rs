@@ -29,6 +29,8 @@ pub enum ClarirsError {
     Unsat,
     #[error("Empty traversal result")]
     EmptyTraversal,
+    #[error("Backend error ({0}): {1}")]
+    BackendError(&'static str, String),
 }
 
 impl<T> From<PoisonError<T>> for ClarirsError {
