@@ -7,7 +7,7 @@ use super::dfs::{DfsResult, walk_dfs};
 #[allow(clippy::mutable_key_type)]
 pub fn collect_vars<'c>(ast: &DynAst<'c>) -> Result<HashSet<DynAst<'c>>, ClarirsError> {
     let mut vars: HashSet<DynAst<'c>> = HashSet::new();
-    let mut interesting: BTreeSet<InternedString> = ast.variables();
+    let mut interesting: BTreeSet<InternedString> = (*ast.variables()).clone();
 
     walk_dfs(ast, |node| {
         if interesting.is_empty() {
@@ -20,11 +20,9 @@ pub fn collect_vars<'c>(ast: &DynAst<'c>) -> Result<HashSet<DynAst<'c>>, Clarirs
             return DfsResult::SkipChildren;
         }
 
-        let intersect: Vec<InternedString> = node
-            .variables()
-            .intersection(&interesting)
-            .cloned()
-            .collect();
+        let node_vars = node.variables();
+        let intersect: Vec<InternedString> =
+            node_vars.intersection(&interesting).cloned().collect();
 
         match intersect.len() {
             0 => DfsResult::SkipChildren,

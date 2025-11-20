@@ -1,5 +1,3 @@
-use std::collections::BTreeSet;
-
 use crate::prelude::*;
 
 macro_rules! uniop_support_trait {
@@ -102,8 +100,10 @@ impl<'c> SupportsAnnotate<'c> for BooleanOp<'c> {
         ast: &AstRef<'c, Self>,
         annotation: Annotation,
     ) -> Result<AstRef<'c, Self>, ClarirsError> {
+        let mut new_annotations = (**ast.annotations()).clone();
+        new_annotations.insert(annotation);
         ast.context()
-            .make_bool_annotated(ast.op().clone(), BTreeSet::from([annotation]))
+            .make_bool_annotated(ast.op().clone(), new_annotations)
     }
 }
 
@@ -112,8 +112,10 @@ impl<'c> SupportsAnnotate<'c> for BitVecOp<'c> {
         ast: &AstRef<'c, Self>,
         annotation: Annotation,
     ) -> Result<AstRef<'c, Self>, ClarirsError> {
+        let mut new_annotations = (**ast.annotations()).clone();
+        new_annotations.insert(annotation);
         ast.context()
-            .make_bitvec_annotated(ast.op().clone(), BTreeSet::from([annotation]))
+            .make_bitvec_annotated(ast.op().clone(), new_annotations)
     }
 }
 
@@ -122,8 +124,10 @@ impl<'c> SupportsAnnotate<'c> for FloatOp<'c> {
         ast: &AstRef<'c, Self>,
         annotation: Annotation,
     ) -> Result<AstRef<'c, Self>, ClarirsError> {
+        let mut new_annotations = (**ast.annotations()).clone();
+        new_annotations.insert(annotation);
         ast.context()
-            .make_float_annotated(ast.op().clone(), BTreeSet::from([annotation]))
+            .make_float_annotated(ast.op().clone(), new_annotations)
     }
 }
 
@@ -132,8 +136,10 @@ impl<'c> SupportsAnnotate<'c> for StringOp<'c> {
         ast: &AstRef<'c, Self>,
         annotation: Annotation,
     ) -> Result<AstRef<'c, Self>, ClarirsError> {
+        let mut new_annotations = (**ast.annotations()).clone();
+        new_annotations.insert(annotation);
         ast.context()
-            .make_string_annotated(ast.op().clone(), BTreeSet::from([annotation]))
+            .make_string_annotated(ast.op().clone(), new_annotations)
     }
 }
 

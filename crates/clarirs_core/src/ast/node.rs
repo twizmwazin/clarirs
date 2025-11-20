@@ -13,13 +13,13 @@ use crate::{ast::factory_support::SupportsAnnotate, prelude::*};
 #[derive(Clone, Eq, serde::Serialize)]
 pub struct AstNode<'c, O: Op<'c>> {
     op: O,
-    annotations: BTreeSet<Annotation>,
+    annotations: Arc<BTreeSet<Annotation>>,
     #[serde(skip)]
     ctx: &'c Context<'c>,
     #[serde(skip)]
     hash: u64,
     #[serde(skip)]
-    variables: BTreeSet<InternedString>,
+    variables: Arc<BTreeSet<InternedString>>,
     #[serde(skip)]
     depth: u32,
 }
@@ -47,7 +47,7 @@ where
     O: Op<'c> + Serialize,
 {
     fn eq(&self, other: &Self) -> bool {
-        self.op == other.op && self.annotations == other.annotations
+        self.op == other.op && *self.annotations == *other.annotations
     }
 }
 
@@ -64,10 +64,10 @@ impl<'c, O: Op<'c> + Serialize + SupportsAnnotate<'c>> AstNode<'c, O> {
     pub(crate) fn new(
         ctx: &'c Context<'c>,
         op: O,
-        annotations: BTreeSet<Annotation>,
+        annotations: Arc<BTreeSet<Annotation>>,
+        variables: Arc<BTreeSet<InternedString>>,
         hash: u64,
     ) -> Self {
-        let variables = op.variables();
         let depth = op.depth();
 
         Self {
@@ -84,7 +84,7 @@ impl<'c, O: Op<'c> + Serialize + SupportsAnnotate<'c>> AstNode<'c, O> {
         &self.op
     }
 
-    pub fn annotations(&self) -> &BTreeSet<Annotation> {
+    pub fn annotations(&self) -> &Arc<BTreeSet<Annotation>> {
         &self.annotations
     }
 
@@ -100,7 +100,7 @@ impl<'c, O: Op<'c> + Serialize + SupportsAnnotate<'c>> AstNode<'c, O> {
         !self.variables.is_empty()
     }
 
-    pub fn variables(&self) -> &BTreeSet<InternedString> {
+    pub fn variables(&self) -> &Arc<BTreeSet<InternedString>> {
         &self.variables
     }
 }
@@ -122,8 +122,8 @@ impl<'c, O: Op<'c>> Op<'c> for AstNode<'c, O> {
         self.op.is_false()
     }
 
-    fn variables(&self) -> BTreeSet<InternedString> {
-        self.variables.clone()
+    fn variables(&self) -> Arc<BTreeSet<InternedString>> {
+        Arc::clone(&self.variables)
     }
 
     fn check_same_sort(&self, other: &Self) -> bool {
@@ -142,12 +142,12 @@ pub enum DynAst<'c> {
 }
 
 impl DynAst<'_> {
-    pub fn annotations(&self) -> BTreeSet<Annotation> {
+    pub fn annotations(&self) -> Arc<BTreeSet<Annotation>> {
         match self {
-            DynAst::Boolean(ast) => ast.annotations().clone(),
-            DynAst::BitVec(ast) => ast.annotations().clone(),
-            DynAst::Float(ast) => ast.annotations().clone(),
-            DynAst::String(ast) => ast.annotations().clone(),
+            DynAst::Boolean(ast) => Arc::clone(ast.annotations()),
+            DynAst::BitVec(ast) => Arc::clone(ast.annotations()),
+            DynAst::Float(ast) => Arc::clone(ast.annotations()),
+            DynAst::String(ast) => Arc::clone(ast.annotations()),
         }
     }
 }
@@ -196,14 +196,13 @@ impl<'c> Op<'c> for DynAst<'c> {
         }
     }
 
-    fn variables(&self) -> BTreeSet<InternedString> {
+    fn variables(&self) -> Arc<BTreeSet<InternedString>> {
         match self {
-            DynAst::Boolean(ast) => ast.variables(),
-            DynAst::BitVec(ast) => ast.variables(),
-            DynAst::Float(ast) => ast.variables(),
-            DynAst::String(ast) => ast.variables(),
+            DynAst::Boolean(ast) => Arc::clone(ast.variables()),
+            DynAst::BitVec(ast) => Arc::clone(ast.variables()),
+            DynAst::Float(ast) => Arc::clone(ast.variables()),
+            DynAst::String(ast) => Arc::clone(ast.variables()),
         }
-        .clone()
     }
 
     fn check_same_sort(&self, other: &Self) -> bool {
