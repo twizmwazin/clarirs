@@ -188,11 +188,7 @@ impl BV {
         };
 
         let inner_with_annotations = if let Some(annots) = annotations {
-            let mut result = inner;
-            for annot in annots {
-                result = GLOBAL_CONTEXT.annotate(&result, annot.0)?;
-            }
-            result
+            GLOBAL_CONTEXT.annotate(&inner, annots.into_iter().map(|a| a.0))?
         } else {
             inner
         };
@@ -441,10 +437,13 @@ impl BV {
         py: Python<'py>,
         annotation: PyAnnotation,
     ) -> Result<Bound<'py, Self>, ClaripyError> {
-        Self::new(
-            py,
-            &GLOBAL_CONTEXT.annotate(&self.inner, annotation.0.clone())?,
-        )
+        let new_annotations = self
+            .inner
+            .annotations()
+            .iter()
+            .cloned()
+            .chain([annotation.0.clone()]);
+        Self::new(py, &GLOBAL_CONTEXT.annotate(&self.inner, new_annotations)?)
     }
 
     pub fn append_annotations<'py>(
@@ -452,11 +451,13 @@ impl BV {
         py: Python<'py>,
         annotations: Vec<PyAnnotation>,
     ) -> Result<Bound<'py, Self>, ClaripyError> {
-        let mut inner = self.inner.clone();
-        for annotation in annotations {
-            inner = GLOBAL_CONTEXT.annotate(&inner, annotation.0)?;
-        }
-        Self::new(py, &inner)
+        let new_annotations = self
+            .inner
+            .annotations()
+            .iter()
+            .cloned()
+            .chain(annotations.into_iter().map(|a| a.0));
+        Self::new(py, &GLOBAL_CONTEXT.annotate(&self.inner, new_annotations)?)
     }
 
     #[pyo3(signature = (*annotations, remove_annotations = None))]
@@ -491,11 +492,10 @@ impl BV {
         py: Python<'py>,
         annotations: Vec<PyAnnotation>,
     ) -> Result<Bound<'py, Self>, ClaripyError> {
-        let mut inner = self.inner.clone();
-        for annotation in annotations {
-            inner = GLOBAL_CONTEXT.annotate(&inner, annotation.0)?;
-        }
-        Self::new(py, &inner)
+        Self::new(
+            py,
+            &GLOBAL_CONTEXT.annotate(&self.inner, annotations.into_iter().map(|a| a.0))?,
+        )
     }
 
     /// This actually just removes all annotations and adds the new ones.
@@ -1520,14 +1520,14 @@ pub fn VS<'py>(
         py,
         &GLOBAL_CONTEXT.annotate(
             &value.get().inner,
-            Annotation::new(
+            [Annotation::new(
                 AnnotationType::Region {
                     region_id,
                     region_base_addr,
                 },
                 false,
                 false,
-            ),
+            )],
         )?,
     )
 }
