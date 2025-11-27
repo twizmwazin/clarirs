@@ -88,8 +88,11 @@ impl<'c, O: Op<'c> + Serialize + SupportsAnnotate<'c>> AstNode<'c, O> {
         &self.annotations
     }
 
-    pub fn annotate(self: Arc<Self>, annotation: Annotation) -> Result<Arc<Self>, ClarirsError> {
-        self.context().annotate(&self, annotation)
+    pub fn annotate(
+        self: Arc<Self>,
+        annotations: impl IntoIterator<Item = Annotation>,
+    ) -> Result<Arc<Self>, ClarirsError> {
+        self.context().annotate(&self, annotations)
     }
 
     pub fn hash(&self) -> u64 {

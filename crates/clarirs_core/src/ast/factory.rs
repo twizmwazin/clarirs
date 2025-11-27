@@ -623,9 +623,9 @@ pub trait AstFactory<'c>: Sized {
     fn annotate<Op: SupportsAnnotate<'c>>(
         &'c self,
         ast: &AstRef<'c, Op>,
-        annotation: Annotation,
+        annotations: impl IntoIterator<Item = Annotation>,
     ) -> Result<AstRef<'c, Op>, ClarirsError> {
-        Op::annotate(ast, annotation)
+        Op::annotate(ast, annotations)
     }
 
     // VSA methods

@@ -1,5 +1,3 @@
-use std::collections::BTreeSet;
-
 use crate::prelude::*;
 
 macro_rules! uniop_support_trait {
@@ -93,47 +91,47 @@ impl_supports_if!(
 pub trait SupportsAnnotate<'c>: Op<'c> + Sized {
     fn annotate(
         ast: &AstRef<'c, Self>,
-        annotation: Annotation,
+        annotations: impl IntoIterator<Item = Annotation>,
     ) -> Result<AstRef<'c, Self>, ClarirsError>;
 }
 
 impl<'c> SupportsAnnotate<'c> for BooleanOp<'c> {
     fn annotate(
         ast: &AstRef<'c, Self>,
-        annotation: Annotation,
+        annotations: impl IntoIterator<Item = Annotation>,
     ) -> Result<AstRef<'c, Self>, ClarirsError> {
         ast.context()
-            .make_bool_annotated(ast.op().clone(), BTreeSet::from([annotation]))
+            .make_bool_annotated(ast.op().clone(), annotations.into_iter().collect())
     }
 }
 
 impl<'c> SupportsAnnotate<'c> for BitVecOp<'c> {
     fn annotate(
         ast: &AstRef<'c, Self>,
-        annotation: Annotation,
+        annotations: impl IntoIterator<Item = Annotation>,
     ) -> Result<AstRef<'c, Self>, ClarirsError> {
         ast.context()
-            .make_bitvec_annotated(ast.op().clone(), BTreeSet::from([annotation]))
+            .make_bitvec_annotated(ast.op().clone(), annotations.into_iter().collect())
     }
 }
 
 impl<'c> SupportsAnnotate<'c> for FloatOp<'c> {
     fn annotate(
         ast: &AstRef<'c, Self>,
-        annotation: Annotation,
+        annotations: impl IntoIterator<Item = Annotation>,
     ) -> Result<AstRef<'c, Self>, ClarirsError> {
         ast.context()
-            .make_float_annotated(ast.op().clone(), BTreeSet::from([annotation]))
+            .make_float_annotated(ast.op().clone(), annotations.into_iter().collect())
     }
 }
 
 impl<'c> SupportsAnnotate<'c> for StringOp<'c> {
     fn annotate(
         ast: &AstRef<'c, Self>,
-        annotation: Annotation,
+        annotations: impl IntoIterator<Item = Annotation>,
     ) -> Result<AstRef<'c, Self>, ClarirsError> {
         ast.context()
-            .make_string_annotated(ast.op().clone(), BTreeSet::from([annotation]))
+            .make_string_annotated(ast.op().clone(), annotations.into_iter().collect())
     }
 }
 
