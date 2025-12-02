@@ -22,7 +22,6 @@ fn extract_bitvec_child<'c>(
         .ok_or(ClarirsError::InvalidArguments)
 }
 
-
 /// Trait for excavating if-then-else expressions to the top level of an AST.
 ///
 /// This transformation takes an AST containing nested ITE expressions and returns

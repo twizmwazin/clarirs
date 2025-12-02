@@ -43,40 +43,28 @@ pub(crate) fn simplify_float<'c>(
             }
         }
         FloatOp::FpAdd(_, _, fprm) => {
-            let (arc, arc1) = (
-                state.get_fp_child(0)?,
-                state.get_fp_child(1)?,
-            );
+            let (arc, arc1) = (state.get_fp_child(0)?, state.get_fp_child(1)?);
             match (arc.op(), arc1.op()) {
                 (FloatOp::FPV(float1), FloatOp::FPV(float2)) => ctx.fpv(*float1 + *float2),
                 _ => ctx.fp_add(&arc, &arc1, *fprm),
             }
         }
         FloatOp::FpSub(_, _, fprm) => {
-            let (arc, arc1) = (
-                state.get_fp_child(0)?,
-                state.get_fp_child(1)?,
-            );
+            let (arc, arc1) = (state.get_fp_child(0)?, state.get_fp_child(1)?);
             match (arc.op(), arc1.op()) {
                 (FloatOp::FPV(float1), FloatOp::FPV(float2)) => ctx.fpv(*float1 - *float2),
                 _ => ctx.fp_sub(&arc, &arc1, *fprm),
             }
         }
         FloatOp::FpMul(_, _, fprm) => {
-            let (arc, arc1) = (
-                state.get_fp_child(0)?,
-                state.get_fp_child(1)?,
-            );
+            let (arc, arc1) = (state.get_fp_child(0)?, state.get_fp_child(1)?);
             match (arc.op(), arc1.op()) {
                 (FloatOp::FPV(float1), FloatOp::FPV(float2)) => ctx.fpv(*float1 * *float2),
                 _ => ctx.fp_mul(&arc, &arc1, *fprm),
             }
         }
         FloatOp::FpDiv(_, _, fprm) => {
-            let (arc, arc1) = (
-                state.get_fp_child(0)?,
-                state.get_fp_child(1)?,
-            );
+            let (arc, arc1) = (state.get_fp_child(0)?, state.get_fp_child(1)?);
             match (arc.op(), arc1.op()) {
                 (FloatOp::FPV(float1), FloatOp::FPV(float2)) => ctx.fpv(*float1 / *float2),
                 _ => ctx.fp_div(&arc, &arc1, *fprm),
