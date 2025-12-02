@@ -1,33 +1,24 @@
-use crate::{
-    algorithms::simplify::{
-        extract_bitvec_child, extract_bool_child, extract_float_child, extract_string_child,
-    },
-    prelude::*,
-};
+use crate::prelude::*;
 
 pub(crate) fn simplify_bool<'c>(
-    ast: &BoolAst<'c>,
-    children: &[DynAst<'c>],
+    state: &mut super::SimplifyState<'c>,
 ) -> Result<BoolAst<'c>, ClarirsError> {
-    let ctx = ast.context();
+    let ctx = state.expr.context();
+    let bool_ast = state.expr.clone().into_bool().unwrap();
 
-    match &ast.op() {
-        BooleanOp::BoolS(name) => ctx.bools(name.clone()),
-        BooleanOp::BoolV(value) => ctx.boolv(*value),
+    match &bool_ast.op() {
+        BooleanOp::BoolS(_) | BooleanOp::BoolV(_) => Ok(bool_ast),
         BooleanOp::Not(..) => {
-            let arc = extract_bool_child(children, 0)?;
+            let arc = state.get_bool_child(0)?;
 
             match arc.op() {
                 BooleanOp::Not(arc) => Ok(arc.clone()),
                 BooleanOp::BoolV(v) => ctx.boolv(!v),
-                _ => ctx.not(&arc),
+                _ => Ok(ctx.not(&arc)?),
             }
         }
         BooleanOp::And(..) => {
-            let (arc, arc1) = (
-                extract_bool_child(children, 0)?,
-                extract_bool_child(children, 1)?,
-            );
+            let (arc, arc1) = (state.get_bool_child(0)?, state.get_bool_child(1)?);
 
             match (arc.op(), arc1.op()) {
                 (BooleanOp::BoolV(lhs), BooleanOp::BoolV(rhs)) => ctx.boolv(*lhs && *rhs),
@@ -39,15 +30,12 @@ pub(crate) fn simplify_bool<'c>(
                 (BooleanOp::Not(lhs), rhs) if lhs.op() == rhs => ctx.false_(),
                 (lhs, BooleanOp::Not(rhs)) if lhs == rhs.op() => ctx.false_(),
                 (BooleanOp::Not(lhs), BooleanOp::Not(rhs)) => ctx.not(&ctx.or(lhs, rhs)?),
-                _ if arc == arc1 => Ok(arc),
+                _ if arc == arc1 => Ok(arc.clone()),
                 _ => ctx.and(&arc, &arc1),
             }
         }
         BooleanOp::Or(..) => {
-            let (arc, arc1) = (
-                extract_bool_child(children, 0)?,
-                extract_bool_child(children, 1)?,
-            );
+            let (arc, arc1) = (state.get_bool_child(0)?, state.get_bool_child(1)?);
 
             match (arc.op(), arc1.op()) {
                 (BooleanOp::BoolV(lhs), BooleanOp::BoolV(rhs)) => ctx.boolv(*lhs || *rhs),
@@ -58,15 +46,12 @@ pub(crate) fn simplify_bool<'c>(
                 (BooleanOp::Not(lhs), rhs) if lhs.op() == rhs => ctx.true_(),
                 (lhs, BooleanOp::Not(rhs)) if lhs == rhs.op() => ctx.true_(),
                 (BooleanOp::Not(lhs), BooleanOp::Not(rhs)) => ctx.not(&ctx.and(lhs, rhs)?),
-                _ if arc == arc1 => Ok(arc),
+                _ if arc == arc1 => Ok(arc.clone()),
                 _ => ctx.or(&arc, &arc1),
             }
         }
         BooleanOp::Xor(..) => {
-            let (arc, arc1) = (
-                extract_bool_child(children, 0)?,
-                extract_bool_child(children, 1)?,
-            );
+            let (arc, arc1) = (state.get_bool_child(0)?, state.get_bool_child(1)?);
 
             match (arc.op(), arc1.op()) {
                 (BooleanOp::BoolV(lhs), BooleanOp::BoolV(rhs)) => ctx.boolv(*lhs ^ *rhs),
@@ -85,10 +70,7 @@ pub(crate) fn simplify_bool<'c>(
             }
         }
         BooleanOp::BoolEq(..) => {
-            let (arc, arc1) = (
-                extract_bool_child(children, 0)?,
-                extract_bool_child(children, 1)?,
-            );
+            let (arc, arc1) = (state.get_bool_child(0)?, state.get_bool_child(1)?);
             match (arc.op(), arc1.op()) {
                 (BooleanOp::BoolV(arc), BooleanOp::BoolV(arc1)) => ctx.boolv(arc == arc1),
                 (BooleanOp::BoolV(true), v) | (v, BooleanOp::BoolV(true)) => {
@@ -102,10 +84,7 @@ pub(crate) fn simplify_bool<'c>(
             }
         }
         BooleanOp::BoolNeq(..) => {
-            let (arc, arc1) = (
-                extract_bool_child(children, 0)?,
-                extract_bool_child(children, 1)?,
-            );
+            let (arc, arc1) = (state.get_bool_child(0)?, state.get_bool_child(1)?);
             match (arc.op(), arc1.op()) {
                 (BooleanOp::BoolV(arc), BooleanOp::BoolV(arc1)) => ctx.boolv(arc != arc1),
                 (BooleanOp::BoolV(true), v) | (v, BooleanOp::BoolV(true)) => {
@@ -119,10 +98,7 @@ pub(crate) fn simplify_bool<'c>(
             }
         }
         BooleanOp::Eq(..) => {
-            let (arc, arc1) = (
-                extract_bitvec_child(children, 0)?,
-                extract_bitvec_child(children, 1)?,
-            );
+            let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => ctx.true_(),
                 (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => ctx.boolv(arc == arc1),
@@ -179,10 +155,7 @@ pub(crate) fn simplify_bool<'c>(
             }
         }
         BooleanOp::Neq(..) => {
-            let (arc, arc1) = (
-                extract_bitvec_child(children, 0)?,
-                extract_bitvec_child(children, 1)?,
-            );
+            let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => ctx.boolv(arc != arc1),
                 (lhs, rhs) if lhs == rhs => ctx.false_(),
@@ -241,10 +214,7 @@ pub(crate) fn simplify_bool<'c>(
             }
         }
         BooleanOp::ULT(..) => {
-            let (arc, arc1) = (
-                extract_bitvec_child(children, 0)?,
-                extract_bitvec_child(children, 1)?,
-            );
+            let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => ctx.false_(),
                 (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => ctx.boolv(arc < arc1),
@@ -252,10 +222,7 @@ pub(crate) fn simplify_bool<'c>(
             }
         }
         BooleanOp::ULE(..) => {
-            let (arc, arc1) = (
-                extract_bitvec_child(children, 0)?,
-                extract_bitvec_child(children, 1)?,
-            );
+            let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => ctx.true_(),
                 (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => ctx.boolv(arc <= arc1),
@@ -263,10 +230,7 @@ pub(crate) fn simplify_bool<'c>(
             }
         }
         BooleanOp::UGT(..) => {
-            let (arc, arc1) = (
-                extract_bitvec_child(children, 0)?,
-                extract_bitvec_child(children, 1)?,
-            );
+            let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => ctx.false_(),
                 (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => ctx.boolv(arc > arc1),
@@ -274,10 +238,7 @@ pub(crate) fn simplify_bool<'c>(
             }
         }
         BooleanOp::UGE(..) => {
-            let (arc, arc1) = (
-                extract_bitvec_child(children, 0)?,
-                extract_bitvec_child(children, 1)?,
-            );
+            let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => ctx.true_(),
                 (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => ctx.boolv(arc >= arc1),
@@ -285,10 +246,7 @@ pub(crate) fn simplify_bool<'c>(
             }
         }
         BooleanOp::SLT(..) => {
-            let (arc, arc1) = (
-                extract_bitvec_child(children, 0)?,
-                extract_bitvec_child(children, 1)?,
-            );
+            let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => ctx.false_(),
                 (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => ctx.boolv(arc.signed_lt(arc1)),
@@ -296,10 +254,7 @@ pub(crate) fn simplify_bool<'c>(
             }
         }
         BooleanOp::SLE(..) => {
-            let (arc, arc1) = (
-                extract_bitvec_child(children, 0)?,
-                extract_bitvec_child(children, 1)?,
-            );
+            let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => ctx.true_(),
                 (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => ctx.boolv(arc.signed_le(arc1)),
@@ -307,10 +262,7 @@ pub(crate) fn simplify_bool<'c>(
             }
         }
         BooleanOp::SGT(..) => {
-            let (arc, arc1) = (
-                extract_bitvec_child(children, 0)?,
-                extract_bitvec_child(children, 1)?,
-            );
+            let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => ctx.false_(),
                 (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => ctx.boolv(arc.signed_gt(arc1)),
@@ -318,10 +270,7 @@ pub(crate) fn simplify_bool<'c>(
             }
         }
         BooleanOp::SGE(..) => {
-            let (arc, arc1) = (
-                extract_bitvec_child(children, 0)?,
-                extract_bitvec_child(children, 1)?,
-            );
+            let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => ctx.true_(),
                 (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => ctx.boolv(arc.signed_ge(arc1)),
@@ -329,84 +278,63 @@ pub(crate) fn simplify_bool<'c>(
             }
         }
         BooleanOp::FpEq(..) => {
-            let (arc, arc1) = (
-                extract_float_child(children, 0)?,
-                extract_float_child(children, 1)?,
-            );
+            let (arc, arc1) = (state.get_fp_child(0)?, state.get_fp_child(1)?);
             match (arc.op(), arc1.op()) {
                 (FloatOp::FPV(arc), FloatOp::FPV(arc1)) => ctx.boolv(arc.compare_fp(arc1)),
                 _ => ctx.fp_eq(&arc, &arc1),
             }
         }
         BooleanOp::FpNeq(..) => {
-            let (arc, arc1) = (
-                extract_float_child(children, 0)?,
-                extract_float_child(children, 1)?,
-            );
+            let (arc, arc1) = (state.get_fp_child(0)?, state.get_fp_child(1)?);
             match (arc.op(), arc1.op()) {
                 (FloatOp::FPV(arc), FloatOp::FPV(arc1)) => ctx.boolv(!arc.compare_fp(arc1)),
                 _ => ctx.fp_neq(&arc, &arc1),
             }
         }
         BooleanOp::FpLt(..) => {
-            let (arc, arc1) = (
-                extract_float_child(children, 0)?,
-                extract_float_child(children, 1)?,
-            );
+            let (arc, arc1) = (state.get_fp_child(0)?, state.get_fp_child(1)?);
             match (arc.op(), arc1.op()) {
                 (FloatOp::FPV(arc), FloatOp::FPV(arc1)) => ctx.boolv(arc.lt(arc1)),
                 _ => ctx.fp_lt(&arc, &arc1),
             }
         }
         BooleanOp::FpLeq(..) => {
-            let (arc, arc1) = (
-                extract_float_child(children, 0)?,
-                extract_float_child(children, 1)?,
-            );
+            let (arc, arc1) = (state.get_fp_child(0)?, state.get_fp_child(1)?);
             match (arc.op(), arc1.op()) {
                 (FloatOp::FPV(arc), FloatOp::FPV(arc1)) => ctx.boolv(arc.leq(arc1)),
                 _ => ctx.fp_leq(&arc, &arc1),
             }
         }
         BooleanOp::FpGt(..) => {
-            let (arc, arc1) = (
-                extract_float_child(children, 0)?,
-                extract_float_child(children, 1)?,
-            );
+            let (arc, arc1) = (state.get_fp_child(0)?, state.get_fp_child(1)?);
             match (arc.op(), arc1.op()) {
                 (FloatOp::FPV(arc), FloatOp::FPV(arc1)) => ctx.boolv(arc.gt(arc1)),
                 _ => ctx.fp_gt(&arc, &arc1),
             }
         }
         BooleanOp::FpGeq(..) => {
-            let (arc, arc1) = (
-                extract_float_child(children, 0)?,
-                extract_float_child(children, 1)?,
-            );
+            let (arc, arc1) = (state.get_fp_child(0)?, state.get_fp_child(1)?);
             match (arc.op(), arc1.op()) {
                 (FloatOp::FPV(arc), FloatOp::FPV(arc1)) => ctx.boolv(arc.geq(arc1)),
                 _ => ctx.fp_geq(&arc, &arc1),
             }
         }
         BooleanOp::FpIsNan(..) => {
-            let arc = extract_float_child(children, 0)?;
+            let arc = state.get_fp_child(0)?;
             match arc.op() {
                 FloatOp::FPV(arc) => ctx.boolv(arc.is_nan()),
                 _ => ctx.fp_is_nan(&arc),
             }
         }
         BooleanOp::FpIsInf(..) => {
-            let arc = extract_float_child(children, 0)?;
+            let arc = state.get_fp_child(0)?;
             match arc.op() {
                 FloatOp::FPV(arc) => ctx.boolv(arc.is_infinity()),
                 _ => ctx.fp_is_inf(&arc),
             }
         }
         BooleanOp::StrContains(..) => {
-            let (arc, arc1) = (
-                extract_string_child(children, 0)?,
-                extract_string_child(children, 1)?,
-            );
+            let (arc, arc1) = (state.get_string_child(0)?, state.get_string_child(1)?);
             match (arc.op(), arc1.op()) {
                 // Check if `input_string` contains `substring`
                 (StringOp::StringV(input_string), StringOp::StringV(substring)) => {
@@ -416,10 +344,7 @@ pub(crate) fn simplify_bool<'c>(
             }
         }
         BooleanOp::StrPrefixOf(..) => {
-            let (arc, arc1) = (
-                extract_string_child(children, 0)?,
-                extract_string_child(children, 1)?,
-            );
+            let (arc, arc1) = (state.get_string_child(0)?, state.get_string_child(1)?);
             match (arc.op(), arc1.op()) {
                 // Check if `input_string` starts with `prefix substring`
                 (StringOp::StringV(prefix), StringOp::StringV(input_string)) => {
@@ -429,10 +354,7 @@ pub(crate) fn simplify_bool<'c>(
             }
         }
         BooleanOp::StrSuffixOf(..) => {
-            let (arc, arc1) = (
-                extract_string_child(children, 0)?,
-                extract_string_child(children, 1)?,
-            );
+            let (arc, arc1) = (state.get_string_child(0)?, state.get_string_child(1)?);
             match (arc.op(), arc1.op()) {
                 // Check if `input_string` ends with `suffix substring`
                 (StringOp::StringV(suffix), StringOp::StringV(input_string)) => {
@@ -442,7 +364,7 @@ pub(crate) fn simplify_bool<'c>(
             }
         }
         BooleanOp::StrIsDigit(..) => {
-            let arc = extract_string_child(children, 0)?;
+            let arc = state.get_string_child(0)?;
             match arc.op() {
                 StringOp::StringV(input_string) => {
                     if input_string.is_empty() {
@@ -455,20 +377,14 @@ pub(crate) fn simplify_bool<'c>(
             }
         }
         BooleanOp::StrEq(..) => {
-            let (arc, arc1) = (
-                extract_string_child(children, 0)?,
-                extract_string_child(children, 1)?,
-            );
+            let (arc, arc1) = (state.get_string_child(0)?, state.get_string_child(1)?);
             match (arc.op(), arc1.op()) {
                 (StringOp::StringV(str1), StringOp::StringV(str2)) => ctx.boolv(str1 == str2),
                 _ => ctx.streq(&arc, &arc1),
             }
         }
         BooleanOp::StrNeq(..) => {
-            let (arc, arc1) = (
-                extract_string_child(children, 0)?,
-                extract_string_child(children, 1)?,
-            );
+            let (arc, arc1) = (state.get_string_child(0)?, state.get_string_child(1)?);
             match (arc.op(), arc1.op()) {
                 (StringOp::StringV(str1), StringOp::StringV(str2)) => ctx.boolv(str1 != str2),
                 _ => ctx.strneq(&arc, &arc1),
@@ -477,9 +393,9 @@ pub(crate) fn simplify_bool<'c>(
 
         BooleanOp::If(..) => {
             let (cond, then_, else_) = (
-                extract_bool_child(children, 0)?,
-                extract_bool_child(children, 1)?,
-                extract_bool_child(children, 2)?,
+                state.get_bool_child(0)?,
+                state.get_bool_child(1)?,
+                state.get_bool_child(2)?,
             );
 
             match (cond.op(), then_.op(), else_.op()) {

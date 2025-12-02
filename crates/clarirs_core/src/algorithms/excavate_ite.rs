@@ -2,6 +2,27 @@ use crate::prelude::*;
 
 use super::walk_post_order;
 
+fn extract_bool_child<'c>(
+    children: &[DynAst<'c>],
+    index: usize,
+) -> Result<BoolAst<'c>, ClarirsError> {
+    children
+        .get(index)
+        .and_then(|child| child.clone().into_bool())
+        .ok_or(ClarirsError::InvalidArguments)
+}
+
+fn extract_bitvec_child<'c>(
+    children: &[DynAst<'c>],
+    index: usize,
+) -> Result<BitVecAst<'c>, ClarirsError> {
+    children
+        .get(index)
+        .and_then(|child| child.clone().into_bitvec())
+        .ok_or(ClarirsError::InvalidArguments)
+}
+
+
 /// Trait for excavating if-then-else expressions to the top level of an AST.
 ///
 /// This transformation takes an AST containing nested ITE expressions and returns

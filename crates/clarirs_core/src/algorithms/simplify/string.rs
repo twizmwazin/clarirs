@@ -1,22 +1,15 @@
-use crate::{
-    algorithms::simplify::{extract_bitvec_child, extract_bool_child, extract_string_child},
-    prelude::*,
-};
+use crate::prelude::*;
 
 pub(crate) fn simplify_string<'c>(
-    ast: &StringAst<'c>,
-    children: &[DynAst<'c>],
+    state: &mut super::SimplifyState<'c>,
 ) -> Result<StringAst<'c>, ClarirsError> {
-    let ctx = ast.context();
+    let ctx = state.expr.context();
+    let string_expr = state.expr.clone().into_string().unwrap();
 
-    match &ast.op() {
-        StringOp::StringS(name) => ctx.strings(name.clone()),
-        StringOp::StringV(value) => ctx.stringv(value.clone()),
+    match &string_expr.op() {
+        StringOp::StringS(_) | StringOp::StringV(_) => Ok(string_expr),
         StringOp::StrConcat(..) => {
-            let (arc, arc1) = (
-                extract_string_child(children, 0)?,
-                extract_string_child(children, 1)?,
-            );
+            let (arc, arc1) = (state.get_string_child(0)?, state.get_string_child(1)?);
             match (arc.op(), arc1.op()) {
                 (StringOp::StringV(str1), StringOp::StringV(str2)) => {
                     let concatenated = format!("{str1}{str2}");
@@ -27,9 +20,9 @@ pub(crate) fn simplify_string<'c>(
         }
         StringOp::StrSubstr(..) => {
             let (arc, arc1, arc2) = (
-                extract_string_child(children, 0)?,
-                extract_bitvec_child(children, 1)?,
-                extract_bitvec_child(children, 2)?,
+                state.get_string_child(0)?,
+                state.get_bv_child(1)?,
+                state.get_bv_child(2)?,
             );
             match (arc.op(), arc1.op(), arc2.op()) {
                 (StringOp::StringV(s), BitVecOp::BVV(start_bv), BitVecOp::BVV(length_bv)) => {
@@ -56,9 +49,9 @@ pub(crate) fn simplify_string<'c>(
         }
         StringOp::StrReplace(..) => {
             let (arc, arc1, arc2) = (
-                extract_string_child(children, 0)?,
-                extract_string_child(children, 1)?,
-                extract_string_child(children, 2)?,
+                state.get_string_child(0)?,
+                state.get_string_child(1)?,
+                state.get_string_child(2)?,
             );
             match (arc.op(), arc1.op(), arc2.op()) {
                 (
@@ -76,7 +69,7 @@ pub(crate) fn simplify_string<'c>(
             }
         }
         StringOp::BVToStr(..) => {
-            let arc = extract_bitvec_child(children, 0)?;
+            let arc = state.get_bv_child(0)?;
             match arc.op() {
                 BitVecOp::BVV(value) => {
                     // Convert the BitVec value to an integer, then to a string
@@ -90,9 +83,9 @@ pub(crate) fn simplify_string<'c>(
         }
         StringOp::If(..) => {
             let (if_, then_, else_) = (
-                extract_bool_child(children, 0)?,
-                extract_string_child(children, 1)?,
-                extract_string_child(children, 2)?,
+                state.get_bool_child(0)?,
+                state.get_string_child(1)?,
+                state.get_string_child(2)?,
             );
 
             // If both branches are identical, return either one

@@ -1,7 +1,5 @@
-use crate::{
-    algorithms::simplify::{extract_bitvec_child, extract_bool_child},
-    prelude::*,
-};
+use super::{extract_bitvec_child, extract_bool_child};
+use crate::prelude::*;
 
 pub(crate) fn excavate_ite<'c>(
     ast: &BoolAst<'c>,
