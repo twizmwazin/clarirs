@@ -31,6 +31,8 @@ pub enum ClarirsError {
     EmptyTraversal,
     #[error("Backend error ({0}): {1}")]
     BackendError(&'static str, String),
+    #[error("Missing child at index {0}")]
+    MissingChild(usize),
 }
 
 impl<T> From<PoisonError<T>> for ClarirsError {

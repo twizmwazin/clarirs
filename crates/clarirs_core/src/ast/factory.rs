@@ -628,6 +628,31 @@ pub trait AstFactory<'c>: Sized {
         Op::annotate(ast, annotations)
     }
 
+    fn annotate_dyn(
+        &'c self,
+        ast: &DynAst<'c>,
+        annotations: Vec<Annotation>,
+    ) -> Result<DynAst<'c>, ClarirsError> {
+        match ast {
+            DynAst::Boolean(b) => {
+                let annotated = self.annotate(b, annotations.clone())?;
+                Ok(DynAst::Boolean(annotated))
+            }
+            DynAst::BitVec(bv) => {
+                let annotated = self.annotate(bv, annotations.clone())?;
+                Ok(DynAst::BitVec(annotated))
+            }
+            DynAst::Float(f) => {
+                let annotated = self.annotate(f, annotations.clone())?;
+                Ok(DynAst::Float(annotated))
+            }
+            DynAst::String(s) => {
+                let annotated = self.annotate(s, annotations.clone())?;
+                Ok(DynAst::String(annotated))
+            }
+        }
+    }
+
     // VSA methods
 
     fn si(
