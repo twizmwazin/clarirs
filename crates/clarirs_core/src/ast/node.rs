@@ -29,6 +29,15 @@ pub struct AstNode<'c, O: Op<'c>> {
     depth: u32,
 }
 
+impl<'c, O> Drop for AstNode<'c, O>
+where
+    O: Op<'c>,
+{
+    fn drop(&mut self) {
+        self.ctx.drop_cache(self.hash);
+    }
+}
+
 impl<'c, O> Debug for AstNode<'c, O>
 where
     O: Op<'c>,
