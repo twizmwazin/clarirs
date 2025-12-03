@@ -3,12 +3,17 @@ use std::{
     fmt::Debug,
     hash::{Hash, Hasher},
     sync::Arc,
-    vec::IntoIter,
 };
 
 use serde::Serialize;
 
-use crate::{ast::factory_support::SupportsAnnotate, prelude::*};
+use crate::{
+    ast::{
+        bitvec::BitVecOpChildIter, bool::BooleanOpChildIter, factory_support::SupportsAnnotate,
+        float::FloatOpChildIter, string::StringOpChildIter,
+    },
+    prelude::*,
+};
 
 #[derive(Clone, Eq, serde::Serialize)]
 pub struct AstNode<'c, O: Op<'c>> {
@@ -109,8 +114,14 @@ impl<'c, O: Op<'c> + Serialize + SupportsAnnotate<'c>> AstNode<'c, O> {
 }
 
 impl<'c, O: Op<'c>> Op<'c> for AstNode<'c, O> {
-    fn child_iter(&self) -> IntoIter<DynAst<'c>> {
+    type ChildIter<'a> = O::ChildIter<'a> where Self: 'a;
+
+    fn child_iter(&self) -> Self::ChildIter<'_> {
         self.op.child_iter()
+    }
+
+    fn get_child(&self, index: usize) -> Option<DynAst<'c>> {
+        self.op.get_child(index)
     }
 
     fn depth(&self) -> u32 {
@@ -144,6 +155,46 @@ pub enum DynAst<'c> {
     String(StringAst<'c>),
 }
 
+pub enum DynAstChildIter<'a, 'c> {
+    Boolean(BooleanOpChildIter<'a, 'c>),
+    BitVec(BitVecOpChildIter<'a, 'c>),
+    Float(FloatOpChildIter<'a, 'c>),
+    String(StringOpChildIter<'a, 'c>),
+}
+
+impl<'a, 'c> Iterator for DynAstChildIter<'a, 'c> {
+    type Item = DynAst<'c>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Boolean(iter) => iter.next(),
+            Self::BitVec(iter) => iter.next(),
+            Self::Float(iter) => iter.next(),
+            Self::String(iter) => iter.next(),
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            Self::Boolean(iter) => iter.size_hint(),
+            Self::BitVec(iter) => iter.size_hint(),
+            Self::Float(iter) => iter.size_hint(),
+            Self::String(iter) => iter.size_hint(),
+        }
+    }
+}
+
+impl<'a, 'c> ExactSizeIterator for DynAstChildIter<'a, 'c> {
+    fn len(&self) -> usize {
+        match self {
+            DynAstChildIter::Boolean(iter) => iter.len(),
+            DynAstChildIter::BitVec(iter) => iter.len(),
+            DynAstChildIter::Float(iter) => iter.len(),
+            DynAstChildIter::String(iter) => iter.len(),
+        }
+    }
+}
+
 impl DynAst<'_> {
     pub fn annotations(&self) -> BTreeSet<Annotation> {
         match self {
@@ -167,12 +218,23 @@ impl<'c> HasContext<'c> for DynAst<'c> {
 }
 
 impl<'c> Op<'c> for DynAst<'c> {
-    fn child_iter(&self) -> IntoIter<DynAst<'c>> {
+    type ChildIter<'a> = DynAstChildIter<'a, 'c> where Self: 'a;
+
+    fn child_iter(&self) -> Self::ChildIter<'_> {
         match self {
-            DynAst::Boolean(ast) => ast.child_iter(),
-            DynAst::BitVec(ast) => ast.child_iter(),
-            DynAst::Float(ast) => ast.child_iter(),
-            DynAst::String(ast) => ast.child_iter(),
+            DynAst::Boolean(ast) => DynAstChildIter::Boolean(ast.op().child_iter()),
+            DynAst::BitVec(ast) => DynAstChildIter::BitVec(ast.op().child_iter()),
+            DynAst::Float(ast) => DynAstChildIter::Float(ast.op().child_iter()),
+            DynAst::String(ast) => DynAstChildIter::String(ast.op().child_iter()),
+        }
+    }
+
+    fn get_child(&self, index: usize) -> Option<DynAst<'c>> {
+        match self {
+            DynAst::Boolean(ast) => ast.get_child(index),
+            DynAst::BitVec(ast) => ast.get_child(index),
+            DynAst::Float(ast) => ast.get_child(index),
+            DynAst::String(ast) => ast.get_child(index),
         }
     }
 

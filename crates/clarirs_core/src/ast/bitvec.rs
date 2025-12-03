@@ -1,5 +1,4 @@
 use std::collections::BTreeSet;
-use std::vec::IntoIter;
 
 use serde::Serialize;
 
@@ -47,6 +46,146 @@ pub enum BitVecOp<'c> {
 }
 
 pub type BitVecAst<'c> = AstRef<'c, BitVecOp<'c>>;
+
+pub struct BitVecOpChildIter<'a, 'c> {
+    op: &'a BitVecOp<'c>,
+    index: u8,
+}
+
+impl<'c> BitVecOp<'c> {
+    pub fn child_iter(&self) -> BitVecOpChildIter<'_, 'c> {
+        BitVecOpChildIter { op: self, index: 0 }
+    }
+}
+
+impl<'a, 'c> Iterator for BitVecOpChildIter<'a, 'c> {
+    type Item = DynAst<'c>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let result = match (self.op, self.index) {
+            // 0 children
+            (BitVecOp::BVS(..), _) | (BitVecOp::BVV(..), _) => None,
+
+            // 1 child variants - index 0
+            (BitVecOp::Not(a), 0)
+            | (BitVecOp::Neg(a), 0)
+            | (BitVecOp::ByteReverse(a), 0)
+            | (BitVecOp::ZeroExt(a, _), 0)
+            | (BitVecOp::SignExt(a, _), 0)
+            | (BitVecOp::Extract(a, _, _), 0) => Some(a.into()),
+
+            (BitVecOp::StrLen(a), 0) | (BitVecOp::StrToBV(a), 0) => Some(a.into()),
+
+            (BitVecOp::FpToIEEEBV(a), 0)
+            | (BitVecOp::FpToUBV(a, _, _), 0)
+            | (BitVecOp::FpToSBV(a, _, _), 0) => Some(a.into()),
+
+            // 2 child variants - index 0 (first child)
+            (BitVecOp::And(a, _), 0)
+            | (BitVecOp::Or(a, _), 0)
+            | (BitVecOp::Xor(a, _), 0)
+            | (BitVecOp::Add(a, _), 0)
+            | (BitVecOp::Sub(a, _), 0)
+            | (BitVecOp::Mul(a, _), 0)
+            | (BitVecOp::UDiv(a, _), 0)
+            | (BitVecOp::SDiv(a, _), 0)
+            | (BitVecOp::URem(a, _), 0)
+            | (BitVecOp::SRem(a, _), 0)
+            | (BitVecOp::ShL(a, _), 0)
+            | (BitVecOp::LShR(a, _), 0)
+            | (BitVecOp::AShR(a, _), 0)
+            | (BitVecOp::RotateLeft(a, _), 0)
+            | (BitVecOp::RotateRight(a, _), 0)
+            | (BitVecOp::Concat(a, _), 0)
+            | (BitVecOp::Union(a, _), 0)
+            | (BitVecOp::Intersection(a, _), 0) => Some(a.into()),
+
+            // 2 child variants - index 1 (second child)
+            (BitVecOp::And(_, b), 1)
+            | (BitVecOp::Or(_, b), 1)
+            | (BitVecOp::Xor(_, b), 1)
+            | (BitVecOp::Add(_, b), 1)
+            | (BitVecOp::Sub(_, b), 1)
+            | (BitVecOp::Mul(_, b), 1)
+            | (BitVecOp::UDiv(_, b), 1)
+            | (BitVecOp::SDiv(_, b), 1)
+            | (BitVecOp::URem(_, b), 1)
+            | (BitVecOp::SRem(_, b), 1)
+            | (BitVecOp::ShL(_, b), 1)
+            | (BitVecOp::LShR(_, b), 1)
+            | (BitVecOp::AShR(_, b), 1)
+            | (BitVecOp::RotateLeft(_, b), 1)
+            | (BitVecOp::RotateRight(_, b), 1)
+            | (BitVecOp::Concat(_, b), 1)
+            | (BitVecOp::Union(_, b), 1)
+            | (BitVecOp::Intersection(_, b), 1) => Some(b.into()),
+
+            // 3 child variants
+            (BitVecOp::StrIndexOf(a, _, _), 0) => Some(a.into()),
+            (BitVecOp::StrIndexOf(_, b, _), 1) => Some(b.into()),
+            (BitVecOp::StrIndexOf(_, _, c), 2) => Some(c.into()),
+
+            (BitVecOp::If(a, _, _), 0) => Some(a.into()),
+            (BitVecOp::If(_, b, _), 1) => Some(b.into()),
+            (BitVecOp::If(_, _, c), 2) => Some(c.into()),
+
+            _ => None,
+        };
+
+        if result.is_some() {
+            self.index += 1;
+        }
+
+        result
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.len();
+        (remaining, Some(remaining))
+    }
+}
+
+impl<'a, 'c> ExactSizeIterator for BitVecOpChildIter<'a, 'c> {
+    fn len(&self) -> usize {
+        let total: usize = match self.op {
+            BitVecOp::BVS(..) | BitVecOp::BVV(..) => 0,
+
+            BitVecOp::Not(..)
+            | BitVecOp::Neg(..)
+            | BitVecOp::ByteReverse(..)
+            | BitVecOp::ZeroExt(..)
+            | BitVecOp::SignExt(..)
+            | BitVecOp::Extract(..)
+            | BitVecOp::StrLen(..)
+            | BitVecOp::StrToBV(..)
+            | BitVecOp::FpToIEEEBV(..)
+            | BitVecOp::FpToUBV(..)
+            | BitVecOp::FpToSBV(..) => 1,
+
+            BitVecOp::And(..)
+            | BitVecOp::Or(..)
+            | BitVecOp::Xor(..)
+            | BitVecOp::Add(..)
+            | BitVecOp::Sub(..)
+            | BitVecOp::Mul(..)
+            | BitVecOp::UDiv(..)
+            | BitVecOp::SDiv(..)
+            | BitVecOp::URem(..)
+            | BitVecOp::SRem(..)
+            | BitVecOp::ShL(..)
+            | BitVecOp::LShR(..)
+            | BitVecOp::AShR(..)
+            | BitVecOp::RotateLeft(..)
+            | BitVecOp::RotateRight(..)
+            | BitVecOp::Concat(..)
+            | BitVecOp::Union(..)
+            | BitVecOp::Intersection(..) => 2,
+
+            BitVecOp::StrIndexOf(..) | BitVecOp::If(..) => 3,
+        };
+        total.saturating_sub(self.index as usize)
+    }
+}
 
 impl std::hash::Hash for BitVecOp<'_> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
@@ -220,41 +359,79 @@ impl std::hash::Hash for BitVecOp<'_> {
 }
 
 impl<'c> Op<'c> for BitVecOp<'c> {
-    fn child_iter(&self) -> IntoIter<DynAst<'c>> {
-        match self {
-            BitVecOp::BVS(..) | BitVecOp::BVV(..) => vec![],
-            BitVecOp::Not(a)
-            | BitVecOp::Neg(a)
-            | BitVecOp::ByteReverse(a)
-            | BitVecOp::ZeroExt(a, _)
-            | BitVecOp::SignExt(a, _)
-            | BitVecOp::Extract(a, _, _) => vec![a.into()],
-            BitVecOp::StrLen(a) | BitVecOp::StrToBV(a) => vec![a.into()],
-            BitVecOp::FpToIEEEBV(a) | BitVecOp::FpToUBV(a, _, _) | BitVecOp::FpToSBV(a, _, _) => {
-                vec![a.into()]
-            }
-            BitVecOp::And(a, b)
-            | BitVecOp::Or(a, b)
-            | BitVecOp::Xor(a, b)
-            | BitVecOp::Add(a, b)
-            | BitVecOp::Sub(a, b)
-            | BitVecOp::Mul(a, b)
-            | BitVecOp::UDiv(a, b)
-            | BitVecOp::SDiv(a, b)
-            | BitVecOp::URem(a, b)
-            | BitVecOp::SRem(a, b)
-            | BitVecOp::ShL(a, b)
-            | BitVecOp::LShR(a, b)
-            | BitVecOp::AShR(a, b)
-            | BitVecOp::RotateLeft(a, b)
-            | BitVecOp::RotateRight(a, b)
-            | BitVecOp::Concat(a, b)
-            | BitVecOp::Union(a, b)
-            | BitVecOp::Intersection(a, b) => vec![a.into(), b.into()],
-            BitVecOp::StrIndexOf(a, b, c) => vec![a.into(), b.into(), c.into()],
-            BitVecOp::If(a, b, c) => vec![a.into(), b.into(), c.into()],
+    type ChildIter<'a> = BitVecOpChildIter<'a, 'c> where Self: 'a;
+
+    fn child_iter(&self) -> Self::ChildIter<'_> {
+        BitVecOp::child_iter(self)
+    }
+
+    fn get_child(&self, index: usize) -> Option<DynAst<'c>> {
+        match (self, index) {
+            // 1 child variants - index 0
+            (BitVecOp::Not(a), 0)
+            | (BitVecOp::Neg(a), 0)
+            | (BitVecOp::ByteReverse(a), 0)
+            | (BitVecOp::ZeroExt(a, _), 0)
+            | (BitVecOp::SignExt(a, _), 0)
+            | (BitVecOp::Extract(a, _, _), 0) => Some(a.into()),
+
+            (BitVecOp::StrLen(a), 0) | (BitVecOp::StrToBV(a), 0) => Some(a.into()),
+
+            (BitVecOp::FpToIEEEBV(a), 0)
+            | (BitVecOp::FpToUBV(a, _, _), 0)
+            | (BitVecOp::FpToSBV(a, _, _), 0) => Some(a.into()),
+
+            // 2 child variants - index 0 (first child)
+            (BitVecOp::And(a, _), 0)
+            | (BitVecOp::Or(a, _), 0)
+            | (BitVecOp::Xor(a, _), 0)
+            | (BitVecOp::Add(a, _), 0)
+            | (BitVecOp::Sub(a, _), 0)
+            | (BitVecOp::Mul(a, _), 0)
+            | (BitVecOp::UDiv(a, _), 0)
+            | (BitVecOp::SDiv(a, _), 0)
+            | (BitVecOp::URem(a, _), 0)
+            | (BitVecOp::SRem(a, _), 0)
+            | (BitVecOp::ShL(a, _), 0)
+            | (BitVecOp::LShR(a, _), 0)
+            | (BitVecOp::AShR(a, _), 0)
+            | (BitVecOp::RotateLeft(a, _), 0)
+            | (BitVecOp::RotateRight(a, _), 0)
+            | (BitVecOp::Concat(a, _), 0)
+            | (BitVecOp::Union(a, _), 0)
+            | (BitVecOp::Intersection(a, _), 0) => Some(a.into()),
+
+            // 2 child variants - index 1 (second child)
+            (BitVecOp::And(_, b), 1)
+            | (BitVecOp::Or(_, b), 1)
+            | (BitVecOp::Xor(_, b), 1)
+            | (BitVecOp::Add(_, b), 1)
+            | (BitVecOp::Sub(_, b), 1)
+            | (BitVecOp::Mul(_, b), 1)
+            | (BitVecOp::UDiv(_, b), 1)
+            | (BitVecOp::SDiv(_, b), 1)
+            | (BitVecOp::URem(_, b), 1)
+            | (BitVecOp::SRem(_, b), 1)
+            | (BitVecOp::ShL(_, b), 1)
+            | (BitVecOp::LShR(_, b), 1)
+            | (BitVecOp::AShR(_, b), 1)
+            | (BitVecOp::RotateLeft(_, b), 1)
+            | (BitVecOp::RotateRight(_, b), 1)
+            | (BitVecOp::Concat(_, b), 1)
+            | (BitVecOp::Union(_, b), 1)
+            | (BitVecOp::Intersection(_, b), 1) => Some(b.into()),
+
+            // 3 child variants
+            (BitVecOp::StrIndexOf(a, _, _), 0) => Some(a.into()),
+            (BitVecOp::StrIndexOf(_, b, _), 1) => Some(b.into()),
+            (BitVecOp::StrIndexOf(_, _, c), 2) => Some(c.into()),
+
+            (BitVecOp::If(a, _, _), 0) => Some(a.into()),
+            (BitVecOp::If(_, b, _), 1) => Some(b.into()),
+            (BitVecOp::If(_, _, c), 2) => Some(c.into()),
+
+            _ => None,
         }
-        .into_iter()
     }
 
     fn variables(&self) -> BTreeSet<InternedString> {

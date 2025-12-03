@@ -1,5 +1,4 @@
 use std::collections::BTreeSet;
-use std::vec::IntoIter;
 
 use serde::Serialize;
 
@@ -30,6 +29,94 @@ pub enum FloatOp<'c> {
 }
 
 pub type FloatAst<'c> = AstRef<'c, FloatOp<'c>>;
+
+pub struct FloatOpChildIter<'a, 'c> {
+    op: &'a FloatOp<'c>,
+    index: u8,
+}
+
+impl<'c> FloatOp<'c> {
+    pub fn child_iter(&self) -> FloatOpChildIter<'_, 'c> {
+        FloatOpChildIter { op: self, index: 0 }
+    }
+}
+
+impl<'a, 'c> Iterator for FloatOpChildIter<'a, 'c> {
+    type Item = DynAst<'c>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let result = match (self.op, self.index) {
+            // 0 children
+            (FloatOp::FPS(..), _) | (FloatOp::FPV(_), _) => None,
+
+            // 1 child variants - index 0
+            (FloatOp::FpNeg(a), 0)
+            | (FloatOp::FpAbs(a), 0)
+            | (FloatOp::FpSqrt(a, _), 0)
+            | (FloatOp::FpToFp(a, _, _), 0) => Some(a.into()),
+
+            (FloatOp::BvToFp(a, _), 0)
+            | (FloatOp::BvToFpSigned(a, _, _), 0)
+            | (FloatOp::BvToFpUnsigned(a, _, _), 0) => Some(a.into()),
+
+            // 2 child variants - index 0 (first child)
+            (FloatOp::FpAdd(a, _, _), 0)
+            | (FloatOp::FpSub(a, _, _), 0)
+            | (FloatOp::FpMul(a, _, _), 0)
+            | (FloatOp::FpDiv(a, _, _), 0) => Some(a.into()),
+
+            // 2 child variants - index 1 (second child)
+            (FloatOp::FpAdd(_, b, _), 1)
+            | (FloatOp::FpSub(_, b, _), 1)
+            | (FloatOp::FpMul(_, b, _), 1)
+            | (FloatOp::FpDiv(_, b, _), 1) => Some(b.into()),
+
+            // 3 child variants - FpFP(sign, exp, sig)
+            (FloatOp::FpFP(sign, _, _), 0) => Some(sign.into()),
+            (FloatOp::FpFP(_, exp, _), 1) => Some(exp.into()),
+            (FloatOp::FpFP(_, _, sig), 2) => Some(sig.into()),
+
+            // 3 child variants - If(cond, then, else)
+            (FloatOp::If(a, _, _), 0) => Some(a.into()),
+            (FloatOp::If(_, b, _), 1) => Some(b.into()),
+            (FloatOp::If(_, _, c), 2) => Some(c.into()),
+
+            _ => None,
+        };
+
+        if result.is_some() {
+            self.index += 1;
+        }
+
+        result
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.len();
+        (remaining, Some(remaining))
+    }
+}
+
+impl<'a, 'c> ExactSizeIterator for FloatOpChildIter<'a, 'c> {
+    fn len(&self) -> usize {
+        let total: usize = match self.op {
+            FloatOp::FPS(..) | FloatOp::FPV(_) => 0,
+
+            FloatOp::FpNeg(_)
+            | FloatOp::FpAbs(_)
+            | FloatOp::FpSqrt(..)
+            | FloatOp::FpToFp(..)
+            | FloatOp::BvToFp(..)
+            | FloatOp::BvToFpSigned(..)
+            | FloatOp::BvToFpUnsigned(..) => 1,
+
+            FloatOp::FpAdd(..) | FloatOp::FpSub(..) | FloatOp::FpMul(..) | FloatOp::FpDiv(..) => 2,
+
+            FloatOp::FpFP(..) | FloatOp::If(..) => 3,
+        };
+        total.saturating_sub(self.index as usize)
+    }
+}
 
 impl std::hash::Hash for FloatOp<'_> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
@@ -121,24 +208,47 @@ impl std::hash::Hash for FloatOp<'_> {
 }
 
 impl<'c> Op<'c> for FloatOp<'c> {
-    fn child_iter(&self) -> IntoIter<DynAst<'c>> {
-        match self {
-            FloatOp::FPS(_, _) | FloatOp::FPV(_) => vec![].into_iter(),
+    type ChildIter<'a> = FloatOpChildIter<'a, 'c> where Self: 'a;
 
-            FloatOp::FpNeg(a)
-            | FloatOp::FpAbs(a)
-            | FloatOp::FpSqrt(a, _)
-            | FloatOp::FpToFp(a, _, _) => vec![a.into()].into_iter(),
-            FloatOp::FpFP(sign, exp, sig) => vec![sign.into(), exp.into(), sig.into()].into_iter(),
-            FloatOp::BvToFp(a, _)
-            | FloatOp::BvToFpSigned(a, _, _)
-            | FloatOp::BvToFpUnsigned(a, _, _) => vec![a.into()].into_iter(),
+    fn child_iter(&self) -> Self::ChildIter<'_> {
+        FloatOp::child_iter(self)
+    }
 
-            FloatOp::FpAdd(a, b, _)
-            | FloatOp::FpSub(a, b, _)
-            | FloatOp::FpMul(a, b, _)
-            | FloatOp::FpDiv(a, b, _) => vec![a.into(), b.into()].into_iter(),
-            FloatOp::If(a, b, c) => vec![a.into(), b.into(), c.into()].into_iter(),
+    fn get_child(&self, index: usize) -> Option<DynAst<'c>> {
+        match (self, index) {
+            // 1 child variants - index 0
+            (FloatOp::FpNeg(a), 0)
+            | (FloatOp::FpAbs(a), 0)
+            | (FloatOp::FpSqrt(a, _), 0)
+            | (FloatOp::FpToFp(a, _, _), 0) => Some(a.into()),
+
+            (FloatOp::BvToFp(a, _), 0)
+            | (FloatOp::BvToFpSigned(a, _, _), 0)
+            | (FloatOp::BvToFpUnsigned(a, _, _), 0) => Some(a.into()),
+
+            // 2 child variants - index 0 (first child)
+            (FloatOp::FpAdd(a, _, _), 0)
+            | (FloatOp::FpSub(a, _, _), 0)
+            | (FloatOp::FpMul(a, _, _), 0)
+            | (FloatOp::FpDiv(a, _, _), 0) => Some(a.into()),
+
+            // 2 child variants - index 1 (second child)
+            (FloatOp::FpAdd(_, b, _), 1)
+            | (FloatOp::FpSub(_, b, _), 1)
+            | (FloatOp::FpMul(_, b, _), 1)
+            | (FloatOp::FpDiv(_, b, _), 1) => Some(b.into()),
+
+            // 3 child variants - FpFP(sign, exp, sig)
+            (FloatOp::FpFP(sign, _, _), 0) => Some(sign.into()),
+            (FloatOp::FpFP(_, exp, _), 1) => Some(exp.into()),
+            (FloatOp::FpFP(_, _, sig), 2) => Some(sig.into()),
+
+            // 3 child variants - If(cond, then, else)
+            (FloatOp::If(a, _, _), 0) => Some(a.into()),
+            (FloatOp::If(_, b, _), 1) => Some(b.into()),
+            (FloatOp::If(_, _, c), 2) => Some(c.into()),
+
+            _ => None,
         }
     }
 

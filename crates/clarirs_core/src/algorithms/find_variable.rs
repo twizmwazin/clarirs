@@ -5,8 +5,7 @@ pub fn find_variable<'c>(ast: DynAst<'c>, name: &InternedString) -> Option<DynAs
         return None;
     }
 
-    ast.children()
-        .into_iter()
+    ast.child_iter()
         .find(|child| child.variables().contains(name))
         .and_then(|child| find_variable(child, name))
         .or(Some(ast))
