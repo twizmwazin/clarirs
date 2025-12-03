@@ -1,8 +1,9 @@
 use crate::prelude::*;
+use super::SimplifyError;
 
 pub(crate) fn simplify_string<'c>(
     state: &mut super::SimplifyState<'c>,
-) -> Result<StringAst<'c>, ClarirsError> {
+) -> Result<StringAst<'c>, SimplifyError<'c>> {
     let ctx = state.expr.context();
     let string_expr = state.expr.clone().into_string().unwrap();
 
@@ -13,9 +14,9 @@ pub(crate) fn simplify_string<'c>(
             match (arc.op(), arc1.op()) {
                 (StringOp::StringV(str1), StringOp::StringV(str2)) => {
                     let concatenated = format!("{str1}{str2}");
-                    ctx.stringv(concatenated)
+                    Ok(ctx.stringv(concatenated)?)
                 }
-                _ => ctx.strconcat(&arc, &arc1),
+                _ => Ok(ctx.strconcat(&arc, &arc1)?),
             }
         }
         StringOp::StrSubstr(..) => {
@@ -34,7 +35,7 @@ pub(crate) fn simplify_string<'c>(
                     // If the starting index is out-of-bound (e.g., negative index wrapped to 2^64-1),
                     // then return an empty string.
                     if start >= num_chars {
-                        return ctx.stringv("".to_string());
+                        return Ok(ctx.stringv("".to_string())?);
                     }
 
                     // Convert character-based indices to byte-based indices.
@@ -42,9 +43,9 @@ pub(crate) fn simplify_string<'c>(
                     let char_end = s.chars().take(start + length).map(|c| c.len_utf8()).sum();
 
                     let substring = s.get(char_start..char_end).unwrap_or("").to_string();
-                    ctx.stringv(substring)
+                    Ok(ctx.stringv(substring)?)
                 }
-                _ => ctx.strsubstr(&arc, &arc1, &arc2),
+                _ => Ok(ctx.strsubstr(&arc, &arc1, &arc2)?),
             }
         }
         StringOp::StrReplace(..) => {
@@ -63,9 +64,9 @@ pub(crate) fn simplify_string<'c>(
                     let new_value = initial.replacen(pattern, replacement, 1);
                     // Case: Replace all occurrences of `pattern` with `replacement` in `initial` LEFT
                     // let new_value = initial.replace(pattern, replacement);
-                    ctx.stringv(new_value)
+                    Ok(ctx.stringv(new_value)?)
                 }
-                _ => ctx.strreplace(&arc, &arc1, &arc2), // Fallback to symbolic StrReplace
+                _ => Ok(ctx.strreplace(&arc, &arc1, &arc2)?), // Fallback to symbolic StrReplace
             }
         }
         StringOp::BVToStr(..) => {
@@ -76,9 +77,9 @@ pub(crate) fn simplify_string<'c>(
                     let int_value = value.to_biguint();
                     let string_value = int_value.to_string();
 
-                    ctx.stringv(string_value)
+                    Ok(ctx.stringv(string_value)?)
                 }
-                _ => ctx.bvtostr(&arc),
+                _ => Ok(ctx.bvtostr(&arc)?),
             }
         }
         StringOp::If(..) => {
@@ -103,8 +104,8 @@ pub(crate) fn simplify_string<'c>(
                     }
                 }
                 // If the condition has a Not at the top level, invert the branches
-                BooleanOp::Not(inner) => ctx.if_(inner, &else_, &then_),
-                _ => ctx.if_(&if_, &then_, &else_),
+                BooleanOp::Not(inner) => Ok(ctx.if_(inner, &else_, &then_)?),
+                _ => Ok(ctx.if_(&if_, &then_, &else_)?),
             }
         }
     }

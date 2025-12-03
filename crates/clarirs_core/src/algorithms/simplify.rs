@@ -64,6 +64,26 @@ impl<'c> Simplify<'c> for DynAst<'c> {
     }
 }
 
+#[derive(thiserror::Error, Debug)]
+enum SimplifyError<'c> {
+    #[error("Missing child at index {0}")]
+    MissingChild(usize),
+    #[error("Re-run simplification")]
+    #[allow(dead_code)]
+    ReRun(DynAst<'c>),
+    #[error("Clarirs error: {0}")]
+    Error(ClarirsError),
+}
+
+impl<T> From<T> for SimplifyError<'_>
+where
+    ClarirsError: From<T>,
+{
+    fn from(value: T) -> Self {
+        SimplifyError::Error(ClarirsError::from(value))
+    }
+}
+
 struct SimplifyState<'c> {
     expr: DynAst<'c>,
     children: [Option<DynAst<'c>>; 3], // No op has more than 3 ast children
@@ -79,41 +99,64 @@ impl<'c> SimplifyState<'c> {
         }
     }
 
-    fn get_child(&mut self, index: usize) -> Result<DynAst<'c>, ClarirsError> {
+    fn get_bool_child(&mut self, index: usize) -> Result<BoolAst<'c>, SimplifyError<'c>> {
         if let Some(child) = &self.children[index] {
-            Ok(child.clone())
+            child
+                .clone()
+                .into_bool()
+                .ok_or(SimplifyError::Error(ClarirsError::TypeError(
+                    "Expected boolean child".into(),
+                )))
         } else {
             self.last_missed_child = Some(index as u8);
-            Err(ClarirsError::MissingChild(index))
+            Err(SimplifyError::MissingChild(index))
         }
     }
 
-    fn get_bool_child(&mut self, index: usize) -> Result<BoolAst<'c>, ClarirsError> {
-        self.get_child(index)?
-            .into_bool()
-            .ok_or(ClarirsError::TypeError("Expected bool child".into()))
+    fn get_bv_child(&mut self, index: usize) -> Result<BitVecAst<'c>, SimplifyError<'c>> {
+        if let Some(child) = &self.children[index] {
+            child
+                .clone()
+                .into_bitvec()
+                .ok_or(SimplifyError::Error(ClarirsError::TypeError(
+                    "Expected bitvec child".into(),
+                )))
+        } else {
+            self.last_missed_child = Some(index as u8);
+            Err(SimplifyError::MissingChild(index))
+        }
     }
 
-    fn get_bv_child(&mut self, index: usize) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.get_child(index)?
-            .into_bitvec()
-            .ok_or(ClarirsError::TypeError("Expected bitvector child".into()))
+    fn get_fp_child(&mut self, index: usize) -> Result<FloatAst<'c>, SimplifyError<'c>> {
+        if let Some(child) = &self.children[index] {
+            child
+                .clone()
+                .into_float()
+                .ok_or(SimplifyError::Error(ClarirsError::TypeError(
+                    "Expected float child".into(),
+                )))
+        } else {
+            self.last_missed_child = Some(index as u8);
+            Err(SimplifyError::MissingChild(index))
+        }
     }
 
-    fn get_fp_child(&mut self, index: usize) -> Result<FloatAst<'c>, ClarirsError> {
-        self.get_child(index)?
-            .into_float()
-            .ok_or(ClarirsError::TypeError("Expected float child".into()))
-    }
-
-    fn get_string_child(&mut self, index: usize) -> Result<StringAst<'c>, ClarirsError> {
-        self.get_child(index)?
-            .into_string()
-            .ok_or(ClarirsError::TypeError("Expected string child".into()))
+    fn get_string_child(&mut self, index: usize) -> Result<StringAst<'c>, SimplifyError<'c>> {
+        if let Some(child) = &self.children[index] {
+            child
+                .clone()
+                .into_string()
+                .ok_or(SimplifyError::Error(ClarirsError::TypeError(
+                    "Expected string child".into(),
+                )))
+        } else {
+            self.last_missed_child = Some(index as u8);
+            Err(SimplifyError::MissingChild(index))
+        }
     }
 }
 
-fn simplify_inner<'c>(state: &mut SimplifyState<'c>) -> Result<DynAst<'c>, ClarirsError> {
+fn simplify_inner<'c>(state: &mut SimplifyState<'c>) -> Result<DynAst<'c>, SimplifyError<'c>> {
     let expr = &state.expr.clone();
     expr.context()
         .simplification_cache
@@ -161,7 +204,7 @@ fn simplify<'c>(ast: &DynAst<'c>, respect_annotations: bool) -> Result<DynAst<'c
                         .annotate_dyn(&result, relocatable_annotations)?;
                     last_result = Some(annotated)
                 }
-                Err(ClarirsError::MissingChild(index)) => {
+                Err(SimplifyError::MissingChild(index)) => {
                     let child_state =
                         SimplifyState::new(state.expr.children().get(index).unwrap().clone());
 
@@ -170,7 +213,11 @@ fn simplify<'c>(ast: &DynAst<'c>, respect_annotations: bool) -> Result<DynAst<'c
                     // Push the missing child onto the stack
                     work_stack.push(child_state);
                 }
-                Err(e) => {
+                Err(SimplifyError::ReRun(new_ast)) => {
+                    // Push a new state with the new_ast onto the stack
+                    work_stack.push(SimplifyState::new(new_ast));
+                }
+                Err(SimplifyError::Error(e)) => {
                     return Err(e);
                 }
             }

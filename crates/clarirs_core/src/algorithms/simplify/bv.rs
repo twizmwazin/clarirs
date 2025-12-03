@@ -1,11 +1,11 @@
 use num_bigint::{BigInt, BigUint};
 use num_traits::{Num, One, Zero};
 
-use crate::{ast::bitvec::BitVecOpExt, prelude::*};
+use crate::{algorithms::simplify::SimplifyError, ast::bitvec::BitVecOpExt, prelude::*};
 
 pub(crate) fn simplify_bv<'c>(
     state: &mut super::SimplifyState<'c>,
-) -> Result<BitVecAst<'c>, ClarirsError> {
+) -> Result<BitVecAst<'c>, SimplifyError<'c>> {
     let ctx = state.expr.context();
     let bv_expr = state.expr.clone().into_bitvec().unwrap();
 
@@ -14,143 +14,143 @@ pub(crate) fn simplify_bv<'c>(
         BitVecOp::Not(..) => {
             let arc = state.get_bv_child(0)?;
             match arc.op() {
-                BitVecOp::BVV(value) => ctx.bvv((!value.clone())?),
-                _ => ctx.not(&arc),
+                BitVecOp::BVV(value) => Ok(ctx.bvv((!value.clone())?)?),
+                _ => Ok(ctx.not(&arc)?),
             }
         }
         BitVecOp::And(..) => {
             let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
-                    ctx.bvv((value1.clone() & value2.clone())?)
+                    Ok(ctx.bvv((value1.clone() & value2.clone())?)?)
                 }
-                (BitVecOp::BVV(v), _) if v.is_zero() => ctx.bvv(v.clone()),
-                (_, BitVecOp::BVV(v)) if v.is_zero() => ctx.bvv(v.clone()),
+                (BitVecOp::BVV(v), _) if v.is_zero() => Ok(ctx.bvv(v.clone())?),
+                (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(ctx.bvv(v.clone())?),
                 (BitVecOp::BVV(v), _) if v.is_all_ones() => Ok(arc1.clone()),
                 (_, BitVecOp::BVV(v)) if v.is_all_ones() => Ok(arc.clone()),
                 // x & ¬x = 0
-                (BitVecOp::Not(lhs), rhs) if lhs.op() == rhs => ctx.bvv(BitVec::zeros(arc.size())),
-                (lhs, BitVecOp::Not(rhs)) if lhs == rhs.op() => ctx.bvv(BitVec::zeros(arc.size())),
-                _ => ctx.and(&arc, &arc1),
+                (BitVecOp::Not(lhs), rhs) if lhs.op() == rhs => Ok(ctx.bvv(BitVec::zeros(arc.size()))?),
+                (lhs, BitVecOp::Not(rhs)) if lhs == rhs.op() => Ok(ctx.bvv(BitVec::zeros(arc.size()))?),
+                _ => Ok(ctx.and(&arc, &arc1)?),
             }
         }
         BitVecOp::Or(..) => {
             let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
-                    ctx.bvv((value1.clone() | value2.clone())?)
+                    Ok(ctx.bvv((value1.clone() | value2.clone())?)?)
                 }
                 (BitVecOp::BVV(v), _) if v.is_zero() => Ok(arc1.clone()),
                 (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
-                (BitVecOp::BVV(v), _) if v.is_all_ones() => ctx.bvv(v.clone()),
-                (_, BitVecOp::BVV(v)) if v.is_all_ones() => ctx.bvv(v.clone()),
+                (BitVecOp::BVV(v), _) if v.is_all_ones() => Ok(ctx.bvv(v.clone())?),
+                (_, BitVecOp::BVV(v)) if v.is_all_ones() => Ok(ctx.bvv(v.clone())?),
                 // x | ¬x = -1 (all ones)
                 (BitVecOp::Not(lhs), rhs) if lhs.op() == rhs => {
-                    ctx.bvv(BitVec::from_biguint_trunc(
+                    Ok(ctx.bvv(BitVec::from_biguint_trunc(
                         &((BigUint::one() << arc.size()) - BigUint::one()),
                         arc.size(),
-                    ))
+                    ))?)
                 }
                 (lhs, BitVecOp::Not(rhs)) if lhs == rhs.op() => {
-                    ctx.bvv(BitVec::from_biguint_trunc(
+                    Ok(ctx.bvv(BitVec::from_biguint_trunc(
                         &((BigUint::one() << arc.size()) - BigUint::one()),
                         arc.size(),
-                    ))
+                    ))?)
                 }
-                _ => ctx.or(&arc, &arc1),
+                _ => Ok(ctx.or(&arc, &arc1)?),
             }
         }
         BitVecOp::Xor(..) => {
             let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
-                    ctx.bvv((value1.clone() ^ value2.clone())?)
+                    Ok(ctx.bvv((value1.clone() ^ value2.clone())?)?)
                 }
                 (BitVecOp::BVV(v), _) if v.is_zero() => Ok(arc1.clone()),
                 (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
-                (BitVecOp::BVV(v), _) if v.is_all_ones() => ctx.not(&arc1),
-                (_, BitVecOp::BVV(v)) if v.is_all_ones() => ctx.not(&arc),
-                _ => ctx.xor(&arc, &arc1),
+                (BitVecOp::BVV(v), _) if v.is_all_ones() => Ok(ctx.not(&arc1)?),
+                (_, BitVecOp::BVV(v)) if v.is_all_ones() => Ok(ctx.not(&arc)?),
+                _ => Ok(ctx.xor(&arc, &arc1)?),
             }
         }
         BitVecOp::Neg(..) => {
             let arc = state.get_bv_child(0)?;
             match arc.op() {
-                BitVecOp::BVV(value) => ctx.bvv((-value.clone())?),
+                BitVecOp::BVV(value) => Ok(ctx.bvv((-value.clone())?)?),
                 // -(-x) = x (double negation)
                 BitVecOp::Neg(inner) => Ok(inner.clone()),
-                _ => ctx.neg(&arc),
+                _ => Ok(ctx.neg(&arc)?),
             }
         }
         BitVecOp::Add(..) => {
             let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
-                    ctx.bvv((value1.clone() + value2.clone())?)
+                    Ok(ctx.bvv((value1.clone() + value2.clone())?)?)
                 }
                 (BitVecOp::BVV(v), _) if v.is_zero() => Ok(arc1.clone()),
                 (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
-                _ => ctx.add(&arc, &arc1),
+                _ => Ok(ctx.add(&arc, &arc1)?),
             }
         }
         BitVecOp::Sub(..) => {
             let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
-                    ctx.bvv((value1.clone() - value2.clone())?)
+                    Ok(ctx.bvv((value1.clone() - value2.clone())?)?)
                 }
                 (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
-                (lhs_op, rhs_op) if lhs_op == rhs_op => ctx.bvv(BitVec::zeros(arc.size())),
-                _ => ctx.sub(&arc, &arc1),
+                (lhs_op, rhs_op) if lhs_op == rhs_op => Ok(ctx.bvv(BitVec::zeros(arc.size()))?),
+                _ => Ok(ctx.sub(&arc, &arc1)?),
             }
         }
         BitVecOp::Mul(..) => {
             let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
-                    ctx.bvv((value1.clone() * value2.clone())?)
+                    Ok(ctx.bvv((value1.clone() * value2.clone())?)?)
                 }
-                (BitVecOp::BVV(v), _) if v.is_zero() => ctx.bvv(v.clone()),
-                (_, BitVecOp::BVV(v)) if v.is_zero() => ctx.bvv(v.clone()),
+                (BitVecOp::BVV(v), _) if v.is_zero() => Ok(ctx.bvv(v.clone())?),
+                (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(ctx.bvv(v.clone())?),
                 (BitVecOp::BVV(v), _) if v.to_u64() == Some(1) => Ok(arc1.clone()),
                 (_, BitVecOp::BVV(v)) if v.to_u64() == Some(1) => Ok(arc.clone()),
-                _ => ctx.mul(&arc, &arc1),
+                _ => Ok(ctx.mul(&arc, &arc1)?),
             }
         }
         BitVecOp::UDiv(..) => {
             let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
-                    ctx.bvv((value1.clone() / value2.clone())?)
+                    Ok(ctx.bvv((value1.clone() / value2.clone())?)?)
                 }
                 (_, BitVecOp::BVV(v)) if v.to_u64() == Some(1) => Ok(arc.clone()),
-                _ => ctx.udiv(&arc, &arc1),
+                _ => Ok(ctx.udiv(&arc, &arc1)?),
             }
         }
         BitVecOp::SDiv(..) => {
             let (dividend_ast, divisor_ast) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
             match (dividend_ast.op(), divisor_ast.op()) {
                 (BitVecOp::BVV(dividend_val), BitVecOp::BVV(divisor_val)) => {
-                    ctx.bvv((dividend_val.sdiv(divisor_val))?)
+                    Ok(ctx.bvv((dividend_val.sdiv(divisor_val))?)?)
                 }
                 (_, BitVecOp::BVV(v)) if v.to_u64() == Some(1) => Ok(dividend_ast.clone()),
-                _ => ctx.sdiv(&dividend_ast, &divisor_ast),
+                _ => Ok(ctx.sdiv(&dividend_ast, &divisor_ast)?),
             }
         }
         BitVecOp::URem(..) => {
             let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
             match (arc.op(), arc1.op()) {
-                (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => ctx.bvv(value1.urem(value2)),
-                _ => ctx.urem(&arc, &arc1),
+                (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => Ok(ctx.bvv(value1.urem(value2))?),
+                _ => Ok(ctx.urem(&arc, &arc1)?),
             }
         }
         BitVecOp::SRem(..) => {
             let (dividend_ast, divisor_ast) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
             match (dividend_ast.op(), divisor_ast.op()) {
                 (BitVecOp::BVV(dividend_val), BitVecOp::BVV(divisor_val)) => {
-                    ctx.bvv((dividend_val.srem(divisor_val))?)
+                    Ok(ctx.bvv((dividend_val.srem(divisor_val))?)?)
                 }
-                _ => ctx.srem(&dividend_ast, &divisor_ast),
+                _ => Ok(ctx.srem(&dividend_ast, &divisor_ast)?),
             }
         }
         BitVecOp::ShL(..) => {
@@ -165,12 +165,12 @@ pub(crate) fn simplify_bv<'c>(
 
                     // If shifting >= bit_width, result is 0
                     if shift_amount_u32 >= bit_width {
-                        ctx.bvv(BitVec::zeros(bit_width))
+                        Ok(ctx.bvv(BitVec::zeros(bit_width))?)
                     } else if shift_amount_u32 == 0 {
                         Ok(arc.clone())
                     } else {
-                        let result = value.clone() << shift_amount_u32;
-                        ctx.bvv(result?)
+                        let result = (value.clone() << shift_amount_u32)?;
+                        Ok(ctx.bvv(result)?)
                     }
                 }
                 // Concrete shift amount, rewrite in terms of extract and concat
@@ -179,18 +179,18 @@ pub(crate) fn simplify_bv<'c>(
                     let bit_width = arc.size();
 
                     if shift_amount_u32 >= bit_width {
-                        ctx.bvv(BitVec::zeros(bit_width))
+                        Ok(ctx.bvv(BitVec::zeros(bit_width))?)
                     } else {
                         let high = bit_width - 1;
                         let low = shift_amount_u32;
                         let extracted = ctx.extract(&arc, high - low, 0)?;
                         let zeros = BitVec::zeros(shift_amount_u32);
                         let zeros_ast = ctx.bvv(zeros)?;
-                        ctx.concat(&extracted, &zeros_ast)?.simplify()
+                        Ok(ctx.concat(&extracted, &zeros_ast)?.simplify()?)
                     }
                 }
                 // Fallback case
-                _ => ctx.shl(&arc, &arc1),
+                _ => Ok(ctx.shl(&arc, &arc1)?),
             }
         }
         BitVecOp::LShR(..) => {
@@ -203,12 +203,12 @@ pub(crate) fn simplify_bv<'c>(
                     let bit_width = value.len();
                     let shift_amount_u32 = shift_amount.to_u64().unwrap_or(0) as u32;
                     if shift_amount_u32 >= bit_width {
-                        ctx.bvv(BitVec::zeros(bit_width))
+                        Ok(ctx.bvv(BitVec::zeros(bit_width))?)
                     } else if shift_amount_u32 == 0 {
                         Ok(arc.clone())
                     } else {
                         let result = value.clone() >> shift_amount_u32;
-                        ctx.bvv(result?)
+                        Ok(ctx.bvv(result?)?)
                     }
                 }
                 // Concrete shift amount, rewrite in terms of extract and concat
@@ -216,18 +216,18 @@ pub(crate) fn simplify_bv<'c>(
                     let shift_amount_u32 = v.to_u64().unwrap_or(0) as u32;
                     let bit_width = arc.size();
                     if shift_amount_u32 >= bit_width {
-                        ctx.bvv(BitVec::zeros(bit_width))
+                        Ok(ctx.bvv(BitVec::zeros(bit_width))?)
                     } else {
                         let high = bit_width - 1 - shift_amount_u32;
                         let low = 0;
                         let extracted = ctx.extract(&arc, high, low)?;
                         let zeros = BitVec::zeros(shift_amount_u32);
                         let zeros_ast = ctx.bvv(zeros)?;
-                        ctx.concat(&zeros_ast, &extracted)?.simplify()
+                        Ok(ctx.concat(&zeros_ast, &extracted)?.simplify()?)
                     }
                 }
                 // Fallback case
-                _ => ctx.lshr(&arc, &arc1),
+                _ => Ok(ctx.lshr(&arc, &arc1)?),
             }
         }
         BitVecOp::AShR(..) => {
@@ -251,12 +251,12 @@ pub(crate) fn simplify_bv<'c>(
                     // If shifting >= bit_length, return all-ones (if negative) or all-zeros (if positive)
                     if shift_amount_u32 >= bit_length {
                         return if sign_bit_set {
-                            ctx.bvv(BitVec::from_biguint_trunc(
+                            Ok(ctx.bvv(BitVec::from_biguint_trunc(
                                 &((BigUint::one() << bit_length) - BigUint::one()),
                                 bit_length,
-                            ))
+                            ))?)
                         } else {
-                            ctx.bvv(BitVec::zeros(bit_length))
+                            Ok(ctx.bvv(BitVec::zeros(bit_length))?)
                         };
                     }
 
@@ -273,7 +273,7 @@ pub(crate) fn simplify_bv<'c>(
                         unsigned_shifted
                     };
 
-                    ctx.bvv(BitVec::from_biguint_trunc(&result, bit_length))
+                    Ok(ctx.bvv(BitVec::from_biguint_trunc(&result, bit_length))?)
                 }
                 // Concrete shift amount, rewrite in terms of extract, and signext
                 (_, BitVecOp::BVV(v)) if !v.is_zero() => {
@@ -284,10 +284,10 @@ pub(crate) fn simplify_bv<'c>(
                     let extracted = ctx.extract(&arc, bit_width - 1, shift_amount_u32)?;
 
                     // Sign extend the extracted bits
-                    ctx.sign_ext(&extracted, bit_width - extracted.size())
+                    Ok(ctx.sign_ext(&extracted, bit_width - extracted.size())?)
                 }
                 // Fallback case
-                _ => ctx.ashr(&arc, &arc1),
+                _ => Ok(ctx.ashr(&arc, &arc1)?),
             }
         }
         BitVecOp::RotateLeft(..) => {
@@ -303,7 +303,7 @@ pub(crate) fn simplify_bv<'c>(
                 (BitVecOp::BVV(value_bv), BitVecOp::BVV(rotate_bv)) => {
                     let rotate_u32 = rotate_bv.to_u64().unwrap_or(0) as u32;
                     let rotated_bv = value_bv.rotate_left(rotate_u32)?;
-                    ctx.bvv(rotated_bv)
+                    Ok(ctx.bvv(rotated_bv)?)
                 }
                 // Concrete rotate amount
                 (_, BitVecOp::BVV(v)) if !v.is_zero() => {
@@ -313,10 +313,10 @@ pub(crate) fn simplify_bv<'c>(
                     let top = ctx.extract(&arc, arc.size() - 1, rotate_amount_u32)?;
 
                     // Concat them backwards
-                    ctx.concat(&bottom, &top)?.simplify()
+                    Ok(ctx.concat(&bottom, &top)?.simplify()?)
                 }
                 // Fallback case
-                _ => ctx.rotate_left(&arc, &arc1),
+                _ => Ok(ctx.rotate_left(&arc, &arc1)?),
             }
         }
         BitVecOp::RotateRight(..) => {
@@ -332,7 +332,7 @@ pub(crate) fn simplify_bv<'c>(
                 (BitVecOp::BVV(value_bv), BitVecOp::BVV(rotate_amount_bv)) => {
                     let rotate_u32 = rotate_amount_bv.to_u64().unwrap_or(0) as u32;
                     let rotated_bv = value_bv.rotate_right(rotate_u32)?;
-                    ctx.bvv(rotated_bv)
+                    Ok(ctx.bvv(rotated_bv)?)
                 }
                 // Concrete rotate amount
                 (_, BitVecOp::BVV(v)) if !v.is_zero() => {
@@ -342,10 +342,10 @@ pub(crate) fn simplify_bv<'c>(
                     let top = ctx.extract(&arc, arc.size() - 1, arc.size() - rotate_amount_u32)?;
 
                     // Concat them backwards
-                    ctx.concat(&top, &bottom)?.simplify()
+                    Ok(ctx.concat(&top, &bottom)?.simplify()?)
                 }
                 // Fallback case
-                _ => ctx.rotate_right(&arc, &arc1),
+                _ => Ok(ctx.rotate_right(&arc, &arc1)?),
             }
         }
         BitVecOp::ZeroExt(_, num_bits) => {
@@ -354,9 +354,9 @@ pub(crate) fn simplify_bv<'c>(
                 // Zero extension
                 (_, 0) => Ok(arc.clone()),
                 // Concrete BVV case
-                (BitVecOp::BVV(value), _) => ctx.bvv(value.zero_extend(*num_bits)?),
+                (BitVecOp::BVV(value), _) => Ok(ctx.bvv(value.zero_extend(*num_bits)?)?),
                 // Symbolic case
-                (_, _) => ctx.concat(&ctx.bvv(BitVec::zeros(*num_bits))?, &arc),
+                (_, _) => Ok(ctx.concat(&ctx.bvv(BitVec::zeros(*num_bits))?, &arc)?),
             }
         }
         BitVecOp::SignExt(_, num_bits) => {
@@ -365,9 +365,9 @@ pub(crate) fn simplify_bv<'c>(
                 // Sign extension
                 (_, 0) => Ok(arc.clone()),
                 // Concrete BVV case
-                (BitVecOp::BVV(value), _) => ctx.bvv(value.sign_extend(*num_bits)?),
+                (BitVecOp::BVV(value), _) => Ok(ctx.bvv(value.sign_extend(*num_bits)?)?),
                 // Fallback case
-                (_, _) => ctx.sign_ext(&arc, *num_bits),
+                (_, _) => Ok(ctx.sign_ext(&arc, *num_bits)?),
             }
         }
         BitVecOp::Extract(_, high, low) => {
@@ -380,12 +380,12 @@ pub(crate) fn simplify_bv<'c>(
 
             match arc.op() {
                 // Concrete BVV case
-                BitVecOp::BVV(value) => ctx.bvv(value.extract(*low, *high)?),
+                BitVecOp::BVV(value) => Ok(ctx.bvv(value.extract(*low, *high)?)?),
 
                 // SignExt cases
                 // If extracting from the original bits (not the extended sign bits)
                 BitVecOp::SignExt(inner, _) if *high < inner.size() => {
-                    ctx.extract(inner, *high, *low)?.simplify()
+                    Ok(ctx.extract(inner, *high, *low)?.simplify()?)
                 }
                 // If extracting only from the extended sign bits
                 BitVecOp::SignExt(inner, _) if *low >= inner.size() => {
@@ -407,12 +407,12 @@ pub(crate) fn simplify_bv<'c>(
                 // Extracting the entire right side
                 BitVecOp::Concat(_, rhs) if *high == rhs.size() - 1 && *low == 0 => Ok(rhs.clone()),
                 // Extracting a part of the left side
-                BitVecOp::Concat(lhs, rhs) if *low >= rhs.size() => ctx
+                BitVecOp::Concat(lhs, rhs) if *low >= rhs.size() => Ok(ctx
                     .extract(lhs, *high - rhs.size(), *low - rhs.size())?
-                    .simplify(),
+                    .simplify()?),
                 // Extracting a part of the right side
                 BitVecOp::Concat(_, rhs) if *high < rhs.size() => {
-                    ctx.extract(rhs, *high, *low)?.simplify()
+                    Ok(ctx.extract(rhs, *high, *low)?.simplify()?)
                 }
                 // Extracting a part that spans both sides
                 BitVecOp::Concat(lhs, rhs) => {
@@ -423,9 +423,9 @@ pub(crate) fn simplify_bv<'c>(
 
                     // Concatenate the extracted parts
                     // Simplify the result to apply further optimizations
-                    ctx.concat(&left_part, &right_part)?.simplify()
+                    Ok(ctx.concat(&left_part, &right_part)?.simplify()?)
                 }
-                _ => ctx.extract(&arc, *high, *low),
+                _ => Ok(ctx.extract(&arc, *high, *low)?),
             }
         }
         BitVecOp::Concat(..) => {
@@ -435,13 +435,13 @@ pub(crate) fn simplify_bv<'c>(
                     let concatenated_value = value1.concat(value2)?;
 
                     // Return a new BitVec with the concatenated result and new length
-                    ctx.bvv(concatenated_value)
+                    Ok(ctx.bvv(concatenated_value)?)
                 }
                 // Match cases where one side's size is zero
                 (lhs, _) if lhs.size() == 0 => Ok(arc1.clone()),
                 (_, rhs) if rhs.size() == 0 => Ok(arc.clone()),
 
-                _ => ctx.concat(&arc, &arc1),
+                _ => Ok(ctx.concat(&arc, &arc1)?),
             }
         }
         BitVecOp::ByteReverse(..) => {
@@ -449,9 +449,9 @@ pub(crate) fn simplify_bv<'c>(
             match arc.op() {
                 BitVecOp::BVV(value) => {
                     let reversed_bits = value.reverse_bytes()?;
-                    ctx.bvv(reversed_bits)
+                    Ok(ctx.bvv(reversed_bits)?)
                 }
-                _ => ctx.byte_reverse(&arc),
+                _ => Ok(ctx.byte_reverse(&arc)?),
             }
         }
         BitVecOp::FpToIEEEBV(..) => {
@@ -463,12 +463,12 @@ pub(crate) fn simplify_bv<'c>(
                     let bit_length = float.fsort().size();
 
                     // Create a BitVec with the IEEE 754 representation
-                    ctx.bvv(
+                    Ok(ctx.bvv(
                         BitVec::from_biguint(&ieee_bits, bit_length)
                             .expect("Failed to create BitVec from BigUint"),
-                    )
+                    )?)
                 }
-                _ => ctx.fp_to_ieeebv(&arc), // Fallback for non-concrete values
+                _ => Ok(ctx.fp_to_ieeebv(&arc)?), // Fallback for non-concrete values
             }
         }
         BitVecOp::FpToUBV(_, bit_size, fprm) => {
@@ -481,9 +481,9 @@ pub(crate) fn simplify_bv<'c>(
                     // Truncate or extend the result to fit within the specified bit size
                     let result_bitvec = BitVec::from_biguint_trunc(&unsigned_value, *bit_size);
 
-                    ctx.bvv(result_bitvec)
+                    Ok(ctx.bvv(result_bitvec)?)
                 }
-                _ => ctx.fp_to_ubv(&arc, *bit_size, *fprm), // Fallback for non-concrete values
+                _ => Ok(ctx.fp_to_ubv(&arc, *bit_size, *fprm)?), // Fallback for non-concrete values
             }
         }
         BitVecOp::FpToSBV(_, bit_size, fprm) => {
@@ -499,9 +499,9 @@ pub(crate) fn simplify_bv<'c>(
                     // Create a BitVec with the result, truncating or extending to fit within the specified bit size
                     let result_bitvec = BitVec::from_biguint_trunc(&unsigned_value, *bit_size);
 
-                    ctx.bvv(result_bitvec)
+                    Ok(ctx.bvv(result_bitvec)?)
                 }
-                _ => ctx.fp_to_sbv(&arc, *bit_size, *fprm), // Fallback for non-concrete values
+                _ => Ok(ctx.fp_to_sbv(&arc, *bit_size, *fprm)?), // Fallback for non-concrete values
             }
         }
         BitVecOp::StrLen(..) => {
@@ -510,9 +510,9 @@ pub(crate) fn simplify_bv<'c>(
                 StringOp::StringV(value) => {
                     // chars().count() returns the number of Unicode scalar values
                     let length = value.chars().count() as u64;
-                    ctx.bvv(BitVec::from_prim_with_size(length, 64)?)
+                    Ok(ctx.bvv(BitVec::from_prim_with_size(length, 64)?)?)
                 }
-                _ => ctx.strlen(&arc), // Fallback to symbolic
+                _ => Ok(ctx.strlen(&arc)?), // Fallback to symbolic
             }
         }
         BitVecOp::StrIndexOf(..) => {
@@ -549,16 +549,16 @@ pub(crate) fn simplify_bv<'c>(
                                 // Convert byte position back to character position
                                 let byte_pos = byte_index + pos;
                                 let char_pos = s[..byte_pos].chars().count();
-                                ctx.bvv(BitVec::from_prim_with_size(char_pos as u64, 64)?)
+                                Ok(ctx.bvv(BitVec::from_prim_with_size(char_pos as u64, 64)?)?)
                             }
-                            None => ctx.bvv(BitVec::from_prim_with_size(-1i64 as u64, 64)?), // -1 if not found
+                            None => Ok(ctx.bvv(BitVec::from_prim_with_size(-1i64 as u64, 64)?)?), // -1 if not found
                         }
                     } else {
                         // If start index is out of bounds, return -1
-                        ctx.bvv(BitVec::from_prim_with_size(-1i64 as u64, 64)?)
+                        Ok(ctx.bvv(BitVec::from_prim_with_size(-1i64 as u64, 64)?)?)
                     }
                 }
-                _ => ctx.strindexof(&arc, &arc1, &arc2), // Fallback to symbolic
+                _ => Ok(ctx.strindexof(&arc, &arc1, &arc2)?), // Fallback to symbolic
             }
         }
         BitVecOp::StrToBV(..) => {
@@ -567,7 +567,7 @@ pub(crate) fn simplify_bv<'c>(
                 StringOp::StringV(string) => {
                     if string.is_empty() {
                         let max_int = BigUint::from_str_radix("ffffffffffffffff", 16).unwrap();
-                        return ctx.bvv(BitVec::from_biguint_trunc(&max_int, 64));
+                        return Ok(ctx.bvv(BitVec::from_biguint_trunc(&max_int, 64))?);
                     }
 
                     // Attempt to parse the string as a decimal integer
@@ -580,12 +580,12 @@ pub(crate) fn simplify_bv<'c>(
 
                     // If the parsed number is too large to fit in 64 bits, return 0.
                     if value >= BigUint::from(2u64).pow(64) {
-                        return ctx.bvv(BitVec::zeros(64));
+                        return Ok(ctx.bvv(BitVec::zeros(64))?);
                     }
 
-                    ctx.bvv(BitVec::from_biguint_trunc(&value, 64))
+                    Ok(ctx.bvv(BitVec::from_biguint_trunc(&value, 64))?)
                 }
-                _ => ctx.strtobv(&arc),
+                _ => Ok(ctx.strtobv(&arc)?),
             }
         }
         BitVecOp::If(..) => {
@@ -610,8 +610,8 @@ pub(crate) fn simplify_bv<'c>(
                     }
                 }
                 // If the condition has a Not at the top level, invert the branches
-                BooleanOp::Not(inner) => ctx.if_(inner, &else_, &then_),
-                _ => ctx.if_(&if_, &then_, &else_),
+                BooleanOp::Not(inner) => Ok(ctx.if_(inner, &else_, &then_)?),
+                _ => Ok(ctx.if_(&if_, &then_, &else_)?),
             }
         }
         BitVecOp::Union(..) => {
@@ -619,14 +619,14 @@ pub(crate) fn simplify_bv<'c>(
             if lhs == rhs {
                 return Ok(lhs.clone());
             }
-            ctx.union(&lhs, &rhs)
+            Ok(ctx.union(&lhs, &rhs)?)
         }
         BitVecOp::Intersection(..) => {
             let (lhs, rhs) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
             if lhs == rhs {
                 return Ok(lhs.clone());
             }
-            ctx.intersection(&lhs, &rhs)
+            Ok(ctx.intersection(&lhs, &rhs)?)
         }
     }
 }
