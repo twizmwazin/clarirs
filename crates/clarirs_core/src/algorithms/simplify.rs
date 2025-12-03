@@ -99,60 +99,87 @@ impl<'c> SimplifyState<'c> {
         }
     }
 
-    fn get_bool_child(&mut self, index: usize) -> Result<BoolAst<'c>, SimplifyError<'c>> {
+    /// Get the simplified child at the given index, or return an error if it is missing.
+    fn get_child_simplified(&mut self, index: usize) -> Result<DynAst<'c>, SimplifyError<'c>> {
         if let Some(child) = &self.children[index] {
-            child
-                .clone()
-                .into_bool()
-                .ok_or(SimplifyError::Error(ClarirsError::TypeError(
-                    "Expected boolean child".into(),
-                )))
+            Ok(child.clone())
         } else {
             self.last_missed_child = Some(index as u8);
             Err(SimplifyError::MissingChild(index))
         }
     }
 
-    fn get_bv_child(&mut self, index: usize) -> Result<BitVecAst<'c>, SimplifyError<'c>> {
+    fn get_bool_simplified(&mut self, index: usize) -> Result<BoolAst<'c>, SimplifyError<'c>> {
+        self.get_child_simplified(index)?
+            .into_bool()
+            .ok_or(SimplifyError::Error(ClarirsError::TypeError(
+                "Expected bool child".into(),
+            )))
+    }
+
+    fn get_bv_simplified(&mut self, index: usize) -> Result<BitVecAst<'c>, SimplifyError<'c>> {
+        self.get_child_simplified(index)?
+            .into_bitvec()
+            .ok_or(SimplifyError::Error(ClarirsError::TypeError(
+                "Expected bitvector child".into(),
+            )))
+    }
+
+    fn get_fp_simplified(&mut self, index: usize) -> Result<FloatAst<'c>, SimplifyError<'c>> {
+        self.get_child_simplified(index)?
+            .into_float()
+            .ok_or(SimplifyError::Error(ClarirsError::TypeError(
+                "Expected float child".into(),
+            )))
+    }
+
+    fn get_string_simplified(&mut self, index: usize) -> Result<StringAst<'c>, SimplifyError<'c>> {
+        self.get_child_simplified(index)?
+            .into_string()
+            .ok_or(SimplifyError::Error(ClarirsError::TypeError(
+                "Expected string child".into(),
+            )))
+    }
+
+    /// Get the best available child: if we have a simplified version, return that,
+    /// otherwise return the original child.
+    fn get_child_available(&self, index: usize) -> DynAst<'c> {
         if let Some(child) = &self.children[index] {
-            child
-                .clone()
-                .into_bitvec()
-                .ok_or(SimplifyError::Error(ClarirsError::TypeError(
-                    "Expected bitvec child".into(),
-                )))
+            child.clone()
         } else {
-            self.last_missed_child = Some(index as u8);
-            Err(SimplifyError::MissingChild(index))
+            self.expr.children().get(index).unwrap().clone()
         }
     }
 
-    fn get_fp_child(&mut self, index: usize) -> Result<FloatAst<'c>, SimplifyError<'c>> {
-        if let Some(child) = &self.children[index] {
-            child
-                .clone()
-                .into_float()
-                .ok_or(SimplifyError::Error(ClarirsError::TypeError(
-                    "Expected float child".into(),
-                )))
-        } else {
-            self.last_missed_child = Some(index as u8);
-            Err(SimplifyError::MissingChild(index))
-        }
+    fn get_bool_available(&self, index: usize) -> Result<BoolAst<'c>, ClarirsError> {
+        self.get_child_available(index)
+            .into_bool()
+            .ok_or(ClarirsError::TypeError("Expected bool child".into()))
     }
 
-    fn get_string_child(&mut self, index: usize) -> Result<StringAst<'c>, SimplifyError<'c>> {
-        if let Some(child) = &self.children[index] {
-            child
-                .clone()
-                .into_string()
-                .ok_or(SimplifyError::Error(ClarirsError::TypeError(
-                    "Expected string child".into(),
-                )))
-        } else {
-            self.last_missed_child = Some(index as u8);
-            Err(SimplifyError::MissingChild(index))
-        }
+    fn get_bv_available(&self, index: usize) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.get_child_available(index)
+            .into_bitvec()
+            .ok_or(ClarirsError::TypeError("Expected bitvector child".into()))
+    }
+
+    fn get_fp_available(&self, index: usize) -> Result<FloatAst<'c>, ClarirsError> {
+        self.get_child_available(index)
+            .into_float()
+            .ok_or(ClarirsError::TypeError("Expected float child".into()))
+    }
+
+    fn get_string_available(&self, index: usize) -> Result<StringAst<'c>, ClarirsError> {
+        self.get_child_available(index)
+            .into_string()
+            .ok_or(ClarirsError::TypeError("Expected string child".into()))
+    }
+
+    fn rerun<T>(&self, new_ast: T) -> Result<T, SimplifyError<'c>>
+    where
+        DynAst<'c>: From<T>,
+    {
+        Err(SimplifyError::ReRun(DynAst::from(new_ast)))
     }
 }
 

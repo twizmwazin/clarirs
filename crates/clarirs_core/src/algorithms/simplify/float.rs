@@ -10,9 +10,9 @@ pub(crate) fn simplify_float<'c>(
         FloatOp::FPS(..) | FloatOp::FPV(_) => Ok(float_expr),
 
         FloatOp::FpFP(..) => {
-            let sign = state.get_bv_child(0)?;
-            let exp = state.get_bv_child(1)?;
-            let sig = state.get_bv_child(2)?;
+            let sign = state.get_bv_simplified(0)?;
+            let exp = state.get_bv_simplified(1)?;
+            let sig = state.get_bv_simplified(2)?;
 
             // If all components are concrete, construct a concrete float
             match (sign.op(), exp.op(), sig.op()) {
@@ -29,56 +29,56 @@ pub(crate) fn simplify_float<'c>(
         }
 
         FloatOp::FpNeg(..) => {
-            let arc = state.get_fp_child(0)?;
+            let arc = state.get_fp_simplified(0)?;
             match arc.op() {
                 FloatOp::FPV(float) => Ok(ctx.fpv(-*float)?),
                 _ => Ok(ctx.fp_neg(&arc)?),
             }
         }
         FloatOp::FpAbs(..) => {
-            let arc = state.get_fp_child(0)?;
+            let arc = state.get_fp_simplified(0)?;
             match arc.op() {
                 FloatOp::FPV(float) => Ok(ctx.fpv(float.abs())?),
                 _ => Ok(ctx.fp_abs(&arc)?),
             }
         }
         FloatOp::FpAdd(_, _, fprm) => {
-            let (arc, arc1) = (state.get_fp_child(0)?, state.get_fp_child(1)?);
+            let (arc, arc1) = (state.get_fp_simplified(0)?, state.get_fp_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 (FloatOp::FPV(float1), FloatOp::FPV(float2)) => Ok(ctx.fpv(*float1 + *float2)?),
                 _ => Ok(ctx.fp_add(&arc, &arc1, *fprm)?),
             }
         }
         FloatOp::FpSub(_, _, fprm) => {
-            let (arc, arc1) = (state.get_fp_child(0)?, state.get_fp_child(1)?);
+            let (arc, arc1) = (state.get_fp_simplified(0)?, state.get_fp_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 (FloatOp::FPV(float1), FloatOp::FPV(float2)) => Ok(ctx.fpv(*float1 - *float2)?),
                 _ => Ok(ctx.fp_sub(&arc, &arc1, *fprm)?),
             }
         }
         FloatOp::FpMul(_, _, fprm) => {
-            let (arc, arc1) = (state.get_fp_child(0)?, state.get_fp_child(1)?);
+            let (arc, arc1) = (state.get_fp_simplified(0)?, state.get_fp_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 (FloatOp::FPV(float1), FloatOp::FPV(float2)) => Ok(ctx.fpv(*float1 * *float2)?),
                 _ => Ok(ctx.fp_mul(&arc, &arc1, *fprm)?),
             }
         }
         FloatOp::FpDiv(_, _, fprm) => {
-            let (arc, arc1) = (state.get_fp_child(0)?, state.get_fp_child(1)?);
+            let (arc, arc1) = (state.get_fp_simplified(0)?, state.get_fp_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 (FloatOp::FPV(float1), FloatOp::FPV(float2)) => Ok(ctx.fpv(*float1 / *float2)?),
                 _ => Ok(ctx.fp_div(&arc, &arc1, *fprm)?),
             }
         }
         FloatOp::FpSqrt(_, fprm) => {
-            let arc = state.get_fp_child(0)?;
+            let arc = state.get_fp_simplified(0)?;
             match arc.op() {
                 FloatOp::FPV(float_val) => Ok(ctx.fpv(float_val.sqrt())?),
                 _ => Ok(ctx.fp_sqrt(&arc, *fprm)?),
             }
         }
         FloatOp::FpToFp(_, fsort, fprm) => {
-            let arc = state.get_fp_child(0)?;
+            let arc = state.get_fp_simplified(0)?;
             match arc.op() {
                 FloatOp::FPV(float_val) if float_val.fsort() == *fsort => Ok(arc),
                 FloatOp::FPV(float_val) => {
@@ -89,7 +89,7 @@ pub(crate) fn simplify_float<'c>(
             }
         }
         FloatOp::BvToFp(_, fsort) => {
-            let arc = state.get_bv_child(0)?;
+            let arc = state.get_bv_simplified(0)?;
             match arc.op() {
                 BitVecOp::BVV(bv_val) => {
                     // Extract sign, exponent, and mantissa from IEEE 754 representation
@@ -118,7 +118,7 @@ pub(crate) fn simplify_float<'c>(
             }
         }
         FloatOp::BvToFpSigned(_, fsort, fprm) => {
-            let arc = state.get_bv_child(0)?;
+            let arc = state.get_bv_simplified(0)?;
             match arc.op() {
                 BitVecOp::BVV(bv_val) => {
                     // Handle conversion from signed bitvector to float
@@ -130,7 +130,7 @@ pub(crate) fn simplify_float<'c>(
             }
         }
         FloatOp::BvToFpUnsigned(_, fsort, fprm) => {
-            let arc = state.get_bv_child(0)?;
+            let arc = state.get_bv_simplified(0)?;
             match arc.op() {
                 BitVecOp::BVV(bv_val) => {
                     // Interpret `bv_val` as an unsigned integer and convert to float
@@ -143,9 +143,9 @@ pub(crate) fn simplify_float<'c>(
         }
         FloatOp::If(..) => {
             let (if_, then_, else_) = (
-                state.get_bool_child(0)?,
-                state.get_fp_child(1)?,
-                state.get_fp_child(2)?,
+                state.get_bool_simplified(0)?,
+                state.get_fp_simplified(1)?,
+                state.get_fp_simplified(2)?,
             );
 
             // If both branches are identical, return either one

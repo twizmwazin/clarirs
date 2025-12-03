@@ -10,7 +10,10 @@ pub(crate) fn simplify_string<'c>(
     match &string_expr.op() {
         StringOp::StringS(_) | StringOp::StringV(_) => Ok(string_expr),
         StringOp::StrConcat(..) => {
-            let (arc, arc1) = (state.get_string_child(0)?, state.get_string_child(1)?);
+            let (arc, arc1) = (
+                state.get_string_simplified(0)?,
+                state.get_string_simplified(1)?,
+            );
             match (arc.op(), arc1.op()) {
                 (StringOp::StringV(str1), StringOp::StringV(str2)) => {
                     let concatenated = format!("{str1}{str2}");
@@ -21,9 +24,9 @@ pub(crate) fn simplify_string<'c>(
         }
         StringOp::StrSubstr(..) => {
             let (arc, arc1, arc2) = (
-                state.get_string_child(0)?,
-                state.get_bv_child(1)?,
-                state.get_bv_child(2)?,
+                state.get_string_simplified(0)?,
+                state.get_bv_simplified(1)?,
+                state.get_bv_simplified(2)?,
             );
             match (arc.op(), arc1.op(), arc2.op()) {
                 (StringOp::StringV(s), BitVecOp::BVV(start_bv), BitVecOp::BVV(length_bv)) => {
@@ -50,9 +53,9 @@ pub(crate) fn simplify_string<'c>(
         }
         StringOp::StrReplace(..) => {
             let (arc, arc1, arc2) = (
-                state.get_string_child(0)?,
-                state.get_string_child(1)?,
-                state.get_string_child(2)?,
+                state.get_string_simplified(0)?,
+                state.get_string_simplified(1)?,
+                state.get_string_simplified(2)?,
             );
             match (arc.op(), arc1.op(), arc2.op()) {
                 (
@@ -70,7 +73,7 @@ pub(crate) fn simplify_string<'c>(
             }
         }
         StringOp::BVToStr(..) => {
-            let arc = state.get_bv_child(0)?;
+            let arc = state.get_bv_simplified(0)?;
             match arc.op() {
                 BitVecOp::BVV(value) => {
                     // Convert the BitVec value to an integer, then to a string
@@ -84,9 +87,9 @@ pub(crate) fn simplify_string<'c>(
         }
         StringOp::If(..) => {
             let (if_, then_, else_) = (
-                state.get_bool_child(0)?,
-                state.get_string_child(1)?,
-                state.get_string_child(2)?,
+                state.get_bool_simplified(0)?,
+                state.get_string_simplified(1)?,
+                state.get_string_simplified(2)?,
             );
 
             // If both branches are identical, return either one
