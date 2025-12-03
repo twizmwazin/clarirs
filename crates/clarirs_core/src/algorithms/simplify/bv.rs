@@ -294,7 +294,11 @@ pub(crate) fn simplify_bv<'c>(
             let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
             match (arc.op(), arc1.op()) {
                 // Shift by zero or multiple of size
-                (_, BitVecOp::BVV(v)) if v.is_zero() || v.to_bigint() % arc.size() == BigInt::zero() => Ok(arc.clone()),
+                (_, BitVecOp::BVV(v))
+                    if v.is_zero() || v.to_bigint() % arc.size() == BigInt::zero() =>
+                {
+                    Ok(arc.clone())
+                }
                 // Fully concrete case
                 (BitVecOp::BVV(value_bv), BitVecOp::BVV(rotate_bv)) => {
                     let rotate_u32 = rotate_bv.to_u64().unwrap_or(0) as u32;
@@ -319,7 +323,11 @@ pub(crate) fn simplify_bv<'c>(
             let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
             match (arc.op(), arc1.op()) {
                 // Shift by zero or multiple of size
-                (_, BitVecOp::BVV(v)) if v.is_zero() || v.to_bigint() % arc.size() == BigInt::zero() => Ok(arc.clone()),
+                (_, BitVecOp::BVV(v))
+                    if v.is_zero() || v.to_bigint() % arc.size() == BigInt::zero() =>
+                {
+                    Ok(arc.clone())
+                }
                 // Fully concrete case
                 (BitVecOp::BVV(value_bv), BitVecOp::BVV(rotate_amount_bv)) => {
                     let rotate_u32 = rotate_amount_bv.to_u64().unwrap_or(0) as u32;
