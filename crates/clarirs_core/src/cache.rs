@@ -12,11 +12,17 @@ use crate::prelude::*;
 /// a new value and insert it into the cache.
 pub trait Cache<K, V> {
     fn get_or_insert<E>(&self, key: K, value_cv: impl FnMut() -> Result<V, E>) -> Result<V, E>;
+
+    fn drop(&self, key: K);
 }
 
 impl<K, V> Cache<K, V> for () {
     fn get_or_insert<E>(&self, _: K, mut value_cv: impl FnMut() -> Result<V, E>) -> Result<V, E> {
         value_cv()
+    }
+
+    fn drop(&self, _key: K) {
+        // No-op
     }
 }
 
@@ -35,6 +41,11 @@ impl<K: Hash + Eq, V: Clone> Cache<K, V> for GenericCache<K, V> {
                 Ok(value)
             }
         }
+    }
+
+    fn drop(&self, key: K) {
+        let mut locked = self.0.write().unwrap();
+        locked.remove(&key);
     }
 }
 
@@ -143,6 +154,11 @@ impl<'c> Cache<u64, DynAst<'c>> for AstCache<'c> {
 
             Ok(arc)
         }
+    }
+
+    fn drop(&self, key: u64) {
+        let mut locked = self.0.write().unwrap();
+        locked.remove(&key);
     }
 }
 

@@ -125,6 +125,12 @@ impl Context<'_> {
         interner.insert(Arc::clone(&arc), Arc::clone(&arc));
         InternedString(arc)
     }
+
+    pub fn drop_cache(&self, hash: u64) {
+        self.ast_cache.drop(hash);
+        self.simplification_cache.drop(hash);
+        self.excavate_ite_cache.drop(hash);
+    }
 }
 
 impl<'c> AstFactory<'c> for Context<'c> {
