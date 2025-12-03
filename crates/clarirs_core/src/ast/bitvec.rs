@@ -359,7 +359,10 @@ impl std::hash::Hash for BitVecOp<'_> {
 }
 
 impl<'c> Op<'c> for BitVecOp<'c> {
-    type ChildIter<'a> = BitVecOpChildIter<'a, 'c> where Self: 'a;
+    type ChildIter<'a>
+        = BitVecOpChildIter<'a, 'c>
+    where
+        Self: 'a;
 
     fn child_iter(&self) -> Self::ChildIter<'_> {
         BitVecOp::child_iter(self)

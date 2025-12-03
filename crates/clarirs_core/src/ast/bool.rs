@@ -155,7 +155,10 @@ impl<'a, 'c> ExactSizeIterator for BooleanOpChildIter<'a, 'c> {
         let total: usize = match self.op {
             BooleanOp::BoolS(_) | BooleanOp::BoolV(_) => 0,
 
-            BooleanOp::Not(_) | BooleanOp::FpIsNan(_) | BooleanOp::FpIsInf(_) | BooleanOp::StrIsDigit(_) => 1,
+            BooleanOp::Not(_)
+            | BooleanOp::FpIsNan(_)
+            | BooleanOp::FpIsInf(_)
+            | BooleanOp::StrIsDigit(_) => 1,
 
             BooleanOp::And(..)
             | BooleanOp::Or(..)
@@ -359,7 +362,10 @@ impl std::hash::Hash for BooleanOp<'_> {
 }
 
 impl<'c> Op<'c> for BooleanOp<'c> {
-    type ChildIter<'a> = BooleanOpChildIter<'a, 'c> where Self: 'a;
+    type ChildIter<'a>
+        = BooleanOpChildIter<'a, 'c>
+    where
+        Self: 'a;
 
     fn child_iter(&self) -> Self::ChildIter<'_> {
         BooleanOp::child_iter(self)

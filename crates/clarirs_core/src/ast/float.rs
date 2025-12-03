@@ -208,7 +208,10 @@ impl std::hash::Hash for FloatOp<'_> {
 }
 
 impl<'c> Op<'c> for FloatOp<'c> {
-    type ChildIter<'a> = FloatOpChildIter<'a, 'c> where Self: 'a;
+    type ChildIter<'a>
+        = FloatOpChildIter<'a, 'c>
+    where
+        Self: 'a;
 
     fn child_iter(&self) -> Self::ChildIter<'_> {
         FloatOp::child_iter(self)

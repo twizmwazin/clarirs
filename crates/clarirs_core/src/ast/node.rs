@@ -114,7 +114,10 @@ impl<'c, O: Op<'c> + Serialize + SupportsAnnotate<'c>> AstNode<'c, O> {
 }
 
 impl<'c, O: Op<'c>> Op<'c> for AstNode<'c, O> {
-    type ChildIter<'a> = O::ChildIter<'a> where Self: 'a;
+    type ChildIter<'a>
+        = O::ChildIter<'a>
+    where
+        Self: 'a;
 
     fn child_iter(&self) -> Self::ChildIter<'_> {
         self.op.child_iter()
@@ -218,7 +221,10 @@ impl<'c> HasContext<'c> for DynAst<'c> {
 }
 
 impl<'c> Op<'c> for DynAst<'c> {
-    type ChildIter<'a> = DynAstChildIter<'a, 'c> where Self: 'a;
+    type ChildIter<'a>
+        = DynAstChildIter<'a, 'c>
+    where
+        Self: 'a;
 
     fn child_iter(&self) -> Self::ChildIter<'_> {
         match self {

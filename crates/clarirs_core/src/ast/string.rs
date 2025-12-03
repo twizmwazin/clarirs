@@ -132,7 +132,10 @@ impl std::hash::Hash for StringOp<'_> {
 }
 
 impl<'c> Op<'c> for StringOp<'c> {
-    type ChildIter<'a> = StringOpChildIter<'a, 'c> where Self: 'a;
+    type ChildIter<'a>
+        = StringOpChildIter<'a, 'c>
+    where
+        Self: 'a;
 
     fn child_iter(&self) -> Self::ChildIter<'_> {
         StringOp::child_iter(self)
