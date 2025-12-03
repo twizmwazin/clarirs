@@ -153,7 +153,7 @@ impl<'c> AstFactory<'c> for Context<'c> {
 
         Ok(self
             .ast_cache
-            .get_or_insert(hash, || {
+            .get_or_insert::<ClarirsError>(hash, || {
                 Ok(DynAst::from(Arc::new(AstNode::new(
                     self,
                     op.clone(),
@@ -187,7 +187,7 @@ impl<'c> AstFactory<'c> for Context<'c> {
 
         Ok(self
             .ast_cache
-            .get_or_insert(hash, || {
+            .get_or_insert::<ClarirsError>(hash, || {
                 Ok(DynAst::from(Arc::new(AstNode::new(
                     self,
                     op.clone(),
@@ -221,7 +221,7 @@ impl<'c> AstFactory<'c> for Context<'c> {
 
         Ok(self
             .ast_cache
-            .get_or_insert(hash, || {
+            .get_or_insert::<ClarirsError>(hash, || {
                 Ok(DynAst::from(Arc::new(AstNode::new(
                     self,
                     op.clone(),
@@ -255,7 +255,7 @@ impl<'c> AstFactory<'c> for Context<'c> {
 
         Ok(self
             .ast_cache
-            .get_or_insert(hash, || {
+            .get_or_insert::<ClarirsError>(hash, || {
                 Ok(DynAst::from(Arc::new(AstNode::new(
                     self,
                     op.clone(),
