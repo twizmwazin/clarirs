@@ -1,5 +1,5 @@
-use crate::prelude::*;
 use super::SimplifyError;
+use crate::prelude::*;
 
 pub(crate) fn simplify_string<'c>(
     state: &mut super::SimplifyState<'c>,

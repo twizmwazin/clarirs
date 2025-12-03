@@ -29,8 +29,12 @@ pub(crate) fn simplify_bv<'c>(
                 (BitVecOp::BVV(v), _) if v.is_all_ones() => Ok(arc1.clone()),
                 (_, BitVecOp::BVV(v)) if v.is_all_ones() => Ok(arc.clone()),
                 // x & ¬x = 0
-                (BitVecOp::Not(lhs), rhs) if lhs.op() == rhs => Ok(ctx.bvv(BitVec::zeros(arc.size()))?),
-                (lhs, BitVecOp::Not(rhs)) if lhs == rhs.op() => Ok(ctx.bvv(BitVec::zeros(arc.size()))?),
+                (BitVecOp::Not(lhs), rhs) if lhs.op() == rhs => {
+                    Ok(ctx.bvv(BitVec::zeros(arc.size()))?)
+                }
+                (lhs, BitVecOp::Not(rhs)) if lhs == rhs.op() => {
+                    Ok(ctx.bvv(BitVec::zeros(arc.size()))?)
+                }
                 _ => Ok(ctx.and(&arc, &arc1)?),
             }
         }
