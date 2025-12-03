@@ -1,8 +1,8 @@
-use crate::prelude::*;
+use crate::{algorithms::simplify::SimplifyError, prelude::*};
 
 pub(crate) fn simplify_float<'c>(
     state: &mut super::SimplifyState<'c>,
-) -> Result<FloatAst<'c>, ClarirsError> {
+) -> Result<FloatAst<'c>, SimplifyError<'c>> {
     let ctx = state.expr.context();
     let float_expr = state.expr.clone().into_float().unwrap();
 
@@ -21,60 +21,60 @@ pub(crate) fn simplify_float<'c>(
                         !sign_bv.is_zero(), // sign is true if bit is 1
                         exp_bv.clone(),
                         sig_bv.clone(),
-                    );
-                    ctx.fpv(float?)
+                    )?;
+                    Ok(ctx.fpv(float)?)
                 }
-                _ => ctx.fp_fp(&sign, &exp, &sig),
+                _ => Ok(ctx.fp_fp(&sign, &exp, &sig)?),
             }
         }
 
         FloatOp::FpNeg(..) => {
             let arc = state.get_fp_child(0)?;
             match arc.op() {
-                FloatOp::FPV(float) => ctx.fpv(-*float),
-                _ => ctx.fp_neg(&arc),
+                FloatOp::FPV(float) => Ok(ctx.fpv(-*float)?),
+                _ => Ok(ctx.fp_neg(&arc)?),
             }
         }
         FloatOp::FpAbs(..) => {
             let arc = state.get_fp_child(0)?;
             match arc.op() {
-                FloatOp::FPV(float) => ctx.fpv(float.abs()),
-                _ => ctx.fp_abs(&arc),
+                FloatOp::FPV(float) => Ok(ctx.fpv(float.abs())?),
+                _ => Ok(ctx.fp_abs(&arc)?),
             }
         }
         FloatOp::FpAdd(_, _, fprm) => {
             let (arc, arc1) = (state.get_fp_child(0)?, state.get_fp_child(1)?);
             match (arc.op(), arc1.op()) {
-                (FloatOp::FPV(float1), FloatOp::FPV(float2)) => ctx.fpv(*float1 + *float2),
-                _ => ctx.fp_add(&arc, &arc1, *fprm),
+                (FloatOp::FPV(float1), FloatOp::FPV(float2)) => Ok(ctx.fpv(*float1 + *float2)?),
+                _ => Ok(ctx.fp_add(&arc, &arc1, *fprm)?),
             }
         }
         FloatOp::FpSub(_, _, fprm) => {
             let (arc, arc1) = (state.get_fp_child(0)?, state.get_fp_child(1)?);
             match (arc.op(), arc1.op()) {
-                (FloatOp::FPV(float1), FloatOp::FPV(float2)) => ctx.fpv(*float1 - *float2),
-                _ => ctx.fp_sub(&arc, &arc1, *fprm),
+                (FloatOp::FPV(float1), FloatOp::FPV(float2)) => Ok(ctx.fpv(*float1 - *float2)?),
+                _ => Ok(ctx.fp_sub(&arc, &arc1, *fprm)?),
             }
         }
         FloatOp::FpMul(_, _, fprm) => {
             let (arc, arc1) = (state.get_fp_child(0)?, state.get_fp_child(1)?);
             match (arc.op(), arc1.op()) {
-                (FloatOp::FPV(float1), FloatOp::FPV(float2)) => ctx.fpv(*float1 * *float2),
-                _ => ctx.fp_mul(&arc, &arc1, *fprm),
+                (FloatOp::FPV(float1), FloatOp::FPV(float2)) => Ok(ctx.fpv(*float1 * *float2)?),
+                _ => Ok(ctx.fp_mul(&arc, &arc1, *fprm)?),
             }
         }
         FloatOp::FpDiv(_, _, fprm) => {
             let (arc, arc1) = (state.get_fp_child(0)?, state.get_fp_child(1)?);
             match (arc.op(), arc1.op()) {
-                (FloatOp::FPV(float1), FloatOp::FPV(float2)) => ctx.fpv(*float1 / *float2),
-                _ => ctx.fp_div(&arc, &arc1, *fprm),
+                (FloatOp::FPV(float1), FloatOp::FPV(float2)) => Ok(ctx.fpv(*float1 / *float2)?),
+                _ => Ok(ctx.fp_div(&arc, &arc1, *fprm)?),
             }
         }
         FloatOp::FpSqrt(_, fprm) => {
             let arc = state.get_fp_child(0)?;
             match arc.op() {
-                FloatOp::FPV(float_val) => ctx.fpv(float_val.sqrt()),
-                _ => ctx.fp_sqrt(&arc, *fprm),
+                FloatOp::FPV(float_val) => Ok(ctx.fpv(float_val.sqrt())?),
+                _ => Ok(ctx.fp_sqrt(&arc, *fprm)?),
             }
         }
         FloatOp::FpToFp(_, fsort, fprm) => {
@@ -82,10 +82,10 @@ pub(crate) fn simplify_float<'c>(
             match arc.op() {
                 FloatOp::FPV(float_val) if float_val.fsort() == *fsort => Ok(arc),
                 FloatOp::FPV(float_val) => {
-                    let converted_value = float_val.convert_to_format(*fsort, *fprm);
-                    ctx.fpv(converted_value?)
+                    let converted_value = float_val.convert_to_format(*fsort, *fprm)?;
+                    Ok(ctx.fpv(converted_value)?)
                 }
-                _ => ctx.fp_to_fp(&arc, *fsort, *fprm),
+                _ => Ok(ctx.fp_to_fp(&arc, *fsort, *fprm)?),
             }
         }
         FloatOp::BvToFp(_, fsort) => {
@@ -98,7 +98,7 @@ pub(crate) fn simplify_float<'c>(
 
                     // Ensure the bitvector size matches the float sort
                     if total_bits != fsort.size() {
-                        return Err(ClarirsError::InvalidArguments);
+                        return Err(SimplifyError::Error(ClarirsError::InvalidArguments));
                     }
 
                     // Extract components: sign (1 bit) | exponent (exp_bits) | mantissa (man_bits)
@@ -111,10 +111,10 @@ pub(crate) fn simplify_float<'c>(
                         !sign_bit.is_zero(), // sign is true if bit is 1
                         exponent,
                         mantissa,
-                    );
-                    ctx.fpv(float?)
+                    )?;
+                    Ok(ctx.fpv(float)?)
                 }
-                _ => ctx.bv_to_fp(&arc, *fsort),
+                _ => Ok(ctx.bv_to_fp(&arc, *fsort)?),
             }
         }
         FloatOp::BvToFpSigned(_, fsort, fprm) => {
@@ -124,9 +124,9 @@ pub(crate) fn simplify_float<'c>(
                     // Handle conversion from signed bitvector to float
                     let float_value =
                         Float::from_bigint_with_rounding(&bv_val.to_bigint(), *fsort, *fprm)?;
-                    ctx.fpv(float_value)
+                    Ok(ctx.fpv(float_value)?)
                 }
-                _ => ctx.bv_to_fp_signed(&arc, *fsort, *fprm),
+                _ => Ok(ctx.bv_to_fp_signed(&arc, *fsort, *fprm)?),
             }
         }
         FloatOp::BvToFpUnsigned(_, fsort, fprm) => {
@@ -135,10 +135,10 @@ pub(crate) fn simplify_float<'c>(
                 BitVecOp::BVV(bv_val) => {
                     // Interpret `bv_val` as an unsigned integer and convert to float
                     let float_value =
-                        Float::from_biguint_with_rounding(&bv_val.to_biguint(), *fsort, *fprm);
-                    ctx.fpv(float_value?)
+                        Float::from_biguint_with_rounding(&bv_val.to_biguint(), *fsort, *fprm)?;
+                    Ok(ctx.fpv(float_value)?)
                 }
-                _ => ctx.bv_to_fp_unsigned(&arc, *fsort, *fprm),
+                _ => Ok(ctx.bv_to_fp_unsigned(&arc, *fsort, *fprm)?),
             }
         }
         FloatOp::If(..) => {
@@ -163,8 +163,8 @@ pub(crate) fn simplify_float<'c>(
                     }
                 }
                 // If the condition has a Not at the top level, invert the branches
-                BooleanOp::Not(inner) => ctx.if_(inner, &else_, &then_),
-                _ => ctx.if_(&if_, &then_, &else_),
+                BooleanOp::Not(inner) => Ok(ctx.if_(inner, &else_, &then_)?),
+                _ => Ok(ctx.if_(&if_, &then_, &else_)?),
             }
         }
     }
