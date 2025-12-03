@@ -147,7 +147,7 @@ impl<'c> SimplifyState<'c> {
         if let Some(child) = &self.children[index] {
             child.clone()
         } else {
-            self.expr.children().get(index).unwrap().clone()
+            self.expr.get_child(index).unwrap()
         }
     }
 
@@ -232,8 +232,7 @@ fn simplify<'c>(ast: &DynAst<'c>, respect_annotations: bool) -> Result<DynAst<'c
                     last_result = Some(annotated)
                 }
                 Err(SimplifyError::MissingChild(index)) => {
-                    let child_state =
-                        SimplifyState::new(state.expr.children().get(index).unwrap().clone());
+                    let child_state = SimplifyState::new(state.expr.get_child(index).unwrap());
 
                     // Push the current state back onto the stack
                     work_stack.push(state);

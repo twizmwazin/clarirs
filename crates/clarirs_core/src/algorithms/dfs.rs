@@ -21,7 +21,7 @@ pub fn walk_dfs<'c>(
     while let Some(current) = stack.pop() {
         match callback(&current) {
             DfsResult::Continue => {
-                for child in current.children() {
+                for child in current.child_iter() {
                     stack.push(child.clone());
                 }
             }

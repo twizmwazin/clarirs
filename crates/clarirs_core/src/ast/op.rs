@@ -1,25 +1,26 @@
 use std::collections::BTreeSet;
 use std::fmt::Debug;
 use std::hash::Hash;
-use std::vec::IntoIter;
 
 use serde::Serialize;
 
 use crate::prelude::*;
 
 pub trait Op<'c>: Debug + Hash + Serialize + PartialEq {
-    fn child_iter(&self) -> IntoIter<DynAst<'c>>;
+    type ChildIter<'a>: Iterator<Item = DynAst<'c>> + ExactSizeIterator
+    where
+        Self: 'a;
 
-    fn children(&self) -> Vec<DynAst<'c>> {
-        self.child_iter().collect()
-    }
+    fn child_iter(&self) -> Self::ChildIter<'_>;
+
+    fn get_child(&self, index: usize) -> Option<DynAst<'c>>;
 
     fn depth(&self) -> u32 {
-        1 + self.children().iter().map(|c| c.depth()).max().unwrap_or(0)
+        1 + self.child_iter().map(|c| c.depth()).max().unwrap_or(0)
     }
 
     fn is_leaf(&self) -> bool {
-        self.children().is_empty()
+        self.child_iter().next().is_none()
     }
 
     fn is_true(&self) -> bool {

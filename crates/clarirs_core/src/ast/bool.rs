@@ -1,5 +1,4 @@
 use std::collections::BTreeSet;
-use std::vec::IntoIter;
 
 use serde::Serialize;
 
@@ -43,6 +42,156 @@ pub enum BooleanOp<'c> {
 }
 
 pub type BoolAst<'c> = AstRef<'c, BooleanOp<'c>>;
+
+pub struct BooleanOpChildIter<'a, 'c> {
+    op: &'a BooleanOp<'c>,
+    index: u8,
+}
+
+impl<'c> BooleanOp<'c> {
+    pub fn child_iter(&self) -> BooleanOpChildIter<'_, 'c> {
+        BooleanOpChildIter { op: self, index: 0 }
+    }
+}
+
+impl<'a, 'c> Iterator for BooleanOpChildIter<'a, 'c> {
+    type Item = DynAst<'c>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let result = match (self.op, self.index) {
+            // 0 children
+            (BooleanOp::BoolS(_), _) | (BooleanOp::BoolV(_), _) => None,
+
+            // 1 child variants - index 0
+            (BooleanOp::Not(a), 0) => Some(a.into()),
+            (BooleanOp::FpIsNan(a), 0) | (BooleanOp::FpIsInf(a), 0) => Some(a.into()),
+            (BooleanOp::StrIsDigit(a), 0) => Some(a.into()),
+
+            // 2 child variants - index 0 (first child)
+            (BooleanOp::And(a, _), 0)
+            | (BooleanOp::Or(a, _), 0)
+            | (BooleanOp::Xor(a, _), 0)
+            | (BooleanOp::BoolEq(a, _), 0)
+            | (BooleanOp::BoolNeq(a, _), 0) => Some(a.into()),
+
+            (BooleanOp::Eq(a, _), 0)
+            | (BooleanOp::Neq(a, _), 0)
+            | (BooleanOp::ULT(a, _), 0)
+            | (BooleanOp::ULE(a, _), 0)
+            | (BooleanOp::UGT(a, _), 0)
+            | (BooleanOp::UGE(a, _), 0)
+            | (BooleanOp::SLT(a, _), 0)
+            | (BooleanOp::SLE(a, _), 0)
+            | (BooleanOp::SGT(a, _), 0)
+            | (BooleanOp::SGE(a, _), 0) => Some(a.into()),
+
+            (BooleanOp::FpEq(a, _), 0)
+            | (BooleanOp::FpNeq(a, _), 0)
+            | (BooleanOp::FpLt(a, _), 0)
+            | (BooleanOp::FpLeq(a, _), 0)
+            | (BooleanOp::FpGt(a, _), 0)
+            | (BooleanOp::FpGeq(a, _), 0) => Some(a.into()),
+
+            (BooleanOp::StrContains(a, _), 0)
+            | (BooleanOp::StrPrefixOf(a, _), 0)
+            | (BooleanOp::StrSuffixOf(a, _), 0)
+            | (BooleanOp::StrEq(a, _), 0)
+            | (BooleanOp::StrNeq(a, _), 0) => Some(a.into()),
+
+            // 2 child variants - index 1 (second child)
+            (BooleanOp::And(_, b), 1)
+            | (BooleanOp::Or(_, b), 1)
+            | (BooleanOp::Xor(_, b), 1)
+            | (BooleanOp::BoolEq(_, b), 1)
+            | (BooleanOp::BoolNeq(_, b), 1) => Some(b.into()),
+
+            (BooleanOp::Eq(_, b), 1)
+            | (BooleanOp::Neq(_, b), 1)
+            | (BooleanOp::ULT(_, b), 1)
+            | (BooleanOp::ULE(_, b), 1)
+            | (BooleanOp::UGT(_, b), 1)
+            | (BooleanOp::UGE(_, b), 1)
+            | (BooleanOp::SLT(_, b), 1)
+            | (BooleanOp::SLE(_, b), 1)
+            | (BooleanOp::SGT(_, b), 1)
+            | (BooleanOp::SGE(_, b), 1) => Some(b.into()),
+
+            (BooleanOp::FpEq(_, b), 1)
+            | (BooleanOp::FpNeq(_, b), 1)
+            | (BooleanOp::FpLt(_, b), 1)
+            | (BooleanOp::FpLeq(_, b), 1)
+            | (BooleanOp::FpGt(_, b), 1)
+            | (BooleanOp::FpGeq(_, b), 1) => Some(b.into()),
+
+            (BooleanOp::StrContains(_, b), 1)
+            | (BooleanOp::StrPrefixOf(_, b), 1)
+            | (BooleanOp::StrSuffixOf(_, b), 1)
+            | (BooleanOp::StrEq(_, b), 1)
+            | (BooleanOp::StrNeq(_, b), 1) => Some(b.into()),
+
+            // 3 child variants
+            (BooleanOp::If(a, _, _), 0) => Some(a.into()),
+            (BooleanOp::If(_, b, _), 1) => Some(b.into()),
+            (BooleanOp::If(_, _, c), 2) => Some(c.into()),
+
+            _ => None,
+        };
+
+        if result.is_some() {
+            self.index += 1;
+        }
+
+        result
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.len();
+        (remaining, Some(remaining))
+    }
+}
+
+impl<'a, 'c> ExactSizeIterator for BooleanOpChildIter<'a, 'c> {
+    fn len(&self) -> usize {
+        let total: usize = match self.op {
+            BooleanOp::BoolS(_) | BooleanOp::BoolV(_) => 0,
+
+            BooleanOp::Not(_)
+            | BooleanOp::FpIsNan(_)
+            | BooleanOp::FpIsInf(_)
+            | BooleanOp::StrIsDigit(_) => 1,
+
+            BooleanOp::And(..)
+            | BooleanOp::Or(..)
+            | BooleanOp::Xor(..)
+            | BooleanOp::BoolEq(..)
+            | BooleanOp::BoolNeq(..)
+            | BooleanOp::Eq(..)
+            | BooleanOp::Neq(..)
+            | BooleanOp::ULT(..)
+            | BooleanOp::ULE(..)
+            | BooleanOp::UGT(..)
+            | BooleanOp::UGE(..)
+            | BooleanOp::SLT(..)
+            | BooleanOp::SLE(..)
+            | BooleanOp::SGT(..)
+            | BooleanOp::SGE(..)
+            | BooleanOp::FpEq(..)
+            | BooleanOp::FpNeq(..)
+            | BooleanOp::FpLt(..)
+            | BooleanOp::FpLeq(..)
+            | BooleanOp::FpGt(..)
+            | BooleanOp::FpGeq(..)
+            | BooleanOp::StrContains(..)
+            | BooleanOp::StrPrefixOf(..)
+            | BooleanOp::StrSuffixOf(..)
+            | BooleanOp::StrEq(..)
+            | BooleanOp::StrNeq(..) => 2,
+
+            BooleanOp::If(..) => 3,
+        };
+        total.saturating_sub(self.index as usize)
+    }
+}
 
 impl std::hash::Hash for BooleanOp<'_> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
@@ -213,51 +362,91 @@ impl std::hash::Hash for BooleanOp<'_> {
 }
 
 impl<'c> Op<'c> for BooleanOp<'c> {
-    fn child_iter(&self) -> IntoIter<DynAst<'c>> {
-        match self {
-            // Cases with no children
-            BooleanOp::BoolS(_) | BooleanOp::BoolV(_) => vec![],
+    type ChildIter<'a>
+        = BooleanOpChildIter<'a, 'c>
+    where
+        Self: 'a;
 
-            // Cases with one child
-            BooleanOp::Not(a) => vec![a.into()],
+    fn child_iter(&self) -> Self::ChildIter<'_> {
+        BooleanOp::child_iter(self)
+    }
 
-            BooleanOp::FpIsNan(a) | BooleanOp::FpIsInf(a) => vec![a.into()],
-            BooleanOp::StrIsDigit(a) => vec![a.into()],
+    fn get_child(&self, index: usize) -> Option<DynAst<'c>> {
+        match (self, index) {
+            // 1 child variants - index 0
+            (BooleanOp::Not(a), 0) => Some(a.into()),
+            (BooleanOp::FpIsNan(a), 0) | (BooleanOp::FpIsInf(a), 0) => Some(a.into()),
+            (BooleanOp::StrIsDigit(a), 0) => Some(a.into()),
 
-            // Cases with two children
-            BooleanOp::And(a, b)
-            | BooleanOp::Or(a, b)
-            | BooleanOp::Xor(a, b)
-            | BooleanOp::BoolEq(a, b)
-            | BooleanOp::BoolNeq(a, b) => {
-                vec![a.into(), b.into()]
-            }
-            BooleanOp::Eq(a, b)
-            | BooleanOp::Neq(a, b)
-            | BooleanOp::ULT(a, b)
-            | BooleanOp::ULE(a, b)
-            | BooleanOp::UGT(a, b)
-            | BooleanOp::UGE(a, b)
-            | BooleanOp::SLT(a, b)
-            | BooleanOp::SLE(a, b)
-            | BooleanOp::SGT(a, b)
-            | BooleanOp::SGE(a, b) => vec![a.into(), b.into()],
-            BooleanOp::FpEq(a, b)
-            | BooleanOp::FpNeq(a, b)
-            | BooleanOp::FpLt(a, b)
-            | BooleanOp::FpLeq(a, b)
-            | BooleanOp::FpGt(a, b)
-            | BooleanOp::FpGeq(a, b) => vec![a.into(), b.into()],
-            BooleanOp::StrContains(a, b)
-            | BooleanOp::StrPrefixOf(a, b)
-            | BooleanOp::StrSuffixOf(a, b)
-            | BooleanOp::StrEq(a, b)
-            | BooleanOp::StrNeq(a, b) => vec![a.into(), b.into()],
+            // 2 child variants - index 0 (first child)
+            (BooleanOp::And(a, _), 0)
+            | (BooleanOp::Or(a, _), 0)
+            | (BooleanOp::Xor(a, _), 0)
+            | (BooleanOp::BoolEq(a, _), 0)
+            | (BooleanOp::BoolNeq(a, _), 0) => Some(a.into()),
 
-            // Cases with three children
-            BooleanOp::If(a, b, c) => vec![a.into(), b.into(), c.into()],
+            (BooleanOp::Eq(a, _), 0)
+            | (BooleanOp::Neq(a, _), 0)
+            | (BooleanOp::ULT(a, _), 0)
+            | (BooleanOp::ULE(a, _), 0)
+            | (BooleanOp::UGT(a, _), 0)
+            | (BooleanOp::UGE(a, _), 0)
+            | (BooleanOp::SLT(a, _), 0)
+            | (BooleanOp::SLE(a, _), 0)
+            | (BooleanOp::SGT(a, _), 0)
+            | (BooleanOp::SGE(a, _), 0) => Some(a.into()),
+
+            (BooleanOp::FpEq(a, _), 0)
+            | (BooleanOp::FpNeq(a, _), 0)
+            | (BooleanOp::FpLt(a, _), 0)
+            | (BooleanOp::FpLeq(a, _), 0)
+            | (BooleanOp::FpGt(a, _), 0)
+            | (BooleanOp::FpGeq(a, _), 0) => Some(a.into()),
+
+            (BooleanOp::StrContains(a, _), 0)
+            | (BooleanOp::StrPrefixOf(a, _), 0)
+            | (BooleanOp::StrSuffixOf(a, _), 0)
+            | (BooleanOp::StrEq(a, _), 0)
+            | (BooleanOp::StrNeq(a, _), 0) => Some(a.into()),
+
+            // 2 child variants - index 1 (second child)
+            (BooleanOp::And(_, b), 1)
+            | (BooleanOp::Or(_, b), 1)
+            | (BooleanOp::Xor(_, b), 1)
+            | (BooleanOp::BoolEq(_, b), 1)
+            | (BooleanOp::BoolNeq(_, b), 1) => Some(b.into()),
+
+            (BooleanOp::Eq(_, b), 1)
+            | (BooleanOp::Neq(_, b), 1)
+            | (BooleanOp::ULT(_, b), 1)
+            | (BooleanOp::ULE(_, b), 1)
+            | (BooleanOp::UGT(_, b), 1)
+            | (BooleanOp::UGE(_, b), 1)
+            | (BooleanOp::SLT(_, b), 1)
+            | (BooleanOp::SLE(_, b), 1)
+            | (BooleanOp::SGT(_, b), 1)
+            | (BooleanOp::SGE(_, b), 1) => Some(b.into()),
+
+            (BooleanOp::FpEq(_, b), 1)
+            | (BooleanOp::FpNeq(_, b), 1)
+            | (BooleanOp::FpLt(_, b), 1)
+            | (BooleanOp::FpLeq(_, b), 1)
+            | (BooleanOp::FpGt(_, b), 1)
+            | (BooleanOp::FpGeq(_, b), 1) => Some(b.into()),
+
+            (BooleanOp::StrContains(_, b), 1)
+            | (BooleanOp::StrPrefixOf(_, b), 1)
+            | (BooleanOp::StrSuffixOf(_, b), 1)
+            | (BooleanOp::StrEq(_, b), 1)
+            | (BooleanOp::StrNeq(_, b), 1) => Some(b.into()),
+
+            // 3 child variants
+            (BooleanOp::If(a, _, _), 0) => Some(a.into()),
+            (BooleanOp::If(_, b, _), 1) => Some(b.into()),
+            (BooleanOp::If(_, _, c), 2) => Some(c.into()),
+
+            _ => None,
         }
-        .into_iter()
     }
 
     fn is_true(&self) -> bool {

@@ -45,7 +45,7 @@ pub fn walk_post_order<'c, T>(
     });
 
     while let Some(mut state) = stack.pop() {
-        let children = state.node.children();
+        let children: Vec<_> = state.node.child_iter().collect();
 
         if state.children_processed == children.len() {
             // All children processed, process this node
