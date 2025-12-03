@@ -12,14 +12,14 @@ pub(crate) fn simplify_bv<'c>(
     match &bv_expr.op() {
         BitVecOp::BVS(..) | BitVecOp::BVV(..) => Ok(bv_expr),
         BitVecOp::Not(..) => {
-            let arc = state.get_bv_child(0)?;
+            let arc = state.get_bv_simplified(0)?;
             match arc.op() {
                 BitVecOp::BVV(value) => Ok(ctx.bvv((!value.clone())?)?),
                 _ => Ok(ctx.not(&arc)?),
             }
         }
         BitVecOp::And(..) => {
-            let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
+            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
                     Ok(ctx.bvv((value1.clone() & value2.clone())?)?)
@@ -39,7 +39,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::Or(..) => {
-            let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
+            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
                     Ok(ctx.bvv((value1.clone() | value2.clone())?)?)
@@ -65,7 +65,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::Xor(..) => {
-            let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
+            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
                     Ok(ctx.bvv((value1.clone() ^ value2.clone())?)?)
@@ -78,7 +78,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::Neg(..) => {
-            let arc = state.get_bv_child(0)?;
+            let arc = state.get_bv_simplified(0)?;
             match arc.op() {
                 BitVecOp::BVV(value) => Ok(ctx.bvv((-value.clone())?)?),
                 // -(-x) = x (double negation)
@@ -87,7 +87,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::Add(..) => {
-            let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
+            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
                     Ok(ctx.bvv((value1.clone() + value2.clone())?)?)
@@ -98,7 +98,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::Sub(..) => {
-            let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
+            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
                     Ok(ctx.bvv((value1.clone() - value2.clone())?)?)
@@ -109,7 +109,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::Mul(..) => {
-            let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
+            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
                     Ok(ctx.bvv((value1.clone() * value2.clone())?)?)
@@ -122,7 +122,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::UDiv(..) => {
-            let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
+            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
                     Ok(ctx.bvv((value1.clone() / value2.clone())?)?)
@@ -132,7 +132,8 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::SDiv(..) => {
-            let (dividend_ast, divisor_ast) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
+            let (dividend_ast, divisor_ast) =
+                (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (dividend_ast.op(), divisor_ast.op()) {
                 (BitVecOp::BVV(dividend_val), BitVecOp::BVV(divisor_val)) => {
                     Ok(ctx.bvv((dividend_val.sdiv(divisor_val))?)?)
@@ -142,14 +143,15 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::URem(..) => {
-            let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
+            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => Ok(ctx.bvv(value1.urem(value2))?),
                 _ => Ok(ctx.urem(&arc, &arc1)?),
             }
         }
         BitVecOp::SRem(..) => {
-            let (dividend_ast, divisor_ast) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
+            let (dividend_ast, divisor_ast) =
+                (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (dividend_ast.op(), divisor_ast.op()) {
                 (BitVecOp::BVV(dividend_val), BitVecOp::BVV(divisor_val)) => {
                     Ok(ctx.bvv((dividend_val.srem(divisor_val))?)?)
@@ -158,7 +160,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::ShL(..) => {
-            let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
+            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 // Shift by zero
                 (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
@@ -198,7 +200,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::LShR(..) => {
-            let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
+            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 // Shift by zero
                 (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
@@ -235,7 +237,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::AShR(..) => {
-            let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
+            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 // Zero shift amount
                 (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
@@ -295,7 +297,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::RotateLeft(..) => {
-            let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
+            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 // Shift by zero or multiple of size
                 (_, BitVecOp::BVV(v))
@@ -324,7 +326,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::RotateRight(..) => {
-            let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
+            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 // Shift by zero or multiple of size
                 (_, BitVecOp::BVV(v))
@@ -353,7 +355,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::ZeroExt(_, num_bits) => {
-            let arc = state.get_bv_child(0)?;
+            let arc = state.get_bv_simplified(0)?;
             match (arc.op(), num_bits) {
                 // Zero extension
                 (_, 0) => Ok(arc.clone()),
@@ -364,7 +366,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::SignExt(_, num_bits) => {
-            let arc = state.get_bv_child(0)?;
+            let arc = state.get_bv_simplified(0)?;
             match (arc.op(), num_bits) {
                 // Sign extension
                 (_, 0) => Ok(arc.clone()),
@@ -375,7 +377,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::Extract(_, high, low) => {
-            let arc = state.get_bv_child(0)?;
+            let arc = state.get_bv_simplified(0)?;
 
             // If the extract bounds are the entire BV, return the inner value as-is
             if *high == arc.size() - 1 && *low == 0 {
@@ -433,7 +435,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::Concat(..) => {
-            let (arc, arc1) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
+            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
                     let concatenated_value = value1.concat(value2)?;
@@ -449,7 +451,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::ByteReverse(..) => {
-            let arc = state.get_bv_child(0)?;
+            let arc = state.get_bv_simplified(0)?;
             match arc.op() {
                 BitVecOp::BVV(value) => {
                     let reversed_bits = value.reverse_bytes()?;
@@ -459,7 +461,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::FpToIEEEBV(..) => {
-            let arc = state.get_fp_child(0)?;
+            let arc = state.get_fp_simplified(0)?;
             match arc.op() {
                 FloatOp::FPV(float) => {
                     // Convert the floating-point value to its IEEE 754 bit representation
@@ -476,7 +478,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::FpToUBV(_, bit_size, fprm) => {
-            let arc = state.get_fp_child(0)?;
+            let arc = state.get_fp_simplified(0)?;
             match arc.op() {
                 FloatOp::FPV(float) => {
                     // Convert the float to an unsigned integer representation (BigUint)
@@ -491,7 +493,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::FpToSBV(_, bit_size, fprm) => {
-            let arc = state.get_fp_child(0)?;
+            let arc = state.get_fp_simplified(0)?;
             match arc.op() {
                 FloatOp::FPV(float) => {
                     // Convert the float to a signed integer representation (BigInt)
@@ -509,7 +511,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::StrLen(..) => {
-            let arc = state.get_string_child(0)?;
+            let arc = state.get_string_simplified(0)?;
             match arc.op() {
                 StringOp::StringV(value) => {
                     // chars().count() returns the number of Unicode scalar values
@@ -521,9 +523,9 @@ pub(crate) fn simplify_bv<'c>(
         }
         BitVecOp::StrIndexOf(..) => {
             let (arc, arc1, arc2) = (
-                state.get_string_child(0)?,
-                state.get_string_child(1)?,
-                state.get_bv_child(2)?,
+                state.get_string_simplified(0)?,
+                state.get_string_simplified(1)?,
+                state.get_bv_simplified(2)?,
             );
 
             match (arc.op(), arc1.op(), arc2.op()) {
@@ -566,7 +568,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::StrToBV(..) => {
-            let arc = state.get_string_child(0)?;
+            let arc = state.get_string_simplified(0)?;
             match arc.op() {
                 StringOp::StringV(string) => {
                     if string.is_empty() {
@@ -594,9 +596,9 @@ pub(crate) fn simplify_bv<'c>(
         }
         BitVecOp::If(..) => {
             let (if_, then_, else_) = (
-                state.get_bool_child(0)?,
-                state.get_bv_child(1)?,
-                state.get_bv_child(2)?,
+                state.get_bool_simplified(0)?,
+                state.get_bv_simplified(1)?,
+                state.get_bv_simplified(2)?,
             );
 
             // If both branches are identical, return either one
@@ -619,14 +621,14 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::Union(..) => {
-            let (lhs, rhs) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
+            let (lhs, rhs) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             if lhs == rhs {
                 return Ok(lhs.clone());
             }
             Ok(ctx.union(&lhs, &rhs)?)
         }
         BitVecOp::Intersection(..) => {
-            let (lhs, rhs) = (state.get_bv_child(0)?, state.get_bv_child(1)?);
+            let (lhs, rhs) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             if lhs == rhs {
                 return Ok(lhs.clone());
             }
