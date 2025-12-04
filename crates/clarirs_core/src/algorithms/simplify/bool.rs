@@ -109,7 +109,7 @@ pub(crate) fn simplify_bool<'c>(
                         (BitVecOp::BVV(then_val), BitVecOp::BVV(else_val))
                             if then_val != else_val =>
                         {
-                            Ok(cond.clone())
+                            state.rerun(cond.clone())
                         }
                         (then_op, else_op) if then_op != else_op => Ok(cond.clone()),
                         _ => Ok(ctx.eq_(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
@@ -121,7 +121,7 @@ pub(crate) fn simplify_bool<'c>(
                         (BitVecOp::BVV(then_val), BitVecOp::BVV(else_val))
                             if then_val != else_val =>
                         {
-                            Ok(ctx.not(cond)?)
+                            state.rerun(ctx.not(cond)?)
                         }
                         (then_op, else_op) if then_op != else_op => Ok(ctx.not(cond)?),
                         _ => Ok(ctx.eq_(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
@@ -133,7 +133,7 @@ pub(crate) fn simplify_bool<'c>(
                         (BitVecOp::BVV(then_val), BitVecOp::BVV(else_val))
                             if then_val != else_val =>
                         {
-                            Ok(cond.clone())
+                            state.rerun(cond.clone())
                         }
                         (then_op, else_op) if then_op != else_op => Ok(cond.clone()),
                         _ => Ok(ctx.eq_(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
@@ -144,7 +144,7 @@ pub(crate) fn simplify_bool<'c>(
                         (BitVecOp::BVV(then_val), BitVecOp::BVV(else_val))
                             if then_val != else_val =>
                         {
-                            Ok(ctx.not(cond)?)
+                            state.rerun(ctx.not(cond)?)
                         }
                         (then_op, else_op) if then_op != else_op => Ok(ctx.not(cond)?),
                         _ => Ok(ctx.eq_(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
@@ -169,7 +169,7 @@ pub(crate) fn simplify_bool<'c>(
                         (BitVecOp::BVV(then_val), BitVecOp::BVV(else_val))
                             if then_val != else_val =>
                         {
-                            Ok(cond.clone())
+                            state.rerun(cond.clone())
                         }
                         (then_op, else_op) if then_op != else_op => Ok(cond.clone()),
                         _ => Ok(ctx.neq(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
@@ -182,7 +182,7 @@ pub(crate) fn simplify_bool<'c>(
                         (BitVecOp::BVV(then_val), BitVecOp::BVV(else_val))
                             if then_val != else_val =>
                         {
-                            Ok(ctx.not(cond)?)
+                            state.rerun(ctx.not(cond)?)
                         }
                         (then_op, else_op) if then_op != else_op => Ok(ctx.not(cond)?),
                         _ => Ok(ctx.neq(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
@@ -194,7 +194,7 @@ pub(crate) fn simplify_bool<'c>(
                         (BitVecOp::BVV(then_val), BitVecOp::BVV(else_val))
                             if then_val != else_val =>
                         {
-                            Ok(cond.clone())
+                            state.rerun(cond.clone())
                         }
                         (then_op, else_op) if then_op != else_op => Ok(cond.clone()),
                         _ => Ok(ctx.neq(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
@@ -205,7 +205,7 @@ pub(crate) fn simplify_bool<'c>(
                         (BitVecOp::BVV(then_val), BitVecOp::BVV(else_val))
                             if then_val != else_val =>
                         {
-                            Ok(ctx.not(cond)?)
+                            state.rerun(ctx.not(cond)?)
                         }
                         (then_op, else_op) if then_op != else_op => Ok(ctx.not(cond)?),
                         _ => Ok(ctx.neq(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
