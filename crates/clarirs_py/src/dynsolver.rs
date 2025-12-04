@@ -90,6 +90,14 @@ impl Solver<'static> for DynSolver {
         }
     }
 
+    fn simplify(&mut self) -> Result<(), ClarirsError> {
+        match self {
+            DynSolver::Concrete(solver) => solver.simplify(),
+            DynSolver::Z3(solver) => solver.simplify(),
+            DynSolver::Vsa(solver) => solver.simplify(),
+        }
+    }
+
     fn satisfiable(&mut self) -> Result<bool, ClarirsError> {
         match self {
             DynSolver::Concrete(solver) => solver.satisfiable(),

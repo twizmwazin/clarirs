@@ -370,6 +370,16 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         Ok(())
     }
 
+    fn simplify(&mut self) -> Result<(), ClarirsError> {
+        // Simplify all assertions in the solver
+        self.assertions = self
+            .assertions
+            .iter()
+            .map(|constraint| constraint.simplify())
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(())
+    }
+
     fn satisfiable(&mut self) -> Result<bool, ClarirsError> {
         Z3_CONTEXT.with(|&z3_ctx| unsafe {
             let z3_solver = self.make_filled_solver()?;
