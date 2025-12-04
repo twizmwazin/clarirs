@@ -159,6 +159,22 @@ impl<'c, O: Op<'c>> Op<'c> for AstNode<'c, O> {
 
 pub type AstRef<'c, Op> = Arc<AstNode<'c, Op>>;
 
+pub trait IntoOwned<T> {
+    fn into_owned(self) -> T;
+}
+
+impl<T> IntoOwned<T> for T {
+    fn into_owned(self) -> T {
+        self
+    }
+}
+
+impl<T: Clone> IntoOwned<T> for &T {
+    fn into_owned(self) -> T {
+        self.clone()
+    }
+}
+
 #[derive(Clone, Eq, PartialEq, Hash, Debug, Serialize)]
 pub enum DynAst<'c> {
     Boolean(BoolAst<'c>),

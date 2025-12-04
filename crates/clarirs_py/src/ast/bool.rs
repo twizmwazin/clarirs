@@ -526,7 +526,7 @@ impl Bool {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.and(&self.inner, &<CoerceBool as Into<BoolAst>>::into(other))?,
+            &GLOBAL_CONTEXT.and(&self.inner, <CoerceBool as Into<BoolAst>>::into(other))?,
         )
     }
 
@@ -537,7 +537,7 @@ impl Bool {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.or(&self.inner, &<CoerceBool as Into<BoolAst>>::into(other))?,
+            &GLOBAL_CONTEXT.or(&self.inner, <CoerceBool as Into<BoolAst>>::into(other))?,
         )
     }
 
@@ -548,7 +548,7 @@ impl Bool {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.xor(&self.inner, &<CoerceBool as Into<BoolAst>>::into(other))?,
+            &GLOBAL_CONTEXT.xor(&self.inner, <CoerceBool as Into<BoolAst>>::into(other))?,
         )
     }
 
@@ -559,7 +559,7 @@ impl Bool {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.eq_(&self.inner, &<CoerceBool as Into<BoolAst>>::into(other))?,
+            &GLOBAL_CONTEXT.eq_(&self.inner, <CoerceBool as Into<BoolAst>>::into(other))?,
         )
     }
 
@@ -570,7 +570,7 @@ impl Bool {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.neq(&self.inner, &<CoerceBool as Into<BoolAst>>::into(other))?,
+            &GLOBAL_CONTEXT.neq(&self.inner, <CoerceBool as Into<BoolAst>>::into(other))?,
         )
     }
 
