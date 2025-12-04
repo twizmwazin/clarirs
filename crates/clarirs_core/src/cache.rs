@@ -1,5 +1,5 @@
+use ahash::HashMap;
 use std::{
-    collections::HashMap,
     hash::Hash,
     sync::{Arc, RwLock, Weak},
 };
