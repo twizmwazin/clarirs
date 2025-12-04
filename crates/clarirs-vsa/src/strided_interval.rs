@@ -653,24 +653,6 @@ impl StridedInterval {
         count
     }
 
-    /// Check if value surrounds a member (lexicographical comparison)
-    fn surrounds_member(&self, v: &BigUint) -> bool {
-        match self {
-            StridedInterval::Empty { .. } => false,
-            StridedInterval::Normal {
-                lower_bound,
-                upper_bound,
-                bits,
-                ..
-            } => {
-                let mask = Self::max_int(*bits);
-                let diff = Self::modular_sub(v, lower_bound, *bits);
-                let range = Self::modular_sub(upper_bound, lower_bound, *bits);
-                (&diff & &mask) <= (&range & &mask)
-            }
-        }
-    }
-
     /// Split at the south pole (0/MAX boundary for unsigned)
     /// Returns 1 or 2 intervals depending on whether wrapping occurs
     pub fn ssplit(&self) -> Vec<Self> {
