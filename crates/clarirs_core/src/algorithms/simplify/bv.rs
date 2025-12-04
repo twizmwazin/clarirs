@@ -162,6 +162,8 @@ pub(crate) fn simplify_bv<'c>(
         BitVecOp::ShL(..) => {
             let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
+                // Base value is zero
+                (BitVecOp::BVV(v), _) if v.is_zero() => Ok(arc),
                 // Shift by zero
                 (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
                 // Fully concrete case
@@ -179,22 +181,6 @@ pub(crate) fn simplify_bv<'c>(
                         Ok(ctx.bvv(result)?)
                     }
                 }
-                // Concrete shift amount, rewrite in terms of extract and concat
-                (_, BitVecOp::BVV(v)) if !v.is_zero() => {
-                    let shift_amount_u32 = v.to_u64().unwrap_or(0) as u32;
-                    let bit_width = arc.size();
-
-                    if shift_amount_u32 >= bit_width {
-                        Ok(ctx.bvv(BitVec::zeros(bit_width))?)
-                    } else {
-                        let high = bit_width - 1;
-                        let low = shift_amount_u32;
-                        let extracted = ctx.extract(arc, high - low, 0)?;
-                        let zeros = BitVec::zeros(shift_amount_u32);
-                        let zeros_ast = ctx.bvv(zeros)?;
-                        Ok(ctx.concat(extracted, zeros_ast)?.simplify()?)
-                    }
-                }
                 // Fallback case
                 _ => Ok(ctx.shl(arc, arc1)?),
             }
@@ -202,6 +188,8 @@ pub(crate) fn simplify_bv<'c>(
         BitVecOp::LShR(..) => {
             let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
+                // Base value is zero
+                (BitVecOp::BVV(v), _) if v.is_zero() => Ok(arc),
                 // Shift by zero
                 (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
                 // Fully concrete case
@@ -217,21 +205,6 @@ pub(crate) fn simplify_bv<'c>(
                         Ok(ctx.bvv(result?)?)
                     }
                 }
-                // Concrete shift amount, rewrite in terms of extract and concat
-                (_, BitVecOp::BVV(v)) if !v.is_zero() => {
-                    let shift_amount_u32 = v.to_u64().unwrap_or(0) as u32;
-                    let bit_width = arc.size();
-                    if shift_amount_u32 >= bit_width {
-                        Ok(ctx.bvv(BitVec::zeros(bit_width))?)
-                    } else {
-                        let high = bit_width - 1 - shift_amount_u32;
-                        let low = 0;
-                        let extracted = ctx.extract(arc, high, low)?;
-                        let zeros = BitVec::zeros(shift_amount_u32);
-                        let zeros_ast = ctx.bvv(zeros)?;
-                        Ok(ctx.concat(zeros_ast, extracted)?.simplify()?)
-                    }
-                }
                 // Fallback case
                 _ => Ok(ctx.lshr(arc, arc1)?),
             }
@@ -239,6 +212,8 @@ pub(crate) fn simplify_bv<'c>(
         BitVecOp::AShR(..) => {
             let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
+                // Base value is zero
+                (BitVecOp::BVV(v), _) if v.is_zero() => Ok(arc),
                 // Zero shift amount
                 (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
                 // Fully concrete case
@@ -281,17 +256,6 @@ pub(crate) fn simplify_bv<'c>(
 
                     Ok(ctx.bvv(BitVec::from_biguint_trunc(&result, bit_length))?)
                 }
-                // Concrete shift amount, rewrite in terms of extract, and signext
-                (_, BitVecOp::BVV(v)) if !v.is_zero() => {
-                    let shift_amount_u32 = v.to_u64().unwrap_or(0) as u32;
-                    let bit_width = arc.size();
-
-                    // Extract the relevant bits
-                    let extracted = ctx.extract(arc, bit_width - 1, shift_amount_u32)?;
-
-                    // Sign extend the extracted bits
-                    Ok(ctx.sign_ext(&extracted, bit_width - extracted.size())?)
-                }
                 // Fallback case
                 _ => Ok(ctx.ashr(arc, arc1)?),
             }
@@ -299,6 +263,8 @@ pub(crate) fn simplify_bv<'c>(
         BitVecOp::RotateLeft(..) => {
             let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
+                // Base value is zero
+                (BitVecOp::BVV(v), _) if v.is_zero() => Ok(arc),
                 // Shift by zero or multiple of size
                 (_, BitVecOp::BVV(v))
                     if v.is_zero() || v.to_bigint() % arc.size() == BigInt::zero() =>
@@ -311,15 +277,24 @@ pub(crate) fn simplify_bv<'c>(
                     let rotated_bv = value_bv.rotate_left(rotate_u32)?;
                     Ok(ctx.bvv(rotated_bv)?)
                 }
-                // Concrete rotate amount
-                (_, BitVecOp::BVV(v)) if !v.is_zero() => {
-                    let rotate_amount_u32 = v.to_u64().unwrap_or(0) as u32;
-
-                    let bottom = ctx.extract(&arc, rotate_amount_u32 - 1, 0)?;
-                    let top = ctx.extract(&arc, arc.size() - 1, rotate_amount_u32)?;
-
-                    // Concat them backwards
-                    Ok(ctx.concat(bottom, top)?.simplify()?)
+                // Nested rotation with concrete amounts - combine them
+                // rotate_left(rotate_left(x, c1), c2) => rotate_left(x, (c1 + c2) % size)
+                (BitVecOp::RotateLeft(inner, inner_amt), BitVecOp::BVV(outer_amt)) => {
+                    if let BitVecOp::BVV(inner_amt_val) = inner_amt.op() {
+                        let size = arc.size();
+                        let combined_amt = (inner_amt_val.to_bigint() + outer_amt.to_bigint())
+                            % BigInt::from(size);
+                        let combined_amt_bv = BitVec::from_bigint(&combined_amt, arc1.size())?;
+                        Ok(ctx
+                            .rotate_left(inner.clone(), ctx.bvv(combined_amt_bv)?)?
+                            .simplify()?)
+                    } else {
+                        // Inner rotation amount is not concrete, fall through
+                        let rotate_amount_u32 = outer_amt.to_u64().unwrap_or(0) as u32;
+                        let bottom = ctx.extract(&arc, rotate_amount_u32 - 1, 0)?;
+                        let top = ctx.extract(&arc, arc.size() - 1, rotate_amount_u32)?;
+                        Ok(ctx.concat(bottom, top)?.simplify()?)
+                    }
                 }
                 // Fallback case
                 _ => Ok(ctx.rotate_left(arc, arc1)?),
@@ -328,6 +303,8 @@ pub(crate) fn simplify_bv<'c>(
         BitVecOp::RotateRight(..) => {
             let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
+                // Base value is zero
+                (BitVecOp::BVV(v), _) if v.is_zero() => Ok(arc),
                 // Shift by zero or multiple of size
                 (_, BitVecOp::BVV(v))
                     if v.is_zero() || v.to_bigint() % arc.size() == BigInt::zero() =>
@@ -340,15 +317,25 @@ pub(crate) fn simplify_bv<'c>(
                     let rotated_bv = value_bv.rotate_right(rotate_u32)?;
                     Ok(ctx.bvv(rotated_bv)?)
                 }
-                // Concrete rotate amount
-                (_, BitVecOp::BVV(v)) if !v.is_zero() => {
-                    let rotate_amount_u32 = v.to_u64().unwrap_or(0) as u32;
-
-                    let bottom = ctx.extract(&arc, arc.size() - rotate_amount_u32, 0)?;
-                    let top = ctx.extract(&arc, arc.size() - 1, arc.size() - rotate_amount_u32)?;
-
-                    // Concat them backwards
-                    Ok(ctx.concat(top, bottom)?.simplify()?)
+                // Nested rotation with concrete amounts - combine them
+                // rotate_right(rotate_right(x, c1), c2) => rotate_right(x, (c1 + c2) % size)
+                (BitVecOp::RotateRight(inner, inner_amt), BitVecOp::BVV(outer_amt)) => {
+                    if let BitVecOp::BVV(inner_amt_val) = inner_amt.op() {
+                        let size = arc.size();
+                        let combined_amt = (inner_amt_val.to_bigint() + outer_amt.to_bigint())
+                            % BigInt::from(size);
+                        let combined_amt_bv = BitVec::from_bigint(&combined_amt, arc1.size())?;
+                        Ok(ctx
+                            .rotate_right(inner.clone(), ctx.bvv(combined_amt_bv)?)?
+                            .simplify()?)
+                    } else {
+                        // Inner rotation amount is not concrete, fall through
+                        let rotate_amount_u32 = outer_amt.to_u64().unwrap_or(0) as u32;
+                        let bottom = ctx.extract(&arc, arc.size() - rotate_amount_u32, 0)?;
+                        let top =
+                            ctx.extract(&arc, arc.size() - 1, arc.size() - rotate_amount_u32)?;
+                        Ok(ctx.concat(top, bottom)?.simplify()?)
+                    }
                 }
                 // Fallback case
                 _ => Ok(ctx.rotate_right(arc, arc1)?),
@@ -362,7 +349,7 @@ pub(crate) fn simplify_bv<'c>(
                 // Concrete BVV case
                 (BitVecOp::BVV(value), _) => Ok(ctx.bvv(value.zero_extend(*num_bits)?)?),
                 // Symbolic case
-                (_, _) => Ok(ctx.concat(ctx.bvv(BitVec::zeros(*num_bits))?, arc)?),
+                (_, _) => Ok(ctx.zero_ext(arc, *num_bits)?),
             }
         }
         BitVecOp::SignExt(_, num_bits) => {
@@ -387,6 +374,16 @@ pub(crate) fn simplify_bv<'c>(
             match arc.op() {
                 // Concrete BVV case
                 BitVecOp::BVV(value) => Ok(ctx.bvv(value.extract(*low, *high)?)?),
+
+                // ZeroExt cases
+                // If extracting from the original bits (not the extended zero bits)
+                BitVecOp::ZeroExt(inner, _) if *high < inner.size() => {
+                    Ok(ctx.extract(inner, *high, *low)?.simplify()?)
+                }
+                // If extracting only from the extended zero bits
+                BitVecOp::ZeroExt(inner, _) if *low >= inner.size() => {
+                    Ok(ctx.bvv(BitVec::zeros(*high - *low + 1))?)
+                }
 
                 // SignExt cases
                 // If extracting from the original bits (not the extended sign bits)
