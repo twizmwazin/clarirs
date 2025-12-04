@@ -37,6 +37,10 @@ impl<'c, S: Solver<'c>> Solver<'c> for ConcreteEarlyResolutionMixin<'c, S> {
         self.inner.constraints()
     }
 
+    fn simplify(&mut self) -> Result<(), ClarirsError> {
+        self.inner.simplify()
+    }
+
     fn satisfiable(&mut self) -> Result<bool, ClarirsError> {
         self.inner.satisfiable()
     }
@@ -265,6 +269,10 @@ mod tests {
             _: u32,
         ) -> Result<Vec<StringAst<'c>>, ClarirsError> {
             panic!("PanickingSolver::eval_string_n should not be called");
+        }
+
+        fn simplify(&mut self) -> Result<(), ClarirsError> {
+            panic!("PanickingSolver::simplify should not be called");
         }
     }
 

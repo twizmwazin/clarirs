@@ -31,6 +31,10 @@ impl<'c> Solver<'c> for VSASolver<'c> {
         Ok(())
     }
 
+    fn simplify(&mut self) -> Result<(), ClarirsError> {
+        Ok(())
+    }
+
     fn satisfiable(&mut self) -> Result<bool, ClarirsError> {
         Ok(true)
     }

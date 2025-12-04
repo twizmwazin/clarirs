@@ -120,6 +120,11 @@ impl PySolver {
         Ok(bool_exprs)
     }
 
+    fn simplify(&mut self) -> Result<(), ClaripyError> {
+        self.inner.simplify()?;
+        Ok(())
+    }
+
     #[pyo3(signature = (extra_constraints = None, exact = None))]
     fn satisfiable<'py>(
         &mut self,

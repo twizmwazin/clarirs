@@ -7,6 +7,11 @@ pub trait Solver<'c>: Clone + HasContext<'c> {
     fn add(&mut self, constraint: &BoolAst<'c>) -> Result<(), ClarirsError>;
 
     fn constraints(&self) -> Result<Vec<BoolAst<'c>>, ClarirsError>;
+
+    /// Simplify the constraints held internally by the solver
+    fn simplify(&mut self) -> Result<(), ClarirsError>;
+
+    /// Get all variables involved in the current set of constraints
     fn variables(&self) -> Result<BTreeSet<InternedString>, ClarirsError> {
         Ok(self
             .constraints()?
@@ -243,6 +248,11 @@ impl<'c> Solver<'c> for ConcreteSolver<'c> {
 
     fn max_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
         self.eval_bitvec(expr)
+    }
+
+    fn simplify(&mut self) -> Result<(), ClarirsError> {
+        // ConcreteSolver has no constraints to simplify
+        Ok(())
     }
 }
 

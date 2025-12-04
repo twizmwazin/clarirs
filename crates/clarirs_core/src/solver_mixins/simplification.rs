@@ -31,6 +31,10 @@ impl<'c, S: Solver<'c>> Solver<'c> for SimplificationMixin<'c, S> {
         self.inner.constraints()
     }
 
+    fn simplify(&mut self) -> Result<(), ClarirsError> {
+        self.inner.simplify()
+    }
+
     fn satisfiable(&mut self) -> Result<bool, ClarirsError> {
         self.inner.satisfiable()
     }
