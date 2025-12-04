@@ -154,17 +154,17 @@ impl Solver<'static> for DynSolver {
 
     fn has_true(&mut self, expr: &BoolAst<'static>) -> Result<bool, ClarirsError> {
         match self {
-            DynSolver::Concrete(solver) => solver.is_true(expr),
-            DynSolver::Z3(solver) => solver.is_true(expr),
-            DynSolver::Vsa(solver) => solver.is_true(expr),
+            DynSolver::Concrete(solver) => solver.has_true(expr),
+            DynSolver::Z3(solver) => solver.has_true(expr),
+            DynSolver::Vsa(solver) => solver.has_true(expr),
         }
     }
 
     fn has_false(&mut self, expr: &BoolAst<'static>) -> Result<bool, ClarirsError> {
         match self {
-            DynSolver::Concrete(solver) => solver.is_false(expr),
-            DynSolver::Z3(solver) => solver.is_false(expr),
-            DynSolver::Vsa(solver) => solver.is_false(expr),
+            DynSolver::Concrete(solver) => solver.has_false(expr),
+            DynSolver::Z3(solver) => solver.has_false(expr),
+            DynSolver::Vsa(solver) => solver.has_false(expr),
         }
     }
 
