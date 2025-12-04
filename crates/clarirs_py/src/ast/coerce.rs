@@ -78,7 +78,7 @@ impl<'py> CoerceBV<'py> {
                 let lhs_size = lhs.get().size() as u32;
                 let rhs_size = rhs.get().size() as u32;
                 if lhs_size != rhs_size {
-                    return Err(ClaripyError::CastingError(format!(
+                    return Err(ClaripyError::TypeError(format!(
                         "BV size mismatch: left operand has {lhs_size} bits, right operand has {rhs_size} bits"
                     )));
                 }
