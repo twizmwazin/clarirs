@@ -316,7 +316,7 @@ impl PySolver {
                     &self
                         .inner
                         .context()
-                        .eq_(&bool_ast.get().inner, &value.into())?,
+                        .eq_(&bool_ast.get().inner, &value.0.get().inner)?,
                 )?)
             } else {
                 let value_type = value.get_type().name()?.extract::<String>()?;
@@ -354,7 +354,7 @@ impl PySolver {
                     &self
                         .inner
                         .context()
-                        .eq_(&string_ast.get().inner, &value.into())?,
+                        .eq_(&string_ast.get().inner, &value.0.get().inner)?,
                 )?)
             } else {
                 let value_type = value.get_type().name()?.extract::<String>()?;

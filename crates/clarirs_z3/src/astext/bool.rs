@@ -577,7 +577,7 @@ mod tests {
                     let not_z3 = z3::mk_not(*z3_ctx, x_z3);
 
                     let result = BoolAst::from_z3(&ctx, not_z3).unwrap();
-                    let expected = ctx.not(&ctx.bools("x").unwrap()).unwrap();
+                    let expected = ctx.not(ctx.bools("x").unwrap()).unwrap();
                     assert_eq!(result, expected);
                 });
             }
@@ -608,7 +608,7 @@ mod tests {
 
                     let result = BoolAst::from_z3(&ctx, and_z3).unwrap();
                     let expected = ctx
-                        .and(&ctx.bools("x").unwrap(), &ctx.bools("y").unwrap())
+                        .and(ctx.bools("x").unwrap(), ctx.bools("y").unwrap())
                         .unwrap();
                     assert_eq!(result, expected);
                 });
@@ -640,7 +640,7 @@ mod tests {
 
                     let result = BoolAst::from_z3(&ctx, or_z3).unwrap();
                     let expected = ctx
-                        .or(&ctx.bools("x").unwrap(), &ctx.bools("y").unwrap())
+                        .or(ctx.bools("x").unwrap(), ctx.bools("y").unwrap())
                         .unwrap();
                     assert_eq!(result, expected);
                 });
@@ -671,7 +671,7 @@ mod tests {
 
                     let result = BoolAst::from_z3(&ctx, xor_z3).unwrap();
                     let expected = ctx
-                        .xor(&ctx.bools("x").unwrap(), &ctx.bools("y").unwrap())
+                        .xor(ctx.bools("x").unwrap(), ctx.bools("y").unwrap())
                         .unwrap();
                     assert_eq!(result, expected);
                 });
@@ -702,7 +702,7 @@ mod tests {
 
                     let result = BoolAst::from_z3(&ctx, eq_z3).unwrap();
                     let expected = ctx
-                        .eq_(&ctx.bools("x").unwrap(), &ctx.bools("y").unwrap())
+                        .eq_(ctx.bools("x").unwrap(), ctx.bools("y").unwrap())
                         .unwrap();
                     assert_eq!(result, expected);
                 });
@@ -728,9 +728,9 @@ mod tests {
                     let result = BoolAst::from_z3(&ctx, if_z3).unwrap();
                     let expected = ctx
                         .if_(
-                            &ctx.bools("c").unwrap(),
-                            &ctx.true_().unwrap(),
-                            &ctx.false_().unwrap(),
+                            ctx.bools("c").unwrap(),
+                            ctx.true_().unwrap(),
+                            ctx.false_().unwrap(),
                         )
                         .unwrap();
                     assert_eq!(result, expected);

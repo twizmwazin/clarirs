@@ -7,7 +7,7 @@ pub(crate) fn simplify_bool<'c>(
     let ctx = state.expr.context();
     let bool_ast = state.expr.clone().into_bool().unwrap();
 
-    match &bool_ast.op() {
+    match bool_ast.op() {
         BooleanOp::BoolS(_) | BooleanOp::BoolV(_) => Ok(bool_ast),
         BooleanOp::Not(..) => {
             let arc = state.get_bool_simplified(0)?;
@@ -15,7 +15,7 @@ pub(crate) fn simplify_bool<'c>(
             match arc.op() {
                 BooleanOp::Not(arc) => Ok(arc.clone()),
                 BooleanOp::BoolV(v) => Ok(ctx.boolv(!v)?),
-                _ => Ok(ctx.not(&arc)?),
+                _ => Ok(ctx.not(arc)?),
             }
         }
         BooleanOp::And(..) => {
@@ -31,12 +31,9 @@ pub(crate) fn simplify_bool<'c>(
                 (BooleanOp::BoolV(false), _) | (_, BooleanOp::BoolV(false)) => Ok(ctx.false_()?),
                 (BooleanOp::Not(lhs), rhs) if lhs.op() == rhs => Ok(ctx.false_()?),
                 (lhs, BooleanOp::Not(rhs)) if lhs == rhs.op() => Ok(ctx.false_()?),
-                (BooleanOp::Not(lhs), BooleanOp::Not(rhs)) => Ok(ctx.not(&ctx.or(lhs, rhs)?)?),
+                (BooleanOp::Not(lhs), BooleanOp::Not(rhs)) => Ok(ctx.not(ctx.or(lhs, rhs)?)?),
                 _ if early_lhs == early_rhs => state.get_bool_simplified(0),
-                _ => Ok(ctx.and(
-                    &state.get_bool_simplified(0)?,
-                    &state.get_bool_simplified(1)?,
-                )?),
+                _ => Ok(ctx.and(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
             }
         }
         BooleanOp::Or(..) => {
@@ -51,12 +48,9 @@ pub(crate) fn simplify_bool<'c>(
                 }
                 (BooleanOp::Not(lhs), rhs) if lhs.op() == rhs => Ok(ctx.true_()?),
                 (lhs, BooleanOp::Not(rhs)) if lhs == rhs.op() => Ok(ctx.true_()?),
-                (BooleanOp::Not(lhs), BooleanOp::Not(rhs)) => Ok(ctx.not(&ctx.and(lhs, rhs)?)?),
+                (BooleanOp::Not(lhs), BooleanOp::Not(rhs)) => Ok(ctx.not(ctx.and(lhs, rhs)?)?),
                 _ if early_lhs == early_rhs => state.get_bool_simplified(0),
-                _ => Ok(ctx.or(
-                    &state.get_bool_simplified(0)?,
-                    &state.get_bool_simplified(1)?,
-                )?),
+                _ => Ok(ctx.or(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
             }
         }
         BooleanOp::Xor(..) => {
@@ -66,7 +60,7 @@ pub(crate) fn simplify_bool<'c>(
             match (early_lhs.op(), early_rhs.op()) {
                 (BooleanOp::BoolV(lhs), BooleanOp::BoolV(rhs)) => Ok(ctx.boolv(*lhs ^ *rhs)?),
                 (BooleanOp::BoolV(true), v) | (v, BooleanOp::BoolV(true)) => {
-                    Ok(ctx.not(&ctx.make_bool(v.clone())?)?)
+                    Ok(ctx.not(ctx.make_bool(v.clone())?)?)
                 }
                 (BooleanOp::BoolV(false), v) | (v, BooleanOp::BoolV(false)) => {
                     Ok(ctx.make_bool(v.clone())?)
@@ -75,10 +69,7 @@ pub(crate) fn simplify_bool<'c>(
                 (lhs, BooleanOp::Not(rhs)) if lhs == rhs.op() => Ok(ctx.true_()?),
                 (BooleanOp::Not(lhs), BooleanOp::Not(rhs)) => state.rerun(ctx.xor(lhs, rhs)?),
                 _ if early_lhs == early_rhs => Ok(ctx.false_()?),
-                _ => Ok(ctx.xor(
-                    &state.get_bool_simplified(0)?,
-                    &state.get_bool_simplified(1)?,
-                )?),
+                _ => Ok(ctx.xor(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
             }
         }
         BooleanOp::BoolEq(..) => {
@@ -91,13 +82,10 @@ pub(crate) fn simplify_bool<'c>(
                     Ok(ctx.make_bool(v.clone())?)
                 }
                 (BooleanOp::BoolV(false), v) | (v, BooleanOp::BoolV(false)) => {
-                    Ok(ctx.not(&ctx.make_bool(v.clone())?)?)
+                    Ok(ctx.not(ctx.make_bool(v.clone())?)?)
                 }
                 _ if early_lhs == early_rhs => Ok(ctx.true_()?),
-                _ => Ok(ctx.eq_(
-                    &state.get_bool_simplified(0)?,
-                    &state.get_bool_simplified(1)?,
-                )?),
+                _ => Ok(ctx.eq_(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
             }
         }
         BooleanOp::BoolNeq(..) => {
@@ -107,16 +95,13 @@ pub(crate) fn simplify_bool<'c>(
             match (early_lhs.op(), early_rhs.op()) {
                 (BooleanOp::BoolV(arc), BooleanOp::BoolV(arc1)) => Ok(ctx.boolv(arc != arc1)?),
                 (BooleanOp::BoolV(true), v) | (v, BooleanOp::BoolV(true)) => {
-                    Ok(ctx.not(&ctx.make_bool(v.clone())?)?)
+                    Ok(ctx.not(ctx.make_bool(v.clone())?)?)
                 }
                 (BooleanOp::BoolV(false), v) | (v, BooleanOp::BoolV(false)) => {
                     Ok(ctx.make_bool(v.clone())?)
                 }
                 _ if early_lhs == early_rhs => Ok(ctx.false_()?),
-                _ => Ok(ctx.neq(
-                    &state.get_bool_simplified(0)?,
-                    &state.get_bool_simplified(1)?,
-                )?),
+                _ => Ok(ctx.neq(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
             }
         }
         BooleanOp::Eq(..) => {
@@ -136,10 +121,7 @@ pub(crate) fn simplify_bool<'c>(
                             Ok(cond.clone())
                         }
                         (then_op, else_op) if then_op != else_op => Ok(cond.clone()),
-                        _ => {
-                            Ok(ctx
-                                .eq_(&state.get_bv_simplified(0)?, &state.get_bv_simplified(1)?)?)
-                        }
+                        _ => Ok(ctx.eq_(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
                     }
                 }
                 // General pattern: Eq(If(cond, a, b), b) -> !cond (when a != b)
@@ -151,10 +133,7 @@ pub(crate) fn simplify_bool<'c>(
                             Ok(ctx.not(cond)?)
                         }
                         (then_op, else_op) if then_op != else_op => Ok(ctx.not(cond)?),
-                        _ => {
-                            Ok(ctx
-                                .eq_(&state.get_bv_simplified(0)?, &state.get_bv_simplified(1)?)?)
-                        }
+                        _ => Ok(ctx.eq_(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
                     }
                 }
                 // Symmetric cases
@@ -166,10 +145,7 @@ pub(crate) fn simplify_bool<'c>(
                             Ok(cond.clone())
                         }
                         (then_op, else_op) if then_op != else_op => Ok(cond.clone()),
-                        _ => {
-                            Ok(ctx
-                                .eq_(&state.get_bv_simplified(0)?, &state.get_bv_simplified(1)?)?)
-                        }
+                        _ => Ok(ctx.eq_(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
                     }
                 }
                 (lhs_val, BitVecOp::If(cond, then_bv, else_bv)) if else_bv.op() == lhs_val => {
@@ -180,14 +156,11 @@ pub(crate) fn simplify_bool<'c>(
                             Ok(ctx.not(cond)?)
                         }
                         (then_op, else_op) if then_op != else_op => Ok(ctx.not(cond)?),
-                        _ => {
-                            Ok(ctx
-                                .eq_(&state.get_bv_simplified(0)?, &state.get_bv_simplified(1)?)?)
-                        }
+                        _ => Ok(ctx.eq_(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
                     }
                 }
 
-                _ => Ok(ctx.eq_(&state.get_bv_simplified(0)?, &state.get_bv_simplified(1)?)?),
+                _ => Ok(ctx.eq_(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
             }
         }
         BooleanOp::Neq(..) => {
@@ -208,10 +181,7 @@ pub(crate) fn simplify_bool<'c>(
                             Ok(cond.clone())
                         }
                         (then_op, else_op) if then_op != else_op => Ok(cond.clone()),
-                        _ => {
-                            Ok(ctx
-                                .neq(&state.get_bv_simplified(0)?, &state.get_bv_simplified(1)?)?)
-                        }
+                        _ => Ok(ctx.neq(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
                     }
                 }
                 // General pattern: Neq(If(cond, a, b), a) -> !cond (when a != b)
@@ -224,10 +194,7 @@ pub(crate) fn simplify_bool<'c>(
                             Ok(ctx.not(cond)?)
                         }
                         (then_op, else_op) if then_op != else_op => Ok(ctx.not(cond)?),
-                        _ => {
-                            Ok(ctx
-                                .neq(&state.get_bv_simplified(0)?, &state.get_bv_simplified(1)?)?)
-                        }
+                        _ => Ok(ctx.neq(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
                     }
                 }
                 // Symmetric cases: Neq(b, If(cond, a, b)) -> cond and Neq(a, If(cond, a, b)) -> !cond
@@ -239,10 +206,7 @@ pub(crate) fn simplify_bool<'c>(
                             Ok(cond.clone())
                         }
                         (then_op, else_op) if then_op != else_op => Ok(cond.clone()),
-                        _ => {
-                            Ok(ctx
-                                .neq(&state.get_bv_simplified(0)?, &state.get_bv_simplified(1)?)?)
-                        }
+                        _ => Ok(ctx.neq(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
                     }
                 }
                 (lhs_val, BitVecOp::If(cond, then_bv, else_bv)) if then_bv.op() == lhs_val => {
@@ -253,14 +217,11 @@ pub(crate) fn simplify_bool<'c>(
                             Ok(ctx.not(cond)?)
                         }
                         (then_op, else_op) if then_op != else_op => Ok(ctx.not(cond)?),
-                        _ => {
-                            Ok(ctx
-                                .neq(&state.get_bv_simplified(0)?, &state.get_bv_simplified(1)?)?)
-                        }
+                        _ => Ok(ctx.neq(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
                     }
                 }
 
-                _ => Ok(ctx.neq(&state.get_bv_simplified(0)?, &state.get_bv_simplified(1)?)?),
+                _ => Ok(ctx.neq(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
             }
         }
         BooleanOp::ULT(..) => {
@@ -268,7 +229,7 @@ pub(crate) fn simplify_bool<'c>(
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => Ok(ctx.false_()?),
                 (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => Ok(ctx.boolv(arc < arc1)?),
-                _ => Ok(ctx.ult(&arc, &arc1)?),
+                _ => Ok(ctx.ult(arc, arc1)?),
             }
         }
         BooleanOp::ULE(..) => {
@@ -276,7 +237,7 @@ pub(crate) fn simplify_bool<'c>(
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => Ok(ctx.true_()?),
                 (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => Ok(ctx.boolv(arc <= arc1)?),
-                _ => Ok(ctx.ule(&arc, &arc1)?),
+                _ => Ok(ctx.ule(arc, arc1)?),
             }
         }
         BooleanOp::UGT(..) => {
@@ -284,7 +245,7 @@ pub(crate) fn simplify_bool<'c>(
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => Ok(ctx.false_()?),
                 (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => Ok(ctx.boolv(arc > arc1)?),
-                _ => Ok(ctx.ugt(&arc, &arc1)?),
+                _ => Ok(ctx.ugt(arc, arc1)?),
             }
         }
         BooleanOp::UGE(..) => {
@@ -292,7 +253,7 @@ pub(crate) fn simplify_bool<'c>(
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => Ok(ctx.true_()?),
                 (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => Ok(ctx.boolv(arc >= arc1)?),
-                _ => Ok(ctx.uge(&arc, &arc1)?),
+                _ => Ok(ctx.uge(arc, arc1)?),
             }
         }
         BooleanOp::SLT(..) => {
@@ -300,7 +261,7 @@ pub(crate) fn simplify_bool<'c>(
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => Ok(ctx.false_()?),
                 (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => Ok(ctx.boolv(arc.signed_lt(arc1))?),
-                _ => Ok(ctx.slt(&arc, &arc1)?),
+                _ => Ok(ctx.slt(arc, arc1)?),
             }
         }
         BooleanOp::SLE(..) => {
@@ -308,7 +269,7 @@ pub(crate) fn simplify_bool<'c>(
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => Ok(ctx.true_()?),
                 (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => Ok(ctx.boolv(arc.signed_le(arc1))?),
-                _ => Ok(ctx.sle(&arc, &arc1)?),
+                _ => Ok(ctx.sle(arc, arc1)?),
             }
         }
         BooleanOp::SGT(..) => {
@@ -316,7 +277,7 @@ pub(crate) fn simplify_bool<'c>(
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => Ok(ctx.false_()?),
                 (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => Ok(ctx.boolv(arc.signed_gt(arc1))?),
-                _ => Ok(ctx.sgt(&arc, &arc1)?),
+                _ => Ok(ctx.sgt(arc, arc1)?),
             }
         }
         BooleanOp::SGE(..) => {
@@ -324,7 +285,7 @@ pub(crate) fn simplify_bool<'c>(
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => Ok(ctx.true_()?),
                 (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => Ok(ctx.boolv(arc.signed_ge(arc1))?),
-                _ => Ok(ctx.sge(&arc, &arc1)?),
+                _ => Ok(ctx.sge(arc, arc1)?),
             }
         }
         BooleanOp::FpEq(..) => {
@@ -334,7 +295,7 @@ pub(crate) fn simplify_bool<'c>(
             match (early_lhs.op(), early_rhs.op()) {
                 (FloatOp::FPV(arc), FloatOp::FPV(arc1)) => Ok(ctx.boolv(arc.compare_fp(arc1))?),
                 (lhs, rhs) if lhs == rhs => Ok(ctx.true_()?),
-                _ => Ok(ctx.fp_eq(&state.get_fp_simplified(0)?, &state.get_fp_simplified(1)?)?),
+                _ => Ok(ctx.fp_eq(state.get_fp_simplified(0)?, state.get_fp_simplified(1)?)?),
             }
         }
         BooleanOp::FpNeq(..) => {
@@ -344,49 +305,49 @@ pub(crate) fn simplify_bool<'c>(
             match (early_lhs.op(), early_rhs.op()) {
                 (FloatOp::FPV(arc), FloatOp::FPV(arc1)) => Ok(ctx.boolv(!arc.compare_fp(arc1))?),
                 (lhs, rhs) if lhs == rhs => Ok(ctx.false_()?),
-                _ => Ok(ctx.fp_neq(&state.get_fp_simplified(0)?, &state.get_fp_simplified(1)?)?),
+                _ => Ok(ctx.fp_neq(state.get_fp_simplified(0)?, state.get_fp_simplified(1)?)?),
             }
         }
         BooleanOp::FpLt(..) => {
             let (arc, arc1) = (state.get_fp_simplified(0)?, state.get_fp_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 (FloatOp::FPV(arc), FloatOp::FPV(arc1)) => Ok(ctx.boolv(arc.lt(arc1))?),
-                _ => Ok(ctx.fp_lt(&arc, &arc1)?),
+                _ => Ok(ctx.fp_lt(arc, arc1)?),
             }
         }
         BooleanOp::FpLeq(..) => {
             let (arc, arc1) = (state.get_fp_simplified(0)?, state.get_fp_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 (FloatOp::FPV(arc), FloatOp::FPV(arc1)) => Ok(ctx.boolv(arc.leq(arc1))?),
-                _ => Ok(ctx.fp_leq(&arc, &arc1)?),
+                _ => Ok(ctx.fp_leq(arc, arc1)?),
             }
         }
         BooleanOp::FpGt(..) => {
             let (arc, arc1) = (state.get_fp_simplified(0)?, state.get_fp_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 (FloatOp::FPV(arc), FloatOp::FPV(arc1)) => Ok(ctx.boolv(arc.gt(arc1))?),
-                _ => Ok(ctx.fp_gt(&arc, &arc1)?),
+                _ => Ok(ctx.fp_gt(arc, arc1)?),
             }
         }
         BooleanOp::FpGeq(..) => {
             let (arc, arc1) = (state.get_fp_simplified(0)?, state.get_fp_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 (FloatOp::FPV(arc), FloatOp::FPV(arc1)) => Ok(ctx.boolv(arc.geq(arc1))?),
-                _ => Ok(ctx.fp_geq(&arc, &arc1)?),
+                _ => Ok(ctx.fp_geq(arc, arc1)?),
             }
         }
         BooleanOp::FpIsNan(..) => {
             let arc = state.get_fp_simplified(0)?;
             match arc.op() {
                 FloatOp::FPV(arc) => Ok(ctx.boolv(arc.is_nan())?),
-                _ => Ok(ctx.fp_is_nan(&arc)?),
+                _ => Ok(ctx.fp_is_nan(arc)?),
             }
         }
         BooleanOp::FpIsInf(..) => {
             let arc = state.get_fp_simplified(0)?;
             match arc.op() {
                 FloatOp::FPV(arc) => Ok(ctx.boolv(arc.is_infinity())?),
-                _ => Ok(ctx.fp_is_inf(&arc)?),
+                _ => Ok(ctx.fp_is_inf(arc)?),
             }
         }
         BooleanOp::StrContains(..) => {
@@ -399,7 +360,7 @@ pub(crate) fn simplify_bool<'c>(
                 (StringOp::StringV(input_string), StringOp::StringV(substring)) => {
                     Ok(ctx.boolv(input_string.contains(substring))?)
                 }
-                _ => Ok(ctx.strcontains(&arc, &arc1)?),
+                _ => Ok(ctx.strcontains(arc, arc1)?),
             }
         }
         BooleanOp::StrPrefixOf(..) => {
@@ -412,7 +373,7 @@ pub(crate) fn simplify_bool<'c>(
                 (StringOp::StringV(prefix), StringOp::StringV(input_string)) => {
                     Ok(ctx.boolv(input_string.starts_with(prefix))?)
                 }
-                _ => Ok(ctx.strprefixof(&arc, &arc1)?),
+                _ => Ok(ctx.strprefixof(arc, arc1)?),
             }
         }
         BooleanOp::StrSuffixOf(..) => {
@@ -425,7 +386,7 @@ pub(crate) fn simplify_bool<'c>(
                 (StringOp::StringV(suffix), StringOp::StringV(input_string)) => {
                     Ok(ctx.boolv(input_string.ends_with(suffix))?)
                 }
-                _ => Ok(ctx.strsuffixof(&arc, &arc1)?),
+                _ => Ok(ctx.strsuffixof(arc, arc1)?),
             }
         }
         BooleanOp::StrIsDigit(..) => {
@@ -438,7 +399,7 @@ pub(crate) fn simplify_bool<'c>(
                     // is_numeric() is Unicode-aware and will also return true for non-ASCII numeric characters like Z3
                     Ok(ctx.boolv(input_string.chars().all(|c| c.is_numeric()))?)
                 }
-                _ => Ok(ctx.strisdigit(&arc)?),
+                _ => Ok(ctx.strisdigit(arc)?),
             }
         }
         BooleanOp::StrEq(..) => {
@@ -449,8 +410,8 @@ pub(crate) fn simplify_bool<'c>(
                 (StringOp::StringV(str1), StringOp::StringV(str2)) => Ok(ctx.boolv(str1 == str2)?),
                 (lhs, rhs) if lhs == rhs => Ok(ctx.true_()?),
                 _ => Ok(ctx.streq(
-                    &state.get_string_simplified(0)?,
-                    &state.get_string_simplified(1)?,
+                    state.get_string_simplified(0)?,
+                    state.get_string_simplified(1)?,
                 )?),
             }
         }
@@ -462,8 +423,8 @@ pub(crate) fn simplify_bool<'c>(
                 (StringOp::StringV(str1), StringOp::StringV(str2)) => Ok(ctx.boolv(str1 != str2)?),
                 (lhs, rhs) if lhs == rhs => Ok(ctx.false_()?),
                 _ => Ok(ctx.strneq(
-                    &state.get_string_simplified(0)?,
-                    &state.get_string_simplified(1)?,
+                    state.get_string_simplified(0)?,
+                    state.get_string_simplified(1)?,
                 )?),
             }
         }
@@ -483,7 +444,7 @@ pub(crate) fn simplify_bool<'c>(
 
                 // Known then/else cases
                 (_, BooleanOp::BoolV(true), BooleanOp::BoolV(false)) => Ok(cond.clone()),
-                (_, BooleanOp::BoolV(false), BooleanOp::BoolV(true)) => Ok(ctx.not(&cond)?),
+                (_, BooleanOp::BoolV(false), BooleanOp::BoolV(true)) => Ok(ctx.not(cond)?),
 
                 // When condition equals one branch with concrete other branch
                 (cond_op, BooleanOp::BoolV(true), else_op) if else_op == cond_op => {
@@ -501,9 +462,9 @@ pub(crate) fn simplify_bool<'c>(
 
                 // Default case
                 _ => Ok(ctx.if_(
-                    &cond,
-                    &state.get_bool_simplified(1)?,
-                    &state.get_bool_simplified(2)?,
+                    cond,
+                    state.get_bool_simplified(1)?,
+                    state.get_bool_simplified(2)?,
                 )?),
             }
         }
