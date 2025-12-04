@@ -375,6 +375,16 @@ pub(crate) fn simplify_bv<'c>(
                 // Concrete BVV case
                 BitVecOp::BVV(value) => Ok(ctx.bvv(value.extract(*low, *high)?)?),
 
+                // ZeroExt cases
+                // If extracting from the original bits (not the extended zero bits)
+                BitVecOp::ZeroExt(inner, _) if *high < inner.size() => {
+                    Ok(ctx.extract(inner, *high, *low)?.simplify()?)
+                }
+                // If extracting only from the extended zero bits
+                BitVecOp::ZeroExt(inner, _) if *low >= inner.size() => {
+                    Ok(ctx.bvv(BitVec::zeros(*high - *low + 1))?)
+                }
+
                 // SignExt cases
                 // If extracting from the original bits (not the extended sign bits)
                 BitVecOp::SignExt(inner, _) if *high < inner.size() => {
