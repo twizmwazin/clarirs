@@ -103,9 +103,15 @@ impl<'c> SupportsAnnotate<'c> for BooleanOp<'c> {
         annotations: impl IntoIterator<Item = Annotation>,
     ) -> Result<AstRef<'c, Self>, ClarirsError> {
         let ast_owned = ast.into_owned();
+        let annotations = ast_owned
+            .annotations()
+            .iter()
+            .cloned()
+            .chain(annotations)
+            .collect();
         ast_owned
             .context()
-            .make_bool_annotated(ast_owned.op().clone(), annotations.into_iter().collect())
+            .make_bool_annotated(ast_owned.op().clone(), annotations)
     }
 }
 
@@ -115,9 +121,15 @@ impl<'c> SupportsAnnotate<'c> for BitVecOp<'c> {
         annotations: impl IntoIterator<Item = Annotation>,
     ) -> Result<AstRef<'c, Self>, ClarirsError> {
         let ast_owned = ast.into_owned();
+        let annotations = ast_owned
+            .annotations()
+            .iter()
+            .cloned()
+            .chain(annotations)
+            .collect();
         ast_owned
             .context()
-            .make_bitvec_annotated(ast_owned.op().clone(), annotations.into_iter().collect())
+            .make_bitvec_annotated(ast_owned.op().clone(), annotations)
     }
 }
 
@@ -127,9 +139,15 @@ impl<'c> SupportsAnnotate<'c> for FloatOp<'c> {
         annotations: impl IntoIterator<Item = Annotation>,
     ) -> Result<AstRef<'c, Self>, ClarirsError> {
         let ast_owned = ast.into_owned();
+        let annotations = ast_owned
+            .annotations()
+            .iter()
+            .cloned()
+            .chain(annotations)
+            .collect();
         ast_owned
             .context()
-            .make_float_annotated(ast_owned.op().clone(), annotations.into_iter().collect())
+            .make_float_annotated(ast_owned.op().clone(), annotations)
     }
 }
 
@@ -139,9 +157,15 @@ impl<'c> SupportsAnnotate<'c> for StringOp<'c> {
         annotations: impl IntoIterator<Item = Annotation>,
     ) -> Result<AstRef<'c, Self>, ClarirsError> {
         let ast_owned = ast.into_owned();
+        let annotations = ast_owned
+            .annotations()
+            .iter()
+            .cloned()
+            .chain(annotations)
+            .collect();
         ast_owned
             .context()
-            .make_string_annotated(ast_owned.op().clone(), annotations.into_iter().collect())
+            .make_string_annotated(ast_owned.op().clone(), annotations)
     }
 }
 
