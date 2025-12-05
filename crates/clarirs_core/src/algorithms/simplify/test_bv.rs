@@ -1137,7 +1137,7 @@ fn test_general_if_extraction_patterns() -> Result<()> {
     // Test Neq(If(cond, a, b), a) -> !cond
     let neq_expr_2 = ctx.neq(&if_expr, &a)?;
     let simplified_2 = neq_expr_2.simplify()?;
-    let expected_not_cond = ctx.not(&cond)?;
+    let expected_not_cond = ctx.uge(ctx.bvs("x", 32)?, ctx.bvv_prim(45u32)?)?;
     assert_eq!(simplified_2, expected_not_cond);
 
     // Test Eq(If(cond, a, b), a) -> cond
@@ -1195,7 +1195,7 @@ fn test_boolean_bitvector_normalization() -> Result<()> {
     // Test Eq(If(cond, 1, 0), 0) -> !cond (boolean encoding)
     let eq_zero = ctx.eq_(&if_bool, &zero_bv)?;
     let simplified_eq_zero = eq_zero.simplify()?;
-    let expected_not_cond = ctx.not(&cond)?;
+    let expected_not_cond = ctx.uge(ctx.bvs("x", 32)?, ctx.bvv_prim(45u32)?)?;
     assert_eq!(simplified_eq_zero, expected_not_cond);
 
     // Test Neq(If(cond, 1, 0), 1) -> !cond (boolean encoding)

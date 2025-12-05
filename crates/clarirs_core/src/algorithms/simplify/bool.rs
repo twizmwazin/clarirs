@@ -15,6 +15,26 @@ pub(crate) fn simplify_bool<'c>(
             match arc.op() {
                 BooleanOp::Not(arc) => Ok(arc.clone()),
                 BooleanOp::BoolV(v) => Ok(ctx.boolv(!v)?),
+
+                BooleanOp::Eq(lhs, rhs) => Ok(ctx.neq(lhs.clone(), rhs.clone())?),
+
+                // !(a > b)  ==>  a <= b
+                BooleanOp::UGT(lhs, rhs) => Ok(ctx.ule(lhs.clone(), rhs.clone())?),
+                // !(a >= b)  ==>  a < b
+                BooleanOp::UGE(lhs, rhs) => Ok(ctx.ult(lhs.clone(), rhs.clone())?),
+                // !(a < b)  ==>  a >= b
+                BooleanOp::ULT(lhs, rhs) => Ok(ctx.uge(lhs.clone(), rhs.clone())?),
+                // !(a <= b)  ==>  a > b
+                BooleanOp::ULE(lhs, rhs) => Ok(ctx.ugt(lhs.clone(), rhs.clone())?),
+                // !(a s> b)  ==>  a s<= b
+                BooleanOp::SGT(lhs, rhs) => Ok(ctx.sle(lhs.clone(), rhs.clone())?),
+                // !(a s>= b)  ==>  a s< b
+                BooleanOp::SGE(lhs, rhs) => Ok(ctx.slt(lhs.clone(), rhs.clone())?),
+                // !(a s< b)  ==>  a s>= b
+                BooleanOp::SLT(lhs, rhs) => Ok(ctx.sge(lhs.clone(), rhs.clone())?),
+                // !(a s<= b)  ==>  a s> b
+                BooleanOp::SLE(lhs, rhs) => Ok(ctx.sgt(lhs.clone(), rhs.clone())?),
+
                 _ => Ok(ctx.not(arc)?),
             }
         }
@@ -47,6 +67,93 @@ pub(crate) fn simplify_bool<'c>(
                 (lhs, BooleanOp::Not(rhs)) if lhs == rhs.op() => Ok(ctx.true_()?),
                 (BooleanOp::Not(lhs), BooleanOp::Not(rhs)) => Ok(ctx.not(ctx.and(lhs, rhs)?)?),
                 _ if early_lhs == early_rhs => state.get_bool_simplified(0),
+
+                // x == K || x >= K  ==>  x >= K
+                (BooleanOp::Eq(var1, val1), BooleanOp::UGE(var2, val2))
+                | (BooleanOp::UGE(var2, val2), BooleanOp::Eq(var1, val1))
+                    if var1 == var2 && val1 == val2 =>
+                {
+                    state.rerun(ctx.uge(var1.clone(), val1.clone())?)
+                }
+                // x == K || x > K  ==>  x >= K
+                (BooleanOp::Eq(var1, val1), BooleanOp::UGT(var2, val2))
+                | (BooleanOp::UGT(var2, val2), BooleanOp::Eq(var1, val1))
+                    if var1 == var2 && val1 == val2 =>
+                {
+                    state.rerun(ctx.uge(var1.clone(), val1.clone())?)
+                }
+                // x == K || x <= K  ==>  x <= K
+                (BooleanOp::Eq(var1, val1), BooleanOp::ULE(var2, val2))
+                | (BooleanOp::ULE(var2, val2), BooleanOp::Eq(var1, val1))
+                    if var1 == var2 && val1 == val2 =>
+                {
+                    state.rerun(ctx.ule(var1.clone(), val1.clone())?)
+                }
+                // x == K || x < K  ==>  x <= K
+                (BooleanOp::Eq(var1, val1), BooleanOp::ULT(var2, val2))
+                | (BooleanOp::ULT(var2, val2), BooleanOp::Eq(var1, val1))
+                    if var1 == var2 && val1 == val2 =>
+                {
+                    state.rerun(ctx.ule(var1.clone(), val1.clone())?)
+                }
+                // x == K || x s>= K  ==>  x s>= K
+                (BooleanOp::Eq(var1, val1), BooleanOp::SGE(var2, val2))
+                | (BooleanOp::SGE(var2, val2), BooleanOp::Eq(var1, val1))
+                    if var1 == var2 && val1 == val2 =>
+                {
+                    state.rerun(ctx.sge(var1.clone(), val1.clone())?)
+                }
+                // x == K || x s> K  ==>  x s>= K
+                (BooleanOp::Eq(var1, val1), BooleanOp::SGT(var2, val2))
+                | (BooleanOp::SGT(var2, val2), BooleanOp::Eq(var1, val1))
+                    if var1 == var2 && val1 == val2 =>
+                {
+                    state.rerun(ctx.sge(var1.clone(), val1.clone())?)
+                }
+                // x == K || x s<= K  ==>  x s<= K
+                (BooleanOp::Eq(var1, val1), BooleanOp::SLE(var2, val2))
+                | (BooleanOp::SLE(var2, val2), BooleanOp::Eq(var1, val1))
+                    if var1 == var2 && val1 == val2 =>
+                {
+                    state.rerun(ctx.sle(var1.clone(), val1.clone())?)
+                }
+                // x == K || x s< K  ==>  x s<= K
+                (BooleanOp::Eq(var1, val1), BooleanOp::SLT(var2, val2))
+                | (BooleanOp::SLT(var2, val2), BooleanOp::Eq(var1, val1))
+                    if var1 == var2 && val1 == val2 =>
+                {
+                    state.rerun(ctx.sle(var1.clone(), val1.clone())?)
+                }
+
+                // x <= K || x > K  ==>  true
+                (BooleanOp::ULE(var1, val1), BooleanOp::UGT(var2, val2))
+                | (BooleanOp::UGT(var2, val2), BooleanOp::ULE(var1, val1))
+                    if var1 == var2 && val1 == val2 =>
+                {
+                    Ok(ctx.true_()?)
+                }
+                // x < K || x >= K  ==>  true
+                (BooleanOp::ULT(var1, val1), BooleanOp::UGE(var2, val2))
+                | (BooleanOp::UGE(var2, val2), BooleanOp::ULT(var1, val1))
+                    if var1 == var2 && val1 == val2 =>
+                {
+                    Ok(ctx.true_()?)
+                }
+                // x <= K || x > K  ==>  true
+                (BooleanOp::SLE(var1, val1), BooleanOp::SGT(var2, val2))
+                | (BooleanOp::SGT(var2, val2), BooleanOp::SLE(var1, val1))
+                    if var1 == var2 && val1 == val2 =>
+                {
+                    Ok(ctx.true_()?)
+                }
+                // x < K || x >= K  ==>  true
+                (BooleanOp::SLT(var1, val1), BooleanOp::SGE(var2, val2))
+                | (BooleanOp::SGE(var2, val2), BooleanOp::SLT(var1, val1))
+                    if var1 == var2 && val1 == val2 =>
+                {
+                    Ok(ctx.true_()?)
+                }
+
                 _ => Ok(ctx.or(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
             }
         }
