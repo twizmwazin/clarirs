@@ -28,6 +28,40 @@ pub(crate) fn simplify_bv<'c>(
                 (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(ctx.bvv(v.clone())?),
                 (BitVecOp::BVV(v), _) if v.is_all_ones() => Ok(arc1.clone()),
                 (_, BitVecOp::BVV(v)) if v.is_all_ones() => Ok(arc.clone()),
+
+                // Distribute AND over CONCAT when one operand is constant
+                // (const & concat(a, b)) = concat(const_high & a, const_low & b)
+                (BitVecOp::BVV(const_val), BitVecOp::Concat(concat_lhs, concat_rhs))
+                | (BitVecOp::Concat(concat_lhs, concat_rhs), BitVecOp::BVV(const_val)) => {
+                    let rhs_size = concat_rhs.size();
+                    let lhs_size = concat_lhs.size();
+
+                    // Extract the high and low parts of the constant
+                    let const_high = const_val.extract(rhs_size, lhs_size + rhs_size - 1)?;
+                    let const_low = const_val.extract(0, rhs_size - 1)?;
+
+                    // AND each part with the corresponding concat operand
+                    let high_and = ctx.and(&ctx.bvv(const_high)?, concat_lhs)?;
+                    let low_and = ctx.and(&ctx.bvv(const_low)?, concat_rhs)?;
+
+                    // Concatenate the results and recursively simplify
+                    state.rerun(ctx.concat(&high_and, &low_and)?)
+                }
+
+                // Distribute AND over zero-extend when one operand is constant
+                // (bvand ((_ zero_extend 56) BV8_instrumented_load_36) (_ bv255 64))
+                //   -> ((_ zero_extend 56) (bvand BV8_instrumented_load_36 (_ bv255 8)))
+                (BitVecOp::BVV(const_val), BitVecOp::ZeroExt(inner, ext_size))
+                | (BitVecOp::ZeroExt(inner, ext_size), BitVecOp::BVV(const_val)) => {
+                    let inner_size = inner.size();
+                    let const_inner = const_val.extract(0, inner_size - 1)?;
+
+                    let inner_and = ctx.and(&ctx.bvv(const_inner)?, inner)?;
+                    let zero_extended = ctx.zero_ext(&inner_and, *ext_size)?;
+
+                    state.rerun(zero_extended)
+                }
+
                 // x & ¬x = 0
                 (BitVecOp::Not(lhs), rhs) if lhs.op() == rhs => {
                     Ok(ctx.bvv(BitVec::zeros(arc.size()))?)
@@ -48,6 +82,26 @@ pub(crate) fn simplify_bv<'c>(
                 (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
                 (BitVecOp::BVV(v), _) if v.is_all_ones() => Ok(ctx.bvv(v.clone())?),
                 (_, BitVecOp::BVV(v)) if v.is_all_ones() => Ok(ctx.bvv(v.clone())?),
+
+                // Distribute OR over CONCAT when one operand is constant
+                // (const | concat(a, b)) = concat(const_high | a, const_low | b)
+                (BitVecOp::BVV(const_val), BitVecOp::Concat(concat_lhs, concat_rhs))
+                | (BitVecOp::Concat(concat_lhs, concat_rhs), BitVecOp::BVV(const_val)) => {
+                    let rhs_size = concat_rhs.size();
+                    let lhs_size = concat_lhs.size();
+
+                    // Extract the high and low parts of the constant
+                    let const_high = const_val.extract(rhs_size, lhs_size + rhs_size - 1)?;
+                    let const_low = const_val.extract(0, rhs_size - 1)?;
+
+                    // OR each part with the corresponding concat operand
+                    let high_or = ctx.or(&ctx.bvv(const_high)?, concat_lhs)?;
+                    let low_or = ctx.or(&ctx.bvv(const_low)?, concat_rhs)?;
+
+                    // Concatenate the results and recursively simplify
+                    state.rerun(ctx.concat(&high_or, &low_or)?)
+                }
+
                 // x | ¬x = -1 (all ones)
                 (BitVecOp::Not(lhs), rhs) if lhs.op() == rhs => {
                     Ok(ctx.bvv(BitVec::from_biguint_trunc(
@@ -74,6 +128,29 @@ pub(crate) fn simplify_bv<'c>(
                 (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
                 (BitVecOp::BVV(v), _) if v.is_all_ones() => Ok(ctx.not(arc1)?),
                 (_, BitVecOp::BVV(v)) if v.is_all_ones() => Ok(ctx.not(arc)?),
+
+                // ¬a ^ ¬b = a ^ b
+                (BitVecOp::Not(lhs), BitVecOp::Not(rhs)) => state.rerun(ctx.xor(lhs, rhs)?),
+
+                // Distribute XOR over CONCAT when one operand is constant
+                // (const ^ concat(a, b)) = concat(const_high ^ a, const_low ^ b)
+                (BitVecOp::BVV(const_val), BitVecOp::Concat(concat_lhs, concat_rhs))
+                | (BitVecOp::Concat(concat_lhs, concat_rhs), BitVecOp::BVV(const_val)) => {
+                    let rhs_size = concat_rhs.size();
+                    let lhs_size = concat_lhs.size();
+
+                    // Extract the high and low parts of the constant
+                    let const_high = const_val.extract(rhs_size, lhs_size + rhs_size - 1)?;
+                    let const_low = const_val.extract(0, rhs_size - 1)?;
+
+                    // XOR each part with the corresponding concat operand
+                    let high_xor = ctx.xor(&ctx.bvv(const_high)?, concat_lhs)?;
+                    let low_xor = ctx.xor(&ctx.bvv(const_low)?, concat_rhs)?;
+
+                    // Concatenate the results and recursively simplify
+                    state.rerun(ctx.concat(&high_xor, &low_xor)?)
+                }
+
                 _ => Ok(ctx.xor(arc, arc1)?),
             }
         }
@@ -348,6 +425,11 @@ pub(crate) fn simplify_bv<'c>(
                 (_, 0) => Ok(arc.clone()),
                 // Concrete BVV case
                 (BitVecOp::BVV(value), _) => Ok(ctx.bvv(value.zero_extend(*num_bits)?)?),
+                // Nested ZeroExt - combine extensions
+                (BitVecOp::ZeroExt(inner, inner_num_bits), _) => {
+                    let total_ext = inner_num_bits + num_bits;
+                    Ok(ctx.zero_ext(inner, total_ext)?)
+                }
                 // Symbolic case
                 (_, _) => Ok(ctx.zero_ext(arc, *num_bits)?),
             }
@@ -359,6 +441,11 @@ pub(crate) fn simplify_bv<'c>(
                 (_, 0) => Ok(arc.clone()),
                 // Concrete BVV case
                 (BitVecOp::BVV(value), _) => Ok(ctx.bvv(value.sign_extend(*num_bits)?)?),
+                // Nested SignExt - combine extensions
+                (BitVecOp::SignExt(inner, inner_num_bits), _) => {
+                    let total_ext = inner_num_bits + num_bits;
+                    Ok(ctx.sign_ext(inner, total_ext)?)
+                }
                 // Fallback case
                 (_, _) => Ok(ctx.sign_ext(arc, *num_bits)?),
             }
@@ -374,6 +461,31 @@ pub(crate) fn simplify_bv<'c>(
             match arc.op() {
                 // Concrete BVV case
                 BitVecOp::BVV(value) => Ok(ctx.bvv(value.extract(*low, *high)?)?),
+
+                // Propagate extract through bitwise operations
+                // extract(n, m, a & b) = extract(n, m, a) & extract(n, m, b)
+                BitVecOp::And(lhs, rhs) => {
+                    let lhs_extracted = ctx.extract(lhs, *high, *low)?;
+                    let rhs_extracted = ctx.extract(rhs, *high, *low)?;
+                    state.rerun(ctx.and(&lhs_extracted, &rhs_extracted)?)
+                }
+                // extract(n, m, a | b) = extract(n, m, a) | extract(n, m, b)
+                BitVecOp::Or(lhs, rhs) => {
+                    let lhs_extracted = ctx.extract(lhs, *high, *low)?;
+                    let rhs_extracted = ctx.extract(rhs, *high, *low)?;
+                    state.rerun(ctx.or(&lhs_extracted, &rhs_extracted)?)
+                }
+                // extract(n, m, a ^ b) = extract(n, m, a) ^ extract(n, m, b)
+                BitVecOp::Xor(lhs, rhs) => {
+                    let lhs_extracted = ctx.extract(lhs, *high, *low)?;
+                    let rhs_extracted = ctx.extract(rhs, *high, *low)?;
+                    state.rerun(ctx.xor(&lhs_extracted, &rhs_extracted)?)
+                }
+                // extract(n, m, ~a) = ~extract(n, m, a)
+                BitVecOp::Not(inner) => {
+                    let inner_extracted = ctx.extract(inner, *high, *low)?;
+                    state.rerun(ctx.not(&inner_extracted)?)
+                }
 
                 // ZeroExt cases
                 // If extracting from the original bits (not the extended zero bits)
@@ -613,7 +725,7 @@ pub(crate) fn simplify_bv<'c>(
                     }
                 }
                 // If the condition has a Not at the top level, invert the branches
-                BooleanOp::Not(inner) => Ok(ctx.if_(inner, else_, then_)?),
+                BooleanOp::Not(inner) => state.rerun(ctx.if_(inner, else_, then_)?),
                 _ => Ok(ctx.if_(if_, then_, else_)?),
             }
         }
