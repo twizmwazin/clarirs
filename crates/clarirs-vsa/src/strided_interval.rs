@@ -3320,10 +3320,20 @@ impl Not for StridedInterval {
             } if stride <= &BigUint::one() => {
                 // Special case, if range sticks to an edge, we can easily invert the set
                 if lower_bound.is_zero() {
-                    return StridedInterval::new(*bits, BigUint::one(), upper_bound + 1u32, StridedInterval::max_int(*bits));
+                    return StridedInterval::new(
+                        *bits,
+                        BigUint::one(),
+                        upper_bound + 1u32,
+                        StridedInterval::max_int(*bits),
+                    );
                 }
                 if upper_bound == &StridedInterval::max_int(*bits) {
-                    return StridedInterval::new(*bits, BigUint::one(), BigUint::zero(), lower_bound - 1u32);
+                    return StridedInterval::new(
+                        *bits,
+                        BigUint::one(),
+                        BigUint::zero(),
+                        lower_bound - 1u32,
+                    );
                 }
 
                 StridedInterval::top(*bits)
