@@ -177,6 +177,21 @@ pub(crate) fn from_z3<'c>(
                         let arg1 = z3::get_app_arg(*z3_ctx, app, 1);
                         let a = BitVecAst::from_z3(ctx, arg0)?;
                         let b = BitVecAst::from_z3(ctx, arg1)?;
+
+                        // HACK: Size adjustment
+                        // Z3 sometimes returns bitvectors of different sizes for operations.
+                        let max_size = a.size().max(b.size());
+                        let a = if a.size() < max_size {
+                            ctx.zero_ext(&a, max_size - a.size())?
+                        } else {
+                            a
+                        };
+                        let b = if b.size() < max_size {
+                            ctx.zero_ext(&b, max_size - b.size())?
+                        } else {
+                            b
+                        };
+
                         match decl_kind {
                             z3::DeclKind::Band => ctx.and(&a, &b),
                             z3::DeclKind::Bor => ctx.or(&a, &b),
