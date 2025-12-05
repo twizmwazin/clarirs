@@ -3308,7 +3308,38 @@ impl Not for StridedInterval {
     type Output = StridedInterval;
 
     fn not(self) -> StridedInterval {
-        !&self
+        match &self {
+            StridedInterval::Empty { bits } => StridedInterval::top(*bits),
+            // Top Case
+            StridedInterval::Normal { bits, .. } if self.is_top() => StridedInterval::empty(*bits),
+            StridedInterval::Normal {
+                bits,
+                stride,
+                lower_bound,
+                upper_bound,
+            } if stride <= &BigUint::one() => {
+                // Special case, if range sticks to an edge, we can easily invert the set
+                if lower_bound.is_zero() {
+                    return StridedInterval::new(
+                        *bits,
+                        BigUint::one(),
+                        upper_bound + 1u32,
+                        StridedInterval::max_int(*bits),
+                    );
+                }
+                if upper_bound == &StridedInterval::max_int(*bits) {
+                    return StridedInterval::new(
+                        *bits,
+                        BigUint::one(),
+                        BigUint::zero(),
+                        lower_bound - 1u32,
+                    );
+                }
+
+                StridedInterval::top(*bits)
+            }
+            StridedInterval::Normal { bits, .. } => StridedInterval::top(*bits),
+        }
     }
 }
 
