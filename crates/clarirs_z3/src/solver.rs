@@ -371,12 +371,18 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
     }
 
     fn simplify(&mut self) -> Result<(), ClarirsError> {
-        // Simplify all assertions in the solver
         self.assertions = self
             .assertions
             .iter()
-            .map(|constraint| constraint.simplify())
-            .collect::<Result<Vec<_>, _>>()?;
+            .filter_map(|c| {
+                let simplified = c.simplify_z3().ok()?;
+                if simplified.is_true() {
+                    None
+                } else {
+                    Some(Ok(simplified))
+                }
+            })
+            .collect::<Result<Vec<_>, ClarirsError>>()?;
         Ok(())
     }
 
