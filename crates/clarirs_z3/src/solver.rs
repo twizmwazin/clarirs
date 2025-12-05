@@ -863,7 +863,7 @@ mod tests {
             solver.add(&ctx.eq_(&x, &ctx.true_()?)?)?;
             solver.add(&ctx.eq_(&y, &ctx.false_()?)?)?;
 
-            let result = solver.eval_bool(&ctx.if_(&c, &x, &y)?)?;
+            let result = solver.eval_bool(&ctx.if_(c, x, y)?)?;
             assert!(result.is_true());
 
             Ok(())

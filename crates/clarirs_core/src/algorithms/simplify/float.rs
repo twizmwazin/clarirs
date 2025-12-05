@@ -164,7 +164,7 @@ pub(crate) fn simplify_float<'c>(
                 }
                 // If the condition has a Not at the top level, invert the branches
                 BooleanOp::Not(inner) => Ok(ctx.if_(inner, else_, then_)?),
-                _ => Ok(ctx.if_(&if_, &then_, &else_)?),
+                _ => Ok(ctx.if_(if_, then_, else_)?),
             }
         }
     }
