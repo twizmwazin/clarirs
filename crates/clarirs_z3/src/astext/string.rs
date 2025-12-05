@@ -120,7 +120,7 @@ pub(crate) fn from_z3<'c>(
                         let arg1 = z3::get_app_arg(z3_ctx, app, 1);
                         let a = StringAst::from_z3(ctx, arg0)?;
                         let b = StringAst::from_z3(ctx, arg1)?;
-                        ctx.strconcat(&a, &b)
+                        ctx.strconcat(a, b)
                     }
                     z3::DeclKind::SeqExtract => {
                         let arg0 = z3::get_app_arg(z3_ctx, app, 0);
@@ -136,7 +136,7 @@ pub(crate) fn from_z3<'c>(
                         let len_simplified = RcAst::from(z3::simplify(z3_ctx, len_bv.0));
                         let len = BitVecAst::from_z3(ctx, len_simplified)?;
 
-                        ctx.strsubstr(&a, &offset, &len)
+                        ctx.strsubstr(a, offset, len)
                     }
                     z3::DeclKind::SeqReplace => {
                         let arg0 = z3::get_app_arg(z3_ctx, app, 0);
@@ -145,7 +145,7 @@ pub(crate) fn from_z3<'c>(
                         let a = StringAst::from_z3(ctx, arg0)?;
                         let b = StringAst::from_z3(ctx, arg1)?;
                         let c = StringAst::from_z3(ctx, arg2)?;
-                        ctx.strreplace(&a, &b, &c)
+                        ctx.strreplace(a, b, c)
                     }
                     z3::DeclKind::Ite => {
                         let cond = z3::get_app_arg(z3_ctx, app, 0);
@@ -154,7 +154,7 @@ pub(crate) fn from_z3<'c>(
                         let cond = BoolAst::from_z3(ctx, cond)?;
                         let then = StringAst::from_z3(ctx, then)?;
                         let else_ = StringAst::from_z3(ctx, else_)?;
-                        ctx.if_(&cond, &then, &else_)
+                        ctx.if_(cond, then, else_)
                     }
                     _ => Err(ClarirsError::ConversionError(
                         "Failed converting from z3: unknown decl kind for string".to_string(),
@@ -269,7 +269,7 @@ mod tests {
             let ctx = Context::new();
             let s1 = ctx.stringv("hello").unwrap();
             let s2 = ctx.stringv(" world").unwrap();
-            let concat = ctx.strconcat(&s1, &s2).unwrap();
+            let concat = ctx.strconcat(s1, s2).unwrap();
 
             let z3_ast = concat.to_z3().unwrap();
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::SeqConcat));
@@ -287,7 +287,7 @@ mod tests {
             let s = ctx.stringv("hello world").unwrap();
             let start = ctx.bvv_prim(6u32).unwrap();
             let length = ctx.bvv_prim(5u32).unwrap();
-            let substr = ctx.strsubstr(&s, &start, &length).unwrap();
+            let substr = ctx.strsubstr(s, start, length).unwrap();
 
             let z3_ast = substr.to_z3().unwrap();
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::SeqExtract));
@@ -303,7 +303,7 @@ mod tests {
             let s = ctx.stringv("hello world").unwrap();
             let pattern = ctx.stringv("world").unwrap();
             let replacement = ctx.stringv("there").unwrap();
-            let replaced = ctx.strreplace(&s, &pattern, &replacement).unwrap();
+            let replaced = ctx.strreplace(s, pattern, replacement).unwrap();
 
             let z3_ast = replaced.to_z3().unwrap();
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::SeqReplace));
@@ -323,7 +323,7 @@ mod tests {
             let cond = ctx.bools("c").unwrap();
             let then = ctx.stringv("then").unwrap();
             let else_ = ctx.stringv("else").unwrap();
-            let if_expr = ctx.if_(&cond, &then, &else_).unwrap();
+            let if_expr = ctx.if_(cond, then, else_).unwrap();
 
             let z3_ast = if_expr.to_z3().unwrap();
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Ite));
@@ -410,7 +410,7 @@ mod tests {
                     let result = StringAst::from_z3(&ctx, concat).unwrap();
                     let s1_ast = ctx.stringv("hello").unwrap();
                     let s2_ast = ctx.stringv(" world").unwrap();
-                    let expected = ctx.strconcat(&s1_ast, &s2_ast).unwrap();
+                    let expected = ctx.strconcat(s1_ast, s2_ast).unwrap();
                     assert_eq!(result, expected);
                 });
             }
@@ -445,7 +445,7 @@ mod tests {
                     let s_ast = ctx.stringv("hello world").unwrap();
                     let start_ast = ctx.bvv_prim(6u64).unwrap();
                     let len_ast = ctx.bvv_prim(5u64).unwrap();
-                    let expected = ctx.strsubstr(&s_ast, &start_ast, &len_ast).unwrap();
+                    let expected = ctx.strsubstr(s_ast, start_ast, len_ast).unwrap();
                     assert_eq!(result, expected);
                 });
             }
@@ -517,7 +517,7 @@ mod tests {
                     let cond_ast = ctx.bools("c").unwrap();
                     let then_ast = ctx.stringv("then").unwrap();
                     let else_ast = ctx.stringv("else").unwrap();
-                    let expected = ctx.if_(&cond_ast, &then_ast, &else_ast).unwrap();
+                    let expected = ctx.if_(cond_ast, then_ast, else_ast).unwrap();
                     assert_eq!(result, expected);
                 });
             }
@@ -549,7 +549,7 @@ mod tests {
             let ctx = Context::new();
             let s1 = ctx.stringv("hello").unwrap();
             let s2 = ctx.stringv(" world").unwrap();
-            let concat = ctx.strconcat(&s1, &s2).unwrap();
+            let concat = ctx.strconcat(s1, s2).unwrap();
             let result = round_trip(&ctx, &concat).unwrap();
             assert_eq!(concat, result);
         }
@@ -560,7 +560,7 @@ mod tests {
             let s = ctx.stringv("hello world").unwrap();
             let start = ctx.bvv_prim(6u64).unwrap();
             let length = ctx.bvv_prim(5u64).unwrap();
-            let substr = ctx.strsubstr(&s, &start, &length).unwrap();
+            let substr = ctx.strsubstr(s, start, length).unwrap();
             let result = round_trip(&ctx, &substr).unwrap();
             assert_eq!(substr, result);
         }
@@ -571,7 +571,7 @@ mod tests {
             let s = ctx.stringv("hello world").unwrap();
             let pattern = ctx.stringv("world").unwrap();
             let replacement = ctx.stringv("there").unwrap();
-            let replaced = ctx.strreplace(&s, &pattern, &replacement).unwrap();
+            let replaced = ctx.strreplace(s, pattern, replacement).unwrap();
             let result = round_trip(&ctx, &replaced).unwrap();
             assert_eq!(replaced, result);
         }
@@ -582,7 +582,7 @@ mod tests {
             let cond = ctx.bools("c").unwrap();
             let then = ctx.stringv("then").unwrap();
             let else_ = ctx.stringv("else").unwrap();
-            let if_expr = ctx.if_(&cond, &then, &else_).unwrap();
+            let if_expr = ctx.if_(cond, then, else_).unwrap();
             let result = round_trip(&ctx, &if_expr).unwrap();
             assert_eq!(if_expr, result);
         }

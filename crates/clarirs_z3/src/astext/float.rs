@@ -191,12 +191,12 @@ pub(crate) fn from_z3<'c>(
                     z3::DeclKind::FpaNeg => {
                         let arg = z3::get_app_arg(*z3_ctx, app, 0);
                         let inner = FloatAst::from_z3(ctx, arg)?;
-                        ctx.fp_neg(&inner)
+                        ctx.fp_neg(inner)
                     }
                     z3::DeclKind::FpaAbs => {
                         let arg = z3::get_app_arg(*z3_ctx, app, 0);
                         let inner = FloatAst::from_z3(ctx, arg)?;
-                        ctx.fp_abs(&inner)
+                        ctx.fp_abs(inner)
                     }
                     z3::DeclKind::FpaAdd
                     | z3::DeclKind::FpaSub
@@ -211,10 +211,10 @@ pub(crate) fn from_z3<'c>(
                         let b = FloatAst::from_z3(ctx, arg1)?;
 
                         match decl_kind {
-                            z3::DeclKind::FpaAdd => ctx.fp_add(&a, &b, rm),
-                            z3::DeclKind::FpaSub => ctx.fp_sub(&a, &b, rm),
-                            z3::DeclKind::FpaMul => ctx.fp_mul(&a, &b, rm),
-                            z3::DeclKind::FpaDiv => ctx.fp_div(&a, &b, rm),
+                            z3::DeclKind::FpaAdd => ctx.fp_add(a, b, rm),
+                            z3::DeclKind::FpaSub => ctx.fp_sub(a, b, rm),
+                            z3::DeclKind::FpaMul => ctx.fp_mul(a, b, rm),
+                            z3::DeclKind::FpaDiv => ctx.fp_div(a, b, rm),
                             _ => unreachable!(),
                         }
                     }
@@ -224,7 +224,7 @@ pub(crate) fn from_z3<'c>(
 
                         let rm = parse_fprm_from_z3(*z3_ctx, rm_arg)?;
                         let inner = FloatAst::from_z3(ctx, arg)?;
-                        ctx.fp_sqrt(&inner, rm)
+                        ctx.fp_sqrt(inner, rm)
                     }
                     z3::DeclKind::FpaToFp => {
                         // This could be FpToFp, BvToFp, BvToFpSigned, or BvToFpUnsigned
@@ -234,7 +234,7 @@ pub(crate) fn from_z3<'c>(
                             // Could be BvToFp (no rounding mode)
                             let arg = z3::get_app_arg(*z3_ctx, app, 0);
                             if let Ok(bv) = crate::astext::bv::from_z3(ctx, arg) {
-                                ctx.bv_to_fp(&bv, fsort)
+                                ctx.bv_to_fp(bv, fsort)
                             } else {
                                 Err(ClarirsError::ConversionError(
                                     "Failed to parse BvToFp".to_string(),
@@ -248,11 +248,11 @@ pub(crate) fn from_z3<'c>(
 
                             // Try to determine which conversion it is by the argument type
                             if let Ok(fp) = FloatAst::from_z3(ctx, arg) {
-                                ctx.fp_to_fp(&fp, fsort, rm)
+                                ctx.fp_to_fp(fp, fsort, rm)
                             } else if let Ok(bv) = crate::astext::bv::from_z3(ctx, arg) {
                                 // Need to determine if signed or unsigned
                                 // This is ambiguous in Z3, default to signed
-                                ctx.bv_to_fp_signed(&bv, fsort, rm)
+                                ctx.bv_to_fp_signed(bv, fsort, rm)
                             } else {
                                 Err(ClarirsError::ConversionError(
                                     "Failed to parse FpToFp conversion".to_string(),
@@ -273,7 +273,7 @@ pub(crate) fn from_z3<'c>(
                         let exp_bv = crate::astext::bv::from_z3(ctx, exp)?;
                         let sig_bv = crate::astext::bv::from_z3(ctx, sig)?;
 
-                        ctx.fp_fp(&sign_bv, &exp_bv, &sig_bv)
+                        ctx.fp_fp(sign_bv, exp_bv, sig_bv)
                     }
                     z3::DeclKind::Ite => {
                         let cond = z3::get_app_arg(*z3_ctx, app, 0);
@@ -282,7 +282,7 @@ pub(crate) fn from_z3<'c>(
                         let cond = crate::astext::bool::from_z3(ctx, cond)?;
                         let then = FloatAst::from_z3(ctx, then)?;
                         let else_ = FloatAst::from_z3(ctx, else_)?;
-                        ctx.if_(&cond, &then, &else_)
+                        ctx.if_(cond, then, else_)
                     }
                     _ => Err(ClarirsError::ConversionError(
                         "Failed converting from z3: unknown decl kind for float".to_string(),
@@ -357,7 +357,7 @@ mod tests {
     fn test_float_neg() {
         let ctx = Context::new();
         let x = ctx.fps("x", FSort::f32()).unwrap();
-        let neg = ctx.fp_neg(&x).unwrap();
+        let neg = ctx.fp_neg(x).unwrap();
         let result = round_trip(&ctx, &neg).unwrap();
         assert_eq!(neg, result);
     }
@@ -366,7 +366,7 @@ mod tests {
     fn test_float_abs() {
         let ctx = Context::new();
         let x = ctx.fps("x", FSort::f32()).unwrap();
-        let abs = ctx.fp_abs(&x).unwrap();
+        let abs = ctx.fp_abs(x).unwrap();
         let result = round_trip(&ctx, &abs).unwrap();
         assert_eq!(abs, result);
     }
@@ -376,7 +376,7 @@ mod tests {
         let ctx = Context::new();
         let a = ctx.fps("a", FSort::f32()).unwrap();
         let b = ctx.fps("b", FSort::f32()).unwrap();
-        let add = ctx.fp_add(&a, &b, FPRM::NearestTiesToEven).unwrap();
+        let add = ctx.fp_add(a, b, FPRM::NearestTiesToEven).unwrap();
         let result = round_trip(&ctx, &add).unwrap();
         assert_eq!(add, result);
     }
@@ -386,7 +386,7 @@ mod tests {
         let ctx = Context::new();
         let a = ctx.fps("a", FSort::f32()).unwrap();
         let b = ctx.fps("b", FSort::f32()).unwrap();
-        let sub = ctx.fp_sub(&a, &b, FPRM::NearestTiesToEven).unwrap();
+        let sub = ctx.fp_sub(a, b, FPRM::NearestTiesToEven).unwrap();
         let result = round_trip(&ctx, &sub).unwrap();
         assert_eq!(sub, result);
     }
@@ -396,7 +396,7 @@ mod tests {
         let ctx = Context::new();
         let a = ctx.fps("a", FSort::f32()).unwrap();
         let b = ctx.fps("b", FSort::f32()).unwrap();
-        let mul = ctx.fp_mul(&a, &b, FPRM::NearestTiesToEven).unwrap();
+        let mul = ctx.fp_mul(a, b, FPRM::NearestTiesToEven).unwrap();
         let result = round_trip(&ctx, &mul).unwrap();
         assert_eq!(mul, result);
     }
@@ -406,7 +406,7 @@ mod tests {
         let ctx = Context::new();
         let a = ctx.fps("a", FSort::f32()).unwrap();
         let b = ctx.fps("b", FSort::f32()).unwrap();
-        let div = ctx.fp_div(&a, &b, FPRM::NearestTiesToEven).unwrap();
+        let div = ctx.fp_div(a, b, FPRM::NearestTiesToEven).unwrap();
         let result = round_trip(&ctx, &div).unwrap();
         assert_eq!(div, result);
     }
@@ -415,7 +415,7 @@ mod tests {
     fn test_float_sqrt() {
         let ctx = Context::new();
         let x = ctx.fps("x", FSort::f32()).unwrap();
-        let sqrt = ctx.fp_sqrt(&x, FPRM::NearestTiesToEven).unwrap();
+        let sqrt = ctx.fp_sqrt(x, FPRM::NearestTiesToEven).unwrap();
         let result = round_trip(&ctx, &sqrt).unwrap();
         assert_eq!(sqrt, result);
     }
@@ -426,7 +426,7 @@ mod tests {
         let cond = ctx.bools("c").unwrap();
         let a = ctx.fps("a", FSort::f32()).unwrap();
         let b = ctx.fps("b", FSort::f32()).unwrap();
-        let if_expr = ctx.if_(&cond, &a, &b).unwrap();
+        let if_expr = ctx.if_(cond, a, b).unwrap();
         let result = round_trip(&ctx, &if_expr).unwrap();
         assert_eq!(if_expr, result);
     }

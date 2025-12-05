@@ -75,7 +75,7 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, Clarir
 
                 for byte in reversed {
                     acc = match acc {
-                        Some(inner) => Some(ast.context().concat(&inner, byte)?),
+                        Some(inner) => Some(ast.context().concat(inner, byte)?),
                         None => Some(byte.clone()),
                     };
                 }
@@ -153,12 +153,12 @@ pub(crate) fn from_z3<'c>(
                     z3::DeclKind::Bnot => {
                         let arg = z3::get_app_arg(*z3_ctx, app, 0);
                         let inner = BitVecAst::from_z3(ctx, arg)?;
-                        ctx.not(&inner)
+                        ctx.not(inner)
                     }
                     z3::DeclKind::Bneg => {
                         let arg = z3::get_app_arg(*z3_ctx, app, 0);
                         let inner = BitVecAst::from_z3(ctx, arg)?;
-                        ctx.neg(&inner)
+                        ctx.neg(inner)
                     }
                     z3::DeclKind::Band
                     | z3::DeclKind::Bor
@@ -193,19 +193,19 @@ pub(crate) fn from_z3<'c>(
                         };
 
                         match decl_kind {
-                            z3::DeclKind::Band => ctx.and(&a, &b),
-                            z3::DeclKind::Bor => ctx.or(&a, &b),
-                            z3::DeclKind::Bxor => ctx.xor(&a, &b),
-                            z3::DeclKind::Badd => ctx.add(&a, &b),
-                            z3::DeclKind::Bsub => ctx.sub(&a, &b),
-                            z3::DeclKind::Bmul => ctx.mul(&a, &b),
-                            z3::DeclKind::Budiv => ctx.udiv(&a, &b),
-                            z3::DeclKind::Bsdiv => ctx.sdiv(&a, &b),
-                            z3::DeclKind::Burem => ctx.urem(&a, &b),
-                            z3::DeclKind::Bsrem => ctx.srem(&a, &b),
-                            z3::DeclKind::Bshl => ctx.shl(&a, &b),
-                            z3::DeclKind::Blshr => ctx.lshr(&a, &b),
-                            z3::DeclKind::Bashr => ctx.ashr(&a, &b),
+                            z3::DeclKind::Band => ctx.and(a, b),
+                            z3::DeclKind::Bor => ctx.or(a, b),
+                            z3::DeclKind::Bxor => ctx.xor(a, b),
+                            z3::DeclKind::Badd => ctx.add(a, b),
+                            z3::DeclKind::Bsub => ctx.sub(a, b),
+                            z3::DeclKind::Bmul => ctx.mul(a, b),
+                            z3::DeclKind::Budiv => ctx.udiv(a, b),
+                            z3::DeclKind::Bsdiv => ctx.sdiv(a, b),
+                            z3::DeclKind::Burem => ctx.urem(a, b),
+                            z3::DeclKind::Bsrem => ctx.srem(a, b),
+                            z3::DeclKind::Bshl => ctx.shl(a, b),
+                            z3::DeclKind::Blshr => ctx.lshr(a, b),
+                            z3::DeclKind::Bashr => ctx.ashr(a, b),
                             _ => unreachable!(),
                         }
                     }
@@ -215,8 +215,8 @@ pub(crate) fn from_z3<'c>(
                         let a = BitVecAst::from_z3(ctx, arg0)?;
                         let b = BitVecAst::from_z3(ctx, arg1)?;
                         match decl_kind {
-                            z3::DeclKind::ExtRotateLeft => ctx.rotate_left(&a, &b),
-                            z3::DeclKind::ExtRotateRight => ctx.rotate_right(&a, &b),
+                            z3::DeclKind::ExtRotateLeft => ctx.rotate_left(a, b),
+                            z3::DeclKind::ExtRotateRight => ctx.rotate_right(a, b),
                             _ => unreachable!(),
                         }
                     }
@@ -226,7 +226,7 @@ pub(crate) fn from_z3<'c>(
                         let i = z3::get_decl_int_parameter(*z3_ctx, decl, 0) as u32;
                         match decl_kind {
                             z3::DeclKind::ZeroExt => ctx.zero_ext(&inner, i),
-                            z3::DeclKind::SignExt => ctx.sign_ext(&inner, i),
+                            z3::DeclKind::SignExt => ctx.sign_ext(inner, i),
                             _ => unreachable!(),
                         }
                     }
@@ -235,14 +235,14 @@ pub(crate) fn from_z3<'c>(
                         let inner = BitVecAst::from_z3(ctx, arg)?;
                         let high = z3::get_decl_int_parameter(*z3_ctx, decl, 0) as u32;
                         let low = z3::get_decl_int_parameter(*z3_ctx, decl, 1) as u32;
-                        ctx.extract(&inner, high, low)
+                        ctx.extract(inner, high, low)
                     }
                     z3::DeclKind::Concat => {
                         let arg0 = z3::get_app_arg(*z3_ctx, app, 0);
                         let arg1 = z3::get_app_arg(*z3_ctx, app, 1);
                         let a = BitVecAst::from_z3(ctx, arg0)?;
                         let b = BitVecAst::from_z3(ctx, arg1)?;
-                        ctx.concat(&a, &b)
+                        ctx.concat(a, b)
                     }
                     z3::DeclKind::Ite => {
                         let cond = z3::get_app_arg(*z3_ctx, app, 0);
@@ -251,7 +251,7 @@ pub(crate) fn from_z3<'c>(
                         let cond = BoolAst::from_z3(ctx, cond)?;
                         let then = BitVecAst::from_z3(ctx, then)?;
                         let else_ = BitVecAst::from_z3(ctx, else_)?;
-                        ctx.if_(&cond, &then, &else_)
+                        ctx.if_(cond, then, else_)
                     }
                     // Special case for bv2int used in string operations
                     z3::DeclKind::Int2bv => {
@@ -426,7 +426,7 @@ mod tests {
         fn not() {
             let ctx = Context::new();
             let bv = ctx.bvv_prim(0xAAu8).unwrap(); // 10101010
-            let not_bv = ctx.not(&bv).unwrap();
+            let not_bv = ctx.not(bv).unwrap();
             let z3_ast = not_bv.to_z3().unwrap();
 
             // Verify it's a NOT operation
@@ -442,7 +442,7 @@ mod tests {
             let ctx = Context::new();
             let bv1 = ctx.bvv_prim(0xF0u8).unwrap(); // 11110000
             let bv2 = ctx.bvv_prim(0xAAu8).unwrap(); // 10101010
-            let and_bv = ctx.and(&bv1, &bv2).unwrap();
+            let and_bv = ctx.and(bv1, bv2).unwrap();
             let z3_ast = and_bv.to_z3().unwrap();
 
             // Verify it's an AND operation
@@ -460,7 +460,7 @@ mod tests {
             let ctx = Context::new();
             let bv1 = ctx.bvv_prim(0xF0u8).unwrap(); // 11110000
             let bv2 = ctx.bvv_prim(0x0Fu8).unwrap(); // 00001111
-            let or_bv = ctx.or(&bv1, &bv2).unwrap();
+            let or_bv = ctx.or(bv1, bv2).unwrap();
             let z3_ast = or_bv.to_z3().unwrap();
 
             // Verify it's an OR operation
@@ -478,7 +478,7 @@ mod tests {
             let ctx = Context::new();
             let bv1 = ctx.bvv_prim(0xAAu8).unwrap(); // 10101010
             let bv2 = ctx.bvv_prim(0x55u8).unwrap(); // 01010101
-            let xor_bv = ctx.xor(&bv1, &bv2).unwrap();
+            let xor_bv = ctx.xor(bv1, bv2).unwrap();
             let z3_ast = xor_bv.to_z3().unwrap();
 
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Bxor));
@@ -494,7 +494,7 @@ mod tests {
             let ctx = Context::new();
             let bv1 = ctx.bvv_prim(42u8).unwrap();
             let bv2 = ctx.bvv_prim(13u8).unwrap();
-            let add_bv = ctx.add(&bv1, &bv2).unwrap();
+            let add_bv = ctx.add(bv1, bv2).unwrap();
             let z3_ast = add_bv.to_z3().unwrap();
 
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Badd));
@@ -510,7 +510,7 @@ mod tests {
             let ctx = Context::new();
             let bv1 = ctx.bvv_prim(42u8).unwrap();
             let bv2 = ctx.bvv_prim(13u8).unwrap();
-            let sub_bv = ctx.sub(&bv1, &bv2).unwrap();
+            let sub_bv = ctx.sub(bv1, bv2).unwrap();
             let z3_ast = sub_bv.to_z3().unwrap();
 
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Bsub));
@@ -526,7 +526,7 @@ mod tests {
             let ctx = Context::new();
             let bv1 = ctx.bvv_prim(6u8).unwrap();
             let bv2 = ctx.bvv_prim(7u8).unwrap();
-            let mul_bv = ctx.mul(&bv1, &bv2).unwrap();
+            let mul_bv = ctx.mul(bv1, bv2).unwrap();
             let z3_ast = mul_bv.to_z3().unwrap();
 
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Bmul));
@@ -542,7 +542,7 @@ mod tests {
             let ctx = Context::new();
             let bv1 = ctx.bvv_prim(42u8).unwrap();
             let bv2 = ctx.bvv_prim(6u8).unwrap();
-            let div_bv = ctx.udiv(&bv1, &bv2).unwrap();
+            let div_bv = ctx.udiv(bv1, bv2).unwrap();
             let z3_ast = div_bv.to_z3().unwrap();
 
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Budiv));
@@ -558,7 +558,7 @@ mod tests {
             let ctx = Context::new();
             let bv1 = ctx.bvv_prim(-42i8 as u8).unwrap();
             let bv2 = ctx.bvv_prim(6u8).unwrap();
-            let div_bv = ctx.sdiv(&bv1, &bv2).unwrap();
+            let div_bv = ctx.sdiv(bv1, bv2).unwrap();
             let z3_ast = div_bv.to_z3().unwrap();
 
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Bsdiv));
@@ -574,7 +574,7 @@ mod tests {
             let ctx = Context::new();
             let bv1 = ctx.bvv_prim(42u8).unwrap();
             let bv2 = ctx.bvv_prim(5u8).unwrap();
-            let rem_bv = ctx.urem(&bv1, &bv2).unwrap();
+            let rem_bv = ctx.urem(bv1, bv2).unwrap();
             let z3_ast = rem_bv.to_z3().unwrap();
 
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Burem));
@@ -590,7 +590,7 @@ mod tests {
             let ctx = Context::new();
             let bv1 = ctx.bvv_prim(-42i8 as u8).unwrap();
             let bv2 = ctx.bvv_prim(5u8).unwrap();
-            let rem_bv = ctx.srem(&bv1, &bv2).unwrap();
+            let rem_bv = ctx.srem(bv1, bv2).unwrap();
             let z3_ast = rem_bv.to_z3().unwrap();
 
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Bsrem));
@@ -606,7 +606,7 @@ mod tests {
             let ctx = Context::new();
             let bv = ctx.bvv_prim(0x12u8).unwrap();
             let shift = ctx.bvv_prim(2u8).unwrap();
-            let shl_bv = ctx.shl(&bv, &shift).unwrap();
+            let shl_bv = ctx.shl(bv, shift).unwrap();
             let z3_ast = shl_bv.to_z3().unwrap();
 
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Bshl));
@@ -622,7 +622,7 @@ mod tests {
             let ctx = Context::new();
             let bv = ctx.bvv_prim(0x12u8).unwrap();
             let shift = ctx.bvv_prim(2u8).unwrap();
-            let lshr_bv = ctx.lshr(&bv, &shift).unwrap();
+            let lshr_bv = ctx.lshr(bv, shift).unwrap();
             let z3_ast = lshr_bv.to_z3().unwrap();
 
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Blshr));
@@ -638,7 +638,7 @@ mod tests {
             let ctx = Context::new();
             let bv = ctx.bvv_prim(0x82u8).unwrap(); // Negative number in two's complement
             let shift = ctx.bvv_prim(2u8).unwrap();
-            let ashr_bv = ctx.ashr(&bv, &shift).unwrap();
+            let ashr_bv = ctx.ashr(bv, shift).unwrap();
             let z3_ast = ashr_bv.to_z3().unwrap();
 
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Bashr));
@@ -654,7 +654,7 @@ mod tests {
             let ctx = Context::new();
             let bv = ctx.bvv_prim(0x12u8).unwrap();
             let rot = ctx.bvv_prim(2u8).unwrap();
-            let rotl_bv = ctx.rotate_left(&bv, &rot).unwrap();
+            let rotl_bv = ctx.rotate_left(bv, rot).unwrap();
             let z3_ast = rotl_bv.to_z3().unwrap();
 
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::ExtRotateLeft));
@@ -670,7 +670,7 @@ mod tests {
             let ctx = Context::new();
             let bv = ctx.bvv_prim(0x12u8).unwrap();
             let rot = ctx.bvv_prim(2u8).unwrap();
-            let rotr_bv = ctx.rotate_right(&bv, &rot).unwrap();
+            let rotr_bv = ctx.rotate_right(bv, rot).unwrap();
             let z3_ast = rotr_bv.to_z3().unwrap();
 
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::ExtRotateRight));
@@ -685,7 +685,7 @@ mod tests {
         fn zero_ext() {
             let ctx = Context::new();
             let bv = ctx.bvv_prim(0x12u8).unwrap();
-            let ext_bv = ctx.zero_ext(&bv, 8).unwrap(); // Extend to 16 bits
+            let ext_bv = ctx.zero_ext(bv, 8).unwrap(); // Extend to 16 bits
             let z3_ast = ext_bv.to_z3().unwrap();
 
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::ZeroExt));
@@ -698,7 +698,7 @@ mod tests {
         fn sign_ext() {
             let ctx = Context::new();
             let bv = ctx.bvv_prim(0x82u8).unwrap(); // Negative number in two's complement
-            let ext_bv = ctx.sign_ext(&bv, 8).unwrap(); // Extend to 16 bits
+            let ext_bv = ctx.sign_ext(bv, 8).unwrap(); // Extend to 16 bits
             let z3_ast = ext_bv.to_z3().unwrap();
 
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::SignExt));
@@ -711,7 +711,7 @@ mod tests {
         fn extract() {
             let ctx = Context::new();
             let bv = ctx.bvv_prim(0xFFu8).unwrap();
-            let ext_bv = ctx.extract(&bv, 6, 2).unwrap(); // Extract bits [6:2]
+            let ext_bv = ctx.extract(bv, 6, 2).unwrap(); // Extract bits [6:2]
             let z3_ast = ext_bv.to_z3().unwrap();
 
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Extract));
@@ -725,7 +725,7 @@ mod tests {
             let ctx = Context::new();
             let bv1 = ctx.bvv_prim(0xAAu8).unwrap();
             let bv2 = ctx.bvv_prim(0xBBu8).unwrap();
-            let concat_bv = ctx.concat(&bv1, &bv2).unwrap();
+            let concat_bv = ctx.concat(bv1, bv2).unwrap();
             let z3_ast = concat_bv.to_z3().unwrap();
 
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Concat));
@@ -742,7 +742,7 @@ mod tests {
             let cond = ctx.true_().unwrap();
             let then_bv = ctx.bvv_prim(0xAAu8).unwrap();
             let else_bv = ctx.bvv_prim(0xBBu8).unwrap();
-            let if_bv = ctx.if_(&cond, &then_bv, &else_bv).unwrap();
+            let if_bv = ctx.if_(cond, then_bv, else_bv).unwrap();
             let z3_ast = if_bv.to_z3().unwrap();
 
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Ite));
@@ -834,7 +834,7 @@ mod tests {
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, not_z3).unwrap();
                     let base_bv = ctx.bvv_prim(0xAAu8).unwrap();
-                    let expected = ctx.not(&base_bv).unwrap();
+                    let expected = ctx.not(base_bv).unwrap();
                     assert_eq!(result, expected);
                 });
             }
@@ -864,7 +864,7 @@ mod tests {
                     let result = BitVecAst::from_z3(&ctx, and_z3).unwrap();
                     let bv1 = ctx.bvv_prim(0xF0u8).unwrap();
                     let bv2 = ctx.bvv_prim(0xAAu8).unwrap();
-                    let expected = ctx.and(&bv1, &bv2).unwrap();
+                    let expected = ctx.and(bv1, bv2).unwrap();
                     assert_eq!(result, expected);
                 });
             }
@@ -894,7 +894,7 @@ mod tests {
                     let result = BitVecAst::from_z3(&ctx, or_z3).unwrap();
                     let bv1 = ctx.bvv_prim(0xF0u8).unwrap();
                     let bv2 = ctx.bvv_prim(0x0Fu8).unwrap();
-                    let expected = ctx.or(&bv1, &bv2).unwrap();
+                    let expected = ctx.or(bv1, bv2).unwrap();
                     assert_eq!(result, expected);
                 });
             }
@@ -924,7 +924,7 @@ mod tests {
                     let result = BitVecAst::from_z3(&ctx, xor_z3).unwrap();
                     let bv1 = ctx.bvv_prim(0xAAu8).unwrap();
                     let bv2 = ctx.bvv_prim(0x55u8).unwrap();
-                    let expected = ctx.xor(&bv1, &bv2).unwrap();
+                    let expected = ctx.xor(bv1, bv2).unwrap();
                     assert_eq!(result, expected);
                 });
             }
@@ -954,7 +954,7 @@ mod tests {
                     let result = BitVecAst::from_z3(&ctx, add_z3).unwrap();
                     let bv1 = ctx.bvv_prim(42u8).unwrap();
                     let bv2 = ctx.bvv_prim(13u8).unwrap();
-                    let expected = ctx.add(&bv1, &bv2).unwrap();
+                    let expected = ctx.add(bv1, bv2).unwrap();
                     assert_eq!(result, expected);
                 });
             }
@@ -984,7 +984,7 @@ mod tests {
                     let result = BitVecAst::from_z3(&ctx, sub_z3).unwrap();
                     let bv1 = ctx.bvv_prim(42u8).unwrap();
                     let bv2 = ctx.bvv_prim(13u8).unwrap();
-                    let expected = ctx.sub(&bv1, &bv2).unwrap();
+                    let expected = ctx.sub(bv1, bv2).unwrap();
                     assert_eq!(result, expected);
                 });
             }
@@ -1014,7 +1014,7 @@ mod tests {
                     let result = BitVecAst::from_z3(&ctx, mul_z3).unwrap();
                     let bv1 = ctx.bvv_prim(6u8).unwrap();
                     let bv2 = ctx.bvv_prim(7u8).unwrap();
-                    let expected = ctx.mul(&bv1, &bv2).unwrap();
+                    let expected = ctx.mul(bv1, bv2).unwrap();
                     assert_eq!(result, expected);
                 });
             }
@@ -1044,7 +1044,7 @@ mod tests {
                     let result = BitVecAst::from_z3(&ctx, udiv_z3).unwrap();
                     let bv1 = ctx.bvv_prim(42u8).unwrap();
                     let bv2 = ctx.bvv_prim(6u8).unwrap();
-                    let expected = ctx.udiv(&bv1, &bv2).unwrap();
+                    let expected = ctx.udiv(bv1, bv2).unwrap();
                     assert_eq!(result, expected);
                 });
             }
@@ -1074,7 +1074,7 @@ mod tests {
                     let result = BitVecAst::from_z3(&ctx, sdiv_z3).unwrap();
                     let bv1 = ctx.bvv_prim(-42i8 as u8).unwrap();
                     let bv2 = ctx.bvv_prim(6u8).unwrap();
-                    let expected = ctx.sdiv(&bv1, &bv2).unwrap();
+                    let expected = ctx.sdiv(bv1, bv2).unwrap();
                     assert_eq!(result, expected);
                 });
             }
@@ -1104,7 +1104,7 @@ mod tests {
                     let result = BitVecAst::from_z3(&ctx, urem_z3).unwrap();
                     let bv1 = ctx.bvv_prim(42u8).unwrap();
                     let bv2 = ctx.bvv_prim(5u8).unwrap();
-                    let expected = ctx.urem(&bv1, &bv2).unwrap();
+                    let expected = ctx.urem(bv1, bv2).unwrap();
                     assert_eq!(result, expected);
                 });
             }
@@ -1134,7 +1134,7 @@ mod tests {
                     let result = BitVecAst::from_z3(&ctx, srem_z3).unwrap();
                     let bv1 = ctx.bvv_prim(-42i8 as u8).unwrap();
                     let bv2 = ctx.bvv_prim(5u8).unwrap();
-                    let expected = ctx.srem(&bv1, &bv2).unwrap();
+                    let expected = ctx.srem(bv1, bv2).unwrap();
                     assert_eq!(result, expected);
                 });
             }
@@ -1164,7 +1164,7 @@ mod tests {
                     let result = BitVecAst::from_z3(&ctx, shl_z3).unwrap();
                     let bv1 = ctx.bvv_prim(0x12u8).unwrap();
                     let bv2 = ctx.bvv_prim(2u8).unwrap();
-                    let expected = ctx.shl(&bv1, &bv2).unwrap();
+                    let expected = ctx.shl(bv1, bv2).unwrap();
                     assert_eq!(result, expected);
                 });
             }
@@ -1194,7 +1194,7 @@ mod tests {
                     let result = BitVecAst::from_z3(&ctx, lshr_z3).unwrap();
                     let bv1 = ctx.bvv_prim(0x12u8).unwrap();
                     let bv2 = ctx.bvv_prim(2u8).unwrap();
-                    let expected = ctx.lshr(&bv1, &bv2).unwrap();
+                    let expected = ctx.lshr(bv1, bv2).unwrap();
                     assert_eq!(result, expected);
                 });
             }
@@ -1224,7 +1224,7 @@ mod tests {
                     let result = BitVecAst::from_z3(&ctx, ashr_z3).unwrap();
                     let bv1 = ctx.bvv_prim(0x82u8).unwrap();
                     let bv2 = ctx.bvv_prim(2u8).unwrap();
-                    let expected = ctx.ashr(&bv1, &bv2).unwrap();
+                    let expected = ctx.ashr(bv1, bv2).unwrap();
                     assert_eq!(result, expected);
                 });
             }
@@ -1254,7 +1254,7 @@ mod tests {
                     let result = BitVecAst::from_z3(&ctx, rotl_z3).unwrap();
                     let bv1 = ctx.bvv_prim(0x12u8).unwrap();
                     let bv2 = ctx.bvv_prim(2u8).unwrap();
-                    let expected = ctx.rotate_left(&bv1, &bv2).unwrap();
+                    let expected = ctx.rotate_left(bv1, bv2).unwrap();
                     assert_eq!(result, expected);
                 });
             }
@@ -1284,7 +1284,7 @@ mod tests {
                     let result = BitVecAst::from_z3(&ctx, rotr_z3).unwrap();
                     let bv1 = ctx.bvv_prim(0x12u8).unwrap();
                     let bv2 = ctx.bvv_prim(2u8).unwrap();
-                    let expected = ctx.rotate_right(&bv1, &bv2).unwrap();
+                    let expected = ctx.rotate_right(bv1, bv2).unwrap();
                     assert_eq!(result, expected);
                 });
             }
@@ -1309,7 +1309,7 @@ mod tests {
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, zext_z3).unwrap();
                     let bv = ctx.bvv_prim(0x12u8).unwrap();
-                    let expected = ctx.zero_ext(&bv, 8).unwrap();
+                    let expected = ctx.zero_ext(bv, 8).unwrap();
                     assert_eq!(result, expected);
                 });
             }
@@ -1334,7 +1334,7 @@ mod tests {
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, sext_z3).unwrap();
                     let bv = ctx.bvv_prim(0x82u8).unwrap();
-                    let expected = ctx.sign_ext(&bv, 8).unwrap();
+                    let expected = ctx.sign_ext(bv, 8).unwrap();
                     assert_eq!(result, expected);
                 });
             }
@@ -1359,7 +1359,7 @@ mod tests {
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, extract_z3).unwrap();
                     let bv = ctx.bvv_prim(0xFFu8).unwrap();
-                    let expected = ctx.extract(&bv, 6, 2).unwrap();
+                    let expected = ctx.extract(bv, 6, 2).unwrap();
                     assert_eq!(result, expected);
                 });
             }
@@ -1389,7 +1389,7 @@ mod tests {
                     let result = BitVecAst::from_z3(&ctx, concat_z3).unwrap();
                     let bv1 = ctx.bvv_prim(0xAAu8).unwrap();
                     let bv2 = ctx.bvv_prim(0xBBu8).unwrap();
-                    let expected = ctx.concat(&bv1, &bv2).unwrap();
+                    let expected = ctx.concat(bv1, bv2).unwrap();
                     assert_eq!(result, expected);
                 });
             }
@@ -1424,7 +1424,7 @@ mod tests {
                     let cond = ctx.true_().unwrap();
                     let then_bv = ctx.bvv_prim(0xAAu8).unwrap();
                     let else_bv = ctx.bvv_prim(0xBBu8).unwrap();
-                    let expected = ctx.if_(&cond, &then_bv, &else_bv).unwrap();
+                    let expected = ctx.if_(cond, then_bv, else_bv).unwrap();
                     assert_eq!(result, expected);
                 });
             }
@@ -1467,7 +1467,7 @@ mod tests {
         fn not() {
             let ctx = Context::new();
             let bv = ctx.bvv_prim(0xAAu8).unwrap();
-            let not_bv = ctx.not(&bv).unwrap();
+            let not_bv = ctx.not(bv).unwrap();
             let result = round_trip(&ctx, &not_bv).unwrap();
             assert_eq!(not_bv, result);
         }
@@ -1477,7 +1477,7 @@ mod tests {
             let ctx = Context::new();
             let bv1 = ctx.bvv_prim(0xF0u8).unwrap();
             let bv2 = ctx.bvv_prim(0xAAu8).unwrap();
-            let and_bv = ctx.and(&bv1, &bv2).unwrap();
+            let and_bv = ctx.and(bv1, bv2).unwrap();
             let result = round_trip(&ctx, &and_bv).unwrap();
             assert_eq!(and_bv, result);
         }
@@ -1487,7 +1487,7 @@ mod tests {
             let ctx = Context::new();
             let bv1 = ctx.bvv_prim(0xF0u8).unwrap();
             let bv2 = ctx.bvv_prim(0x0Fu8).unwrap();
-            let or_bv = ctx.or(&bv1, &bv2).unwrap();
+            let or_bv = ctx.or(bv1, bv2).unwrap();
             let result = round_trip(&ctx, &or_bv).unwrap();
             assert_eq!(or_bv, result);
         }
@@ -1497,7 +1497,7 @@ mod tests {
             let ctx = Context::new();
             let bv1 = ctx.bvv_prim(0xAAu8).unwrap();
             let bv2 = ctx.bvv_prim(0x55u8).unwrap();
-            let xor_bv = ctx.xor(&bv1, &bv2).unwrap();
+            let xor_bv = ctx.xor(bv1, bv2).unwrap();
             let result = round_trip(&ctx, &xor_bv).unwrap();
             assert_eq!(xor_bv, result);
         }
@@ -1507,7 +1507,7 @@ mod tests {
             let ctx = Context::new();
             let bv1 = ctx.bvv_prim(42u8).unwrap();
             let bv2 = ctx.bvv_prim(13u8).unwrap();
-            let add_bv = ctx.add(&bv1, &bv2).unwrap();
+            let add_bv = ctx.add(bv1, bv2).unwrap();
             let result = round_trip(&ctx, &add_bv).unwrap();
             assert_eq!(add_bv, result);
         }
@@ -1517,7 +1517,7 @@ mod tests {
             let ctx = Context::new();
             let bv1 = ctx.bvv_prim(42u8).unwrap();
             let bv2 = ctx.bvv_prim(13u8).unwrap();
-            let sub_bv = ctx.sub(&bv1, &bv2).unwrap();
+            let sub_bv = ctx.sub(bv1, bv2).unwrap();
             let result = round_trip(&ctx, &sub_bv).unwrap();
             assert_eq!(sub_bv, result);
         }
@@ -1527,7 +1527,7 @@ mod tests {
             let ctx = Context::new();
             let bv1 = ctx.bvv_prim(6u8).unwrap();
             let bv2 = ctx.bvv_prim(7u8).unwrap();
-            let mul_bv = ctx.mul(&bv1, &bv2).unwrap();
+            let mul_bv = ctx.mul(bv1, bv2).unwrap();
             let result = round_trip(&ctx, &mul_bv).unwrap();
             assert_eq!(mul_bv, result);
         }
@@ -1537,7 +1537,7 @@ mod tests {
             let ctx = Context::new();
             let bv1 = ctx.bvv_prim(42u8).unwrap();
             let bv2 = ctx.bvv_prim(6u8).unwrap();
-            let div_bv = ctx.udiv(&bv1, &bv2).unwrap();
+            let div_bv = ctx.udiv(bv1, bv2).unwrap();
             let result = round_trip(&ctx, &div_bv).unwrap();
             assert_eq!(div_bv, result);
         }
@@ -1547,7 +1547,7 @@ mod tests {
             let ctx = Context::new();
             let bv1 = ctx.bvv_prim(-42i8 as u8).unwrap();
             let bv2 = ctx.bvv_prim(6u8).unwrap();
-            let div_bv = ctx.sdiv(&bv1, &bv2).unwrap();
+            let div_bv = ctx.sdiv(bv1, bv2).unwrap();
             let result = round_trip(&ctx, &div_bv).unwrap();
             assert_eq!(div_bv, result);
         }
@@ -1557,7 +1557,7 @@ mod tests {
             let ctx = Context::new();
             let bv1 = ctx.bvv_prim(42u8).unwrap();
             let bv2 = ctx.bvv_prim(5u8).unwrap();
-            let rem_bv = ctx.urem(&bv1, &bv2).unwrap();
+            let rem_bv = ctx.urem(bv1, bv2).unwrap();
             let result = round_trip(&ctx, &rem_bv).unwrap();
             assert_eq!(rem_bv, result);
         }
@@ -1567,7 +1567,7 @@ mod tests {
             let ctx = Context::new();
             let bv1 = ctx.bvv_prim(-42i8 as u8).unwrap();
             let bv2 = ctx.bvv_prim(5u8).unwrap();
-            let rem_bv = ctx.srem(&bv1, &bv2).unwrap();
+            let rem_bv = ctx.srem(bv1, bv2).unwrap();
             let result = round_trip(&ctx, &rem_bv).unwrap();
             assert_eq!(rem_bv, result);
         }
@@ -1577,7 +1577,7 @@ mod tests {
             let ctx = Context::new();
             let bv = ctx.bvv_prim(0x12u8).unwrap();
             let shift = ctx.bvv_prim(2u8).unwrap();
-            let shl_bv = ctx.shl(&bv, &shift).unwrap();
+            let shl_bv = ctx.shl(bv, shift).unwrap();
             let result = round_trip(&ctx, &shl_bv).unwrap();
             assert_eq!(shl_bv, result);
         }
@@ -1587,7 +1587,7 @@ mod tests {
             let ctx = Context::new();
             let bv = ctx.bvv_prim(0x12u8).unwrap();
             let shift = ctx.bvv_prim(2u8).unwrap();
-            let lshr_bv = ctx.lshr(&bv, &shift).unwrap();
+            let lshr_bv = ctx.lshr(bv, shift).unwrap();
             let result = round_trip(&ctx, &lshr_bv).unwrap();
             assert_eq!(lshr_bv, result);
         }
@@ -1597,7 +1597,7 @@ mod tests {
             let ctx = Context::new();
             let bv = ctx.bvv_prim(0x82u8).unwrap();
             let shift = ctx.bvv_prim(2u8).unwrap();
-            let ashr_bv = ctx.ashr(&bv, &shift).unwrap();
+            let ashr_bv = ctx.ashr(bv, shift).unwrap();
             let result = round_trip(&ctx, &ashr_bv).unwrap();
             assert_eq!(ashr_bv, result);
         }
@@ -1607,7 +1607,7 @@ mod tests {
             let ctx = Context::new();
             let bv = ctx.bvv_prim(0x12u8).unwrap();
             let rot = ctx.bvv_prim(2u8).unwrap();
-            let rotl_bv = ctx.rotate_left(&bv, &rot).unwrap();
+            let rotl_bv = ctx.rotate_left(bv, rot).unwrap();
             let result = round_trip(&ctx, &rotl_bv).unwrap();
             assert_eq!(rotl_bv, result);
         }
@@ -1617,7 +1617,7 @@ mod tests {
             let ctx = Context::new();
             let bv = ctx.bvv_prim(0x12u8).unwrap();
             let rot = ctx.bvv_prim(2u8).unwrap();
-            let rotr_bv = ctx.rotate_right(&bv, &rot).unwrap();
+            let rotr_bv = ctx.rotate_right(bv, rot).unwrap();
             let result = round_trip(&ctx, &rotr_bv).unwrap();
             assert_eq!(rotr_bv, result);
         }
@@ -1626,7 +1626,7 @@ mod tests {
         fn zero_ext() {
             let ctx = Context::new();
             let bv = ctx.bvv_prim(0x12u8).unwrap();
-            let ext_bv = ctx.zero_ext(&bv, 8).unwrap();
+            let ext_bv = ctx.zero_ext(bv, 8).unwrap();
             let result = round_trip(&ctx, &ext_bv).unwrap();
             assert_eq!(ext_bv, result);
         }
@@ -1635,7 +1635,7 @@ mod tests {
         fn sign_ext() {
             let ctx = Context::new();
             let bv = ctx.bvv_prim(0x82u8).unwrap();
-            let ext_bv = ctx.sign_ext(&bv, 8).unwrap();
+            let ext_bv = ctx.sign_ext(bv, 8).unwrap();
             let result = round_trip(&ctx, &ext_bv).unwrap();
             assert_eq!(ext_bv, result);
         }
@@ -1644,7 +1644,7 @@ mod tests {
         fn extract() {
             let ctx = Context::new();
             let bv = ctx.bvv_prim(0xFFu8).unwrap();
-            let ext_bv = ctx.extract(&bv, 6, 2).unwrap();
+            let ext_bv = ctx.extract(bv, 6, 2).unwrap();
             let result = round_trip(&ctx, &ext_bv).unwrap();
             assert_eq!(ext_bv, result);
         }
@@ -1654,7 +1654,7 @@ mod tests {
             let ctx = Context::new();
             let bv1 = ctx.bvv_prim(0xAAu8).unwrap();
             let bv2 = ctx.bvv_prim(0xBBu8).unwrap();
-            let concat_bv = ctx.concat(&bv1, &bv2).unwrap();
+            let concat_bv = ctx.concat(bv1, bv2).unwrap();
             let result = round_trip(&ctx, &concat_bv).unwrap();
             assert_eq!(concat_bv, result);
         }
@@ -1665,7 +1665,7 @@ mod tests {
             let cond = ctx.true_().unwrap();
             let then_bv = ctx.bvv_prim(0xAAu8).unwrap();
             let else_bv = ctx.bvv_prim(0xBBu8).unwrap();
-            let if_bv = ctx.if_(&cond, &then_bv, &else_bv).unwrap();
+            let if_bv = ctx.if_(cond, then_bv, else_bv).unwrap();
             let result = round_trip(&ctx, &if_bv).unwrap();
             assert_eq!(if_bv, result);
         }
@@ -1674,7 +1674,7 @@ mod tests {
         fn fp_to_ieeebv() {
             let ctx = Context::new();
             let fp = ctx.fps("x", FSort::f32()).unwrap();
-            let ieee_bv = ctx.fp_to_ieeebv(&fp).unwrap();
+            let ieee_bv = ctx.fp_to_ieeebv(fp).unwrap();
 
             // Should convert to Z3 without panicking
             let z3_ast = ieee_bv.to_z3();
@@ -1685,7 +1685,7 @@ mod tests {
         fn fp_to_ubv() {
             let ctx = Context::new();
             let fp = ctx.fps("y", FSort::f32()).unwrap();
-            let ubv = ctx.fp_to_ubv(&fp, 32, FPRM::TowardZero).unwrap();
+            let ubv = ctx.fp_to_ubv(fp, 32, FPRM::TowardZero).unwrap();
 
             // Should convert to Z3 without panicking
             let z3_ast = ubv.to_z3();
@@ -1696,7 +1696,7 @@ mod tests {
         fn fp_to_sbv() {
             let ctx = Context::new();
             let fp = ctx.fps("z", FSort::f32()).unwrap();
-            let sbv = ctx.fp_to_sbv(&fp, 32, FPRM::TowardZero).unwrap();
+            let sbv = ctx.fp_to_sbv(fp, 32, FPRM::TowardZero).unwrap();
 
             // Should convert to Z3 without panicking
             let z3_ast = sbv.to_z3();

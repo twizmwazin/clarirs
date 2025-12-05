@@ -793,7 +793,7 @@ pub trait AstFactory<'c>: Sized {
     ) -> Result<AstRef<'c, Op>, ClarirsError> {
         let mut result = ops[0].clone();
         for op in ops.iter().skip(1) {
-            result = self.or(&result, op)?;
+            result = self.or(result, op)?;
         }
         Ok(result)
     }
@@ -804,7 +804,7 @@ pub trait AstFactory<'c>: Sized {
     ) -> Result<AstRef<'c, Op>, ClarirsError> {
         let mut result = ops[0].clone();
         for op in ops.iter().skip(1) {
-            result = self.and(&result, op)?;
+            result = self.and(result, op)?;
         }
         Ok(result)
     }

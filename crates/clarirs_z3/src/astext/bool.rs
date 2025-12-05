@@ -121,7 +121,7 @@ pub(crate) fn from_z3<'c>(
                         if let BooleanOp::BoolEq(a, b) = inner.op() {
                             ctx.neq(a, b)
                         } else {
-                            ctx.not(&inner)
+                            ctx.not(inner)
                         }
                     }
                     z3::DeclKind::And | z3::DeclKind::Or | z3::DeclKind::Xor => {
@@ -134,9 +134,9 @@ pub(crate) fn from_z3<'c>(
 
                         // Create the appropriate operation
                         match decl_kind {
-                            z3::DeclKind::And => ctx.and(&a, &b),
-                            z3::DeclKind::Or => ctx.or(&a, &b),
-                            z3::DeclKind::Xor => ctx.xor(&a, &b),
+                            z3::DeclKind::And => ctx.and(a, b),
+                            z3::DeclKind::Or => ctx.or(a, b),
+                            z3::DeclKind::Xor => ctx.xor(a, b),
                             _ => unreachable!(),
                         }
                     }
@@ -146,7 +146,7 @@ pub(crate) fn from_z3<'c>(
 
                         if let Ok(lhs) = BoolAst::from_z3(ctx, arg0) {
                             if let Ok(rhs) = BoolAst::from_z3(ctx, arg1) {
-                                ctx.eq_(&lhs, &rhs)
+                                ctx.eq_(lhs, rhs)
                             } else {
                                 Err(ClarirsError::ConversionError(
                                     "Eq lhs is bool, rhs is not".to_string(),
@@ -154,7 +154,7 @@ pub(crate) fn from_z3<'c>(
                             }
                         } else if let Ok(lhs) = BitVecAst::from_z3(ctx, arg0) {
                             if let Ok(rhs) = BitVecAst::from_z3(ctx, arg1) {
-                                ctx.eq_(&lhs, &rhs)
+                                ctx.eq_(lhs, rhs)
                             } else {
                                 Err(ClarirsError::ConversionError(
                                     "Eq lhs is bv, rhs is not".to_string(),
@@ -162,7 +162,7 @@ pub(crate) fn from_z3<'c>(
                             }
                         } else if let Ok(lhs) = FloatAst::from_z3(ctx, arg0) {
                             if let Ok(rhs) = FloatAst::from_z3(ctx, arg1) {
-                                ctx.eq_(&lhs, &rhs)
+                                ctx.eq_(lhs, rhs)
                             } else {
                                 Err(ClarirsError::ConversionError(
                                     "Eq lhs is fp, rhs is not".to_string(),
@@ -170,7 +170,7 @@ pub(crate) fn from_z3<'c>(
                             }
                         } else if let Ok(lhs) = StringAst::from_z3(ctx, arg0) {
                             if let Ok(rhs) = StringAst::from_z3(ctx, arg1) {
-                                ctx.eq_(&lhs, &rhs)
+                                ctx.eq_(lhs, rhs)
                             } else {
                                 Err(ClarirsError::ConversionError(
                                     "Eq lhs is string, rhs is not".to_string(),
@@ -199,14 +199,14 @@ pub(crate) fn from_z3<'c>(
 
                         // Create the appropriate operation
                         match decl_kind {
-                            z3::DeclKind::Ult => ctx.ult(&a, &b),
-                            z3::DeclKind::Uleq => ctx.ule(&a, &b),
-                            z3::DeclKind::Ugt => ctx.ugt(&a, &b),
-                            z3::DeclKind::Ugeq => ctx.uge(&a, &b),
-                            z3::DeclKind::Slt => ctx.slt(&a, &b),
-                            z3::DeclKind::Sleq => ctx.sle(&a, &b),
-                            z3::DeclKind::Sgt => ctx.sgt(&a, &b),
-                            z3::DeclKind::Sgeq => ctx.sge(&a, &b),
+                            z3::DeclKind::Ult => ctx.ult(a, b),
+                            z3::DeclKind::Uleq => ctx.ule(a, b),
+                            z3::DeclKind::Ugt => ctx.ugt(a, b),
+                            z3::DeclKind::Ugeq => ctx.uge(a, b),
+                            z3::DeclKind::Slt => ctx.slt(a, b),
+                            z3::DeclKind::Sleq => ctx.sle(a, b),
+                            z3::DeclKind::Sgt => ctx.sgt(a, b),
+                            z3::DeclKind::Sgeq => ctx.sge(a, b),
                             _ => unreachable!(),
                         }
                     }
@@ -217,7 +217,7 @@ pub(crate) fn from_z3<'c>(
                         let cond = BoolAst::from_z3(ctx, cond)?;
                         let then = BoolAst::from_z3(ctx, then)?;
                         let else_ = BoolAst::from_z3(ctx, else_)?;
-                        ctx.if_(&cond, &then, &else_)
+                        ctx.if_(cond, then, else_)
                     }
                     z3::DeclKind::Uninterpreted => {
                         // Verify it's a boolean
@@ -356,7 +356,7 @@ mod tests {
         fn not() {
             let ctx = Context::new();
             let x = ctx.bools("x").unwrap();
-            let not_x = ctx.not(&x).unwrap();
+            let not_x = ctx.not(x).unwrap();
 
             let z3_ast = not_x.to_z3().unwrap();
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Not));
@@ -374,7 +374,7 @@ mod tests {
             let ctx = Context::new();
             let x = ctx.bools("x").unwrap();
             let y = ctx.bools("y").unwrap();
-            let and = ctx.and(&x, &y).unwrap();
+            let and = ctx.and(x, y).unwrap();
 
             let z3_ast = and.to_z3().unwrap();
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::And));
@@ -397,7 +397,7 @@ mod tests {
             let ctx = Context::new();
             let x = ctx.bools("x").unwrap();
             let y = ctx.bools("y").unwrap();
-            let or = ctx.or(&x, &y).unwrap();
+            let or = ctx.or(x, y).unwrap();
 
             let z3_ast = or.to_z3().unwrap();
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Or));
@@ -420,7 +420,7 @@ mod tests {
             let ctx = Context::new();
             let x = ctx.bools("x").unwrap();
             let y = ctx.bools("y").unwrap();
-            let xor = ctx.xor(&x, &y).unwrap();
+            let xor = ctx.xor(x, y).unwrap();
 
             let z3_ast = xor.to_z3().unwrap();
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Xor));
@@ -443,7 +443,7 @@ mod tests {
             let ctx = Context::new();
             let x = ctx.bools("x").unwrap();
             let y = ctx.bools("y").unwrap();
-            let eq = ctx.eq_(&x, &y).unwrap();
+            let eq = ctx.eq_(x, y).unwrap();
 
             let z3_ast = eq.to_z3().unwrap();
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Eq));
@@ -466,7 +466,7 @@ mod tests {
             let ctx = Context::new();
             let x = ctx.bools("x").unwrap();
             let y = ctx.bools("y").unwrap();
-            let neq = ctx.neq(&x, &y).unwrap();
+            let neq = ctx.neq(x, y).unwrap();
 
             let z3_ast = neq.to_z3().unwrap();
             // NEQ is implemented as NOT(EQ)
@@ -496,7 +496,7 @@ mod tests {
             let cond = ctx.bools("c").unwrap();
             let then = ctx.true_().unwrap();
             let else_ = ctx.false_().unwrap();
-            let if_expr = ctx.if_(&cond, &then, &else_).unwrap();
+            let if_expr = ctx.if_(cond, then, else_).unwrap();
 
             let z3_ast = if_expr.to_z3().unwrap();
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Ite));
@@ -767,7 +767,7 @@ mod tests {
         fn not() {
             let ctx = Context::new();
             let x = ctx.bools("x").unwrap();
-            let not_x = ctx.not(&x).unwrap();
+            let not_x = ctx.not(x).unwrap();
 
             let result = round_trip(&ctx, &not_x).unwrap();
             assert_eq!(not_x, result);
@@ -778,7 +778,7 @@ mod tests {
             let ctx = Context::new();
             let x = ctx.bools("x").unwrap();
             let y = ctx.bools("y").unwrap();
-            let and = ctx.and(&x, &y).unwrap();
+            let and = ctx.and(x, y).unwrap();
 
             let result = round_trip(&ctx, &and).unwrap();
             assert_eq!(and, result);
@@ -789,7 +789,7 @@ mod tests {
             let ctx = Context::new();
             let x = ctx.bools("x").unwrap();
             let y = ctx.bools("y").unwrap();
-            let or = ctx.or(&x, &y).unwrap();
+            let or = ctx.or(x, y).unwrap();
 
             let result = round_trip(&ctx, &or).unwrap();
             assert_eq!(or, result);
@@ -800,7 +800,7 @@ mod tests {
             let ctx = Context::new();
             let x = ctx.bools("x").unwrap();
             let y = ctx.bools("y").unwrap();
-            let xor = ctx.xor(&x, &y).unwrap();
+            let xor = ctx.xor(x, y).unwrap();
 
             let result = round_trip(&ctx, &xor).unwrap();
             assert_eq!(xor, result);
@@ -811,7 +811,7 @@ mod tests {
             let ctx = Context::new();
             let x = ctx.bools("x").unwrap();
             let y = ctx.bools("y").unwrap();
-            let eq = ctx.eq_(&x, &y).unwrap();
+            let eq = ctx.eq_(x, y).unwrap();
 
             let result = round_trip(&ctx, &eq).unwrap();
             assert_eq!(eq, result);
@@ -822,7 +822,7 @@ mod tests {
             let ctx = Context::new();
             let x = ctx.bools("x").unwrap();
             let y = ctx.bools("y").unwrap();
-            let neq = ctx.neq(&x, &y).unwrap();
+            let neq = ctx.neq(x, y).unwrap();
 
             let result = round_trip(&ctx, &neq).unwrap();
             assert_eq!(neq, result);
@@ -834,7 +834,7 @@ mod tests {
             let cond = ctx.bools("c").unwrap();
             let then = ctx.true_().unwrap();
             let else_ = ctx.false_().unwrap();
-            let if_expr = ctx.if_(&cond, &then, &else_).unwrap();
+            let if_expr = ctx.if_(cond, then, else_).unwrap();
 
             let result = round_trip(&ctx, &if_expr).unwrap();
             assert_eq!(if_expr, result);
