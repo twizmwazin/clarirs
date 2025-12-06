@@ -1,2143 +1,332 @@
 use std::mem::discriminant;
 
-use crate::prelude::*;
+use crate::{
+    algorithms::{
+        post_order::{bitvec_child, bool_child, float_child, string_child},
+        walk_post_order,
+    },
+    ast::{bitvec::BitVecOpExt, float::FloatOpExt},
+    prelude::*,
+};
 
-pub trait Replace<'c, T> {
-    fn replace(&self, from: &T, to: &T) -> Result<Self, ClarirsError>
-    where
-        Self: Sized;
-}
-
-impl<'c> Replace<'c, BoolAst<'c>> for BoolAst<'c> {
-    fn replace(&self, from: &BoolAst<'c>, to: &BoolAst<'c>) -> Result<Self, ClarirsError> {
-        if self == from {
-            Ok(to.clone())
-        } else {
-            match self.op() {
-                BooleanOp::BoolS(..) | BooleanOp::BoolV(..) => Ok(self.clone()),
-                BooleanOp::Not(a) => {
-                    let replaced = a.replace(from, to)?;
-                    self.context().make_bool(BooleanOp::Not(replaced))
-                }
-                BooleanOp::And(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bool(BooleanOp::And(a_replaced, b_replaced))
-                }
-                BooleanOp::Or(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bool(BooleanOp::Or(a_replaced, b_replaced))
-                }
-                BooleanOp::Xor(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bool(BooleanOp::Xor(a_replaced, b_replaced))
-                }
-                BooleanOp::BoolEq(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bool(BooleanOp::BoolEq(a_replaced, b_replaced))
-                }
-                BooleanOp::BoolNeq(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bool(BooleanOp::BoolNeq(a_replaced, b_replaced))
-                }
-                BooleanOp::Eq(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bool(BooleanOp::Eq(a_replaced, b_replaced))
-                }
-                BooleanOp::Neq(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bool(BooleanOp::Neq(a_replaced, b_replaced))
-                }
-                BooleanOp::ULT(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bool(BooleanOp::ULT(a_replaced, b_replaced))
-                }
-                BooleanOp::ULE(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bool(BooleanOp::ULE(a_replaced, b_replaced))
-                }
-                BooleanOp::UGT(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bool(BooleanOp::UGT(a_replaced, b_replaced))
-                }
-                BooleanOp::UGE(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bool(BooleanOp::UGE(a_replaced, b_replaced))
-                }
-                BooleanOp::SLT(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bool(BooleanOp::SLT(a_replaced, b_replaced))
-                }
-                BooleanOp::SLE(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bool(BooleanOp::SLE(a_replaced, b_replaced))
-                }
-                BooleanOp::SGT(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bool(BooleanOp::SGT(a_replaced, b_replaced))
-                }
-                BooleanOp::SGE(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bool(BooleanOp::SGE(a_replaced, b_replaced))
-                }
-                BooleanOp::FpEq(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bool(BooleanOp::FpEq(a_replaced, b_replaced))
-                }
-                BooleanOp::FpNeq(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bool(BooleanOp::FpNeq(a_replaced, b_replaced))
-                }
-                BooleanOp::FpLt(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bool(BooleanOp::FpLt(a_replaced, b_replaced))
-                }
-                BooleanOp::FpLeq(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bool(BooleanOp::FpLeq(a_replaced, b_replaced))
-                }
-                BooleanOp::FpGt(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bool(BooleanOp::FpGt(a_replaced, b_replaced))
-                }
-                BooleanOp::FpGeq(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bool(BooleanOp::FpGeq(a_replaced, b_replaced))
-                }
-                BooleanOp::FpIsNan(a) => {
-                    let a_replaced = a.replace(from, to)?;
-                    self.context().make_bool(BooleanOp::FpIsNan(a_replaced))
-                }
-                BooleanOp::FpIsInf(a) => {
-                    let a_replaced = a.replace(from, to)?;
-                    self.context().make_bool(BooleanOp::FpIsInf(a_replaced))
-                }
-                BooleanOp::StrContains(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bool(BooleanOp::StrContains(a_replaced, b_replaced))
-                }
-                BooleanOp::StrPrefixOf(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bool(BooleanOp::StrPrefixOf(a_replaced, b_replaced))
-                }
-                BooleanOp::StrSuffixOf(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bool(BooleanOp::StrSuffixOf(a_replaced, b_replaced))
-                }
-                BooleanOp::StrIsDigit(a) => {
-                    let a_replaced = a.replace(from, to)?;
-                    self.context().make_bool(BooleanOp::StrIsDigit(a_replaced))
-                }
-                BooleanOp::StrEq(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bool(BooleanOp::StrEq(a_replaced, b_replaced))
-                }
-                BooleanOp::StrNeq(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bool(BooleanOp::StrNeq(a_replaced, b_replaced))
-                }
-                BooleanOp::If(a, b, c) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    let c_replaced = c.replace(from, to)?;
-                    self.context()
-                        .make_bool(BooleanOp::If(a_replaced, b_replaced, c_replaced))
-                }
+fn replace_dyn<'c>(
+    base: DynAst<'c>,
+    from: &DynAst<'c>,
+    to: &DynAst<'c>,
+) -> Result<DynAst<'c>, ClarirsError> {
+    if discriminant(from) != discriminant(to) {
+        return Err(ClarirsError::TypeError(
+            "Replace types must match!".to_string(),
+        ));
+    }
+    if let Some(from_bv) = from.as_bitvec() {
+        if let Some(to_bv) = to.as_bitvec() {
+            if from_bv.size() != to_bv.size() {
+                return Err(ClarirsError::TypeError(
+                    "BitVec sizes must match for replacement!".to_string(),
+                ));
             }
         }
     }
-}
-
-impl<'c> Replace<'c, BitVecAst<'c>> for BoolAst<'c> {
-    fn replace(&self, from: &BitVecAst<'c>, to: &BitVecAst<'c>) -> Result<Self, ClarirsError> {
-        match self.op() {
-            BooleanOp::BoolS(..) | BooleanOp::BoolV(..) => Ok(self.clone()),
-            BooleanOp::Not(a) => {
-                let replaced = a.replace(from, to)?;
-                self.context().make_bool(BooleanOp::Not(replaced))
-            }
-            BooleanOp::And(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::And(a_replaced, b_replaced))
-            }
-            BooleanOp::Or(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::Or(a_replaced, b_replaced))
-            }
-            BooleanOp::Xor(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::Xor(a_replaced, b_replaced))
-            }
-            BooleanOp::BoolEq(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::BoolEq(a_replaced, b_replaced))
-            }
-            BooleanOp::BoolNeq(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::BoolNeq(a_replaced, b_replaced))
-            }
-            BooleanOp::Eq(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::Eq(a_replaced, b_replaced))
-            }
-            BooleanOp::Neq(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::Neq(a_replaced, b_replaced))
-            }
-            BooleanOp::ULT(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::ULT(a_replaced, b_replaced))
-            }
-            BooleanOp::ULE(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::ULE(a_replaced, b_replaced))
-            }
-            BooleanOp::UGT(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::UGT(a_replaced, b_replaced))
-            }
-            BooleanOp::UGE(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::UGE(a_replaced, b_replaced))
-            }
-            BooleanOp::SLT(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::SLT(a_replaced, b_replaced))
-            }
-            BooleanOp::SLE(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::SLE(a_replaced, b_replaced))
-            }
-            BooleanOp::SGT(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::SGT(a_replaced, b_replaced))
-            }
-            BooleanOp::SGE(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::SGE(a_replaced, b_replaced))
-            }
-            BooleanOp::FpEq(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::FpEq(a_replaced, b_replaced))
-            }
-            BooleanOp::FpNeq(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::FpNeq(a_replaced, b_replaced))
-            }
-            BooleanOp::FpLt(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::FpLt(a_replaced, b_replaced))
-            }
-            BooleanOp::FpLeq(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::FpLeq(a_replaced, b_replaced))
-            }
-            BooleanOp::FpGt(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::FpGt(a_replaced, b_replaced))
-            }
-            BooleanOp::FpGeq(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::FpGeq(a_replaced, b_replaced))
-            }
-            BooleanOp::FpIsNan(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_bool(BooleanOp::FpIsNan(a_replaced))
-            }
-            BooleanOp::FpIsInf(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_bool(BooleanOp::FpIsInf(a_replaced))
-            }
-            BooleanOp::StrContains(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::StrContains(a_replaced, b_replaced))
-            }
-            BooleanOp::StrPrefixOf(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::StrPrefixOf(a_replaced, b_replaced))
-            }
-            BooleanOp::StrSuffixOf(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::StrSuffixOf(a_replaced, b_replaced))
-            }
-            BooleanOp::StrIsDigit(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_bool(BooleanOp::StrIsDigit(a_replaced))
-            }
-            BooleanOp::StrEq(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::StrEq(a_replaced, b_replaced))
-            }
-            BooleanOp::StrNeq(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::StrNeq(a_replaced, b_replaced))
-            }
-            BooleanOp::If(a, b, c) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                let c_replaced = c.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::If(a_replaced, b_replaced, c_replaced))
+    if let Some(from_fp) = from.as_float() {
+        if let Some(to_fp) = to.as_float() {
+            if from_fp.sort() != to_fp.sort() {
+                return Err(ClarirsError::TypeError(
+                    "Float sorts must match for replacement!".to_string(),
+                ));
             }
         }
     }
+
+    let ctx = base.context();
+    walk_post_order(
+        base,
+        |ast, children| match &ast {
+            DynAst::Boolean(bool_ast) => match bool_ast.op() {
+                BooleanOp::BoolS(..) | BooleanOp::BoolV(..) => Ok(bool_ast.clone()),
+                BooleanOp::Not(..) => ctx.not(bool_child(children, 0)?),
+                BooleanOp::And(..) => ctx.and(bool_child(children, 0)?, bool_child(children, 1)?),
+                BooleanOp::Or(..) => ctx.or(bool_child(children, 0)?, bool_child(children, 1)?),
+                BooleanOp::Xor(..) => ctx.xor(bool_child(children, 0)?, bool_child(children, 1)?),
+                BooleanOp::BoolEq(..) => {
+                    ctx.eq_(bool_child(children, 0)?, bool_child(children, 1)?)
+                }
+                BooleanOp::BoolNeq(..) => {
+                    ctx.neq(bool_child(children, 0)?, bool_child(children, 1)?)
+                }
+                BooleanOp::Eq(..) => {
+                    ctx.eq_(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                }
+                BooleanOp::Neq(..) => {
+                    ctx.neq(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                }
+                BooleanOp::ULT(..) => {
+                    ctx.ult(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                }
+                BooleanOp::ULE(..) => {
+                    ctx.ule(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                }
+                BooleanOp::UGT(..) => {
+                    ctx.ugt(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                }
+                BooleanOp::UGE(..) => {
+                    ctx.uge(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                }
+                BooleanOp::SLT(..) => {
+                    ctx.slt(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                }
+                BooleanOp::SLE(..) => {
+                    ctx.sle(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                }
+                BooleanOp::SGT(..) => {
+                    ctx.sgt(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                }
+                BooleanOp::SGE(..) => {
+                    ctx.sge(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                }
+                BooleanOp::FpEq(..) => {
+                    ctx.fp_eq(float_child(children, 0)?, float_child(children, 1)?)
+                }
+                BooleanOp::FpNeq(..) => {
+                    ctx.fp_neq(float_child(children, 0)?, float_child(children, 1)?)
+                }
+                BooleanOp::FpLt(..) => {
+                    ctx.fp_lt(float_child(children, 0)?, float_child(children, 1)?)
+                }
+                BooleanOp::FpLeq(..) => {
+                    ctx.fp_leq(float_child(children, 0)?, float_child(children, 1)?)
+                }
+                BooleanOp::FpGt(..) => {
+                    ctx.fp_gt(float_child(children, 0)?, float_child(children, 1)?)
+                }
+                BooleanOp::FpGeq(..) => {
+                    ctx.fp_geq(float_child(children, 0)?, float_child(children, 1)?)
+                }
+                BooleanOp::FpIsNan(..) => ctx.fp_is_nan(float_child(children, 0)?),
+                BooleanOp::FpIsInf(..) => ctx.fp_is_inf(float_child(children, 0)?),
+                BooleanOp::StrContains(..) => {
+                    ctx.strcontains(string_child(children, 0)?, string_child(children, 1)?)
+                }
+                BooleanOp::StrPrefixOf(..) => {
+                    ctx.strprefixof(string_child(children, 0)?, string_child(children, 1)?)
+                }
+                BooleanOp::StrSuffixOf(..) => {
+                    ctx.strsuffixof(string_child(children, 0)?, string_child(children, 1)?)
+                }
+                BooleanOp::StrIsDigit(..) => ctx.strisdigit(string_child(children, 0)?),
+                BooleanOp::StrEq(..) => {
+                    ctx.streq(string_child(children, 0)?, string_child(children, 1)?)
+                }
+                BooleanOp::StrNeq(..) => {
+                    ctx.strneq(string_child(children, 0)?, string_child(children, 1)?)
+                }
+                BooleanOp::If(..) => ctx.if_(
+                    bool_child(children, 0)?,
+                    bool_child(children, 1)?,
+                    bool_child(children, 2)?,
+                ),
+            }
+            .map(DynAst::Boolean),
+            DynAst::BitVec(bv_ast) => match bv_ast.op() {
+                BitVecOp::BVS(..) | BitVecOp::BVV(..) => Ok(bv_ast.clone()),
+                BitVecOp::Not(..) => ctx.not(bitvec_child(children, 0)?),
+                BitVecOp::And(..) => {
+                    ctx.and(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                }
+                BitVecOp::Or(..) => ctx.or(bitvec_child(children, 0)?, bitvec_child(children, 1)?),
+                BitVecOp::Xor(..) => {
+                    ctx.xor(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                }
+                BitVecOp::Neg(..) => ctx.neg(bitvec_child(children, 0)?),
+                BitVecOp::Add(..) => {
+                    ctx.add(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                }
+                BitVecOp::Sub(..) => {
+                    ctx.sub(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                }
+                BitVecOp::Mul(..) => {
+                    ctx.mul(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                }
+                BitVecOp::UDiv(..) => {
+                    ctx.udiv(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                }
+                BitVecOp::SDiv(..) => {
+                    ctx.sdiv(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                }
+                BitVecOp::URem(..) => {
+                    ctx.urem(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                }
+                BitVecOp::SRem(..) => {
+                    ctx.srem(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                }
+                BitVecOp::ShL(..) => {
+                    ctx.shl(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                }
+                BitVecOp::LShR(..) => {
+                    ctx.lshr(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                }
+                BitVecOp::AShR(..) => {
+                    ctx.ashr(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                }
+                BitVecOp::RotateLeft(..) => {
+                    ctx.rotate_left(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                }
+                BitVecOp::RotateRight(..) => {
+                    ctx.rotate_right(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                }
+                BitVecOp::ZeroExt(_, size) => ctx.zero_ext(bitvec_child(children, 0)?, *size),
+                BitVecOp::SignExt(_, size) => ctx.sign_ext(bitvec_child(children, 0)?, *size),
+                BitVecOp::Extract(_, hi, lo) => ctx.extract(bitvec_child(children, 0)?, *hi, *lo),
+                BitVecOp::Concat(..) => {
+                    ctx.concat(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                }
+                BitVecOp::ByteReverse(..) => ctx.byte_reverse(bitvec_child(children, 0)?),
+                BitVecOp::FpToIEEEBV(..) => ctx.fp_to_ieeebv(float_child(children, 0)?),
+                BitVecOp::FpToUBV(_, size, fprm) => {
+                    ctx.fp_to_ubv(float_child(children, 0)?, *size, *fprm)
+                }
+                BitVecOp::FpToSBV(_, size, fprm) => {
+                    ctx.fp_to_sbv(float_child(children, 0)?, *size, *fprm)
+                }
+                BitVecOp::StrLen(..) => ctx.strlen(string_child(children, 0)?),
+                BitVecOp::StrIndexOf(..) => ctx.strindexof(
+                    string_child(children, 0)?,
+                    string_child(children, 1)?,
+                    bitvec_child(children, 2)?,
+                ),
+                BitVecOp::StrToBV(..) => ctx.strtobv(string_child(children, 0)?),
+                BitVecOp::If(..) => ctx.if_(
+                    bool_child(children, 0)?,
+                    bitvec_child(children, 1)?,
+                    bitvec_child(children, 2)?,
+                ),
+                BitVecOp::Union(..) => {
+                    ctx.union(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                }
+                BitVecOp::Intersection(..) => {
+                    ctx.intersection(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                }
+            }
+            .map(DynAst::BitVec),
+            DynAst::Float(float_ast) => match float_ast.op() {
+                FloatOp::FPS(..) | FloatOp::FPV(..) => Ok(float_ast.clone()),
+                FloatOp::FpNeg(..) => ctx.fp_neg(float_child(children, 0)?),
+                FloatOp::FpAbs(..) => ctx.fp_abs(float_child(children, 0)?),
+                FloatOp::FpAdd(_, _, fprm) => {
+                    ctx.fp_add(float_child(children, 0)?, float_child(children, 1)?, *fprm)
+                }
+                FloatOp::FpSub(_, _, fprm) => {
+                    ctx.fp_sub(float_child(children, 0)?, float_child(children, 1)?, *fprm)
+                }
+                FloatOp::FpMul(_, _, fprm) => {
+                    ctx.fp_mul(float_child(children, 0)?, float_child(children, 1)?, *fprm)
+                }
+                FloatOp::FpDiv(_, _, fprm) => {
+                    ctx.fp_div(float_child(children, 0)?, float_child(children, 1)?, *fprm)
+                }
+                FloatOp::FpSqrt(_, fprm) => ctx.fp_sqrt(float_child(children, 0)?, *fprm),
+                FloatOp::FpToFp(_, fsort, fprm) => {
+                    ctx.fp_to_fp(float_child(children, 0)?, *fsort, *fprm)
+                }
+                FloatOp::FpFP(..) => ctx.fp_fp(
+                    bitvec_child(children, 0)?,
+                    bitvec_child(children, 1)?,
+                    bitvec_child(children, 2)?,
+                ),
+                FloatOp::BvToFp(_, fsort) => ctx.bv_to_fp(bitvec_child(children, 0)?, *fsort),
+                FloatOp::BvToFpSigned(_, fsort, fprm) => {
+                    ctx.bv_to_fp_signed(bitvec_child(children, 0)?, *fsort, *fprm)
+                }
+                FloatOp::BvToFpUnsigned(_, fsort, fprm) => {
+                    ctx.bv_to_fp_unsigned(bitvec_child(children, 0)?, *fsort, *fprm)
+                }
+                FloatOp::If(..) => ctx.if_(
+                    bool_child(children, 0)?,
+                    float_child(children, 1)?,
+                    float_child(children, 2)?,
+                ),
+            }
+            .map(DynAst::Float),
+            DynAst::String(string_ast) => match string_ast.op() {
+                StringOp::StringS(..) | StringOp::StringV(..) => Ok(string_ast.clone()),
+                StringOp::StrConcat(..) => {
+                    ctx.strconcat(string_child(children, 0)?, string_child(children, 1)?)
+                }
+                StringOp::StrSubstr(..) => ctx.strsubstr(
+                    string_child(children, 0)?,
+                    bitvec_child(children, 1)?,
+                    bitvec_child(children, 2)?,
+                ),
+                StringOp::StrReplace(..) => ctx.strreplace(
+                    string_child(children, 0)?,
+                    string_child(children, 1)?,
+                    string_child(children, 2)?,
+                ),
+                StringOp::BVToStr(..) => ctx.bvtostr(bitvec_child(children, 0)?),
+                StringOp::If(..) => ctx.if_(
+                    bool_child(children, 0)?,
+                    string_child(children, 1)?,
+                    string_child(children, 2)?,
+                ),
+            }
+            .map(DynAst::String),
+        },
+        &(),
+    )
 }
 
-impl<'c> Replace<'c, FloatAst<'c>> for BoolAst<'c> {
-    fn replace(&self, from: &FloatAst<'c>, to: &FloatAst<'c>) -> Result<Self, ClarirsError> {
-        match self.op() {
-            BooleanOp::BoolS(..) | BooleanOp::BoolV(..) => Ok(self.clone()),
-            BooleanOp::Not(a) => {
-                let replaced = a.replace(from, to)?;
-                self.context().make_bool(BooleanOp::Not(replaced))
-            }
-            BooleanOp::And(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::And(a_replaced, b_replaced))
-            }
-            BooleanOp::Or(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::Or(a_replaced, b_replaced))
-            }
-            BooleanOp::Xor(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::Xor(a_replaced, b_replaced))
-            }
-            BooleanOp::BoolEq(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::BoolEq(a_replaced, b_replaced))
-            }
-            BooleanOp::BoolNeq(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::BoolNeq(a_replaced, b_replaced))
-            }
-            BooleanOp::Eq(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::Eq(a_replaced, b_replaced))
-            }
-            BooleanOp::Neq(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::Neq(a_replaced, b_replaced))
-            }
-            BooleanOp::ULT(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::ULT(a_replaced, b_replaced))
-            }
-            BooleanOp::ULE(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::ULE(a_replaced, b_replaced))
-            }
-            BooleanOp::UGT(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::UGT(a_replaced, b_replaced))
-            }
-            BooleanOp::UGE(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::UGE(a_replaced, b_replaced))
-            }
-            BooleanOp::SLT(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::SLT(a_replaced, b_replaced))
-            }
-            BooleanOp::SLE(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::SLE(a_replaced, b_replaced))
-            }
-            BooleanOp::SGT(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::SGT(a_replaced, b_replaced))
-            }
-            BooleanOp::SGE(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::SGE(a_replaced, b_replaced))
-            }
-            BooleanOp::FpEq(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::FpEq(a_replaced, b_replaced))
-            }
-            BooleanOp::FpNeq(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::FpNeq(a_replaced, b_replaced))
-            }
-            BooleanOp::FpLt(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::FpLt(a_replaced, b_replaced))
-            }
-            BooleanOp::FpLeq(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::FpLeq(a_replaced, b_replaced))
-            }
-            BooleanOp::FpGt(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::FpGt(a_replaced, b_replaced))
-            }
-            BooleanOp::FpGeq(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::FpGeq(a_replaced, b_replaced))
-            }
-            BooleanOp::FpIsNan(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_bool(BooleanOp::FpIsNan(a_replaced))
-            }
-            BooleanOp::FpIsInf(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_bool(BooleanOp::FpIsInf(a_replaced))
-            }
-            BooleanOp::StrContains(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::StrContains(a_replaced, b_replaced))
-            }
-            BooleanOp::StrPrefixOf(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::StrPrefixOf(a_replaced, b_replaced))
-            }
-            BooleanOp::StrSuffixOf(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::StrSuffixOf(a_replaced, b_replaced))
-            }
-            BooleanOp::StrIsDigit(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_bool(BooleanOp::StrIsDigit(a_replaced))
-            }
-            BooleanOp::StrEq(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::StrEq(a_replaced, b_replaced))
-            }
-            BooleanOp::StrNeq(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::StrNeq(a_replaced, b_replaced))
-            }
-            BooleanOp::If(a, b, c) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                let c_replaced = c.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::If(a_replaced, b_replaced, c_replaced))
-            }
-        }
+pub trait Replace<'c, T>: Sized {
+    fn replace(&self, from: &T, to: &T) -> Result<Self, ClarirsError>;
+}
+
+impl<'c, T: Clone + Into<DynAst<'c>>> Replace<'c, T> for BoolAst<'c> {
+    fn replace(&self, from: &T, to: &T) -> Result<Self, ClarirsError> {
+        let replaced = replace_dyn(
+            DynAst::Boolean(self.clone()),
+            &from.clone().into(),
+            &to.clone().into(),
+        )?;
+        replaced.into_bool().ok_or(ClarirsError::TypeError(
+            "Expected Boolean after replacement".to_string(),
+        ))
     }
 }
 
-impl<'c> Replace<'c, StringAst<'c>> for BoolAst<'c> {
-    fn replace(&self, from: &StringAst<'c>, to: &StringAst<'c>) -> Result<Self, ClarirsError> {
-        match self.op() {
-            BooleanOp::BoolS(..) | BooleanOp::BoolV(..) => Ok(self.clone()),
-            BooleanOp::Not(a) => {
-                let replaced = a.replace(from, to)?;
-                self.context().make_bool(BooleanOp::Not(replaced))
-            }
-            BooleanOp::And(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::And(a_replaced, b_replaced))
-            }
-            BooleanOp::Or(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::Or(a_replaced, b_replaced))
-            }
-            BooleanOp::Xor(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::Xor(a_replaced, b_replaced))
-            }
-            BooleanOp::BoolEq(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::BoolEq(a_replaced, b_replaced))
-            }
-            BooleanOp::BoolNeq(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::BoolNeq(a_replaced, b_replaced))
-            }
-            BooleanOp::Eq(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::Eq(a_replaced, b_replaced))
-            }
-            BooleanOp::Neq(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::Neq(a_replaced, b_replaced))
-            }
-            BooleanOp::ULT(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::ULT(a_replaced, b_replaced))
-            }
-            BooleanOp::ULE(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::ULE(a_replaced, b_replaced))
-            }
-            BooleanOp::UGT(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::UGT(a_replaced, b_replaced))
-            }
-            BooleanOp::UGE(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::UGE(a_replaced, b_replaced))
-            }
-            BooleanOp::SLT(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::SLT(a_replaced, b_replaced))
-            }
-            BooleanOp::SLE(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::SLE(a_replaced, b_replaced))
-            }
-            BooleanOp::SGT(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::SGT(a_replaced, b_replaced))
-            }
-            BooleanOp::SGE(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::SGE(a_replaced, b_replaced))
-            }
-            BooleanOp::FpEq(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::FpEq(a_replaced, b_replaced))
-            }
-            BooleanOp::FpNeq(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::FpNeq(a_replaced, b_replaced))
-            }
-            BooleanOp::FpLt(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::FpLt(a_replaced, b_replaced))
-            }
-            BooleanOp::FpLeq(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::FpLeq(a_replaced, b_replaced))
-            }
-            BooleanOp::FpGt(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::FpGt(a_replaced, b_replaced))
-            }
-            BooleanOp::FpGeq(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::FpGeq(a_replaced, b_replaced))
-            }
-            BooleanOp::FpIsNan(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_bool(BooleanOp::FpIsNan(a_replaced))
-            }
-            BooleanOp::FpIsInf(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_bool(BooleanOp::FpIsInf(a_replaced))
-            }
-            BooleanOp::StrContains(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::StrContains(a_replaced, b_replaced))
-            }
-            BooleanOp::StrPrefixOf(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::StrPrefixOf(a_replaced, b_replaced))
-            }
-            BooleanOp::StrSuffixOf(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::StrSuffixOf(a_replaced, b_replaced))
-            }
-            BooleanOp::StrIsDigit(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_bool(BooleanOp::StrIsDigit(a_replaced))
-            }
-            BooleanOp::StrEq(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::StrEq(a_replaced, b_replaced))
-            }
-            BooleanOp::StrNeq(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::StrNeq(a_replaced, b_replaced))
-            }
-            BooleanOp::If(a, b, c) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                let c_replaced = c.replace(from, to)?;
-                self.context()
-                    .make_bool(BooleanOp::If(a_replaced, b_replaced, c_replaced))
-            }
-        }
+impl<'c, T: Clone + Into<DynAst<'c>>> Replace<'c, T> for BitVecAst<'c> {
+    fn replace(&self, from: &T, to: &T) -> Result<Self, ClarirsError> {
+        let replaced = replace_dyn(
+            DynAst::BitVec(self.clone()),
+            &from.clone().into(),
+            &to.clone().into(),
+        )?;
+        replaced.into_bitvec().ok_or(ClarirsError::TypeError(
+            "Expected BitVec after replacement".to_string(),
+        ))
     }
 }
 
-impl<'c> Replace<'c, BoolAst<'c>> for BitVecAst<'c> {
-    fn replace(&self, from: &BoolAst<'c>, to: &BoolAst<'c>) -> Result<Self, ClarirsError> {
-        match self.op() {
-            BitVecOp::BVS(..) | BitVecOp::BVV(..) => Ok(self.clone()),
-            BitVecOp::Not(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_bitvec(BitVecOp::Not(a_replaced))
-            }
-            BitVecOp::And(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::And(a_replaced, b_replaced))
-            }
-            BitVecOp::Or(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Or(a_replaced, b_replaced))
-            }
-            BitVecOp::Xor(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Xor(a_replaced, b_replaced))
-            }
-            BitVecOp::Neg(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_bitvec(BitVecOp::Neg(a_replaced))
-            }
-            BitVecOp::Add(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Add(a_replaced, b_replaced))
-            }
-            BitVecOp::Sub(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Sub(a_replaced, b_replaced))
-            }
-            BitVecOp::Mul(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Mul(a_replaced, b_replaced))
-            }
-            BitVecOp::UDiv(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::UDiv(a_replaced, b_replaced))
-            }
-            BitVecOp::SDiv(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::SDiv(a_replaced, b_replaced))
-            }
-            BitVecOp::URem(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::URem(a_replaced, b_replaced))
-            }
-            BitVecOp::SRem(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::SRem(a_replaced, b_replaced))
-            }
-            BitVecOp::ShL(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::ShL(a_replaced, b_replaced))
-            }
-            BitVecOp::LShR(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::LShR(a_replaced, b_replaced))
-            }
-            BitVecOp::AShR(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::AShR(a_replaced, b_replaced))
-            }
-            BitVecOp::RotateLeft(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::RotateLeft(a_replaced, b_replaced))
-            }
-            BitVecOp::RotateRight(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::RotateRight(a_replaced, b_replaced))
-            }
-            BitVecOp::ZeroExt(a, size) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::ZeroExt(a_replaced, *size))
-            }
-            BitVecOp::SignExt(a, size) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::SignExt(a_replaced, *size))
-            }
-            BitVecOp::Extract(a, high, low) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Extract(a_replaced, *high, *low))
-            }
-            BitVecOp::Concat(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Concat(a_replaced, b_replaced))
-            }
-            BitVecOp::ByteReverse(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::ByteReverse(a_replaced))
-            }
-            BitVecOp::FpToIEEEBV(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_bitvec(BitVecOp::FpToIEEEBV(a_replaced))
-            }
-            BitVecOp::FpToUBV(a, size, rm) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::FpToUBV(a_replaced, *size, *rm))
-            }
-            BitVecOp::FpToSBV(a, size, rm) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::FpToSBV(a_replaced, *size, *rm))
-            }
-            BitVecOp::StrLen(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_bitvec(BitVecOp::StrLen(a_replaced))
-            }
-            BitVecOp::StrIndexOf(a, b, c) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                let c_replaced = c.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::StrIndexOf(a_replaced, b_replaced, c_replaced))
-            }
-            BitVecOp::StrToBV(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_bitvec(BitVecOp::StrToBV(a_replaced))
-            }
-            BitVecOp::If(a, b, c) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                let c_replaced = c.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::If(a_replaced, b_replaced, c_replaced))
-            }
-            BitVecOp::Union(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Union(a_replaced, b_replaced))
-            }
-            BitVecOp::Intersection(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Intersection(a_replaced, b_replaced))
-            }
-        }
+impl<'c, T: Clone + Into<DynAst<'c>>> Replace<'c, T> for FloatAst<'c> {
+    fn replace(&self, from: &T, to: &T) -> Result<Self, ClarirsError> {
+        let replaced = replace_dyn(
+            DynAst::Float(self.clone()),
+            &from.clone().into(),
+            &to.clone().into(),
+        )?;
+        replaced.into_float().ok_or(ClarirsError::TypeError(
+            "Expected Float after replacement".to_string(),
+        ))
     }
 }
 
-impl<'c> Replace<'c, BitVecAst<'c>> for BitVecAst<'c> {
-    fn replace(&self, from: &BitVecAst<'c>, to: &BitVecAst<'c>) -> Result<Self, ClarirsError> {
-        if self == from {
-            Ok(to.clone())
-        } else {
-            match self.op() {
-                BitVecOp::BVS(..) | BitVecOp::BVV(..) => Ok(self.clone()),
-                BitVecOp::Not(a) => {
-                    let a_replaced = a.replace(from, to)?;
-                    self.context().make_bitvec(BitVecOp::Not(a_replaced))
-                }
-                BitVecOp::And(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bitvec(BitVecOp::And(a_replaced, b_replaced))
-                }
-                BitVecOp::Or(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bitvec(BitVecOp::Or(a_replaced, b_replaced))
-                }
-                BitVecOp::Xor(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bitvec(BitVecOp::Xor(a_replaced, b_replaced))
-                }
-                BitVecOp::Neg(a) => {
-                    let a_replaced = a.replace(from, to)?;
-                    self.context().make_bitvec(BitVecOp::Neg(a_replaced))
-                }
-                BitVecOp::Add(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bitvec(BitVecOp::Add(a_replaced, b_replaced))
-                }
-                BitVecOp::Sub(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bitvec(BitVecOp::Sub(a_replaced, b_replaced))
-                }
-                BitVecOp::Mul(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bitvec(BitVecOp::Mul(a_replaced, b_replaced))
-                }
-                BitVecOp::UDiv(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bitvec(BitVecOp::UDiv(a_replaced, b_replaced))
-                }
-                BitVecOp::SDiv(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bitvec(BitVecOp::SDiv(a_replaced, b_replaced))
-                }
-                BitVecOp::URem(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bitvec(BitVecOp::URem(a_replaced, b_replaced))
-                }
-                BitVecOp::SRem(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bitvec(BitVecOp::SRem(a_replaced, b_replaced))
-                }
-                BitVecOp::ShL(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bitvec(BitVecOp::ShL(a_replaced, b_replaced))
-                }
-                BitVecOp::LShR(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bitvec(BitVecOp::LShR(a_replaced, b_replaced))
-                }
-                BitVecOp::AShR(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bitvec(BitVecOp::AShR(a_replaced, b_replaced))
-                }
-                BitVecOp::RotateLeft(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bitvec(BitVecOp::RotateLeft(a_replaced, b_replaced))
-                }
-                BitVecOp::RotateRight(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bitvec(BitVecOp::RotateRight(a_replaced, b_replaced))
-                }
-                BitVecOp::ZeroExt(a, size) => {
-                    let a_replaced = a.replace(from, to)?;
-                    self.context()
-                        .make_bitvec(BitVecOp::ZeroExt(a_replaced, *size))
-                }
-                BitVecOp::SignExt(a, size) => {
-                    let a_replaced = a.replace(from, to)?;
-                    self.context()
-                        .make_bitvec(BitVecOp::SignExt(a_replaced, *size))
-                }
-                BitVecOp::Extract(a, high, low) => {
-                    let a_replaced = a.replace(from, to)?;
-                    self.context()
-                        .make_bitvec(BitVecOp::Extract(a_replaced, *high, *low))
-                }
-                BitVecOp::Concat(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bitvec(BitVecOp::Concat(a_replaced, b_replaced))
-                }
-                BitVecOp::ByteReverse(a) => {
-                    let a_replaced = a.replace(from, to)?;
-                    self.context()
-                        .make_bitvec(BitVecOp::ByteReverse(a_replaced))
-                }
-                BitVecOp::FpToIEEEBV(a) => {
-                    let a_replaced = a.replace(from, to)?;
-                    self.context().make_bitvec(BitVecOp::FpToIEEEBV(a_replaced))
-                }
-                BitVecOp::FpToUBV(a, size, rm) => {
-                    let a_replaced = a.replace(from, to)?;
-                    self.context()
-                        .make_bitvec(BitVecOp::FpToUBV(a_replaced, *size, *rm))
-                }
-                BitVecOp::FpToSBV(a, size, rm) => {
-                    let a_replaced = a.replace(from, to)?;
-                    self.context()
-                        .make_bitvec(BitVecOp::FpToSBV(a_replaced, *size, *rm))
-                }
-                BitVecOp::StrLen(a) => {
-                    let a_replaced = a.replace(from, to)?;
-                    self.context().make_bitvec(BitVecOp::StrLen(a_replaced))
-                }
-                BitVecOp::StrIndexOf(a, b, c) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    let c_replaced = c.replace(from, to)?;
-                    self.context()
-                        .make_bitvec(BitVecOp::StrIndexOf(a_replaced, b_replaced, c_replaced))
-                }
-                BitVecOp::StrToBV(a) => {
-                    let a_replaced = a.replace(from, to)?;
-                    self.context().make_bitvec(BitVecOp::StrToBV(a_replaced))
-                }
-                BitVecOp::If(a, b, c) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    let c_replaced = c.replace(from, to)?;
-                    self.context()
-                        .make_bitvec(BitVecOp::If(a_replaced, b_replaced, c_replaced))
-                }
-                BitVecOp::Union(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bitvec(BitVecOp::Union(a_replaced, b_replaced))
-                }
-                BitVecOp::Intersection(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_bitvec(BitVecOp::Intersection(a_replaced, b_replaced))
-                }
-            }
-        }
-    }
-}
-
-impl<'c> Replace<'c, FloatAst<'c>> for BitVecAst<'c> {
-    fn replace(&self, from: &FloatAst<'c>, to: &FloatAst<'c>) -> Result<Self, ClarirsError> {
-        match self.op() {
-            BitVecOp::BVS(..) | BitVecOp::BVV(..) => Ok(self.clone()),
-            BitVecOp::Not(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_bitvec(BitVecOp::Not(a_replaced))
-            }
-            BitVecOp::And(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::And(a_replaced, b_replaced))
-            }
-            BitVecOp::Or(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Or(a_replaced, b_replaced))
-            }
-            BitVecOp::Xor(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Xor(a_replaced, b_replaced))
-            }
-            BitVecOp::Neg(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_bitvec(BitVecOp::Neg(a_replaced))
-            }
-            BitVecOp::Add(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Add(a_replaced, b_replaced))
-            }
-            BitVecOp::Sub(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Sub(a_replaced, b_replaced))
-            }
-            BitVecOp::Mul(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Mul(a_replaced, b_replaced))
-            }
-            BitVecOp::UDiv(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::UDiv(a_replaced, b_replaced))
-            }
-            BitVecOp::SDiv(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::SDiv(a_replaced, b_replaced))
-            }
-            BitVecOp::URem(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::URem(a_replaced, b_replaced))
-            }
-            BitVecOp::SRem(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::SRem(a_replaced, b_replaced))
-            }
-            BitVecOp::ShL(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::ShL(a_replaced, b_replaced))
-            }
-            BitVecOp::LShR(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::LShR(a_replaced, b_replaced))
-            }
-            BitVecOp::AShR(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::AShR(a_replaced, b_replaced))
-            }
-            BitVecOp::RotateLeft(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::RotateLeft(a_replaced, b_replaced))
-            }
-            BitVecOp::RotateRight(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::RotateRight(a_replaced, b_replaced))
-            }
-            BitVecOp::ZeroExt(a, size) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::ZeroExt(a_replaced, *size))
-            }
-            BitVecOp::SignExt(a, size) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::SignExt(a_replaced, *size))
-            }
-            BitVecOp::Extract(a, high, low) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Extract(a_replaced, *high, *low))
-            }
-            BitVecOp::Concat(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Concat(a_replaced, b_replaced))
-            }
-            BitVecOp::ByteReverse(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::ByteReverse(a_replaced))
-            }
-            BitVecOp::FpToIEEEBV(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_bitvec(BitVecOp::FpToIEEEBV(a_replaced))
-            }
-            BitVecOp::FpToUBV(a, size, rm) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::FpToUBV(a_replaced, *size, *rm))
-            }
-            BitVecOp::FpToSBV(a, size, rm) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::FpToSBV(a_replaced, *size, *rm))
-            }
-            BitVecOp::StrLen(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_bitvec(BitVecOp::StrLen(a_replaced))
-            }
-            BitVecOp::StrIndexOf(a, b, c) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                let c_replaced = c.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::StrIndexOf(a_replaced, b_replaced, c_replaced))
-            }
-            BitVecOp::StrToBV(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_bitvec(BitVecOp::StrToBV(a_replaced))
-            }
-            BitVecOp::If(a, b, c) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                let c_replaced = c.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::If(a_replaced, b_replaced, c_replaced))
-            }
-            BitVecOp::Union(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Union(a_replaced, b_replaced))
-            }
-            BitVecOp::Intersection(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Intersection(a_replaced, b_replaced))
-            }
-        }
-    }
-}
-
-impl<'c> Replace<'c, StringAst<'c>> for BitVecAst<'c> {
-    fn replace(&self, from: &StringAst<'c>, to: &StringAst<'c>) -> Result<Self, ClarirsError> {
-        match self.op() {
-            BitVecOp::BVS(..) | BitVecOp::BVV(..) => Ok(self.clone()),
-            BitVecOp::Not(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_bitvec(BitVecOp::Not(a_replaced))
-            }
-            BitVecOp::And(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::And(a_replaced, b_replaced))
-            }
-            BitVecOp::Or(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Or(a_replaced, b_replaced))
-            }
-            BitVecOp::Xor(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Xor(a_replaced, b_replaced))
-            }
-            BitVecOp::Neg(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_bitvec(BitVecOp::Neg(a_replaced))
-            }
-            BitVecOp::Add(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Add(a_replaced, b_replaced))
-            }
-            BitVecOp::Sub(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Sub(a_replaced, b_replaced))
-            }
-            BitVecOp::Mul(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Mul(a_replaced, b_replaced))
-            }
-            BitVecOp::UDiv(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::UDiv(a_replaced, b_replaced))
-            }
-            BitVecOp::SDiv(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::SDiv(a_replaced, b_replaced))
-            }
-            BitVecOp::URem(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::URem(a_replaced, b_replaced))
-            }
-            BitVecOp::SRem(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::SRem(a_replaced, b_replaced))
-            }
-            BitVecOp::ShL(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::ShL(a_replaced, b_replaced))
-            }
-            BitVecOp::LShR(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::LShR(a_replaced, b_replaced))
-            }
-            BitVecOp::AShR(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::AShR(a_replaced, b_replaced))
-            }
-            BitVecOp::RotateLeft(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::RotateLeft(a_replaced, b_replaced))
-            }
-            BitVecOp::RotateRight(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::RotateRight(a_replaced, b_replaced))
-            }
-            BitVecOp::ZeroExt(a, size) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::ZeroExt(a_replaced, *size))
-            }
-            BitVecOp::SignExt(a, size) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::SignExt(a_replaced, *size))
-            }
-            BitVecOp::Extract(a, high, low) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Extract(a_replaced, *high, *low))
-            }
-            BitVecOp::Concat(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Concat(a_replaced, b_replaced))
-            }
-            BitVecOp::ByteReverse(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::ByteReverse(a_replaced))
-            }
-            BitVecOp::FpToIEEEBV(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_bitvec(BitVecOp::FpToIEEEBV(a_replaced))
-            }
-            BitVecOp::FpToUBV(a, size, rm) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::FpToUBV(a_replaced, *size, *rm))
-            }
-            BitVecOp::FpToSBV(a, size, rm) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::FpToSBV(a_replaced, *size, *rm))
-            }
-            BitVecOp::StrLen(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_bitvec(BitVecOp::StrLen(a_replaced))
-            }
-            BitVecOp::StrIndexOf(a, b, c) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                let c_replaced = c.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::StrIndexOf(a_replaced, b_replaced, c_replaced))
-            }
-            BitVecOp::StrToBV(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_bitvec(BitVecOp::StrToBV(a_replaced))
-            }
-            BitVecOp::If(a, b, c) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                let c_replaced = c.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::If(a_replaced, b_replaced, c_replaced))
-            }
-            BitVecOp::Union(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Union(a_replaced, b_replaced))
-            }
-            BitVecOp::Intersection(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_bitvec(BitVecOp::Intersection(a_replaced, b_replaced))
-            }
-        }
-    }
-}
-
-impl<'c> Replace<'c, BoolAst<'c>> for FloatAst<'c> {
-    fn replace(&self, from: &BoolAst<'c>, to: &BoolAst<'c>) -> Result<Self, ClarirsError> {
-        match self.op() {
-            FloatOp::FPS(..) | FloatOp::FPV(..) => Ok(self.clone()),
-            FloatOp::FpFP(sign, exp, sig) => {
-                let sign_replaced = sign.replace(from, to)?;
-                let exp_replaced = exp.replace(from, to)?;
-                let sig_replaced = sig.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::FpFP(sign_replaced, exp_replaced, sig_replaced))
-            }
-            FloatOp::FpNeg(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_float(FloatOp::FpNeg(a_replaced))
-            }
-            FloatOp::FpAbs(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_float(FloatOp::FpAbs(a_replaced))
-            }
-            FloatOp::FpAdd(a, b, rm) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::FpAdd(a_replaced, b_replaced, *rm))
-            }
-            FloatOp::FpSub(a, b, rm) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::FpSub(a_replaced, b_replaced, *rm))
-            }
-            FloatOp::FpMul(a, b, rm) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::FpMul(a_replaced, b_replaced, *rm))
-            }
-            FloatOp::FpDiv(a, b, rm) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::FpDiv(a_replaced, b_replaced, *rm))
-            }
-            FloatOp::FpSqrt(a, rm) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_float(FloatOp::FpSqrt(a_replaced, *rm))
-            }
-            FloatOp::FpToFp(a, sort, rm) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::FpToFp(a_replaced, *sort, *rm))
-            }
-            FloatOp::BvToFp(a, sort) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::BvToFp(a_replaced, *sort))
-            }
-            FloatOp::BvToFpSigned(a, sort, rm) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::BvToFpSigned(a_replaced, *sort, *rm))
-            }
-            FloatOp::BvToFpUnsigned(a, sort, rm) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::BvToFpUnsigned(a_replaced, *sort, *rm))
-            }
-            FloatOp::If(a, b, c) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                let c_replaced = c.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::If(a_replaced, b_replaced, c_replaced))
-            }
-        }
-    }
-}
-
-impl<'c> Replace<'c, BitVecAst<'c>> for FloatAst<'c> {
-    fn replace(&self, from: &BitVecAst<'c>, to: &BitVecAst<'c>) -> Result<Self, ClarirsError> {
-        match self.op() {
-            FloatOp::FPS(..) | FloatOp::FPV(..) => Ok(self.clone()),
-            FloatOp::FpFP(sign, exp, sig) => {
-                let sign_replaced = sign.replace(from, to)?;
-                let exp_replaced = exp.replace(from, to)?;
-                let sig_replaced = sig.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::FpFP(sign_replaced, exp_replaced, sig_replaced))
-            }
-            FloatOp::FpNeg(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_float(FloatOp::FpNeg(a_replaced))
-            }
-            FloatOp::FpAbs(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_float(FloatOp::FpAbs(a_replaced))
-            }
-            FloatOp::FpAdd(a, b, rm) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::FpAdd(a_replaced, b_replaced, *rm))
-            }
-            FloatOp::FpSub(a, b, rm) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::FpSub(a_replaced, b_replaced, *rm))
-            }
-            FloatOp::FpMul(a, b, rm) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::FpMul(a_replaced, b_replaced, *rm))
-            }
-            FloatOp::FpDiv(a, b, rm) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::FpDiv(a_replaced, b_replaced, *rm))
-            }
-            FloatOp::FpSqrt(a, rm) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_float(FloatOp::FpSqrt(a_replaced, *rm))
-            }
-            FloatOp::FpToFp(a, sort, rm) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::FpToFp(a_replaced, *sort, *rm))
-            }
-            FloatOp::BvToFp(a, sort) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::BvToFp(a_replaced, *sort))
-            }
-            FloatOp::BvToFpSigned(a, sort, rm) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::BvToFpSigned(a_replaced, *sort, *rm))
-            }
-            FloatOp::BvToFpUnsigned(a, sort, rm) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::BvToFpUnsigned(a_replaced, *sort, *rm))
-            }
-            FloatOp::If(a, b, c) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                let c_replaced = c.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::If(a_replaced, b_replaced, c_replaced))
-            }
-        }
-    }
-}
-
-impl<'c> Replace<'c, FloatAst<'c>> for FloatAst<'c> {
-    fn replace(&self, from: &FloatAst<'c>, to: &FloatAst<'c>) -> Result<Self, ClarirsError> {
-        if self == from {
-            Ok(to.clone())
-        } else {
-            match self.op() {
-                FloatOp::FPS(..) | FloatOp::FPV(..) => Ok(self.clone()),
-                FloatOp::FpFP(sign, exp, sig) => {
-                    let sign_replaced = sign.replace(from, to)?;
-                    let exp_replaced = exp.replace(from, to)?;
-                    let sig_replaced = sig.replace(from, to)?;
-                    self.context().make_float(FloatOp::FpFP(
-                        sign_replaced,
-                        exp_replaced,
-                        sig_replaced,
-                    ))
-                }
-                FloatOp::FpNeg(a) => {
-                    let a_replaced = a.replace(from, to)?;
-                    self.context().make_float(FloatOp::FpNeg(a_replaced))
-                }
-                FloatOp::FpAbs(a) => {
-                    let a_replaced = a.replace(from, to)?;
-                    self.context().make_float(FloatOp::FpAbs(a_replaced))
-                }
-                FloatOp::FpAdd(a, b, rm) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_float(FloatOp::FpAdd(a_replaced, b_replaced, *rm))
-                }
-                FloatOp::FpSub(a, b, rm) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_float(FloatOp::FpSub(a_replaced, b_replaced, *rm))
-                }
-                FloatOp::FpMul(a, b, rm) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_float(FloatOp::FpMul(a_replaced, b_replaced, *rm))
-                }
-                FloatOp::FpDiv(a, b, rm) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_float(FloatOp::FpDiv(a_replaced, b_replaced, *rm))
-                }
-                FloatOp::FpSqrt(a, rm) => {
-                    let a_replaced = a.replace(from, to)?;
-                    self.context().make_float(FloatOp::FpSqrt(a_replaced, *rm))
-                }
-                FloatOp::FpToFp(a, sort, rm) => {
-                    let a_replaced = a.replace(from, to)?;
-                    self.context()
-                        .make_float(FloatOp::FpToFp(a_replaced, *sort, *rm))
-                }
-                FloatOp::BvToFp(a, sort) => {
-                    let a_replaced = a.replace(from, to)?;
-                    self.context()
-                        .make_float(FloatOp::BvToFp(a_replaced, *sort))
-                }
-                FloatOp::BvToFpSigned(a, sort, rm) => {
-                    let a_replaced = a.replace(from, to)?;
-                    self.context()
-                        .make_float(FloatOp::BvToFpSigned(a_replaced, *sort, *rm))
-                }
-                FloatOp::BvToFpUnsigned(a, sort, rm) => {
-                    let a_replaced = a.replace(from, to)?;
-                    self.context()
-                        .make_float(FloatOp::BvToFpUnsigned(a_replaced, *sort, *rm))
-                }
-                FloatOp::If(a, b, c) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    let c_replaced = c.replace(from, to)?;
-                    self.context()
-                        .make_float(FloatOp::If(a_replaced, b_replaced, c_replaced))
-                }
-            }
-        }
-    }
-}
-
-impl<'c> Replace<'c, StringAst<'c>> for FloatAst<'c> {
-    fn replace(&self, from: &StringAst<'c>, to: &StringAst<'c>) -> Result<Self, ClarirsError> {
-        match self.op() {
-            FloatOp::FPS(..) | FloatOp::FPV(..) => Ok(self.clone()),
-            FloatOp::FpFP(sign, exp, sig) => {
-                let sign_replaced = sign.replace(from, to)?;
-                let exp_replaced = exp.replace(from, to)?;
-                let sig_replaced = sig.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::FpFP(sign_replaced, exp_replaced, sig_replaced))
-            }
-            FloatOp::FpNeg(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_float(FloatOp::FpNeg(a_replaced))
-            }
-            FloatOp::FpAbs(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_float(FloatOp::FpAbs(a_replaced))
-            }
-            FloatOp::FpAdd(a, b, rm) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::FpAdd(a_replaced, b_replaced, *rm))
-            }
-            FloatOp::FpSub(a, b, rm) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::FpSub(a_replaced, b_replaced, *rm))
-            }
-            FloatOp::FpMul(a, b, rm) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::FpMul(a_replaced, b_replaced, *rm))
-            }
-            FloatOp::FpDiv(a, b, rm) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::FpDiv(a_replaced, b_replaced, *rm))
-            }
-            FloatOp::FpSqrt(a, rm) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_float(FloatOp::FpSqrt(a_replaced, *rm))
-            }
-            FloatOp::FpToFp(a, sort, rm) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::FpToFp(a_replaced, *sort, *rm))
-            }
-            FloatOp::BvToFp(a, sort) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::BvToFp(a_replaced, *sort))
-            }
-            FloatOp::BvToFpSigned(a, sort, rm) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::BvToFpSigned(a_replaced, *sort, *rm))
-            }
-            FloatOp::BvToFpUnsigned(a, sort, rm) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::BvToFpUnsigned(a_replaced, *sort, *rm))
-            }
-            FloatOp::If(a, b, c) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                let c_replaced = c.replace(from, to)?;
-                self.context()
-                    .make_float(FloatOp::If(a_replaced, b_replaced, c_replaced))
-            }
-        }
-    }
-}
-
-impl<'c> Replace<'c, BoolAst<'c>> for StringAst<'c> {
-    fn replace(&self, from: &BoolAst<'c>, to: &BoolAst<'c>) -> Result<Self, ClarirsError> {
-        match self.op() {
-            StringOp::StringS(..) | StringOp::StringV(..) => Ok(self.clone()),
-            StringOp::StrConcat(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_string(StringOp::StrConcat(a_replaced, b_replaced))
-            }
-            StringOp::StrSubstr(a, b, c) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                let c_replaced = c.replace(from, to)?;
-                self.context()
-                    .make_string(StringOp::StrSubstr(a_replaced, b_replaced, c_replaced))
-            }
-            StringOp::StrReplace(a, b, c) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                let c_replaced = c.replace(from, to)?;
-                self.context()
-                    .make_string(StringOp::StrReplace(a_replaced, b_replaced, c_replaced))
-            }
-            StringOp::BVToStr(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_string(StringOp::BVToStr(a_replaced))
-            }
-            StringOp::If(a, b, c) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                let c_replaced = c.replace(from, to)?;
-                self.context()
-                    .make_string(StringOp::If(a_replaced, b_replaced, c_replaced))
-            }
-        }
-    }
-}
-
-impl<'c> Replace<'c, BitVecAst<'c>> for StringAst<'c> {
-    fn replace(&self, from: &BitVecAst<'c>, to: &BitVecAst<'c>) -> Result<Self, ClarirsError> {
-        match self.op() {
-            StringOp::StringS(..) | StringOp::StringV(..) => Ok(self.clone()),
-            StringOp::StrConcat(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_string(StringOp::StrConcat(a_replaced, b_replaced))
-            }
-            StringOp::StrSubstr(a, b, c) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                let c_replaced = c.replace(from, to)?;
-                self.context()
-                    .make_string(StringOp::StrSubstr(a_replaced, b_replaced, c_replaced))
-            }
-            StringOp::StrReplace(a, b, c) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                let c_replaced = c.replace(from, to)?;
-                self.context()
-                    .make_string(StringOp::StrReplace(a_replaced, b_replaced, c_replaced))
-            }
-            StringOp::BVToStr(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_string(StringOp::BVToStr(a_replaced))
-            }
-            StringOp::If(a, b, c) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                let c_replaced = c.replace(from, to)?;
-                self.context()
-                    .make_string(StringOp::If(a_replaced, b_replaced, c_replaced))
-            }
-        }
-    }
-}
-
-impl<'c> Replace<'c, FloatAst<'c>> for StringAst<'c> {
-    fn replace(&self, from: &FloatAst<'c>, to: &FloatAst<'c>) -> Result<Self, ClarirsError> {
-        match self.op() {
-            StringOp::StringS(..) | StringOp::StringV(..) => Ok(self.clone()),
-            StringOp::StrConcat(a, b) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                self.context()
-                    .make_string(StringOp::StrConcat(a_replaced, b_replaced))
-            }
-            StringOp::StrSubstr(a, b, c) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                let c_replaced = c.replace(from, to)?;
-                self.context()
-                    .make_string(StringOp::StrSubstr(a_replaced, b_replaced, c_replaced))
-            }
-            StringOp::StrReplace(a, b, c) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                let c_replaced = c.replace(from, to)?;
-                self.context()
-                    .make_string(StringOp::StrReplace(a_replaced, b_replaced, c_replaced))
-            }
-            StringOp::BVToStr(a) => {
-                let a_replaced = a.replace(from, to)?;
-                self.context().make_string(StringOp::BVToStr(a_replaced))
-            }
-            StringOp::If(a, b, c) => {
-                let a_replaced = a.replace(from, to)?;
-                let b_replaced = b.replace(from, to)?;
-                let c_replaced = c.replace(from, to)?;
-                self.context()
-                    .make_string(StringOp::If(a_replaced, b_replaced, c_replaced))
-            }
-        }
-    }
-}
-
-impl<'c> Replace<'c, StringAst<'c>> for StringAst<'c> {
-    fn replace(&self, from: &StringAst<'c>, to: &StringAst<'c>) -> Result<Self, ClarirsError> {
-        if self == from {
-            Ok(to.clone())
-        } else {
-            match self.op() {
-                StringOp::StringS(..) | StringOp::StringV(..) => Ok(self.clone()),
-                StringOp::StrConcat(a, b) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    self.context()
-                        .make_string(StringOp::StrConcat(a_replaced, b_replaced))
-                }
-                StringOp::StrSubstr(a, b, c) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    let c_replaced = c.replace(from, to)?;
-                    self.context()
-                        .make_string(StringOp::StrSubstr(a_replaced, b_replaced, c_replaced))
-                }
-                StringOp::StrReplace(a, b, c) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    let c_replaced = c.replace(from, to)?;
-                    self.context()
-                        .make_string(StringOp::StrReplace(a_replaced, b_replaced, c_replaced))
-                }
-                StringOp::BVToStr(a) => {
-                    let a_replaced = a.replace(from, to)?;
-                    self.context().make_string(StringOp::BVToStr(a_replaced))
-                }
-                StringOp::If(a, b, c) => {
-                    let a_replaced = a.replace(from, to)?;
-                    let b_replaced = b.replace(from, to)?;
-                    let c_replaced = c.replace(from, to)?;
-                    self.context()
-                        .make_string(StringOp::If(a_replaced, b_replaced, c_replaced))
-                }
-            }
-        }
-    }
-}
-
-// DynAst Imlementations
-
-impl<'c> Replace<'c, BoolAst<'c>> for DynAst<'c> {
-    fn replace(&self, from: &BoolAst<'c>, to: &BoolAst<'c>) -> Result<Self, ClarirsError> {
-        match self {
-            DynAst::Boolean(a) => a.replace(from, to).map(DynAst::Boolean),
-            DynAst::BitVec(a) => a.replace(from, to).map(DynAst::BitVec),
-            DynAst::Float(a) => a.replace(from, to).map(DynAst::Float),
-            DynAst::String(a) => a.replace(from, to).map(DynAst::String),
-        }
-    }
-}
-
-impl<'c> Replace<'c, BitVecAst<'c>> for DynAst<'c> {
-    fn replace(&self, from: &BitVecAst<'c>, to: &BitVecAst<'c>) -> Result<Self, ClarirsError> {
-        match self {
-            DynAst::Boolean(a) => a.replace(from, to).map(DynAst::Boolean),
-            DynAst::BitVec(a) => a.replace(from, to).map(DynAst::BitVec),
-            DynAst::Float(a) => a.replace(from, to).map(DynAst::Float),
-            DynAst::String(a) => a.replace(from, to).map(DynAst::String),
-        }
-    }
-}
-
-impl<'c> Replace<'c, FloatAst<'c>> for DynAst<'c> {
-    fn replace(&self, from: &FloatAst<'c>, to: &FloatAst<'c>) -> Result<Self, ClarirsError> {
-        match self {
-            DynAst::Boolean(a) => a.replace(from, to).map(DynAst::Boolean),
-            DynAst::BitVec(a) => a.replace(from, to).map(DynAst::BitVec),
-            DynAst::Float(a) => a.replace(from, to).map(DynAst::Float),
-            DynAst::String(a) => a.replace(from, to).map(DynAst::String),
-        }
-    }
-}
-
-impl<'c> Replace<'c, StringAst<'c>> for DynAst<'c> {
-    fn replace(&self, from: &StringAst<'c>, to: &StringAst<'c>) -> Result<Self, ClarirsError> {
-        match self {
-            DynAst::Boolean(a) => a.replace(from, to).map(DynAst::Boolean),
-            DynAst::BitVec(a) => a.replace(from, to).map(DynAst::BitVec),
-            DynAst::Float(a) => a.replace(from, to).map(DynAst::Float),
-            DynAst::String(a) => a.replace(from, to).map(DynAst::String),
-        }
-    }
-}
-
-impl<'c> Replace<'c, DynAst<'c>> for BoolAst<'c> {
-    fn replace(&self, from: &DynAst<'c>, to: &DynAst<'c>) -> Result<Self, ClarirsError> {
-        if discriminant(from) != discriminant(to) {
-            return Err(ClarirsError::TypeError(
-                "Cannot replace different types".to_string(),
-            ));
-        }
-
-        match from {
-            DynAst::Boolean(from_) => self.replace(from_, to.as_bool().unwrap()),
-            DynAst::BitVec(from_) => self.replace(from_, to.as_bitvec().unwrap()),
-            DynAst::Float(from_) => self.replace(from_, to.as_float().unwrap()),
-            DynAst::String(from_) => self.replace(from_, to.as_string().unwrap()),
-        }
-    }
-}
-
-impl<'c> Replace<'c, DynAst<'c>> for BitVecAst<'c> {
-    fn replace(&self, from: &DynAst<'c>, to: &DynAst<'c>) -> Result<Self, ClarirsError> {
-        if discriminant(from) != discriminant(to) {
-            return Err(ClarirsError::TypeError(
-                "Cannot replace different types".to_string(),
-            ));
-        }
-
-        match from {
-            DynAst::Boolean(from_) => self.replace(from_, to.as_bool().unwrap()),
-            DynAst::BitVec(from_) => self.replace(from_, to.as_bitvec().unwrap()),
-            DynAst::Float(from_) => self.replace(from_, to.as_float().unwrap()),
-            DynAst::String(from_) => self.replace(from_, to.as_string().unwrap()),
-        }
-    }
-}
-
-impl<'c> Replace<'c, DynAst<'c>> for FloatAst<'c> {
-    fn replace(&self, from: &DynAst<'c>, to: &DynAst<'c>) -> Result<Self, ClarirsError> {
-        if discriminant(from) != discriminant(to) {
-            return Err(ClarirsError::TypeError(
-                "Cannot replace different types".to_string(),
-            ));
-        }
-
-        match from {
-            DynAst::Boolean(from_) => self.replace(from_, to.as_bool().unwrap()),
-            DynAst::BitVec(from_) => self.replace(from_, to.as_bitvec().unwrap()),
-            DynAst::Float(from_) => self.replace(from_, to.as_float().unwrap()),
-            DynAst::String(from_) => self.replace(from_, to.as_string().unwrap()),
-        }
-    }
-}
-
-impl<'c> Replace<'c, DynAst<'c>> for StringAst<'c> {
-    fn replace(&self, from: &DynAst<'c>, to: &DynAst<'c>) -> Result<Self, ClarirsError> {
-        if discriminant(from) != discriminant(to) {
-            return Err(ClarirsError::TypeError(
-                "Cannot replace different types".to_string(),
-            ));
-        }
-
-        match from {
-            DynAst::Boolean(from_) => self.replace(from_, to.as_bool().unwrap()),
-            DynAst::BitVec(from_) => self.replace(from_, to.as_bitvec().unwrap()),
-            DynAst::Float(from_) => self.replace(from_, to.as_float().unwrap()),
-            DynAst::String(from_) => self.replace(from_, to.as_string().unwrap()),
-        }
-    }
-}
-
-impl<'c> Replace<'c, DynAst<'c>> for DynAst<'c> {
-    fn replace(&self, from: &DynAst<'c>, to: &DynAst<'c>) -> Result<Self, ClarirsError> {
-        if discriminant(from) != discriminant(to) {
-            return Err(ClarirsError::TypeError(
-                "Cannot replace different types".to_string(),
-            ));
-        }
-
-        if self == from {
-            return Ok(to.clone());
-        }
-
-        match (self, from) {
-            (DynAst::Boolean(self_), DynAst::Boolean(from_)) => self_
-                .replace(from_, to.as_bool().unwrap())
-                .map(DynAst::Boolean),
-            (DynAst::Boolean(self_), DynAst::BitVec(from_)) => self_
-                .replace(from_, to.as_bitvec().unwrap())
-                .map(DynAst::Boolean),
-            (DynAst::Boolean(self_), DynAst::Float(from_)) => self_
-                .replace(from_, to.as_float().unwrap())
-                .map(DynAst::Boolean),
-            (DynAst::Boolean(self_), DynAst::String(from_)) => self_
-                .replace(from_, to.as_string().unwrap())
-                .map(DynAst::Boolean),
-            (DynAst::BitVec(self_), DynAst::Boolean(from_)) => self_
-                .replace(from_, to.as_bool().unwrap())
-                .map(DynAst::BitVec),
-            (DynAst::BitVec(self_), DynAst::BitVec(from_)) => self_
-                .replace(from_, to.as_bitvec().unwrap())
-                .map(DynAst::BitVec),
-            (DynAst::BitVec(self_), DynAst::Float(from_)) => self_
-                .replace(from_, to.as_float().unwrap())
-                .map(DynAst::BitVec),
-            (DynAst::BitVec(self_), DynAst::String(from_)) => self_
-                .replace(from_, to.as_string().unwrap())
-                .map(DynAst::BitVec),
-            (DynAst::Float(self_), DynAst::Boolean(from_)) => self_
-                .replace(from_, to.as_bool().unwrap())
-                .map(DynAst::Float),
-            (DynAst::Float(self_), DynAst::BitVec(from_)) => self_
-                .replace(from_, to.as_bitvec().unwrap())
-                .map(DynAst::Float),
-            (DynAst::Float(self_), DynAst::Float(from_)) => self_
-                .replace(from_, to.as_float().unwrap())
-                .map(DynAst::Float),
-            (DynAst::Float(self_), DynAst::String(from_)) => self_
-                .replace(from_, to.as_string().unwrap())
-                .map(DynAst::Float),
-            (DynAst::String(self_), DynAst::Boolean(from_)) => self_
-                .replace(from_, to.as_bool().unwrap())
-                .map(DynAst::String),
-            (DynAst::String(self_), DynAst::BitVec(from_)) => self_
-                .replace(from_, to.as_bitvec().unwrap())
-                .map(DynAst::String),
-            (DynAst::String(self_), DynAst::Float(from_)) => self_
-                .replace(from_, to.as_float().unwrap())
-                .map(DynAst::String),
-            (DynAst::String(self_), DynAst::String(from_)) => self_
-                .replace(from_, to.as_string().unwrap())
-                .map(DynAst::String),
-        }
+impl<'c, T: Clone + Into<DynAst<'c>>> Replace<'c, T> for StringAst<'c> {
+    fn replace(&self, from: &T, to: &T) -> Result<Self, ClarirsError> {
+        let replaced = replace_dyn(
+            DynAst::String(self.clone()),
+            &from.clone().into(),
+            &to.clone().into(),
+        )?;
+        replaced.into_string().ok_or(ClarirsError::TypeError(
+            "Expected String after replacement".to_string(),
+        ))
     }
 }

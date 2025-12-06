@@ -82,6 +82,50 @@ pub fn walk_post_order<'c, T>(
     result_queue.pop_front().ok_or(ClarirsError::EmptyTraversal)
 }
 
+
+// Helper functions to extract typed children from DynAst
+
+pub fn bool_child<'c>(
+    children: &[DynAst<'c>],
+    index: usize,
+) -> Result<BoolAst<'c>, ClarirsError> {
+    children
+        .get(index)
+        .and_then(|child| child.clone().into_bool())
+        .ok_or(ClarirsError::InvalidArguments)
+}
+
+pub fn bitvec_child<'c>(
+    children: &[DynAst<'c>],
+    index: usize,
+) -> Result<BitVecAst<'c>, ClarirsError> {
+    children
+        .get(index)
+        .and_then(|child| child.clone().into_bitvec())
+        .ok_or(ClarirsError::InvalidArguments)
+}
+
+pub fn float_child<'c>(
+    children: &[DynAst<'c>],
+    index: usize,
+) -> Result<FloatAst<'c>, ClarirsError> {
+    children
+        .get(index)
+        .and_then(|child| child.clone().into_float())
+        .ok_or(ClarirsError::InvalidArguments)
+}
+
+pub fn string_child<'c>(
+    children: &[DynAst<'c>],
+    index: usize,
+) -> Result<StringAst<'c>, ClarirsError> {
+    children
+        .get(index)
+        .and_then(|child| child.clone().into_string())
+        .ok_or(ClarirsError::InvalidArguments)
+}
+
+
 #[cfg(test)]
 mod tests {
     use crate::cache::GenericCache;
