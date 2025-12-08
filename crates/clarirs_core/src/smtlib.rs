@@ -13,7 +13,7 @@ fn to_smtlib_bool(ast: &BoolAst, children: &[String]) -> String {
         BooleanOp::BoolEq(..) => format!("(= {} {})", children[0], children[1]),
         BooleanOp::BoolNeq(..) => format!("(!= {} {})", children[0], children[1]),
         BooleanOp::Eq(..) => format!("(= {} {})", children[0], children[1]),
-        BooleanOp::Neq(..) => format!("(!= {} {}))", children[0], children[1]),
+        BooleanOp::Neq(..) => format!("(!= {} {})", children[0], children[1]),
         BooleanOp::ULT(..) => format!("(bvult {} {})", children[0], children[1]),
         BooleanOp::ULE(..) => format!("(bvule {} {})", children[0], children[1]),
         BooleanOp::UGT(..) => format!("(bvugt {} {})", children[0], children[1]),
