@@ -219,6 +219,19 @@ impl PyAstString {
         PyAstString::new(py, &self.inner.simplify_ext(respect_annotations)?)
     }
 
+    pub fn replace<'py>(
+        &self,
+        py: Python<'py>,
+        from: Bound<'py, Base>,
+        to: Bound<'py, Base>,
+    ) -> Result<Bound<'py, PyAstString>, ClaripyError> {
+        use clarirs_core::algorithms::Replace;
+        let from_ast = Base::to_dynast(from)?;
+        let to_ast = Base::to_dynast(to)?;
+        let replaced = self.inner.replace(&from_ast, &to_ast)?;
+        PyAstString::new(py, &replaced)
+    }
+
     #[getter]
     pub fn concrete_value(&self) -> Result<Option<String>, ClaripyError> {
         Ok(match self.inner.simplify_ext(false)?.op() {

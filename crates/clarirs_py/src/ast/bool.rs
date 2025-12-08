@@ -318,6 +318,19 @@ impl Bool {
         Bool::new(py, &self.inner.simplify_ext(respect_annotations)?)
     }
 
+    pub fn replace<'py>(
+        &self,
+        py: Python<'py>,
+        from: Bound<'py, Base>,
+        to: Bound<'py, Base>,
+    ) -> Result<Bound<'py, Bool>, ClaripyError> {
+        use clarirs_core::algorithms::Replace;
+        let from_ast = Base::to_dynast(from)?;
+        let to_ast = Base::to_dynast(to)?;
+        let replaced = self.inner.replace(&from_ast, &to_ast)?;
+        Bool::new(py, &replaced)
+    }
+
     pub fn size(&self) -> usize {
         1
     }
