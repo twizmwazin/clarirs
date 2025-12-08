@@ -27,66 +27,27 @@ impl HasContext<'static> for DynSolver {
 }
 
 impl Solver<'static> for DynSolver {
-    fn eval_bool_n(
-        &mut self,
-        expr: &BoolAst<'static>,
-        n: u32,
-    ) -> Result<Vec<BoolAst<'static>>, ClarirsError> {
-        match self {
-            DynSolver::Concrete(solver) => solver.eval_bool_n(expr, n),
-            DynSolver::Z3(solver) => solver.eval_bool_n(expr, n),
-            DynSolver::Vsa(solver) => solver.eval_bool_n(expr, n),
-        }
-    }
-
-    fn eval_bitvec_n(
-        &mut self,
-        expr: &BitVecAst<'static>,
-        n: u32,
-    ) -> Result<Vec<BitVecAst<'static>>, ClarirsError> {
-        match self {
-            DynSolver::Concrete(solver) => solver.eval_bitvec_n(expr, n),
-            DynSolver::Z3(solver) => solver.eval_bitvec_n(expr, n),
-            DynSolver::Vsa(solver) => solver.eval_bitvec_n(expr, n),
-        }
-    }
-
-    fn eval_float_n(
-        &mut self,
-        expr: &FloatAst<'static>,
-        n: u32,
-    ) -> Result<Vec<FloatAst<'static>>, ClarirsError> {
-        match self {
-            DynSolver::Concrete(solver) => solver.eval_float_n(expr, n),
-            DynSolver::Z3(solver) => solver.eval_float_n(expr, n),
-            DynSolver::Vsa(solver) => solver.eval_float_n(expr, n),
-        }
-    }
-
-    fn eval_string_n(
-        &mut self,
-        expr: &StringAst<'static>,
-        n: u32,
-    ) -> Result<Vec<StringAst<'static>>, ClarirsError> {
-        match self {
-            DynSolver::Concrete(solver) => solver.eval_string_n(expr, n),
-            DynSolver::Z3(solver) => solver.eval_string_n(expr, n),
-            DynSolver::Vsa(solver) => solver.eval_string_n(expr, n),
-        }
-    }
-    fn constraints(&self) -> Result<Vec<BoolAst<'static>>, ClarirsError> {
-        match self {
-            DynSolver::Concrete(solver) => solver.constraints(),
-            DynSolver::Z3(solver) => solver.constraints(),
-            DynSolver::Vsa(solver) => solver.constraints(),
-        }
-    }
-
     fn add(&mut self, constraint: &BoolAst<'static>) -> Result<(), ClarirsError> {
         match self {
             DynSolver::Concrete(solver) => solver.add(constraint),
             DynSolver::Z3(solver) => solver.add(constraint),
             DynSolver::Vsa(solver) => solver.add(constraint),
+        }
+    }
+
+    fn clear(&mut self) -> Result<(), ClarirsError> {
+        match self {
+            DynSolver::Concrete(solver) => solver.clear(),
+            DynSolver::Z3(solver) => solver.clear(),
+            DynSolver::Vsa(solver) => solver.clear(),
+        }
+    }
+
+    fn constraints(&self) -> Result<Vec<BoolAst<'static>>, ClarirsError> {
+        match self {
+            DynSolver::Concrete(solver) => solver.constraints(),
+            DynSolver::Z3(solver) => solver.constraints(),
+            DynSolver::Vsa(solver) => solver.constraints(),
         }
     }
 
@@ -217,6 +178,54 @@ impl Solver<'static> for DynSolver {
             DynSolver::Concrete(solver) => solver.max_signed(expr),
             DynSolver::Z3(solver) => solver.max_signed(expr),
             DynSolver::Vsa(solver) => solver.max_signed(expr),
+        }
+    }
+
+    fn eval_bool_n(
+        &mut self,
+        expr: &BoolAst<'static>,
+        n: u32,
+    ) -> Result<Vec<BoolAst<'static>>, ClarirsError> {
+        match self {
+            DynSolver::Concrete(solver) => solver.eval_bool_n(expr, n),
+            DynSolver::Z3(solver) => solver.eval_bool_n(expr, n),
+            DynSolver::Vsa(solver) => solver.eval_bool_n(expr, n),
+        }
+    }
+
+    fn eval_bitvec_n(
+        &mut self,
+        expr: &BitVecAst<'static>,
+        n: u32,
+    ) -> Result<Vec<BitVecAst<'static>>, ClarirsError> {
+        match self {
+            DynSolver::Concrete(solver) => solver.eval_bitvec_n(expr, n),
+            DynSolver::Z3(solver) => solver.eval_bitvec_n(expr, n),
+            DynSolver::Vsa(solver) => solver.eval_bitvec_n(expr, n),
+        }
+    }
+
+    fn eval_float_n(
+        &mut self,
+        expr: &FloatAst<'static>,
+        n: u32,
+    ) -> Result<Vec<FloatAst<'static>>, ClarirsError> {
+        match self {
+            DynSolver::Concrete(solver) => solver.eval_float_n(expr, n),
+            DynSolver::Z3(solver) => solver.eval_float_n(expr, n),
+            DynSolver::Vsa(solver) => solver.eval_float_n(expr, n),
+        }
+    }
+
+    fn eval_string_n(
+        &mut self,
+        expr: &StringAst<'static>,
+        n: u32,
+    ) -> Result<Vec<StringAst<'static>>, ClarirsError> {
+        match self {
+            DynSolver::Concrete(solver) => solver.eval_string_n(expr, n),
+            DynSolver::Z3(solver) => solver.eval_string_n(expr, n),
+            DynSolver::Vsa(solver) => solver.eval_string_n(expr, n),
         }
     }
 }

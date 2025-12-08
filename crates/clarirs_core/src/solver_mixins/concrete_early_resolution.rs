@@ -33,6 +33,10 @@ impl<'c, S: Solver<'c>> Solver<'c> for ConcreteEarlyResolutionMixin<'c, S> {
         self.inner.add(constraint)
     }
 
+    fn clear(&mut self) -> Result<(), ClarirsError> {
+        self.inner.clear()
+    }
+
     fn constraints(&self) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
         self.inner.constraints()
     }
@@ -197,6 +201,10 @@ mod tests {
     impl<'c> Solver<'c> for PanickingSolver<'c> {
         fn add(&mut self, _: &BoolAst<'c>) -> Result<(), ClarirsError> {
             panic!("PanickingSolver::add should not be called");
+        }
+
+        fn clear(&mut self) -> Result<(), ClarirsError> {
+            panic!("PanickingSolver::clear should not be called");
         }
 
         fn constraints(&self) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
