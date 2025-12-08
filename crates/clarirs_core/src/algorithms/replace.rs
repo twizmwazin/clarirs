@@ -46,6 +46,7 @@ impl<'c, T: Clone + Into<DynAst<'c>>> Replace<'c, T> for DynAst<'c> {
         walk_post_order(
             self.clone(),
             |ast, children| match &ast {
+                _ if ast == from => Ok(to.clone()),
                 DynAst::Boolean(bool_ast) => match bool_ast.op() {
                     BooleanOp::BoolS(..) | BooleanOp::BoolV(..) => Ok(bool_ast.clone()),
                     BooleanOp::Not(..) => ctx.not(bool_child(children, 0)?),
