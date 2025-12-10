@@ -14,13 +14,13 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, Clarir
                 let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
                 let sym = z3::mk_string_symbol(z3_ctx, s_cstr.as_ptr());
                 let sort = z3::mk_bv_sort(z3_ctx, *w);
-                RcAst::from(z3::mk_const(z3_ctx, sym, sort))
+                RcAst::try_from(z3::mk_const(z3_ctx, sym, sort))?
             }
             BitVecOp::BVV(v) => {
                 let sort = z3::mk_bv_sort(z3_ctx, v.len());
                 let numeral = v.to_biguint().to_string();
                 let numeral_cstr = std::ffi::CString::new(numeral).unwrap();
-                z3::mk_numeral(z3_ctx, numeral_cstr.as_ptr(), sort).into()
+                RcAst::try_from(z3::mk_numeral(z3_ctx, numeral_cstr.as_ptr(), sort))?
             }
             BitVecOp::Not(..) => unop!(z3_ctx, children, mk_bvnot),
             BitVecOp::Neg(..) => unop!(z3_ctx, children, mk_bvneg),
@@ -39,8 +39,12 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, Clarir
             BitVecOp::AShR(..) => binop!(z3_ctx, children, mk_bvashr),
             BitVecOp::RotateLeft(..) => binop!(z3_ctx, children, mk_ext_rotate_left),
             BitVecOp::RotateRight(..) => binop!(z3_ctx, children, mk_ext_rotate_right),
-            BitVecOp::ZeroExt(_, i) => z3::mk_zero_ext(z3_ctx, *i, child!(children, 0).0).into(),
-            BitVecOp::SignExt(_, i) => z3::mk_sign_ext(z3_ctx, *i, child!(children, 0).0).into(),
+            BitVecOp::ZeroExt(_, i) => {
+                RcAst::try_from(z3::mk_zero_ext(z3_ctx, *i, child!(children, 0).0))?
+            }
+            BitVecOp::SignExt(_, i) => {
+                RcAst::try_from(z3::mk_sign_ext(z3_ctx, *i, child!(children, 0).0))?
+            }
             BitVecOp::Extract(a, high, low) => {
                 if high >= &a.size() {
                     return Err(ClarirsError::ConversionError(
@@ -58,7 +62,7 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, Clarir
                     ));
                 }
                 let a = child!(children, 0);
-                z3::mk_extract(z3_ctx, *high, *low, a.0).into()
+                RcAst::try_from(z3::mk_extract(z3_ctx, *high, *low, a.0))?
             }
             BitVecOp::Concat(..) => binop!(z3_ctx, children, mk_concat),
             BitVecOp::ByteReverse(a) => {
@@ -87,21 +91,21 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, Clarir
                 let cond = child!(children, 0);
                 let then = child!(children, 1);
                 let else_ = child!(children, 2);
-                z3::mk_ite(z3_ctx, cond.0, then.0, else_.0).into()
+                RcAst::try_from(z3::mk_ite(z3_ctx, cond.0, then.0, else_.0))?
             }
             BitVecOp::FpToIEEEBV(..) => {
                 let a = child!(children, 0);
-                z3::mk_fpa_to_ieee_bv(z3_ctx, a.0).into()
+                RcAst::try_from(z3::mk_fpa_to_ieee_bv(z3_ctx, a.0))?
             }
             BitVecOp::FpToUBV(_, size, rm) => {
                 let rm_ast = super::float::fprm_to_z3(*rm);
                 let a = child!(children, 0);
-                z3::mk_fpa_to_ubv(z3_ctx, rm_ast.0, a.0, *size).into()
+                RcAst::try_from(z3::mk_fpa_to_ubv(z3_ctx, rm_ast.0, a.0, *size))?
             }
             BitVecOp::FpToSBV(_, size, rm) => {
                 let rm_ast = super::float::fprm_to_z3(*rm);
                 let a = child!(children, 0);
-                z3::mk_fpa_to_sbv(z3_ctx, rm_ast.0, a.0, *size).into()
+                RcAst::try_from(z3::mk_fpa_to_sbv(z3_ctx, rm_ast.0, a.0, *size))?
             }
             BitVecOp::StrLen(..) => todo!("StrLen"),
             BitVecOp::StrIndexOf(..) => todo!("StrIndexOf"),
@@ -151,12 +155,12 @@ pub(crate) fn from_z3<'c>(
                         ctx.bvs(name, width as u32)
                     }
                     z3::DeclKind::Bnot => {
-                        let arg = z3::get_app_arg(*z3_ctx, app, 0);
+                        let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
                         let inner = BitVecAst::from_z3(ctx, arg)?;
                         ctx.not(inner)
                     }
                     z3::DeclKind::Bneg => {
-                        let arg = z3::get_app_arg(*z3_ctx, app, 0);
+                        let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
                         let inner = BitVecAst::from_z3(ctx, arg)?;
                         ctx.neg(inner)
                     }
@@ -173,8 +177,8 @@ pub(crate) fn from_z3<'c>(
                     | z3::DeclKind::Bshl
                     | z3::DeclKind::Blshr
                     | z3::DeclKind::Bashr => {
-                        let arg0 = z3::get_app_arg(*z3_ctx, app, 0);
-                        let arg1 = z3::get_app_arg(*z3_ctx, app, 1);
+                        let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
+                        let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
                         let a = BitVecAst::from_z3(ctx, arg0)?;
                         let b = BitVecAst::from_z3(ctx, arg1)?;
 
@@ -210,8 +214,8 @@ pub(crate) fn from_z3<'c>(
                         }
                     }
                     z3::DeclKind::ExtRotateLeft | z3::DeclKind::ExtRotateRight => {
-                        let arg0 = z3::get_app_arg(*z3_ctx, app, 0);
-                        let arg1 = z3::get_app_arg(*z3_ctx, app, 1);
+                        let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
+                        let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
                         let a = BitVecAst::from_z3(ctx, arg0)?;
                         let b = BitVecAst::from_z3(ctx, arg1)?;
                         match decl_kind {
@@ -221,7 +225,7 @@ pub(crate) fn from_z3<'c>(
                         }
                     }
                     z3::DeclKind::ZeroExt | z3::DeclKind::SignExt => {
-                        let arg = z3::get_app_arg(*z3_ctx, app, 0);
+                        let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
                         let inner = BitVecAst::from_z3(ctx, arg)?;
                         let i = z3::get_decl_int_parameter(*z3_ctx, decl, 0) as u32;
                         match decl_kind {
@@ -231,23 +235,23 @@ pub(crate) fn from_z3<'c>(
                         }
                     }
                     z3::DeclKind::Extract => {
-                        let arg = z3::get_app_arg(*z3_ctx, app, 0);
+                        let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
                         let inner = BitVecAst::from_z3(ctx, arg)?;
                         let high = z3::get_decl_int_parameter(*z3_ctx, decl, 0) as u32;
                         let low = z3::get_decl_int_parameter(*z3_ctx, decl, 1) as u32;
                         ctx.extract(inner, high, low)
                     }
                     z3::DeclKind::Concat => {
-                        let arg0 = z3::get_app_arg(*z3_ctx, app, 0);
-                        let arg1 = z3::get_app_arg(*z3_ctx, app, 1);
+                        let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
+                        let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
                         let a = BitVecAst::from_z3(ctx, arg0)?;
                         let b = BitVecAst::from_z3(ctx, arg1)?;
                         ctx.concat(a, b)
                     }
                     z3::DeclKind::Ite => {
-                        let cond = z3::get_app_arg(*z3_ctx, app, 0);
-                        let then = z3::get_app_arg(*z3_ctx, app, 1);
-                        let else_ = z3::get_app_arg(*z3_ctx, app, 2);
+                        let cond = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
+                        let then = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
+                        let else_ = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 2))?;
                         let cond = BoolAst::from_z3(ctx, cond)?;
                         let then = BitVecAst::from_z3(ctx, then)?;
                         let else_ = BitVecAst::from_z3(ctx, else_)?;
@@ -274,7 +278,8 @@ pub(crate) fn from_z3<'c>(
 
                                 match decl_kind {
                                     z3::DeclKind::Bv2int => {
-                                        let arg = z3::get_app_arg(*z3_ctx, app, 0);
+                                        let arg =
+                                            RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
                                         BitVecAst::from_z3(ctx, arg)
                                     }
                                     _ => Err(ClarirsError::ConversionError(
@@ -768,7 +773,8 @@ mod tests {
                     let sym = z3::mk_string_symbol(*z3_ctx, s_cstr.as_ptr());
                     let sort = z3::mk_bv_sort(*z3_ctx, 32);
                     let decl = z3::mk_func_decl(*z3_ctx, sym, 0, std::ptr::null(), sort);
-                    let z3_ast = z3::mk_app(*z3_ctx, decl, 0, std::ptr::null());
+                    let z3_ast =
+                        RcAst::try_from(z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())).unwrap();
 
                     // Convert from Z3 to Clarirs
                     let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
@@ -786,8 +792,8 @@ mod tests {
                     // Test 8-bit value
                     let sort8 = z3::mk_bv_sort(*z3_ctx, 8);
                     let numeral8 = std::ffi::CString::new("42").unwrap();
-                    let z3_ast8 = z3::mk_numeral(*z3_ctx, numeral8.as_ptr(), sort8);
-                    z3::inc_ref(*z3_ctx, z3_ast8);
+                    let z3_ast8 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, numeral8.as_ptr(), sort8)).unwrap();
 
                     let result8 = BitVecAst::from_z3(&ctx, z3_ast8).unwrap();
                     let expected8 = ctx.bvv_prim(42u8).unwrap();
@@ -796,8 +802,9 @@ mod tests {
                     // Test 32-bit value
                     let sort32 = z3::mk_bv_sort(*z3_ctx, 32);
                     let numeral32 = std::ffi::CString::new("3735928559").unwrap(); // 0xDEADBEEF
-                    let z3_ast32 = z3::mk_numeral(*z3_ctx, numeral32.as_ptr(), sort32);
-                    z3::inc_ref(*z3_ctx, z3_ast32);
+                    let z3_ast32 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, numeral32.as_ptr(), sort32))
+                            .unwrap();
 
                     let result32 = BitVecAst::from_z3(&ctx, z3_ast32).unwrap();
                     let expected32 = ctx.bvv_prim(0xDEADBEEFu32).unwrap();
@@ -806,8 +813,9 @@ mod tests {
                     // Test 64-bit value
                     let sort64 = z3::mk_bv_sort(*z3_ctx, 64);
                     let numeral64 = std::ffi::CString::new("81985529216486895").unwrap(); // 0x0123456789ABCDEF
-                    let z3_ast64 = z3::mk_numeral(*z3_ctx, numeral64.as_ptr(), sort64);
-                    z3::inc_ref(*z3_ctx, z3_ast64);
+                    let z3_ast64 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, numeral64.as_ptr(), sort64))
+                            .unwrap();
 
                     let result64 = BitVecAst::from_z3(&ctx, z3_ast64).unwrap();
                     let expected64 = ctx.bvv_prim(0x0123456789ABCDEFu64).unwrap();
@@ -824,12 +832,11 @@ mod tests {
                     // Create base value
                     let sort = z3::mk_bv_sort(*z3_ctx, 8);
                     let numeral = std::ffi::CString::new("170").unwrap(); // 0xAA
-                    let base = z3::mk_numeral(*z3_ctx, numeral.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, base);
+                    let base =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, numeral.as_ptr(), sort)).unwrap();
 
                     // Create NOT operation
-                    let not_z3 = z3::mk_bvnot(*z3_ctx, base);
-                    z3::inc_ref(*z3_ctx, not_z3);
+                    let not_z3 = RcAst::try_from(z3::mk_bvnot(*z3_ctx, *base)).unwrap();
 
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, not_z3).unwrap();
@@ -849,16 +856,15 @@ mod tests {
 
                     // Create operands
                     let num1 = std::ffi::CString::new("240").unwrap(); // 0xF0
-                    let op1 = z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, op1);
+                    let op1 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort)).unwrap();
 
                     let num2 = std::ffi::CString::new("170").unwrap(); // 0xAA
-                    let op2 = z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, op2);
+                    let op2 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort)).unwrap();
 
                     // Create AND operation
-                    let and_z3 = z3::mk_bvand(*z3_ctx, op1, op2);
-                    z3::inc_ref(*z3_ctx, and_z3);
+                    let and_z3 = RcAst::try_from(z3::mk_bvand(*z3_ctx, *op1, *op2)).unwrap();
 
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, and_z3).unwrap();
@@ -879,17 +885,15 @@ mod tests {
 
                     // Create operands
                     let num1 = std::ffi::CString::new("240").unwrap(); // 0xF0
-                    let op1 = z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, op1);
+                    let op1 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort)).unwrap();
 
                     let num2 = std::ffi::CString::new("15").unwrap(); // 0x0F
-                    let op2 = z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, op2);
+                    let op2 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort)).unwrap();
 
                     // Create OR operation
-                    let or_z3 = z3::mk_bvor(*z3_ctx, op1, op2);
-                    z3::inc_ref(*z3_ctx, or_z3);
-
+                    let or_z3 = RcAst::try_from(z3::mk_bvor(*z3_ctx, *op1, *op2)).unwrap();
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, or_z3).unwrap();
                     let bv1 = ctx.bvv_prim(0xF0u8).unwrap();
@@ -909,16 +913,15 @@ mod tests {
 
                     // Create operands
                     let num1 = std::ffi::CString::new("170").unwrap(); // 0xAA
-                    let op1 = z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, op1);
+                    let op1 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort)).unwrap();
 
                     let num2 = std::ffi::CString::new("85").unwrap(); // 0x55
-                    let op2 = z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, op2);
+                    let op2 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort)).unwrap();
 
                     // Create XOR operation
-                    let xor_z3 = z3::mk_bvxor(*z3_ctx, op1, op2);
-                    z3::inc_ref(*z3_ctx, xor_z3);
+                    let xor_z3 = RcAst::try_from(z3::mk_bvxor(*z3_ctx, *op1, *op2)).unwrap();
 
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, xor_z3).unwrap();
@@ -939,16 +942,15 @@ mod tests {
 
                     // Create operands
                     let num1 = std::ffi::CString::new("42").unwrap();
-                    let op1 = z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, op1);
+                    let op1 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort)).unwrap();
 
                     let num2 = std::ffi::CString::new("13").unwrap();
-                    let op2 = z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, op2);
+                    let op2 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort)).unwrap();
 
                     // Create ADD operation
-                    let add_z3 = z3::mk_bvadd(*z3_ctx, op1, op2);
-                    z3::inc_ref(*z3_ctx, add_z3);
+                    let add_z3 = RcAst::try_from(z3::mk_bvadd(*z3_ctx, *op1, *op2)).unwrap();
 
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, add_z3).unwrap();
@@ -969,17 +971,15 @@ mod tests {
 
                     // Create operands
                     let num1 = std::ffi::CString::new("42").unwrap();
-                    let op1 = z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, op1);
+                    let op1 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort)).unwrap();
 
                     let num2 = std::ffi::CString::new("13").unwrap();
-                    let op2 = z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, op2);
+                    let op2 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort)).unwrap();
 
                     // Create SUB operation
-                    let sub_z3 = z3::mk_bvsub(*z3_ctx, op1, op2);
-                    z3::inc_ref(*z3_ctx, sub_z3);
-
+                    let sub_z3 = RcAst::try_from(z3::mk_bvsub(*z3_ctx, *op1, *op2)).unwrap();
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, sub_z3).unwrap();
                     let bv1 = ctx.bvv_prim(42u8).unwrap();
@@ -999,17 +999,15 @@ mod tests {
 
                     // Create operands
                     let num1 = std::ffi::CString::new("6").unwrap();
-                    let op1 = z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, op1);
+                    let op1 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort)).unwrap();
 
                     let num2 = std::ffi::CString::new("7").unwrap();
-                    let op2 = z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, op2);
+                    let op2 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort)).unwrap();
 
                     // Create MUL operation
-                    let mul_z3 = z3::mk_bvmul(*z3_ctx, op1, op2);
-                    z3::inc_ref(*z3_ctx, mul_z3);
-
+                    let mul_z3 = RcAst::try_from(z3::mk_bvmul(*z3_ctx, *op1, *op2)).unwrap();
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, mul_z3).unwrap();
                     let bv1 = ctx.bvv_prim(6u8).unwrap();
@@ -1029,17 +1027,15 @@ mod tests {
 
                     // Create operands
                     let num1 = std::ffi::CString::new("42").unwrap();
-                    let op1 = z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, op1);
+                    let op1 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort)).unwrap();
 
                     let num2 = std::ffi::CString::new("6").unwrap();
-                    let op2 = z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, op2);
+                    let op2 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort)).unwrap();
 
                     // Create UDIV operation
-                    let udiv_z3 = z3::mk_bvudiv(*z3_ctx, op1, op2);
-                    z3::inc_ref(*z3_ctx, udiv_z3);
-
+                    let udiv_z3 = RcAst::try_from(z3::mk_bvudiv(*z3_ctx, *op1, *op2)).unwrap();
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, udiv_z3).unwrap();
                     let bv1 = ctx.bvv_prim(42u8).unwrap();
@@ -1059,16 +1055,15 @@ mod tests {
 
                     // Create operands
                     let num1 = std::ffi::CString::new("214").unwrap(); // -42 in two's complement
-                    let op1 = z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, op1);
+                    let op1 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort)).unwrap();
 
                     let num2 = std::ffi::CString::new("6").unwrap();
-                    let op2 = z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, op2);
+                    let op2 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort)).unwrap();
 
                     // Create SDIV operation
-                    let sdiv_z3 = z3::mk_bvsdiv(*z3_ctx, op1, op2);
-                    z3::inc_ref(*z3_ctx, sdiv_z3);
+                    let sdiv_z3 = RcAst::try_from(z3::mk_bvsdiv(*z3_ctx, *op1, *op2)).unwrap();
 
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, sdiv_z3).unwrap();
@@ -1089,16 +1084,15 @@ mod tests {
 
                     // Create operands
                     let num1 = std::ffi::CString::new("42").unwrap();
-                    let op1 = z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, op1);
+                    let op1 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort)).unwrap();
 
                     let num2 = std::ffi::CString::new("5").unwrap();
-                    let op2 = z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, op2);
+                    let op2 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort)).unwrap();
 
                     // Create UREM operation
-                    let urem_z3 = z3::mk_bvurem(*z3_ctx, op1, op2);
-                    z3::inc_ref(*z3_ctx, urem_z3);
+                    let urem_z3 = RcAst::try_from(z3::mk_bvurem(*z3_ctx, *op1, *op2)).unwrap();
 
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, urem_z3).unwrap();
@@ -1119,16 +1113,15 @@ mod tests {
 
                     // Create operands
                     let num1 = std::ffi::CString::new("214").unwrap(); // -42 in two's complement
-                    let op1 = z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, op1);
+                    let op1 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort)).unwrap();
 
                     let num2 = std::ffi::CString::new("5").unwrap();
-                    let op2 = z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, op2);
+                    let op2 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort)).unwrap();
 
                     // Create SREM operation
-                    let srem_z3 = z3::mk_bvsrem(*z3_ctx, op1, op2);
-                    z3::inc_ref(*z3_ctx, srem_z3);
+                    let srem_z3 = RcAst::try_from(z3::mk_bvsrem(*z3_ctx, *op1, *op2)).unwrap();
 
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, srem_z3).unwrap();
@@ -1149,16 +1142,15 @@ mod tests {
 
                     // Create operands
                     let num1 = std::ffi::CString::new("18").unwrap(); // 0x12
-                    let op1 = z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, op1);
+                    let op1 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort)).unwrap();
 
                     let num2 = std::ffi::CString::new("2").unwrap();
-                    let op2 = z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, op2);
+                    let op2 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort)).unwrap();
 
                     // Create SHL operation
-                    let shl_z3 = z3::mk_bvshl(*z3_ctx, op1, op2);
-                    z3::inc_ref(*z3_ctx, shl_z3);
+                    let shl_z3 = RcAst::try_from(z3::mk_bvshl(*z3_ctx, op1.0, op2.0)).unwrap();
 
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, shl_z3).unwrap();
@@ -1179,17 +1171,15 @@ mod tests {
 
                     // Create operands
                     let num1 = std::ffi::CString::new("18").unwrap(); // 0x12
-                    let op1 = z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, op1);
+                    let op1 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort)).unwrap();
 
                     let num2 = std::ffi::CString::new("2").unwrap();
-                    let op2 = z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, op2);
+                    let op2 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort)).unwrap();
 
                     // Create LSHR operation
-                    let lshr_z3 = z3::mk_bvlshr(*z3_ctx, op1, op2);
-                    z3::inc_ref(*z3_ctx, lshr_z3);
-
+                    let lshr_z3 = RcAst::try_from(z3::mk_bvlshr(*z3_ctx, op1.0, op2.0)).unwrap();
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, lshr_z3).unwrap();
                     let bv1 = ctx.bvv_prim(0x12u8).unwrap();
@@ -1209,16 +1199,15 @@ mod tests {
 
                     // Create operands
                     let num1 = std::ffi::CString::new("130").unwrap(); // 0x82 (negative in two's complement)
-                    let op1 = z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, op1);
+                    let op1 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort)).unwrap();
 
                     let num2 = std::ffi::CString::new("2").unwrap();
-                    let op2 = z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, op2);
+                    let op2 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort)).unwrap();
 
                     // Create ASHR operation
-                    let ashr_z3 = z3::mk_bvashr(*z3_ctx, op1, op2);
-                    z3::inc_ref(*z3_ctx, ashr_z3);
+                    let ashr_z3 = RcAst::try_from(z3::mk_bvashr(*z3_ctx, op1.0, op2.0)).unwrap();
 
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, ashr_z3).unwrap();
@@ -1239,16 +1228,16 @@ mod tests {
 
                     // Create operands
                     let num1 = std::ffi::CString::new("18").unwrap(); // 0x12
-                    let op1 = z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, op1);
+                    let op1 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort)).unwrap();
 
                     let num2 = std::ffi::CString::new("2").unwrap();
-                    let op2 = z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, op2);
+                    let op2 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort)).unwrap();
 
                     // Create rotate left operation
-                    let rotl_z3 = z3::mk_ext_rotate_left(*z3_ctx, op1, op2);
-                    z3::inc_ref(*z3_ctx, rotl_z3);
+                    let rotl_z3 =
+                        RcAst::try_from(z3::mk_ext_rotate_left(*z3_ctx, op1.0, op2.0)).unwrap();
 
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, rotl_z3).unwrap();
@@ -1269,17 +1258,16 @@ mod tests {
 
                     // Create operands
                     let num1 = std::ffi::CString::new("18").unwrap(); // 0x12
-                    let op1 = z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, op1);
+                    let op1 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort)).unwrap();
 
                     let num2 = std::ffi::CString::new("2").unwrap();
-                    let op2 = z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, op2);
+                    let op2 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort)).unwrap();
 
                     // Create rotate right operation
-                    let rotr_z3 = z3::mk_ext_rotate_right(*z3_ctx, op1, op2);
-                    z3::inc_ref(*z3_ctx, rotr_z3);
-
+                    let rotr_z3 =
+                        RcAst::try_from(z3::mk_ext_rotate_right(*z3_ctx, op1.0, op2.0)).unwrap();
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, rotr_z3).unwrap();
                     let bv1 = ctx.bvv_prim(0x12u8).unwrap();
@@ -1299,12 +1287,11 @@ mod tests {
 
                     // Create base value
                     let num = std::ffi::CString::new("18").unwrap(); // 0x12
-                    let base = z3::mk_numeral(*z3_ctx, num.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, base);
+                    let base =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num.as_ptr(), sort)).unwrap();
 
                     // Create zero extension (extend by 8 bits)
-                    let zext_z3 = z3::mk_zero_ext(*z3_ctx, 8, base);
-                    z3::inc_ref(*z3_ctx, zext_z3);
+                    let zext_z3 = RcAst::try_from(z3::mk_zero_ext(*z3_ctx, 8, base.0)).unwrap();
 
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, zext_z3).unwrap();
@@ -1324,13 +1311,11 @@ mod tests {
 
                     // Create base value (negative number)
                     let num = std::ffi::CString::new("130").unwrap(); // 0x82 (negative in two's complement)
-                    let base = z3::mk_numeral(*z3_ctx, num.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, base);
+                    let base =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num.as_ptr(), sort)).unwrap();
 
                     // Create sign extension (extend by 8 bits)
-                    let sext_z3 = z3::mk_sign_ext(*z3_ctx, 8, base);
-                    z3::inc_ref(*z3_ctx, sext_z3);
-
+                    let sext_z3 = RcAst::try_from(z3::mk_sign_ext(*z3_ctx, 8, base.0)).unwrap();
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, sext_z3).unwrap();
                     let bv = ctx.bvv_prim(0x82u8).unwrap();
@@ -1349,12 +1334,12 @@ mod tests {
 
                     // Create base value
                     let num = std::ffi::CString::new("255").unwrap(); // 0xFF
-                    let base = z3::mk_numeral(*z3_ctx, num.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, base);
+                    let base =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num.as_ptr(), sort)).unwrap();
 
                     // Create extract operation (bits [6:2])
-                    let extract_z3 = z3::mk_extract(*z3_ctx, 6, 2, base);
-                    z3::inc_ref(*z3_ctx, extract_z3);
+                    let extract_z3 =
+                        RcAst::try_from(z3::mk_extract(*z3_ctx, 6, 2, base.0)).unwrap();
 
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, extract_z3).unwrap();
@@ -1374,17 +1359,15 @@ mod tests {
 
                     // Create operands
                     let num1 = std::ffi::CString::new("170").unwrap(); // 0xAA
-                    let op1 = z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, op1);
+                    let op1 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort)).unwrap();
 
                     let num2 = std::ffi::CString::new("187").unwrap(); // 0xBB
-                    let op2 = z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, op2);
+                    let op2 =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort)).unwrap();
 
                     // Create concatenation
-                    let concat_z3 = z3::mk_concat(*z3_ctx, op1, op2);
-                    z3::inc_ref(*z3_ctx, concat_z3);
-
+                    let concat_z3 = RcAst::try_from(z3::mk_concat(*z3_ctx, op1.0, op2.0)).unwrap();
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, concat_z3).unwrap();
                     let bv1 = ctx.bvv_prim(0xAAu8).unwrap();
@@ -1403,21 +1386,21 @@ mod tests {
                     let sort = z3::mk_bv_sort(*z3_ctx, 8);
 
                     // Create condition (true)
-                    let cond = z3::mk_true(*z3_ctx);
-                    z3::inc_ref(*z3_ctx, cond);
+                    let cond = RcAst::try_from(z3::mk_true(*z3_ctx)).unwrap();
 
                     // Create then and else values
                     let num1 = std::ffi::CString::new("170").unwrap(); // 0xAA
-                    let then_val = z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, then_val);
+                    let then_val =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num1.as_ptr(), sort)).unwrap();
 
                     let num2 = std::ffi::CString::new("187").unwrap(); // 0xBB
-                    let else_val = z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort);
-                    z3::inc_ref(*z3_ctx, else_val);
+                    let else_val =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort)).unwrap();
 
                     // Create if-then-else
-                    let ite_z3 = z3::mk_ite(*z3_ctx, cond, then_val, else_val);
-                    z3::inc_ref(*z3_ctx, ite_z3);
+                    let ite_z3 =
+                        RcAst::try_from(z3::mk_ite(*z3_ctx, cond.0, then_val.0, else_val.0))
+                            .unwrap();
 
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, ite_z3).unwrap();
