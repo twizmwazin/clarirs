@@ -171,6 +171,26 @@ pub(crate) fn simplify_bv<'c>(
                 }
                 (BitVecOp::BVV(v), _) if v.is_zero() => Ok(arc1.clone()),
                 (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
+
+                // If one operand is a bvv, and the other is an add with a bvv, combine them
+                (BitVecOp::BVV(v), BitVecOp::Add(inner_lhs, inner_rhs))
+                | (BitVecOp::Add(inner_lhs, inner_rhs), BitVecOp::BVV(v)) => {
+                    if let BitVecOp::BVV(inner_bvv) = inner_rhs.op() {
+                        let combined_value = (v.clone() + inner_bvv.clone())?;
+                        let combined_bvv = ctx.bvv(combined_value)?;
+                        let new_add = ctx.add(inner_lhs.clone(), combined_bvv)?;
+                        state.rerun(new_add)
+                    } else if let BitVecOp::BVV(inner_bvv) = inner_lhs.op() {
+                        let combined_value = (v.clone() + inner_bvv.clone())?;
+                        let combined_bvv = ctx.bvv(combined_value)?;
+                        let new_add = ctx.add(inner_rhs.clone(), combined_bvv)?;
+                        state.rerun(new_add)
+                    } else {
+                        // Neither side of the inner add is a BVV, fall through
+                        Ok(ctx.add(arc, arc1)?)
+                    }
+                }
+
                 _ => Ok(ctx.add(arc, arc1)?),
             }
         }
