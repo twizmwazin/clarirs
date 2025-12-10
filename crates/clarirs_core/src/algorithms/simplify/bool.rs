@@ -209,55 +209,6 @@ pub(crate) fn simplify_bool<'c>(
             match (early_lhs.op(), early_rhs.op()) {
                 (lhs, rhs) if lhs == rhs => Ok(ctx.true_()?),
                 (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => Ok(ctx.boolv(arc == arc1)?),
-
-                // General pattern: Eq(If(cond, a, b), a) -> cond (when a != b)
-                (BitVecOp::If(cond, then_bv, else_bv), rhs_val) if then_bv.op() == rhs_val => {
-                    match (then_bv.op(), else_bv.op()) {
-                        (BitVecOp::BVV(then_val), BitVecOp::BVV(else_val))
-                            if then_val != else_val =>
-                        {
-                            state.rerun(cond.clone())
-                        }
-                        (then_op, else_op) if then_op != else_op => Ok(cond.clone()),
-                        _ => Ok(ctx.eq_(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
-                    }
-                }
-                // General pattern: Eq(If(cond, a, b), b) -> !cond (when a != b)
-                (BitVecOp::If(cond, then_bv, else_bv), rhs_val) if else_bv.op() == rhs_val => {
-                    match (then_bv.op(), else_bv.op()) {
-                        (BitVecOp::BVV(then_val), BitVecOp::BVV(else_val))
-                            if then_val != else_val =>
-                        {
-                            state.rerun(ctx.not(cond)?)
-                        }
-                        (then_op, else_op) if then_op != else_op => Ok(ctx.not(cond)?),
-                        _ => Ok(ctx.eq_(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
-                    }
-                }
-                // Symmetric cases
-                (lhs_val, BitVecOp::If(cond, then_bv, else_bv)) if then_bv.op() == lhs_val => {
-                    match (then_bv.op(), else_bv.op()) {
-                        (BitVecOp::BVV(then_val), BitVecOp::BVV(else_val))
-                            if then_val != else_val =>
-                        {
-                            state.rerun(cond.clone())
-                        }
-                        (then_op, else_op) if then_op != else_op => Ok(cond.clone()),
-                        _ => Ok(ctx.eq_(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
-                    }
-                }
-                (lhs_val, BitVecOp::If(cond, then_bv, else_bv)) if else_bv.op() == lhs_val => {
-                    match (then_bv.op(), else_bv.op()) {
-                        (BitVecOp::BVV(then_val), BitVecOp::BVV(else_val))
-                            if then_val != else_val =>
-                        {
-                            state.rerun(ctx.not(cond)?)
-                        }
-                        (then_op, else_op) if then_op != else_op => Ok(ctx.not(cond)?),
-                        _ => Ok(ctx.eq_(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
-                    }
-                }
-
                 _ => Ok(ctx.eq_(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
             }
         }
@@ -268,57 +219,6 @@ pub(crate) fn simplify_bool<'c>(
             match (early_lhs.op(), early_rhs.op()) {
                 (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => Ok(ctx.boolv(arc != arc1)?),
                 (lhs, rhs) if lhs == rhs => Ok(ctx.false_()?),
-
-                // General pattern: Neq(If(cond, a, b), b) -> cond (when a != b)
-                (BitVecOp::If(cond, then_bv, else_bv), rhs_val) if else_bv.op() == rhs_val => {
-                    // Check if then_bv != else_bv
-                    match (then_bv.op(), else_bv.op()) {
-                        (BitVecOp::BVV(then_val), BitVecOp::BVV(else_val))
-                            if then_val != else_val =>
-                        {
-                            state.rerun(cond.clone())
-                        }
-                        (then_op, else_op) if then_op != else_op => Ok(cond.clone()),
-                        _ => Ok(ctx.neq(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
-                    }
-                }
-                // General pattern: Neq(If(cond, a, b), a) -> !cond (when a != b)
-                (BitVecOp::If(cond, then_bv, else_bv), rhs_val) if then_bv.op() == rhs_val => {
-                    // Check if then_bv != else_bv
-                    match (then_bv.op(), else_bv.op()) {
-                        (BitVecOp::BVV(then_val), BitVecOp::BVV(else_val))
-                            if then_val != else_val =>
-                        {
-                            state.rerun(ctx.not(cond)?)
-                        }
-                        (then_op, else_op) if then_op != else_op => Ok(ctx.not(cond)?),
-                        _ => Ok(ctx.neq(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
-                    }
-                }
-                // Symmetric cases: Neq(b, If(cond, a, b)) -> cond and Neq(a, If(cond, a, b)) -> !cond
-                (lhs_val, BitVecOp::If(cond, then_bv, else_bv)) if else_bv.op() == lhs_val => {
-                    match (then_bv.op(), else_bv.op()) {
-                        (BitVecOp::BVV(then_val), BitVecOp::BVV(else_val))
-                            if then_val != else_val =>
-                        {
-                            state.rerun(cond.clone())
-                        }
-                        (then_op, else_op) if then_op != else_op => Ok(cond.clone()),
-                        _ => Ok(ctx.neq(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
-                    }
-                }
-                (lhs_val, BitVecOp::If(cond, then_bv, else_bv)) if then_bv.op() == lhs_val => {
-                    match (then_bv.op(), else_bv.op()) {
-                        (BitVecOp::BVV(then_val), BitVecOp::BVV(else_val))
-                            if then_val != else_val =>
-                        {
-                            state.rerun(ctx.not(cond)?)
-                        }
-                        (then_op, else_op) if then_op != else_op => Ok(ctx.not(cond)?),
-                        _ => Ok(ctx.neq(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
-                    }
-                }
-
                 _ => Ok(ctx.neq(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
             }
         }
