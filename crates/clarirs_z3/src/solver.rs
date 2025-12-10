@@ -1,6 +1,6 @@
 use crate::Z3_CONTEXT;
 use crate::astext::AstExtZ3;
-use crate::rc::{RcModel, RcOptimize, RcSolver};
+use crate::rc::{RcAst, RcModel, RcOptimize, RcSolver};
 use clarirs_core::ast::bitvec::BitVecOpExt;
 use clarirs_core::prelude::*;
 use clarirs_z3_sys as z3;
@@ -79,7 +79,7 @@ impl<'c> Z3Solver<'c> {
                     if eval_ret {
                         Ok(DynAst::from(&BoolAst::from_z3(
                             expr.context(),
-                            eval_result,
+                            RcAst::try_from(eval_result)?,
                         )?))
                     } else {
                         Err(ClarirsError::Unsat)
@@ -92,7 +92,7 @@ impl<'c> Z3Solver<'c> {
                     if eval_ret {
                         Ok(DynAst::from(&BitVecAst::from_z3(
                             expr.context(),
-                            eval_result,
+                            RcAst::try_from(eval_result)?,
                         )?))
                     } else {
                         Err(ClarirsError::Unsat)
@@ -105,7 +105,7 @@ impl<'c> Z3Solver<'c> {
                     if eval_ret {
                         Ok(DynAst::from(&FloatAst::from_z3(
                             expr.context(),
-                            eval_result,
+                            RcAst::try_from(eval_result)?,
                         )?))
                     } else {
                         Err(ClarirsError::Unsat)
@@ -118,7 +118,7 @@ impl<'c> Z3Solver<'c> {
                     if eval_ret {
                         Ok(DynAst::from(&StringAst::from_z3(
                             expr.context(),
-                            eval_result,
+                            RcAst::try_from(eval_result)?,
                         )?))
                     } else {
                         Err(ClarirsError::Unsat)
@@ -193,7 +193,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
                     break;
                 }
 
-                let solution = BoolAst::from_z3(self.context(), eval_result)?;
+                let solution = BoolAst::from_z3(self.context(), RcAst::try_from(eval_result)?)?;
                 results.push(solution.clone());
 
                 // Add constraint to exclude this solution
@@ -245,7 +245,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
                     break;
                 }
 
-                let solution = BitVecAst::from_z3(self.context(), eval_result)?;
+                let solution = BitVecAst::from_z3(self.context(), RcAst::try_from(eval_result)?)?;
                 results.push(solution.clone());
 
                 // Add constraint to exclude this solution
@@ -297,7 +297,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
                     break;
                 }
 
-                let solution = FloatAst::from_z3(self.context(), eval_result)?;
+                let solution = FloatAst::from_z3(self.context(), RcAst::try_from(eval_result)?)?;
                 results.push(solution.clone());
 
                 // Add constraint to exclude this solution
@@ -349,7 +349,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
                     break;
                 }
 
-                let solution = StringAst::from_z3(self.context(), eval_result)?;
+                let solution = StringAst::from_z3(self.context(), RcAst::try_from(eval_result)?)?;
                 results.push(solution.clone());
 
                 // Add constraint to exclude this solution

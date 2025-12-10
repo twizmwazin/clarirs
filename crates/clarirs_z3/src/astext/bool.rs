@@ -13,22 +13,22 @@ pub(crate) fn to_z3(ast: &BoolAst, children: &[RcAst]) -> Result<RcAst, ClarirsE
                 let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
                 let sym = z3::mk_string_symbol(z3_ctx, s_cstr.as_ptr());
                 let sort = z3::mk_bool_sort(z3_ctx);
-                RcAst::from(z3::mk_const(z3_ctx, sym, sort))
+                RcAst::try_from(z3::mk_const(z3_ctx, sym, sort))?
             }
             BooleanOp::BoolV(b) => if *b {
                 z3::mk_true(z3_ctx)
             } else {
                 z3::mk_false(z3_ctx)
             }
-            .into(),
+            .try_into()?,
             BooleanOp::Not(..) => unop!(z3_ctx, children, mk_not),
             BooleanOp::And(..) => {
                 let args = [child!(children, 0).0, child!(children, 1).0];
-                z3::mk_and(z3_ctx, 2, args.as_ptr()).into()
+                z3::mk_and(z3_ctx, 2, args.as_ptr()).try_into()?
             }
             BooleanOp::Or(..) => {
                 let args = [child!(children, 0).0, child!(children, 1).0];
-                z3::mk_or(z3_ctx, 2, args.as_ptr()).into()
+                z3::mk_or(z3_ctx, 2, args.as_ptr()).try_into()?
             }
             BooleanOp::Xor(..) => binop!(z3_ctx, children, mk_xor),
             BooleanOp::BoolEq(..) => binop!(z3_ctx, children, mk_eq),
@@ -36,13 +36,13 @@ pub(crate) fn to_z3(ast: &BoolAst, children: &[RcAst]) -> Result<RcAst, ClarirsE
                 let a = child!(children, 0);
                 let b = child!(children, 1);
                 let eq = z3::mk_eq(z3_ctx, a.0, b.0);
-                z3::mk_not(z3_ctx, eq).into()
+                z3::mk_not(z3_ctx, eq).try_into()?
             }
             BooleanOp::If(..) => {
                 let cond = child!(children, 0);
                 let then = child!(children, 1);
                 let else_ = child!(children, 2);
-                z3::mk_ite(z3_ctx, cond.0, then.0, else_.0).into()
+                z3::mk_ite(z3_ctx, cond.0, then.0, else_.0).try_into()?
             }
 
             // BV operations
@@ -51,7 +51,7 @@ pub(crate) fn to_z3(ast: &BoolAst, children: &[RcAst]) -> Result<RcAst, ClarirsE
                 let a = child!(children, 0);
                 let b = child!(children, 1);
                 let eq = z3::mk_eq(z3_ctx, a.0, b.0);
-                z3::mk_not(z3_ctx, eq).into()
+                z3::mk_not(z3_ctx, eq).try_into()?
             }
             BooleanOp::ULT(..) => binop!(z3_ctx, children, mk_bvult),
             BooleanOp::ULE(..) => binop!(z3_ctx, children, mk_bvule),
@@ -68,7 +68,7 @@ pub(crate) fn to_z3(ast: &BoolAst, children: &[RcAst]) -> Result<RcAst, ClarirsE
                 let a = child!(children, 0);
                 let b = child!(children, 1);
                 let eq = z3::mk_fpa_eq(z3_ctx, a.0, b.0);
-                z3::mk_not(z3_ctx, eq).into()
+                z3::mk_not(z3_ctx, eq).try_into()?
             }
             BooleanOp::FpLt(..) => binop!(z3_ctx, children, mk_fpa_lt),
             BooleanOp::FpLeq(..) => binop!(z3_ctx, children, mk_fpa_leq),
@@ -87,7 +87,7 @@ pub(crate) fn to_z3(ast: &BoolAst, children: &[RcAst]) -> Result<RcAst, ClarirsE
                 let a = child!(children, 0);
                 let b = child!(children, 1);
                 let eq = z3::mk_eq(z3_ctx, a.0, b.0);
-                z3::mk_not(z3_ctx, eq).into()
+                z3::mk_not(z3_ctx, eq).try_into()?
             }
         })
         .and_then(|maybe_null| {
@@ -114,7 +114,7 @@ pub(crate) fn from_z3<'c>(
                     z3::DeclKind::True => ctx.true_(),
                     z3::DeclKind::False => ctx.false_(),
                     z3::DeclKind::Not => {
-                        let arg = z3::get_app_arg(*z3_ctx, app, 0);
+                        let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
                         let inner = BoolAst::from_z3(ctx, arg)?;
 
                         // Special case: if the inner expression is a BoolEq, convert to BoolNeq
@@ -125,8 +125,8 @@ pub(crate) fn from_z3<'c>(
                         }
                     }
                     z3::DeclKind::And | z3::DeclKind::Or | z3::DeclKind::Xor => {
-                        let arg0 = z3::get_app_arg(*z3_ctx, app, 0);
-                        let arg1 = z3::get_app_arg(*z3_ctx, app, 1);
+                        let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
+                        let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
 
                         // Convert both arguments
                         let a = BoolAst::from_z3(ctx, arg0)?;
@@ -141,10 +141,10 @@ pub(crate) fn from_z3<'c>(
                         }
                     }
                     z3::DeclKind::Eq => {
-                        let arg0 = z3::get_app_arg(*z3_ctx, app, 0);
-                        let arg1 = z3::get_app_arg(*z3_ctx, app, 1);
+                        let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
+                        let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
 
-                        if let Ok(lhs) = BoolAst::from_z3(ctx, arg0) {
+                        if let Ok(lhs) = BoolAst::from_z3(ctx, &arg0) {
                             if let Ok(rhs) = BoolAst::from_z3(ctx, arg1) {
                                 ctx.eq_(lhs, rhs)
                             } else {
@@ -152,7 +152,7 @@ pub(crate) fn from_z3<'c>(
                                     "Eq lhs is bool, rhs is not".to_string(),
                                 ))
                             }
-                        } else if let Ok(lhs) = BitVecAst::from_z3(ctx, arg0) {
+                        } else if let Ok(lhs) = BitVecAst::from_z3(ctx, &arg0) {
                             if let Ok(rhs) = BitVecAst::from_z3(ctx, arg1) {
                                 ctx.eq_(lhs, rhs)
                             } else {
@@ -160,7 +160,7 @@ pub(crate) fn from_z3<'c>(
                                     "Eq lhs is bv, rhs is not".to_string(),
                                 ))
                             }
-                        } else if let Ok(lhs) = FloatAst::from_z3(ctx, arg0) {
+                        } else if let Ok(lhs) = FloatAst::from_z3(ctx, &arg0) {
                             if let Ok(rhs) = FloatAst::from_z3(ctx, arg1) {
                                 ctx.eq_(lhs, rhs)
                             } else {
@@ -168,7 +168,7 @@ pub(crate) fn from_z3<'c>(
                                     "Eq lhs is fp, rhs is not".to_string(),
                                 ))
                             }
-                        } else if let Ok(lhs) = StringAst::from_z3(ctx, arg0) {
+                        } else if let Ok(lhs) = StringAst::from_z3(ctx, &arg0) {
                             if let Ok(rhs) = StringAst::from_z3(ctx, arg1) {
                                 ctx.eq_(lhs, rhs)
                             } else {
@@ -190,8 +190,8 @@ pub(crate) fn from_z3<'c>(
                     | z3::DeclKind::Sleq
                     | z3::DeclKind::Sgt
                     | z3::DeclKind::Sgeq => {
-                        let arg0 = z3::get_app_arg(*z3_ctx, app, 0);
-                        let arg1 = z3::get_app_arg(*z3_ctx, app, 1);
+                        let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
+                        let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
 
                         // Convert both arguments
                         let a = BitVecAst::from_z3(ctx, arg0)?;
@@ -211,9 +211,9 @@ pub(crate) fn from_z3<'c>(
                         }
                     }
                     z3::DeclKind::Ite => {
-                        let cond = z3::get_app_arg(*z3_ctx, app, 0);
-                        let then = z3::get_app_arg(*z3_ctx, app, 1);
-                        let else_ = z3::get_app_arg(*z3_ctx, app, 2);
+                        let cond = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
+                        let then = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
+                        let else_ = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 2))?;
                         let cond = BoolAst::from_z3(ctx, cond)?;
                         let then = BoolAst::from_z3(ctx, then)?;
                         let else_ = BoolAst::from_z3(ctx, else_)?;
@@ -535,7 +535,8 @@ mod tests {
                     let sym = z3::mk_string_symbol(*z3_ctx, s_cstr.as_ptr());
                     let sort = z3::mk_bool_sort(*z3_ctx);
                     let decl = z3::mk_func_decl(*z3_ctx, sym, 0, std::ptr::null(), sort);
-                    let z3_ast = z3::mk_app(*z3_ctx, decl, 0, std::ptr::null());
+                    let z3_ast =
+                        RcAst::try_from(z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())).unwrap();
 
                     // Convert from Z3 to Clarirs
                     let result = BoolAst::from_z3(&ctx, z3_ast).unwrap();
@@ -550,8 +551,8 @@ mod tests {
             unsafe {
                 let ctx = Context::new();
                 Z3_CONTEXT.with(|z3_ctx| {
-                    let true_z3 = z3::mk_true(*z3_ctx);
-                    let false_z3 = z3::mk_false(*z3_ctx);
+                    let true_z3 = RcAst::try_from(z3::mk_true(*z3_ctx)).unwrap();
+                    let false_z3 = RcAst::try_from(z3::mk_false(*z3_ctx)).unwrap();
 
                     let true_result = BoolAst::from_z3(&ctx, true_z3).unwrap();
                     let false_result = BoolAst::from_z3(&ctx, false_z3).unwrap();
@@ -572,11 +573,11 @@ mod tests {
                         let sym = z3::mk_string_symbol(*z3_ctx, s_cstr.as_ptr());
                         let sort = z3::mk_bool_sort(*z3_ctx);
                         let decl = z3::mk_func_decl(*z3_ctx, sym, 0, std::ptr::null(), sort);
-                        z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())
+                        RcAst::try_from(z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())).unwrap()
                     };
-                    let not_z3 = z3::mk_not(*z3_ctx, x_z3);
+                    let not_z3 = RcAst::try_from(z3::mk_not(*z3_ctx, *x_z3)).unwrap();
 
-                    let result = BoolAst::from_z3(&ctx, not_z3).unwrap();
+                    let result = BoolAst::from_z3(&ctx, &not_z3).unwrap();
                     let expected = ctx.not(ctx.bools("x").unwrap()).unwrap();
                     assert_eq!(result, expected);
                 });
@@ -593,18 +594,17 @@ mod tests {
                         let sym = z3::mk_string_symbol(*z3_ctx, s_cstr.as_ptr());
                         let sort = z3::mk_bool_sort(*z3_ctx);
                         let decl = z3::mk_func_decl(*z3_ctx, sym, 0, std::ptr::null(), sort);
-                        z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())
+                        RcAst::try_from(z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())).unwrap()
                     };
-                    z3::inc_ref(*z3_ctx, x_z3);
                     let y_z3 = {
                         let s_cstr = std::ffi::CString::new("y").unwrap();
                         let sym = z3::mk_string_symbol(*z3_ctx, s_cstr.as_ptr());
                         let sort = z3::mk_bool_sort(*z3_ctx);
                         let decl = z3::mk_func_decl(*z3_ctx, sym, 0, std::ptr::null(), sort);
-                        z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())
+                        RcAst::try_from(z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())).unwrap()
                     };
-                    let args = [x_z3, y_z3];
-                    let and_z3 = z3::mk_and(*z3_ctx, 2, args.as_ptr());
+                    let args = [*x_z3, *y_z3];
+                    let and_z3 = RcAst::try_from(z3::mk_and(*z3_ctx, 2, args.as_ptr())).unwrap();
 
                     let result = BoolAst::from_z3(&ctx, and_z3).unwrap();
                     let expected = ctx
@@ -625,18 +625,17 @@ mod tests {
                         let sym = z3::mk_string_symbol(*z3_ctx, s_cstr.as_ptr());
                         let sort = z3::mk_bool_sort(*z3_ctx);
                         let decl = z3::mk_func_decl(*z3_ctx, sym, 0, std::ptr::null(), sort);
-                        z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())
+                        RcAst::try_from(z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())).unwrap()
                     };
-                    z3::inc_ref(*z3_ctx, x_z3);
                     let y_z3 = {
                         let s_cstr = std::ffi::CString::new("y").unwrap();
                         let sym = z3::mk_string_symbol(*z3_ctx, s_cstr.as_ptr());
                         let sort = z3::mk_bool_sort(*z3_ctx);
                         let decl = z3::mk_func_decl(*z3_ctx, sym, 0, std::ptr::null(), sort);
-                        z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())
+                        RcAst::try_from(z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())).unwrap()
                     };
-                    let args = [x_z3, y_z3];
-                    let or_z3 = z3::mk_or(*z3_ctx, 2, args.as_ptr());
+                    let args = [*x_z3, *y_z3];
+                    let or_z3 = RcAst::try_from(z3::mk_or(*z3_ctx, 2, args.as_ptr())).unwrap();
 
                     let result = BoolAst::from_z3(&ctx, or_z3).unwrap();
                     let expected = ctx
@@ -657,17 +656,16 @@ mod tests {
                         let sym = z3::mk_string_symbol(*z3_ctx, s_cstr.as_ptr());
                         let sort = z3::mk_bool_sort(*z3_ctx);
                         let decl = z3::mk_func_decl(*z3_ctx, sym, 0, std::ptr::null(), sort);
-                        z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())
+                        RcAst::try_from(z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())).unwrap()
                     };
-                    z3::inc_ref(*z3_ctx, x_z3);
                     let y_z3 = {
                         let s_cstr = std::ffi::CString::new("y").unwrap();
                         let sym = z3::mk_string_symbol(*z3_ctx, s_cstr.as_ptr());
                         let sort = z3::mk_bool_sort(*z3_ctx);
                         let decl = z3::mk_func_decl(*z3_ctx, sym, 0, std::ptr::null(), sort);
-                        z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())
+                        RcAst::try_from(z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())).unwrap()
                     };
-                    let xor_z3 = z3::mk_xor(*z3_ctx, x_z3, y_z3);
+                    let xor_z3 = RcAst::try_from(z3::mk_xor(*z3_ctx, *x_z3, *y_z3)).unwrap();
 
                     let result = BoolAst::from_z3(&ctx, xor_z3).unwrap();
                     let expected = ctx
@@ -688,17 +686,16 @@ mod tests {
                         let sym = z3::mk_string_symbol(*z3_ctx, s_cstr.as_ptr());
                         let sort = z3::mk_bool_sort(*z3_ctx);
                         let decl = z3::mk_func_decl(*z3_ctx, sym, 0, std::ptr::null(), sort);
-                        z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())
+                        RcAst::try_from(z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())).unwrap()
                     };
-                    z3::inc_ref(*z3_ctx, x_z3);
                     let y_z3 = {
                         let s_cstr = std::ffi::CString::new("y").unwrap();
                         let sym = z3::mk_string_symbol(*z3_ctx, s_cstr.as_ptr());
                         let sort = z3::mk_bool_sort(*z3_ctx);
                         let decl = z3::mk_func_decl(*z3_ctx, sym, 0, std::ptr::null(), sort);
-                        z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())
+                        RcAst::try_from(z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())).unwrap()
                     };
-                    let eq_z3 = z3::mk_eq(*z3_ctx, x_z3, y_z3);
+                    let eq_z3 = RcAst::try_from(z3::mk_eq(*z3_ctx, *x_z3, *y_z3)).unwrap();
 
                     let result = BoolAst::from_z3(&ctx, eq_z3).unwrap();
                     let expected = ctx
@@ -721,9 +718,10 @@ mod tests {
                         let decl = z3::mk_func_decl(*z3_ctx, sym, 0, std::ptr::null(), sort);
                         z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())
                     };
-                    let true_z3 = z3::mk_true(*z3_ctx);
-                    let false_z3 = z3::mk_false(*z3_ctx);
-                    let if_z3 = z3::mk_ite(*z3_ctx, c_z3, true_z3, false_z3);
+                    let true_z3 = RcAst::try_from(z3::mk_true(*z3_ctx)).unwrap();
+                    let false_z3 = RcAst::try_from(z3::mk_false(*z3_ctx)).unwrap();
+                    let if_z3 =
+                        RcAst::try_from(z3::mk_ite(*z3_ctx, c_z3, true_z3.0, false_z3.0)).unwrap();
 
                     let result = BoolAst::from_z3(&ctx, if_z3).unwrap();
                     let expected = ctx

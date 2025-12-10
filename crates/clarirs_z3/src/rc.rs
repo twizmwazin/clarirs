@@ -1,6 +1,7 @@
 use std::ops::{Deref, DerefMut};
 
-use crate::Z3_CONTEXT;
+use crate::{Z3_CONTEXT, check_z3_error};
+use clarirs_core::error::ClarirsError;
 use clarirs_z3_sys as z3;
 
 #[repr(transparent)]
@@ -13,16 +14,25 @@ impl Clone for RcAst {
     }
 }
 
+impl From<&RcAst> for RcAst {
+    fn from(val: &RcAst) -> Self {
+        val.clone()
+    }
+}
+
 impl Drop for RcAst {
     fn drop(&mut self) {
         Z3_CONTEXT.with(|&ctx| unsafe { z3::dec_ref(ctx, self.0) });
     }
 }
 
-impl From<z3::Ast> for RcAst {
-    fn from(ast: z3::Ast) -> Self {
+impl TryFrom<z3::Ast> for RcAst {
+    type Error = ClarirsError;
+
+    fn try_from(ast: z3::Ast) -> Result<Self, Self::Error> {
+        check_z3_error()?;
         Z3_CONTEXT.with(|&ctx| unsafe { z3::inc_ref(ctx, ast) });
-        RcAst(ast)
+        Ok(RcAst(ast))
     }
 }
 

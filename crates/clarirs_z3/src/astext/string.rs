@@ -5,8 +5,8 @@ use regex::Regex;
 
 use super::AstExtZ3;
 
-fn mk_bv2int(bv: RcAst) -> RcAst {
-    Z3_CONTEXT.with(|&z3_ctx| unsafe { RcAst::from(z3::mk_bv2int(z3_ctx, bv.0, false)) })
+fn mk_bv2int(bv: RcAst) -> Result<RcAst, ClarirsError> {
+    Z3_CONTEXT.with(|&z3_ctx| unsafe { RcAst::try_from(z3::mk_bv2int(z3_ctx, bv.0, false)) })
 }
 
 fn decode_custom_unicode(input: &str) -> String {
@@ -30,7 +30,7 @@ pub(crate) fn to_z3(ast: &StringAst, children: &[RcAst]) -> Result<RcAst, Clarir
                 let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
                 let sym = z3::mk_string_symbol(z3_ctx, s_cstr.as_ptr());
                 let sort = z3::mk_seq_sort(z3_ctx, z3::mk_char_sort(z3_ctx));
-                RcAst::from(z3::mk_const(z3_ctx, sym, sort))
+                RcAst::try_from(z3::mk_const(z3_ctx, sym, sort))?
             }
             StringOp::StringV(s) => {
                 let mut encoded = String::new();
@@ -43,34 +43,34 @@ pub(crate) fn to_z3(ast: &StringAst, children: &[RcAst]) -> Result<RcAst, Clarir
                     }
                 }
                 let cstr = std::ffi::CString::new(encoded).unwrap();
-                RcAst::from(z3::mk_string(z3_ctx, cstr.as_ptr()))
+                RcAst::try_from(z3::mk_string(z3_ctx, cstr.as_ptr()))?
             }
             StringOp::StrConcat(..) => {
                 let a = child!(children, 0);
                 let b = child!(children, 1);
                 let args = [a.0, b.0];
-                z3::mk_seq_concat(z3_ctx, 2, args.as_ptr()).into()
+                RcAst::try_from(z3::mk_seq_concat(z3_ctx, 2, args.as_ptr()))?
             }
             StringOp::StrSubstr(..) => {
                 let a = child!(children, 0);
                 let offset_bv = child!(children, 1);
-                let offset_int = mk_bv2int(offset_bv.clone());
+                let offset_int = mk_bv2int(offset_bv.clone())?;
                 let len_bv = child!(children, 2);
-                let len_int = mk_bv2int(len_bv.clone());
-                z3::mk_seq_extract(z3_ctx, a.0, offset_int.0, len_int.0).into()
+                let len_int = mk_bv2int(len_bv.clone())?;
+                RcAst::try_from(z3::mk_seq_extract(z3_ctx, a.0, *offset_int, *len_int))?
             }
             StringOp::StrReplace(..) => {
                 let a = child!(children, 0);
                 let b = child!(children, 1);
                 let c = child!(children, 2);
-                z3::mk_seq_replace(z3_ctx, a.0, b.0, c.0).into()
+                RcAst::try_from(z3::mk_seq_replace(z3_ctx, a.0, b.0, c.0))?
             }
             StringOp::BVToStr(_) => todo!("BVToStr - no direct Z3 equivalent"),
             StringOp::If(cond, then, else_) => {
                 let cond = cond.to_z3()?;
                 let then = then.to_z3()?;
                 let else_ = else_.to_z3()?;
-                z3::mk_ite(z3_ctx, cond.0, then.0, else_.0).into()
+                RcAst::try_from(z3::mk_ite(z3_ctx, cond.0, then.0, else_.0))?
             }
         })
         .and_then(|maybe_null| {
@@ -116,41 +116,41 @@ pub(crate) fn from_z3<'c>(
                         ctx.strings(name)
                     }
                     z3::DeclKind::SeqConcat => {
-                        let arg0 = z3::get_app_arg(z3_ctx, app, 0);
-                        let arg1 = z3::get_app_arg(z3_ctx, app, 1);
+                        let arg0 = RcAst::try_from(z3::get_app_arg(z3_ctx, app, 0))?;
+                        let arg1 = RcAst::try_from(z3::get_app_arg(z3_ctx, app, 1))?;
                         let a = StringAst::from_z3(ctx, arg0)?;
                         let b = StringAst::from_z3(ctx, arg1)?;
                         ctx.strconcat(a, b)
                     }
                     z3::DeclKind::SeqExtract => {
-                        let arg0 = z3::get_app_arg(z3_ctx, app, 0);
-                        let arg1 = z3::get_app_arg(z3_ctx, app, 1);
-                        let arg2 = z3::get_app_arg(z3_ctx, app, 2);
+                        let arg0 = RcAst::try_from(z3::get_app_arg(z3_ctx, app, 0))?;
+                        let arg1 = RcAst::try_from(z3::get_app_arg(z3_ctx, app, 1))?;
+                        let arg2 = RcAst::try_from(z3::get_app_arg(z3_ctx, app, 2))?;
                         let a = StringAst::from_z3(ctx, arg0)?;
 
-                        let offset_bv = RcAst::from(z3::mk_int2bv(z3_ctx, 64, arg1));
-                        let offset_simplified = RcAst::from(z3::simplify(z3_ctx, offset_bv.0));
+                        let offset_bv = RcAst::try_from(z3::mk_int2bv(z3_ctx, 64, *arg1))?;
+                        let offset_simplified = RcAst::try_from(z3::simplify(z3_ctx, *offset_bv))?;
                         let offset = BitVecAst::from_z3(ctx, offset_simplified)?;
 
-                        let len_bv = RcAst::from(z3::mk_int2bv(z3_ctx, 64, arg2));
-                        let len_simplified = RcAst::from(z3::simplify(z3_ctx, len_bv.0));
+                        let len_bv = RcAst::try_from(z3::mk_int2bv(z3_ctx, 64, *arg2))?;
+                        let len_simplified = RcAst::try_from(z3::simplify(z3_ctx, *len_bv))?;
                         let len = BitVecAst::from_z3(ctx, len_simplified)?;
 
                         ctx.strsubstr(a, offset, len)
                     }
                     z3::DeclKind::SeqReplace => {
-                        let arg0 = z3::get_app_arg(z3_ctx, app, 0);
-                        let arg1 = z3::get_app_arg(z3_ctx, app, 1);
-                        let arg2 = z3::get_app_arg(z3_ctx, app, 2);
+                        let arg0 = RcAst::try_from(z3::get_app_arg(z3_ctx, app, 0))?;
+                        let arg1 = RcAst::try_from(z3::get_app_arg(z3_ctx, app, 1))?;
+                        let arg2 = RcAst::try_from(z3::get_app_arg(z3_ctx, app, 2))?;
                         let a = StringAst::from_z3(ctx, arg0)?;
                         let b = StringAst::from_z3(ctx, arg1)?;
                         let c = StringAst::from_z3(ctx, arg2)?;
                         ctx.strreplace(a, b, c)
                     }
                     z3::DeclKind::Ite => {
-                        let cond = z3::get_app_arg(z3_ctx, app, 0);
-                        let then = z3::get_app_arg(z3_ctx, app, 1);
-                        let else_ = z3::get_app_arg(z3_ctx, app, 2);
+                        let cond = RcAst::try_from(z3::get_app_arg(z3_ctx, app, 0))?;
+                        let then = RcAst::try_from(z3::get_app_arg(z3_ctx, app, 1))?;
+                        let else_ = RcAst::try_from(z3::get_app_arg(z3_ctx, app, 2))?;
                         let cond = BoolAst::from_z3(ctx, cond)?;
                         let then = StringAst::from_z3(ctx, then)?;
                         let else_ = StringAst::from_z3(ctx, else_)?;
@@ -362,7 +362,8 @@ mod tests {
                     let sym = z3::mk_string_symbol(*z3_ctx, s_cstr.as_ptr());
                     let sort = z3::mk_seq_sort(*z3_ctx, z3::mk_char_sort(*z3_ctx));
                     let decl = z3::mk_func_decl(*z3_ctx, sym, 0, std::ptr::null(), sort);
-                    let z3_ast = z3::mk_app(*z3_ctx, decl, 0, std::ptr::null());
+                    let z3_ast =
+                        RcAst::try_from(z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())).unwrap();
 
                     // Convert from Z3 to Clarirs
                     let result = StringAst::from_z3(&ctx, z3_ast).unwrap();
@@ -378,7 +379,7 @@ mod tests {
                 let ctx = Context::new();
                 Z3_CONTEXT.with(|z3_ctx| {
                     let s_cstr = std::ffi::CString::new("hello").unwrap();
-                    let z3_ast = z3::mk_string(*z3_ctx, s_cstr.as_ptr());
+                    let z3_ast = RcAst::try_from(z3::mk_string(*z3_ctx, s_cstr.as_ptr())).unwrap();
 
                     let result = StringAst::from_z3(&ctx, z3_ast).unwrap();
                     let expected = ctx.stringv("hello").unwrap();
@@ -394,17 +395,15 @@ mod tests {
                 Z3_CONTEXT.with(|z3_ctx| {
                     // Create string constants
                     let s1_cstr = std::ffi::CString::new("hello").unwrap();
-                    let s1 = z3::mk_string(*z3_ctx, s1_cstr.as_ptr());
-                    z3::inc_ref(*z3_ctx, s1);
+                    let s1 = RcAst::try_from(z3::mk_string(*z3_ctx, s1_cstr.as_ptr())).unwrap();
 
                     let s2_cstr = std::ffi::CString::new(" world").unwrap();
-                    let s2 = z3::mk_string(*z3_ctx, s2_cstr.as_ptr());
-                    z3::inc_ref(*z3_ctx, s2);
+                    let s2 = RcAst::try_from(z3::mk_string(*z3_ctx, s2_cstr.as_ptr())).unwrap();
 
                     // Create concatenation
-                    let args = [s1, s2];
-                    let concat = z3::mk_seq_concat(*z3_ctx, 2, args.as_ptr());
-                    z3::inc_ref(*z3_ctx, concat);
+                    let args = [*s1, *s2];
+                    let concat =
+                        RcAst::try_from(z3::mk_seq_concat(*z3_ctx, 2, args.as_ptr())).unwrap();
 
                     // Convert and verify
                     let result = StringAst::from_z3(&ctx, concat).unwrap();
@@ -423,22 +422,22 @@ mod tests {
                 Z3_CONTEXT.with(|z3_ctx| {
                     // Create string constant
                     let s_cstr = std::ffi::CString::new("hello world").unwrap();
-                    let s = z3::mk_string(*z3_ctx, s_cstr.as_ptr());
-                    z3::inc_ref(*z3_ctx, s);
+                    let s = RcAst::try_from(z3::mk_string(*z3_ctx, s_cstr.as_ptr())).unwrap();
 
                     // Create bitvector constants for start and length
                     let int_sort = z3::mk_int_sort(*z3_ctx);
                     let start_cstr = std::ffi::CString::new("6").unwrap();
-                    let start = z3::mk_numeral(*z3_ctx, start_cstr.as_ptr(), int_sort);
-                    z3::inc_ref(*z3_ctx, start);
+                    let start =
+                        RcAst::try_from(z3::mk_numeral(*z3_ctx, start_cstr.as_ptr(), int_sort))
+                            .unwrap();
 
                     let len_cstr = std::ffi::CString::new("5").unwrap();
-                    let len = z3::mk_numeral(*z3_ctx, len_cstr.as_ptr(), int_sort);
-                    z3::inc_ref(*z3_ctx, len);
+                    let len = RcAst::try_from(z3::mk_numeral(*z3_ctx, len_cstr.as_ptr(), int_sort))
+                        .unwrap();
 
                     // Create substring operation
-                    let substr = z3::mk_seq_extract(*z3_ctx, s, start, len);
-                    z3::inc_ref(*z3_ctx, substr);
+                    let substr =
+                        RcAst::try_from(z3::mk_seq_extract(*z3_ctx, *s, *start, *len)).unwrap();
 
                     // Convert and verify
                     let result = StringAst::from_z3(&ctx, substr).unwrap();
@@ -458,21 +457,19 @@ mod tests {
                 Z3_CONTEXT.with(|z3_ctx| {
                     // Create string constants
                     let s_cstr = std::ffi::CString::new("hello world").unwrap();
-                    let s = z3::mk_string(*z3_ctx, s_cstr.as_ptr());
-                    z3::inc_ref(*z3_ctx, s);
+                    let s = RcAst::try_from(z3::mk_string(*z3_ctx, s_cstr.as_ptr())).unwrap();
 
                     let pattern_cstr = std::ffi::CString::new("world").unwrap();
-                    let pattern = z3::mk_string(*z3_ctx, pattern_cstr.as_ptr());
-                    z3::inc_ref(*z3_ctx, pattern);
-
+                    let pattern =
+                        RcAst::try_from(z3::mk_string(*z3_ctx, pattern_cstr.as_ptr())).unwrap();
                     let replacement_cstr = std::ffi::CString::new("there").unwrap();
-                    let replacement = z3::mk_string(*z3_ctx, replacement_cstr.as_ptr());
-                    z3::inc_ref(*z3_ctx, replacement);
+                    let replacement =
+                        RcAst::try_from(z3::mk_string(*z3_ctx, replacement_cstr.as_ptr())).unwrap();
 
                     // Create replace operation
-                    let replace = z3::mk_seq_replace(*z3_ctx, s, pattern, replacement);
-                    z3::inc_ref(*z3_ctx, replace);
-
+                    let replace =
+                        RcAst::try_from(z3::mk_seq_replace(*z3_ctx, *s, *pattern, *replacement))
+                            .unwrap();
                     // Convert and verify
                     let result = StringAst::from_z3(&ctx, replace).unwrap();
                     let s_ast = ctx.stringv("hello world").unwrap();
@@ -496,21 +493,20 @@ mod tests {
                     let c_sym = z3::mk_string_symbol(*z3_ctx, c_cstr.as_ptr());
                     let bool_sort = z3::mk_bool_sort(*z3_ctx);
                     let c_decl = z3::mk_func_decl(*z3_ctx, c_sym, 0, std::ptr::null(), bool_sort);
-                    let cond = z3::mk_app(*z3_ctx, c_decl, 0, std::ptr::null());
-                    z3::inc_ref(*z3_ctx, cond);
+                    let cond =
+                        RcAst::try_from(z3::mk_app(*z3_ctx, c_decl, 0, std::ptr::null())).unwrap();
 
                     // Create string constants for then and else branches
                     let then_cstr = std::ffi::CString::new("then").unwrap();
-                    let then_val = z3::mk_string(*z3_ctx, then_cstr.as_ptr());
-                    z3::inc_ref(*z3_ctx, then_val);
+                    let then_val =
+                        RcAst::try_from(z3::mk_string(*z3_ctx, then_cstr.as_ptr())).unwrap();
 
                     let else_cstr = std::ffi::CString::new("else").unwrap();
-                    let else_val = z3::mk_string(*z3_ctx, else_cstr.as_ptr());
-                    z3::inc_ref(*z3_ctx, else_val);
-
+                    let else_val =
+                        RcAst::try_from(z3::mk_string(*z3_ctx, else_cstr.as_ptr())).unwrap();
                     // Create if-then-else
-                    let ite = z3::mk_ite(*z3_ctx, cond, then_val, else_val);
-                    z3::inc_ref(*z3_ctx, ite);
+                    let ite =
+                        RcAst::try_from(z3::mk_ite(*z3_ctx, *cond, *then_val, *else_val)).unwrap();
 
                     // Convert and verify
                     let result = StringAst::from_z3(&ctx, ite).unwrap();

@@ -9,7 +9,7 @@ macro_rules! child {
 macro_rules! unop {
     ($z3:ident, $children:ident, $op:ident) => {{
         let a = child!($children, 0);
-        z3::$op($z3, a.0).into()
+        RcAst::try_from(z3::$op($z3, a.0))?
     }};
 }
 
@@ -17,7 +17,7 @@ macro_rules! binop {
     ($z3:ident, $children:ident, $op:ident) => {{
         let a = child!($children, 0);
         let b = child!($children, 1);
-        z3::$op($z3, a.0, b.0).into()
+        RcAst::try_from(z3::$op($z3, a.0, b.0))?
     }};
 }
 
@@ -38,7 +38,7 @@ pub(crate) trait AstExtZ3<'c>: HasContext<'c> + Simplify<'c> + Sized {
     fn simplify_z3(&self) -> Result<Self, ClarirsError> {
         let ast = self.simplify()?.to_z3()?;
         Z3_CONTEXT.with(|ctx| unsafe {
-            let simplified_ast = RcAst::from(z3::simplify(*ctx, ast.into()));
+            let simplified_ast = RcAst::try_from(z3::simplify(*ctx, *ast))?;
             Self::from_z3(self.context(), simplified_ast)
         })
     }
