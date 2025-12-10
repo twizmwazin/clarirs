@@ -6,6 +6,8 @@ pub trait Solver<'c>: Clone + HasContext<'c> {
     // Constraint management
     fn add(&mut self, constraint: &BoolAst<'c>) -> Result<(), ClarirsError>;
 
+    fn clear(&mut self) -> Result<(), ClarirsError>;
+
     fn constraints(&self) -> Result<Vec<BoolAst<'c>>, ClarirsError>;
 
     /// Simplify the constraints held internally by the solver
@@ -123,58 +125,20 @@ impl<'c> ConcreteSolver<'c> {
 }
 
 impl<'c> Solver<'c> for ConcreteSolver<'c> {
-    fn eval_bool_n(
-        &mut self,
-        expr: &BoolAst<'c>,
-        n: u32,
-    ) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
-        if n == 0 {
-            return Ok(Vec::new());
-        }
-        let val = self.eval_bool(expr)?;
-        Ok(vec![val])
+    fn add(&mut self, _: &BoolAst<'c>) -> Result<(), ClarirsError> {
+        Ok(())
     }
 
-    fn eval_bitvec_n(
-        &mut self,
-        expr: &BitVecAst<'c>,
-        n: u32,
-    ) -> Result<Vec<BitVecAst<'c>>, ClarirsError> {
-        if n == 0 {
-            return Ok(Vec::new());
-        }
-        let val = self.eval_bitvec(expr)?;
-        Ok(vec![val])
+    fn clear(&mut self) -> Result<(), ClarirsError> {
+        Ok(())
     }
 
-    fn eval_float_n(
-        &mut self,
-        expr: &FloatAst<'c>,
-        n: u32,
-    ) -> Result<Vec<FloatAst<'c>>, ClarirsError> {
-        if n == 0 {
-            return Ok(Vec::new());
-        }
-        let val = self.eval_float(expr)?;
-        Ok(vec![val])
-    }
-
-    fn eval_string_n(
-        &mut self,
-        expr: &StringAst<'c>,
-        n: u32,
-    ) -> Result<Vec<StringAst<'c>>, ClarirsError> {
-        if n == 0 {
-            return Ok(Vec::new());
-        }
-        let val = self.eval_string(expr)?;
-        Ok(vec![val])
-    }
     fn constraints(&self) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
         Ok(Vec::new())
     }
 
-    fn add(&mut self, _: &BoolAst<'c>) -> Result<(), ClarirsError> {
+    fn simplify(&mut self) -> Result<(), ClarirsError> {
+        // ConcreteSolver has no constraints to simplify
         Ok(())
     }
 
@@ -250,9 +214,52 @@ impl<'c> Solver<'c> for ConcreteSolver<'c> {
         self.eval_bitvec(expr)
     }
 
-    fn simplify(&mut self) -> Result<(), ClarirsError> {
-        // ConcreteSolver has no constraints to simplify
-        Ok(())
+    fn eval_bool_n(
+        &mut self,
+        expr: &BoolAst<'c>,
+        n: u32,
+    ) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
+        if n == 0 {
+            return Ok(Vec::new());
+        }
+        let val = self.eval_bool(expr)?;
+        Ok(vec![val])
+    }
+
+    fn eval_bitvec_n(
+        &mut self,
+        expr: &BitVecAst<'c>,
+        n: u32,
+    ) -> Result<Vec<BitVecAst<'c>>, ClarirsError> {
+        if n == 0 {
+            return Ok(Vec::new());
+        }
+        let val = self.eval_bitvec(expr)?;
+        Ok(vec![val])
+    }
+
+    fn eval_float_n(
+        &mut self,
+        expr: &FloatAst<'c>,
+        n: u32,
+    ) -> Result<Vec<FloatAst<'c>>, ClarirsError> {
+        if n == 0 {
+            return Ok(Vec::new());
+        }
+        let val = self.eval_float(expr)?;
+        Ok(vec![val])
+    }
+
+    fn eval_string_n(
+        &mut self,
+        expr: &StringAst<'c>,
+        n: u32,
+    ) -> Result<Vec<StringAst<'c>>, ClarirsError> {
+        if n == 0 {
+            return Ok(Vec::new());
+        }
+        let val = self.eval_string(expr)?;
+        Ok(vec![val])
     }
 }
 

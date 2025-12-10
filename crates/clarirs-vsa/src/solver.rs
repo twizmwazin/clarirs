@@ -23,12 +23,16 @@ impl<'c> HasContext<'c> for VSASolver<'c> {
 }
 
 impl<'c> Solver<'c> for VSASolver<'c> {
-    fn constraints(&self) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
-        Ok(vec![])
-    }
-
     fn add(&mut self, _: &BoolAst<'c>) -> Result<(), ClarirsError> {
         Ok(())
+    }
+
+    fn clear(&mut self) -> Result<(), ClarirsError> {
+        Ok(())
+    }
+
+    fn constraints(&self) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
+        Ok(vec![])
     }
 
     fn simplify(&mut self) -> Result<(), ClarirsError> {

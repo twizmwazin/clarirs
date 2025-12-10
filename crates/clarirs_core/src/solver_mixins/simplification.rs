@@ -27,6 +27,10 @@ impl<'c, S: Solver<'c>> Solver<'c> for SimplificationMixin<'c, S> {
         self.inner.add(&constraint.simplify()?)
     }
 
+    fn clear(&mut self) -> Result<(), ClarirsError> {
+        self.inner.clear()
+    }
+
     fn constraints(&self) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
         self.inner.constraints()
     }
