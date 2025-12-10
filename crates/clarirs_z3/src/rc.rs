@@ -14,9 +14,9 @@ impl Clone for RcAst {
     }
 }
 
-impl Into<RcAst> for &RcAst {
-    fn into(self) -> RcAst {
-        self.clone()
+impl From<&RcAst> for RcAst {
+    fn from(val: &RcAst) -> Self {
+        val.clone()
     }
 }
 
