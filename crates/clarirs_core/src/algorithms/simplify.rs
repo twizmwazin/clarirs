@@ -208,7 +208,11 @@ fn simplify<'c>(ast: &DynAst<'c>, respect_annotations: bool) -> Result<DynAst<'c
             state.last_missed_child = None;
         }
 
-        let has_blocking_annotations = state.expr.annotations().iter().any(|a| a.eliminatable() && !a.relocatable());
+        let has_blocking_annotations = state
+            .expr
+            .annotations()
+            .iter()
+            .any(|a| a.eliminatable() && !a.relocatable());
         let should_simplify = !respect_annotations || !has_blocking_annotations;
         if should_simplify {
             let inner_result = simplify_inner(&mut state);
