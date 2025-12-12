@@ -35,8 +35,7 @@ pub(crate) fn to_z3(ast: &BoolAst, children: &[RcAst]) -> Result<RcAst, ClarirsE
             BooleanOp::BoolNeq(..) => {
                 let a = child!(children, 0);
                 let b = child!(children, 1);
-                let eq = z3::mk_eq(z3_ctx, a.0, b.0);
-                z3::mk_not(z3_ctx, eq).try_into()?
+                z3::mk_distinct(z3_ctx, 2, [a.0, b.0].as_ptr()).try_into()?
             }
             BooleanOp::If(..) => {
                 let cond = child!(children, 0);
@@ -50,8 +49,7 @@ pub(crate) fn to_z3(ast: &BoolAst, children: &[RcAst]) -> Result<RcAst, ClarirsE
             BooleanOp::Neq(..) => {
                 let a = child!(children, 0);
                 let b = child!(children, 1);
-                let eq = z3::mk_eq(z3_ctx, a.0, b.0);
-                z3::mk_not(z3_ctx, eq).try_into()?
+                z3::mk_distinct(z3_ctx, 2, [a.0, b.0].as_ptr()).try_into()?
             }
             BooleanOp::ULT(..) => binop!(z3_ctx, children, mk_bvult),
             BooleanOp::ULE(..) => binop!(z3_ctx, children, mk_bvule),
@@ -67,8 +65,7 @@ pub(crate) fn to_z3(ast: &BoolAst, children: &[RcAst]) -> Result<RcAst, ClarirsE
             BooleanOp::FpNeq(..) => {
                 let a = child!(children, 0);
                 let b = child!(children, 1);
-                let eq = z3::mk_fpa_eq(z3_ctx, a.0, b.0);
-                z3::mk_not(z3_ctx, eq).try_into()?
+                z3::mk_distinct(z3_ctx, 2, [a.0, b.0].as_ptr()).try_into()?
             }
             BooleanOp::FpLt(..) => binop!(z3_ctx, children, mk_fpa_lt),
             BooleanOp::FpLeq(..) => binop!(z3_ctx, children, mk_fpa_leq),
@@ -86,8 +83,7 @@ pub(crate) fn to_z3(ast: &BoolAst, children: &[RcAst]) -> Result<RcAst, ClarirsE
             BooleanOp::StrNeq(..) => {
                 let a = child!(children, 0);
                 let b = child!(children, 1);
-                let eq = z3::mk_eq(z3_ctx, a.0, b.0);
-                z3::mk_not(z3_ctx, eq).try_into()?
+                z3::mk_distinct(z3_ctx, 2, [a.0, b.0].as_ptr()).try_into()?
             }
         })
         .and_then(|maybe_null| {
