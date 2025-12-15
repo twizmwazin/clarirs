@@ -19,21 +19,21 @@ pub(crate) fn simplify_bool<'c>(
                 BooleanOp::Eq(lhs, rhs) => Ok(ctx.neq(lhs.clone(), rhs.clone())?),
 
                 // !(a > b)  ==>  a <= b
-                BooleanOp::UGT(lhs, rhs) => Ok(ctx.ule(lhs.clone(), rhs.clone())?),
+                BooleanOp::UGT(lhs, rhs) => state.rerun(ctx.ule(lhs.clone(), rhs.clone())?),
                 // !(a >= b)  ==>  a < b
-                BooleanOp::UGE(lhs, rhs) => Ok(ctx.ult(lhs.clone(), rhs.clone())?),
+                BooleanOp::UGE(lhs, rhs) => state.rerun(ctx.ult(lhs.clone(), rhs.clone())?),
                 // !(a < b)  ==>  a >= b
-                BooleanOp::ULT(lhs, rhs) => Ok(ctx.uge(lhs.clone(), rhs.clone())?),
+                BooleanOp::ULT(lhs, rhs) => state.rerun(ctx.uge(lhs.clone(), rhs.clone())?),
                 // !(a <= b)  ==>  a > b
-                BooleanOp::ULE(lhs, rhs) => Ok(ctx.ugt(lhs.clone(), rhs.clone())?),
+                BooleanOp::ULE(lhs, rhs) => state.rerun(ctx.ugt(lhs.clone(), rhs.clone())?),
                 // !(a s> b)  ==>  a s<= b
-                BooleanOp::SGT(lhs, rhs) => Ok(ctx.sle(lhs.clone(), rhs.clone())?),
+                BooleanOp::SGT(lhs, rhs) => state.rerun(ctx.sle(lhs.clone(), rhs.clone())?),
                 // !(a s>= b)  ==>  a s< b
-                BooleanOp::SGE(lhs, rhs) => Ok(ctx.slt(lhs.clone(), rhs.clone())?),
+                BooleanOp::SGE(lhs, rhs) => state.rerun(ctx.slt(lhs.clone(), rhs.clone())?),
                 // !(a s< b)  ==>  a s>= b
-                BooleanOp::SLT(lhs, rhs) => Ok(ctx.sge(lhs.clone(), rhs.clone())?),
+                BooleanOp::SLT(lhs, rhs) => state.rerun(ctx.sge(lhs.clone(), rhs.clone())?),
                 // !(a s<= b)  ==>  a s> b
-                BooleanOp::SLE(lhs, rhs) => Ok(ctx.sgt(lhs.clone(), rhs.clone())?),
+                BooleanOp::SLE(lhs, rhs) => state.rerun(ctx.sgt(lhs.clone(), rhs.clone())?),
 
                 _ => Ok(ctx.not(arc)?),
             }
