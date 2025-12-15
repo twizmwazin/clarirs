@@ -178,6 +178,53 @@ pub(crate) fn from_z3<'c>(
                             ))
                         }
                     }
+                    z3::DeclKind::Distinct => {
+                        // Check args are exactly 2, otherwise error
+                        if z3::get_app_num_args(*z3_ctx, app) != 2 {
+                            return Err(ClarirsError::ConversionError(
+                                "Distinct with != 2 args not supported".to_string(),
+                            ));
+                        }
+                        let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
+                        let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
+                        if let Ok(lhs) = BoolAst::from_z3(ctx, &arg0) {
+                            if let Ok(rhs) = BoolAst::from_z3(ctx, arg1) {
+                                ctx.neq(lhs, rhs)
+                            } else {
+                                Err(ClarirsError::ConversionError(
+                                    "Neq lhs is bool, rhs is not".to_string(),
+                                ))
+                            }
+                        } else if let Ok(lhs) = BitVecAst::from_z3(ctx, &arg0) {
+                            if let Ok(rhs) = BitVecAst::from_z3(ctx, arg1) {
+                                ctx.neq(lhs, rhs)
+                            } else {
+                                Err(ClarirsError::ConversionError(
+                                    "Neq lhs is bv, rhs is not".to_string(),
+                                ))
+                            }
+                        } else if let Ok(lhs) = FloatAst::from_z3(ctx, &arg0) {
+                            if let Ok(rhs) = FloatAst::from_z3(ctx, arg1) {
+                                ctx.neq(lhs, rhs)
+                            } else {
+                                Err(ClarirsError::ConversionError(
+                                    "Neq lhs is fp, rhs is not".to_string(),
+                                ))
+                            }
+                        } else if let Ok(lhs) = StringAst::from_z3(ctx, &arg0) {
+                            if let Ok(rhs) = StringAst::from_z3(ctx, arg1) {
+                                ctx.neq(lhs, rhs)
+                            } else {
+                                Err(ClarirsError::ConversionError(
+                                    "Neq lhs is string, rhs is not".to_string(),
+                                ))
+                            }
+                        } else {
+                            Err(ClarirsError::ConversionError(
+                                "Neq lhs is not a recognized type".to_string(),
+                            ))
+                        }
+                    }
                     z3::DeclKind::Ult
                     | z3::DeclKind::Uleq
                     | z3::DeclKind::Ugt
@@ -465,17 +512,11 @@ mod tests {
             let neq = ctx.neq(x, y).unwrap();
 
             let z3_ast = neq.to_z3().unwrap();
-            // NEQ is implemented as NOT(EQ)
-            assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Not));
+            assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Distinct));
 
             // Verify the inner EQ and its operands
-            let eq_ast = get_z3_app_arg(*z3_ast, 0).expect("Failed to get NEQ inner EQ");
-            assert!(
-                verify_z3_ast_kind(eq_ast, z3::DeclKind::Eq),
-                "NEQ inner operation should be EQ"
-            );
-            let arg0 = get_z3_app_arg(eq_ast, 0).expect("Failed to get first NEQ argument");
-            let arg1 = get_z3_app_arg(eq_ast, 1).expect("Failed to get second NEQ argument");
+            let arg0 = get_z3_app_arg(*z3_ast, 0).expect("Failed to get first NEQ argument");
+            let arg1 = get_z3_app_arg(*z3_ast, 1).expect("Failed to get second NEQ argument");
             assert!(
                 verify_z3_symbol_name(arg0, "x"),
                 "First NEQ argument should be 'x'"
