@@ -5,7 +5,7 @@ use clarirs_core::error::ClarirsError;
 use clarirs_z3_sys as z3;
 
 #[repr(transparent)]
-pub struct RcAst(pub z3::Ast);
+pub struct RcAst(z3::Ast);
 
 impl Clone for RcAst {
     fn clone(&self) -> Self {
@@ -57,7 +57,38 @@ impl DerefMut for RcAst {
 }
 
 #[repr(transparent)]
-pub struct RcSolver(pub z3::Solver);
+pub struct RcSolver(z3::Solver);
+
+impl RcSolver {
+    pub fn new() -> Result<Self, ClarirsError> {
+        Z3_CONTEXT.with(|&ctx| unsafe {
+            let solver = RcSolver::from(z3::mk_solver(ctx));
+            check_z3_error()?;
+            Ok(solver)
+        })
+    }
+
+    pub fn assert(&mut self, ast: &RcAst) -> Result<(), ClarirsError> {
+        Z3_CONTEXT.with(|&ctx| unsafe { z3::solver_assert(ctx, self.0, **ast) });
+        check_z3_error()
+    }
+
+    pub fn check(&mut self) -> Result<z3::Lbool, ClarirsError> {
+        Z3_CONTEXT.with(|&ctx| unsafe {
+            let result = z3::solver_check(ctx, self.0);
+            check_z3_error()?;
+            Ok(result)
+        })
+    }
+
+    pub fn model(&mut self) -> Result<RcModel, ClarirsError> {
+        Z3_CONTEXT.with(|&ctx| unsafe {
+            let model = RcModel::from(z3::solver_get_model(ctx, self.0));
+            check_z3_error()?;
+            Ok(model)
+        })
+    }
+}
 
 impl Clone for RcSolver {
     fn clone(&self) -> Self {
@@ -100,7 +131,64 @@ impl DerefMut for RcSolver {
 }
 
 #[repr(transparent)]
-pub struct RcOptimize(pub z3::Optimize);
+pub struct RcOptimize(z3::Optimize);
+
+impl RcOptimize {
+    pub fn new() -> Result<Self, ClarirsError> {
+        Z3_CONTEXT.with(|&ctx| unsafe {
+            let optimize = RcOptimize::from(z3::mk_optimize(ctx));
+            check_z3_error()?;
+            Ok(optimize)
+        })
+    }
+
+    pub fn assert(&mut self, ast: &RcAst) -> Result<(), ClarirsError> {
+        Z3_CONTEXT.with(|&ctx| unsafe { z3::optimize_assert(ctx, self.0, **ast) });
+        check_z3_error()
+    }
+
+    pub fn assert_soft(&mut self, ast: &RcAst, weight: u32) -> Result<(), ClarirsError> {
+        let weight_string = std::ffi::CString::new(weight.to_string()).map_err(|_| {
+            ClarirsError::BackendError("Z3", "Failed to convert weight to CString".into())
+        })?;
+        Z3_CONTEXT.with(|&ctx| unsafe {
+            z3::optimize_assert_soft(
+                ctx,
+                self.0,
+                **ast,
+                weight_string.as_ptr(),
+                std::ptr::null_mut(),
+            );
+        });
+        check_z3_error()
+    }
+
+    pub fn minimize(&mut self, ast: &RcAst) -> Result<(), ClarirsError> {
+        Z3_CONTEXT.with(|&ctx| unsafe { z3::optimize_minimize(ctx, self.0, **ast) });
+        check_z3_error()
+    }
+
+    pub fn maximize(&mut self, ast: &RcAst) -> Result<(), ClarirsError> {
+        Z3_CONTEXT.with(|&ctx| unsafe { z3::optimize_maximize(ctx, self.0, **ast) });
+        check_z3_error()
+    }
+
+    pub fn check(&mut self) -> Result<z3::Lbool, ClarirsError> {
+        Z3_CONTEXT.with(|&ctx| unsafe {
+            let result = z3::optimize_check(ctx, self.0, 0, std::ptr::null());
+            check_z3_error()?;
+            Ok(result)
+        })
+    }
+
+    pub fn get_model(&mut self) -> Result<RcModel, ClarirsError> {
+        Z3_CONTEXT.with(|&ctx| unsafe {
+            let model = z3::optimize_get_model(ctx, self.0);
+            check_z3_error()?;
+            Ok(RcModel::from(model))
+        })
+    }
+}
 
 impl Clone for RcOptimize {
     fn clone(&self) -> Self {
@@ -143,7 +231,24 @@ impl DerefMut for RcOptimize {
 }
 
 #[repr(transparent)]
-pub struct RcModel(pub z3::Model);
+pub struct RcModel(z3::Model);
+
+impl RcModel {
+    pub fn eval(&self, ast: &RcAst) -> Result<RcAst, ClarirsError> {
+        Z3_CONTEXT.with(|&ctx| unsafe {
+            let mut eval_result: z3::Ast = std::mem::zeroed();
+            let eval_ret = z3::model_eval(ctx, self.0, **ast, true, &mut eval_result);
+            check_z3_error()?;
+            if !eval_ret {
+                return Err(ClarirsError::BackendError(
+                    "Z3",
+                    "Model evaluation failed".into(),
+                ));
+            }
+            RcAst::try_from(eval_result)
+        })
+    }
+}
 
 impl Clone for RcModel {
     fn clone(&self) -> Self {

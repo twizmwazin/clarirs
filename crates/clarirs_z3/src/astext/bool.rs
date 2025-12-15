@@ -1,6 +1,6 @@
 use std::ffi::CStr;
 
-use crate::{Z3_CONTEXT, check_z3_error, rc::RcAst};
+use crate::{Z3_CONTEXT, astext::child, check_z3_error, rc::RcAst};
 use clarirs_core::prelude::*;
 use clarirs_z3_sys as z3;
 
@@ -23,33 +23,33 @@ pub(crate) fn to_z3(ast: &BoolAst, children: &[RcAst]) -> Result<RcAst, ClarirsE
             .try_into()?,
             BooleanOp::Not(..) => unop!(z3_ctx, children, mk_not),
             BooleanOp::And(..) => {
-                let args = [child!(children, 0).0, child!(children, 1).0];
+                let args = [**child(children, 0)?, **child(children, 1)?];
                 z3::mk_and(z3_ctx, 2, args.as_ptr()).try_into()?
             }
             BooleanOp::Or(..) => {
-                let args = [child!(children, 0).0, child!(children, 1).0];
+                let args = [**child(children, 0)?, **child(children, 1)?];
                 z3::mk_or(z3_ctx, 2, args.as_ptr()).try_into()?
             }
             BooleanOp::Xor(..) => binop!(z3_ctx, children, mk_xor),
             BooleanOp::BoolEq(..) => binop!(z3_ctx, children, mk_eq),
             BooleanOp::BoolNeq(..) => {
-                let a = child!(children, 0);
-                let b = child!(children, 1);
-                z3::mk_distinct(z3_ctx, 2, [a.0, b.0].as_ptr()).try_into()?
+                let a = child(children, 0)?;
+                let b = child(children, 1)?;
+                z3::mk_distinct(z3_ctx, 2, [**a, **b].as_ptr()).try_into()?
             }
             BooleanOp::If(..) => {
-                let cond = child!(children, 0);
-                let then = child!(children, 1);
-                let else_ = child!(children, 2);
-                z3::mk_ite(z3_ctx, cond.0, then.0, else_.0).try_into()?
+                let cond = child(children, 0)?;
+                let then = child(children, 1)?;
+                let else_ = child(children, 2)?;
+                z3::mk_ite(z3_ctx, **cond, **then, **else_).try_into()?
             }
 
             // BV operations
             BooleanOp::Eq(..) => binop!(z3_ctx, children, mk_eq),
             BooleanOp::Neq(..) => {
-                let a = child!(children, 0);
-                let b = child!(children, 1);
-                z3::mk_distinct(z3_ctx, 2, [a.0, b.0].as_ptr()).try_into()?
+                let a = child(children, 0)?;
+                let b = child(children, 1)?;
+                z3::mk_distinct(z3_ctx, 2, [**a, **b].as_ptr()).try_into()?
             }
             BooleanOp::ULT(..) => binop!(z3_ctx, children, mk_bvult),
             BooleanOp::ULE(..) => binop!(z3_ctx, children, mk_bvule),
@@ -63,9 +63,9 @@ pub(crate) fn to_z3(ast: &BoolAst, children: &[RcAst]) -> Result<RcAst, ClarirsE
             // FP operations
             BooleanOp::FpEq(..) => binop!(z3_ctx, children, mk_fpa_eq),
             BooleanOp::FpNeq(..) => {
-                let a = child!(children, 0);
-                let b = child!(children, 1);
-                z3::mk_distinct(z3_ctx, 2, [a.0, b.0].as_ptr()).try_into()?
+                let a = child(children, 0)?;
+                let b = child(children, 1)?;
+                z3::mk_distinct(z3_ctx, 2, [**a, **b].as_ptr()).try_into()?
             }
             BooleanOp::FpLt(..) => binop!(z3_ctx, children, mk_fpa_lt),
             BooleanOp::FpLeq(..) => binop!(z3_ctx, children, mk_fpa_leq),
@@ -81,9 +81,9 @@ pub(crate) fn to_z3(ast: &BoolAst, children: &[RcAst]) -> Result<RcAst, ClarirsE
             BooleanOp::StrIsDigit(..) => todo!("StrIsDigit - no direct Z3 equivalent"),
             BooleanOp::StrEq(..) => binop!(z3_ctx, children, mk_eq),
             BooleanOp::StrNeq(..) => {
-                let a = child!(children, 0);
-                let b = child!(children, 1);
-                z3::mk_distinct(z3_ctx, 2, [a.0, b.0].as_ptr()).try_into()?
+                let a = child(children, 0)?;
+                let b = child(children, 1)?;
+                z3::mk_distinct(z3_ctx, 2, [**a, **b].as_ptr()).try_into()?
             }
         })
         .and_then(|maybe_null| {
@@ -748,17 +748,18 @@ mod tests {
             unsafe {
                 let ctx = Context::new();
                 Z3_CONTEXT.with(|z3_ctx| {
-                    let c_z3 = {
+                    let c_z3 = RcAst::try_from({
                         let s_cstr = std::ffi::CString::new("c").unwrap();
                         let sym = z3::mk_string_symbol(*z3_ctx, s_cstr.as_ptr());
                         let sort = z3::mk_bool_sort(*z3_ctx);
                         let decl = z3::mk_func_decl(*z3_ctx, sym, 0, std::ptr::null(), sort);
                         z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())
-                    };
+                    })
+                    .unwrap();
                     let true_z3 = RcAst::try_from(z3::mk_true(*z3_ctx)).unwrap();
                     let false_z3 = RcAst::try_from(z3::mk_false(*z3_ctx)).unwrap();
                     let if_z3 =
-                        RcAst::try_from(z3::mk_ite(*z3_ctx, c_z3, true_z3.0, false_z3.0)).unwrap();
+                        RcAst::try_from(z3::mk_ite(*z3_ctx, *c_z3, *true_z3, *false_z3)).unwrap();
 
                     let result = BoolAst::from_z3(&ctx, if_z3).unwrap();
                     let expected = ctx

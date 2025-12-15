@@ -5,7 +5,7 @@ use clarirs_core::{
 use clarirs_z3_sys as z3;
 
 use super::AstExtZ3;
-use crate::{Z3_CONTEXT, check_z3_error, rc::RcAst};
+use crate::{Z3_CONTEXT, astext::child, check_z3_error, rc::RcAst};
 
 pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, ClarirsError> {
     Z3_CONTEXT.with(|&z3_ctx| unsafe {
@@ -40,10 +40,10 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, Clarir
             BitVecOp::RotateLeft(..) => binop!(z3_ctx, children, mk_ext_rotate_left),
             BitVecOp::RotateRight(..) => binop!(z3_ctx, children, mk_ext_rotate_right),
             BitVecOp::ZeroExt(_, i) => {
-                RcAst::try_from(z3::mk_zero_ext(z3_ctx, *i, child!(children, 0).0))?
+                RcAst::try_from(z3::mk_zero_ext(z3_ctx, *i, **child(children, 0)?))?
             }
             BitVecOp::SignExt(_, i) => {
-                RcAst::try_from(z3::mk_sign_ext(z3_ctx, *i, child!(children, 0).0))?
+                RcAst::try_from(z3::mk_sign_ext(z3_ctx, *i, **child(children, 0)?))?
             }
             BitVecOp::Extract(a, high, low) => {
                 if high >= &a.size() {
@@ -61,8 +61,8 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, Clarir
                         "low index is greater than high index".to_string(),
                     ));
                 }
-                let a = child!(children, 0);
-                RcAst::try_from(z3::mk_extract(z3_ctx, *high, *low, a.0))?
+                let a = child(children, 0)?;
+                RcAst::try_from(z3::mk_extract(z3_ctx, *high, *low, **a))?
             }
             BitVecOp::Concat(..) => binop!(z3_ctx, children, mk_concat),
             BitVecOp::ByteReverse(a) => {
@@ -88,24 +88,24 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, Clarir
                 acc.unwrap().to_z3()?
             }
             BitVecOp::If(..) => {
-                let cond = child!(children, 0);
-                let then = child!(children, 1);
-                let else_ = child!(children, 2);
-                RcAst::try_from(z3::mk_ite(z3_ctx, cond.0, then.0, else_.0))?
+                let cond = child(children, 0)?;
+                let then = child(children, 1)?;
+                let else_ = child(children, 2)?;
+                RcAst::try_from(z3::mk_ite(z3_ctx, **cond, **then, **else_))?
             }
             BitVecOp::FpToIEEEBV(..) => {
-                let a = child!(children, 0);
-                RcAst::try_from(z3::mk_fpa_to_ieee_bv(z3_ctx, a.0))?
+                let a = child(children, 0)?;
+                RcAst::try_from(z3::mk_fpa_to_ieee_bv(z3_ctx, **a))?
             }
             BitVecOp::FpToUBV(_, size, rm) => {
-                let rm_ast = super::float::fprm_to_z3(*rm);
-                let a = child!(children, 0);
-                RcAst::try_from(z3::mk_fpa_to_ubv(z3_ctx, rm_ast.0, a.0, *size))?
+                let rm_ast = super::float::fprm_to_z3(*rm)?;
+                let a = child(children, 0)?;
+                RcAst::try_from(z3::mk_fpa_to_ubv(z3_ctx, *rm_ast, **a, *size))?
             }
             BitVecOp::FpToSBV(_, size, rm) => {
-                let rm_ast = super::float::fprm_to_z3(*rm);
-                let a = child!(children, 0);
-                RcAst::try_from(z3::mk_fpa_to_sbv(z3_ctx, rm_ast.0, a.0, *size))?
+                let rm_ast = super::float::fprm_to_z3(*rm)?;
+                let a = child(children, 0)?;
+                RcAst::try_from(z3::mk_fpa_to_sbv(z3_ctx, *rm_ast, **a, *size))?
             }
             BitVecOp::StrLen(..) => todo!("StrLen"),
             BitVecOp::StrIndexOf(..) => todo!("StrIndexOf"),
@@ -1150,7 +1150,7 @@ mod tests {
                         RcAst::try_from(z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort)).unwrap();
 
                     // Create SHL operation
-                    let shl_z3 = RcAst::try_from(z3::mk_bvshl(*z3_ctx, op1.0, op2.0)).unwrap();
+                    let shl_z3 = RcAst::try_from(z3::mk_bvshl(*z3_ctx, *op1, *op2)).unwrap();
 
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, shl_z3).unwrap();
@@ -1179,7 +1179,7 @@ mod tests {
                         RcAst::try_from(z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort)).unwrap();
 
                     // Create LSHR operation
-                    let lshr_z3 = RcAst::try_from(z3::mk_bvlshr(*z3_ctx, op1.0, op2.0)).unwrap();
+                    let lshr_z3 = RcAst::try_from(z3::mk_bvlshr(*z3_ctx, *op1, *op2)).unwrap();
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, lshr_z3).unwrap();
                     let bv1 = ctx.bvv_prim(0x12u8).unwrap();
@@ -1207,7 +1207,7 @@ mod tests {
                         RcAst::try_from(z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort)).unwrap();
 
                     // Create ASHR operation
-                    let ashr_z3 = RcAst::try_from(z3::mk_bvashr(*z3_ctx, op1.0, op2.0)).unwrap();
+                    let ashr_z3 = RcAst::try_from(z3::mk_bvashr(*z3_ctx, *op1, *op2)).unwrap();
 
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, ashr_z3).unwrap();
@@ -1237,7 +1237,7 @@ mod tests {
 
                     // Create rotate left operation
                     let rotl_z3 =
-                        RcAst::try_from(z3::mk_ext_rotate_left(*z3_ctx, op1.0, op2.0)).unwrap();
+                        RcAst::try_from(z3::mk_ext_rotate_left(*z3_ctx, *op1, *op2)).unwrap();
 
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, rotl_z3).unwrap();
@@ -1267,7 +1267,7 @@ mod tests {
 
                     // Create rotate right operation
                     let rotr_z3 =
-                        RcAst::try_from(z3::mk_ext_rotate_right(*z3_ctx, op1.0, op2.0)).unwrap();
+                        RcAst::try_from(z3::mk_ext_rotate_right(*z3_ctx, *op1, *op2)).unwrap();
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, rotr_z3).unwrap();
                     let bv1 = ctx.bvv_prim(0x12u8).unwrap();
@@ -1291,7 +1291,7 @@ mod tests {
                         RcAst::try_from(z3::mk_numeral(*z3_ctx, num.as_ptr(), sort)).unwrap();
 
                     // Create zero extension (extend by 8 bits)
-                    let zext_z3 = RcAst::try_from(z3::mk_zero_ext(*z3_ctx, 8, base.0)).unwrap();
+                    let zext_z3 = RcAst::try_from(z3::mk_zero_ext(*z3_ctx, 8, *base)).unwrap();
 
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, zext_z3).unwrap();
@@ -1315,7 +1315,7 @@ mod tests {
                         RcAst::try_from(z3::mk_numeral(*z3_ctx, num.as_ptr(), sort)).unwrap();
 
                     // Create sign extension (extend by 8 bits)
-                    let sext_z3 = RcAst::try_from(z3::mk_sign_ext(*z3_ctx, 8, base.0)).unwrap();
+                    let sext_z3 = RcAst::try_from(z3::mk_sign_ext(*z3_ctx, 8, *base)).unwrap();
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, sext_z3).unwrap();
                     let bv = ctx.bvv_prim(0x82u8).unwrap();
@@ -1338,8 +1338,7 @@ mod tests {
                         RcAst::try_from(z3::mk_numeral(*z3_ctx, num.as_ptr(), sort)).unwrap();
 
                     // Create extract operation (bits [6:2])
-                    let extract_z3 =
-                        RcAst::try_from(z3::mk_extract(*z3_ctx, 6, 2, base.0)).unwrap();
+                    let extract_z3 = RcAst::try_from(z3::mk_extract(*z3_ctx, 6, 2, *base)).unwrap();
 
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, extract_z3).unwrap();
@@ -1367,7 +1366,7 @@ mod tests {
                         RcAst::try_from(z3::mk_numeral(*z3_ctx, num2.as_ptr(), sort)).unwrap();
 
                     // Create concatenation
-                    let concat_z3 = RcAst::try_from(z3::mk_concat(*z3_ctx, op1.0, op2.0)).unwrap();
+                    let concat_z3 = RcAst::try_from(z3::mk_concat(*z3_ctx, *op1, *op2)).unwrap();
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, concat_z3).unwrap();
                     let bv1 = ctx.bvv_prim(0xAAu8).unwrap();
@@ -1399,8 +1398,7 @@ mod tests {
 
                     // Create if-then-else
                     let ite_z3 =
-                        RcAst::try_from(z3::mk_ite(*z3_ctx, cond.0, then_val.0, else_val.0))
-                            .unwrap();
+                        RcAst::try_from(z3::mk_ite(*z3_ctx, *cond, *then_val, *else_val)).unwrap();
 
                     // Convert and verify
                     let result = BitVecAst::from_z3(&ctx, ite_z3).unwrap();

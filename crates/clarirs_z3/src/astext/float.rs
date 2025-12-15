@@ -2,10 +2,10 @@ use clarirs_core::prelude::*;
 use clarirs_z3_sys as z3;
 
 use super::AstExtZ3;
-use crate::{Z3_CONTEXT, check_z3_error, rc::RcAst};
+use crate::{Z3_CONTEXT, astext::child, check_z3_error, rc::RcAst};
 
-pub(crate) fn fprm_to_z3(rm: FPRM) -> RcAst {
-    RcAst(Z3_CONTEXT.with(|&z3_ctx| unsafe {
+pub(crate) fn fprm_to_z3(rm: FPRM) -> Result<RcAst, ClarirsError> {
+    RcAst::try_from(Z3_CONTEXT.with(|&z3_ctx| unsafe {
         match rm {
             FPRM::NearestTiesToEven => z3::mk_fpa_rne(z3_ctx),
             FPRM::TowardPositive => z3::mk_fpa_rtp(z3_ctx),
@@ -43,68 +43,68 @@ pub(crate) fn to_z3(ast: &FloatAst, children: &[RcAst]) -> Result<RcAst, Clarirs
             FloatOp::FpNeg(..) => unop!(z3_ctx, children, mk_fpa_neg),
             FloatOp::FpAbs(..) => unop!(z3_ctx, children, mk_fpa_abs),
             FloatOp::FpAdd(_, _, rm) => {
-                let rm_ast = fprm_to_z3(*rm);
-                let a = child!(children, 0);
-                let b = child!(children, 1);
-                RcAst::try_from(z3::mk_fpa_add(z3_ctx, *rm_ast, a.0, b.0))?
+                let rm_ast = fprm_to_z3(*rm)?;
+                let a = child(children, 0)?;
+                let b = child(children, 1)?;
+                RcAst::try_from(z3::mk_fpa_add(z3_ctx, *rm_ast, **a, **b))?
             }
             FloatOp::FpSub(_, _, rm) => {
-                let rm_ast = fprm_to_z3(*rm);
-                let a = child!(children, 0);
-                let b = child!(children, 1);
-                RcAst::try_from(z3::mk_fpa_sub(z3_ctx, *rm_ast, a.0, b.0))?
+                let rm_ast = fprm_to_z3(*rm)?;
+                let a = child(children, 0)?;
+                let b = child(children, 1)?;
+                RcAst::try_from(z3::mk_fpa_sub(z3_ctx, *rm_ast, **a, **b))?
             }
             FloatOp::FpMul(_, _, rm) => {
-                let rm_ast = fprm_to_z3(*rm);
-                let a = child!(children, 0);
-                let b = child!(children, 1);
-                RcAst::try_from(z3::mk_fpa_mul(z3_ctx, *rm_ast, a.0, b.0))?
+                let rm_ast = fprm_to_z3(*rm)?;
+                let a = child(children, 0)?;
+                let b = child(children, 1)?;
+                RcAst::try_from(z3::mk_fpa_mul(z3_ctx, *rm_ast, **a, **b))?
             }
             FloatOp::FpDiv(_, _, rm) => {
-                let rm_ast = fprm_to_z3(*rm);
-                let a = child!(children, 0);
-                let b = child!(children, 1);
-                RcAst::try_from(z3::mk_fpa_div(z3_ctx, *rm_ast, a.0, b.0))?
+                let rm_ast = fprm_to_z3(*rm)?;
+                let a = child(children, 0)?;
+                let b = child(children, 1)?;
+                RcAst::try_from(z3::mk_fpa_div(z3_ctx, *rm_ast, **a, **b))?
             }
             FloatOp::FpSqrt(_, rm) => {
-                let rm_ast = fprm_to_z3(*rm);
-                let a = child!(children, 0);
-                RcAst::try_from(z3::mk_fpa_sqrt(z3_ctx, rm_ast.0, a.0))?
+                let rm_ast = fprm_to_z3(*rm)?;
+                let a = child(children, 0)?;
+                RcAst::try_from(z3::mk_fpa_sqrt(z3_ctx, *rm_ast, **a))?
             }
             FloatOp::FpToFp(_, sort, rm) => {
-                let rm_ast = fprm_to_z3(*rm);
-                let a = child!(children, 0);
+                let rm_ast = fprm_to_z3(*rm)?;
+                let a = child(children, 0)?;
                 let z3_sort = fsort_to_z3(*sort);
-                RcAst::try_from(z3::mk_fpa_to_fp_float(z3_ctx, rm_ast.0, a.0, z3_sort))?
+                RcAst::try_from(z3::mk_fpa_to_fp_float(z3_ctx, *rm_ast, **a, z3_sort))?
             }
             FloatOp::FpFP(..) => {
-                let sign = child!(children, 0);
-                let exp = child!(children, 1);
-                let sig = child!(children, 2);
-                RcAst::try_from(z3::mk_fpa_fp(z3_ctx, sign.0, exp.0, sig.0))?
+                let sign = child(children, 0)?;
+                let exp = child(children, 1)?;
+                let sig = child(children, 2)?;
+                RcAst::try_from(z3::mk_fpa_fp(z3_ctx, **sign, **exp, **sig))?
             }
             FloatOp::BvToFp(_, sort) => {
-                let a = child!(children, 0);
+                let a = child(children, 0)?;
                 let z3_sort = fsort_to_z3(*sort);
-                RcAst::try_from(z3::mk_fpa_to_fp_bv(z3_ctx, a.0, z3_sort))?
+                RcAst::try_from(z3::mk_fpa_to_fp_bv(z3_ctx, **a, z3_sort))?
             }
             FloatOp::BvToFpSigned(_, sort, rm) => {
-                let rm_ast = fprm_to_z3(*rm);
-                let a = child!(children, 0);
+                let rm_ast = fprm_to_z3(*rm)?;
+                let a = child(children, 0)?;
                 let z3_sort = fsort_to_z3(*sort);
-                RcAst::try_from(z3::mk_fpa_to_fp_signed(z3_ctx, rm_ast.0, a.0, z3_sort))?
+                RcAst::try_from(z3::mk_fpa_to_fp_signed(z3_ctx, *rm_ast, **a, z3_sort))?
             }
             FloatOp::BvToFpUnsigned(_, sort, rm) => {
-                let rm_ast = fprm_to_z3(*rm);
-                let a = child!(children, 0);
+                let rm_ast = fprm_to_z3(*rm)?;
+                let a = child(children, 0)?;
                 let z3_sort = fsort_to_z3(*sort);
-                RcAst::try_from(z3::mk_fpa_to_fp_unsigned(z3_ctx, rm_ast.0, a.0, z3_sort))?
+                RcAst::try_from(z3::mk_fpa_to_fp_unsigned(z3_ctx, *rm_ast, **a, z3_sort))?
             }
             FloatOp::If(..) => {
-                let cond = child!(children, 0);
-                let then = child!(children, 1);
-                let else_ = child!(children, 2);
-                RcAst::try_from(z3::mk_ite(z3_ctx, cond.0, then.0, else_.0))?
+                let cond = child(children, 0)?;
+                let then = child(children, 1)?;
+                let else_ = child(children, 2)?;
+                RcAst::try_from(z3::mk_ite(z3_ctx, **cond, **then, **else_))?
             }
         })
         .and_then(|maybe_null| {
