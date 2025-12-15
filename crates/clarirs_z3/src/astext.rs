@@ -1,23 +1,19 @@
-macro_rules! child {
-    ($children:ident, $index:expr) => {
-        $children
-            .get($index)
-            .ok_or_else(|| ClarirsError::InvalidArguments)?
-    };
+fn child(children: &[RcAst], index: usize) -> Result<&RcAst, ClarirsError> {
+    children.get(index).ok_or(ClarirsError::InvalidArguments)
 }
 
 macro_rules! unop {
     ($z3:ident, $children:ident, $op:ident) => {{
-        let a = child!($children, 0);
-        RcAst::try_from(z3::$op($z3, a.0))?
+        let a = crate::astext::child($children, 0)?;
+        RcAst::try_from(z3::$op($z3, **a))?
     }};
 }
 
 macro_rules! binop {
     ($z3:ident, $children:ident, $op:ident) => {{
-        let a = child!($children, 0);
-        let b = child!($children, 1);
-        RcAst::try_from(z3::$op($z3, a.0, b.0))?
+        let a = crate::astext::child($children, 0)?;
+        let b = crate::astext::child($children, 1)?;
+        RcAst::try_from(z3::$op($z3, **a, **b))?
     }};
 }
 

@@ -1,12 +1,12 @@
-use crate::{Z3_CONTEXT, check_z3_error, rc::RcAst};
+use crate::{Z3_CONTEXT, astext::child, check_z3_error, rc::RcAst};
 use clarirs_core::prelude::*;
 use clarirs_z3_sys::{self as z3};
 use regex::Regex;
 
 use super::AstExtZ3;
 
-fn mk_bv2int(bv: RcAst) -> Result<RcAst, ClarirsError> {
-    Z3_CONTEXT.with(|&z3_ctx| unsafe { RcAst::try_from(z3::mk_bv2int(z3_ctx, bv.0, false)) })
+fn mk_bv2int(bv: &RcAst) -> Result<RcAst, ClarirsError> {
+    Z3_CONTEXT.with(|&z3_ctx| unsafe { RcAst::try_from(z3::mk_bv2int(z3_ctx, **bv, false)) })
 }
 
 fn decode_custom_unicode(input: &str) -> String {
@@ -46,31 +46,30 @@ pub(crate) fn to_z3(ast: &StringAst, children: &[RcAst]) -> Result<RcAst, Clarir
                 RcAst::try_from(z3::mk_string(z3_ctx, cstr.as_ptr()))?
             }
             StringOp::StrConcat(..) => {
-                let a = child!(children, 0);
-                let b = child!(children, 1);
-                let args = [a.0, b.0];
-                RcAst::try_from(z3::mk_seq_concat(z3_ctx, 2, args.as_ptr()))?
+                let a = child(children, 0)?;
+                let b = child(children, 1)?;
+                RcAst::try_from(z3::mk_seq_concat(z3_ctx, 2, [**a, **b].as_ptr()))?
             }
             StringOp::StrSubstr(..) => {
-                let a = child!(children, 0);
-                let offset_bv = child!(children, 1);
-                let offset_int = mk_bv2int(offset_bv.clone())?;
-                let len_bv = child!(children, 2);
-                let len_int = mk_bv2int(len_bv.clone())?;
-                RcAst::try_from(z3::mk_seq_extract(z3_ctx, a.0, *offset_int, *len_int))?
+                let a = child(children, 0)?;
+                let offset_bv = child(children, 1)?;
+                let offset_int = mk_bv2int(offset_bv)?;
+                let len_bv = child(children, 2)?;
+                let len_int = mk_bv2int(len_bv)?;
+                RcAst::try_from(z3::mk_seq_extract(z3_ctx, **a, *offset_int, *len_int))?
             }
             StringOp::StrReplace(..) => {
-                let a = child!(children, 0);
-                let b = child!(children, 1);
-                let c = child!(children, 2);
-                RcAst::try_from(z3::mk_seq_replace(z3_ctx, a.0, b.0, c.0))?
+                let a = child(children, 0)?;
+                let b = child(children, 1)?;
+                let c = child(children, 2)?;
+                RcAst::try_from(z3::mk_seq_replace(z3_ctx, **a, **b, **c))?
             }
             StringOp::BVToStr(_) => todo!("BVToStr - no direct Z3 equivalent"),
             StringOp::If(cond, then, else_) => {
                 let cond = cond.to_z3()?;
                 let then = then.to_z3()?;
                 let else_ = else_.to_z3()?;
-                RcAst::try_from(z3::mk_ite(z3_ctx, cond.0, then.0, else_.0))?
+                RcAst::try_from(z3::mk_ite(z3_ctx, *cond, *then, *else_))?
             }
         })
         .and_then(|maybe_null| {
