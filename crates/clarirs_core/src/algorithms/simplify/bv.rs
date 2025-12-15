@@ -382,15 +382,13 @@ pub(crate) fn simplify_bv<'c>(
                         let combined_amt = (inner_amt_val.to_bigint() + outer_amt.to_bigint())
                             % BigInt::from(size);
                         let combined_amt_bv = BitVec::from_bigint(&combined_amt, arc1.size())?;
-                        Ok(ctx
-                            .rotate_left(inner.clone(), ctx.bvv(combined_amt_bv)?)?
-                            .simplify()?)
+                        state.rerun(ctx.rotate_left(inner.clone(), ctx.bvv(combined_amt_bv)?)?)
                     } else {
                         // Inner rotation amount is not concrete, fall through
                         let rotate_amount_u32 = outer_amt.to_u64().unwrap_or(0) as u32;
                         let bottom = ctx.extract(&arc, rotate_amount_u32 - 1, 0)?;
                         let top = ctx.extract(&arc, arc.size() - 1, rotate_amount_u32)?;
-                        Ok(ctx.concat(bottom, top)?.simplify()?)
+                        state.rerun(ctx.concat(bottom, top)?)
                     }
                 }
                 // Fallback case
@@ -422,16 +420,14 @@ pub(crate) fn simplify_bv<'c>(
                         let combined_amt = (inner_amt_val.to_bigint() + outer_amt.to_bigint())
                             % BigInt::from(size);
                         let combined_amt_bv = BitVec::from_bigint(&combined_amt, arc1.size())?;
-                        Ok(ctx
-                            .rotate_right(inner.clone(), ctx.bvv(combined_amt_bv)?)?
-                            .simplify()?)
+                        state.rerun(ctx.rotate_right(inner.clone(), ctx.bvv(combined_amt_bv)?)?)
                     } else {
                         // Inner rotation amount is not concrete, fall through
                         let rotate_amount_u32 = outer_amt.to_u64().unwrap_or(0) as u32;
                         let bottom = ctx.extract(&arc, arc.size() - rotate_amount_u32, 0)?;
                         let top =
                             ctx.extract(&arc, arc.size() - 1, arc.size() - rotate_amount_u32)?;
-                        Ok(ctx.concat(top, bottom)?.simplify()?)
+                        state.rerun(ctx.concat(top, bottom)?)
                     }
                 }
                 // Fallback case
@@ -510,7 +506,7 @@ pub(crate) fn simplify_bv<'c>(
                 // ZeroExt cases
                 // If extracting from the original bits (not the extended zero bits)
                 BitVecOp::ZeroExt(inner, _) if *high < inner.size() => {
-                    Ok(ctx.extract(inner, *high, *low)?.simplify()?)
+                    state.rerun(ctx.extract(inner, *high, *low)?)
                 }
                 // If extracting only from the extended zero bits
                 BitVecOp::ZeroExt(inner, _) if *low >= inner.size() => {
@@ -520,7 +516,7 @@ pub(crate) fn simplify_bv<'c>(
                 // SignExt cases
                 // If extracting from the original bits (not the extended sign bits)
                 BitVecOp::SignExt(inner, _) if *high < inner.size() => {
-                    Ok(ctx.extract(inner, *high, *low)?.simplify()?)
+                    state.rerun(ctx.extract(inner, *high, *low)?)
                 }
                 // If extracting only from the extended sign bits
                 BitVecOp::SignExt(inner, _) if *low >= inner.size() => {
@@ -542,12 +538,12 @@ pub(crate) fn simplify_bv<'c>(
                 // Extracting the entire right side
                 BitVecOp::Concat(_, rhs) if *high == rhs.size() - 1 && *low == 0 => Ok(rhs.clone()),
                 // Extracting a part of the left side
-                BitVecOp::Concat(lhs, rhs) if *low >= rhs.size() => Ok(ctx
-                    .extract(lhs, *high - rhs.size(), *low - rhs.size())?
-                    .simplify()?),
+                BitVecOp::Concat(lhs, rhs) if *low >= rhs.size() => {
+                    state.rerun(ctx.extract(lhs, *high - rhs.size(), *low - rhs.size())?)
+                }
                 // Extracting a part of the right side
                 BitVecOp::Concat(_, rhs) if *high < rhs.size() => {
-                    Ok(ctx.extract(rhs, *high, *low)?.simplify()?)
+                    state.rerun(ctx.extract(rhs, *high, *low)?)
                 }
                 // Extracting a part that spans both sides
                 BitVecOp::Concat(lhs, rhs) => {
@@ -558,7 +554,7 @@ pub(crate) fn simplify_bv<'c>(
 
                     // Concatenate the extracted parts
                     // Simplify the result to apply further optimizations
-                    Ok(ctx.concat(left_part, right_part)?.simplify()?)
+                    state.rerun(ctx.concat(left_part, right_part)?)
                 }
                 _ => Ok(ctx.extract(arc, *high, *low)?),
             }
