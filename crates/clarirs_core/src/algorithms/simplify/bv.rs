@@ -444,7 +444,7 @@ pub(crate) fn simplify_bv<'c>(
                 // Nested ZeroExt - combine extensions
                 (BitVecOp::ZeroExt(inner, inner_num_bits), _) => {
                     let total_ext = inner_num_bits + num_bits;
-                    Ok(ctx.zero_ext(inner, total_ext)?)
+                    state.rerun(ctx.zero_ext(inner, total_ext)?)
                 }
                 // Symbolic case
                 (_, _) => Ok(ctx.zero_ext(arc, *num_bits)?),
@@ -460,7 +460,7 @@ pub(crate) fn simplify_bv<'c>(
                 // Nested SignExt - combine extensions
                 (BitVecOp::SignExt(inner, inner_num_bits), _) => {
                     let total_ext = inner_num_bits + num_bits;
-                    Ok(ctx.sign_ext(inner, total_ext)?)
+                    state.rerun(ctx.sign_ext(inner, total_ext)?)
                 }
                 // Fallback case
                 (_, _) => Ok(ctx.sign_ext(arc, *num_bits)?),
