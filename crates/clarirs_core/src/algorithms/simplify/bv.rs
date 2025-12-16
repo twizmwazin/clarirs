@@ -191,6 +191,34 @@ pub(crate) fn simplify_bv<'c>(
                     }
                 }
 
+                // If one operand is a bvv, and the other is a sub with a bvv, combine them
+                (BitVecOp::BVV(v), BitVecOp::Sub(bvv, other))
+                | (BitVecOp::Sub(bvv, other), BitVecOp::BVV(v))
+                    if matches!(bvv.op(), BitVecOp::BVV(_)) =>
+                {
+                    if let BitVecOp::BVV(bvv_value) = bvv.op() {
+                        let combined_value = (v.clone() + bvv_value.clone())?;
+                        let combined_bvv = ctx.bvv(combined_value)?;
+                        let new_add = ctx.sub(other.clone(), combined_bvv)?;
+                        state.rerun(new_add)
+                    } else {
+                        unreachable!()
+                    }
+                }
+                (BitVecOp::BVV(v), BitVecOp::Sub(other, bvv))
+                | (BitVecOp::Sub(other, bvv), BitVecOp::BVV(v))
+                    if matches!(bvv.op(), BitVecOp::BVV(_)) =>
+                {
+                    if let BitVecOp::BVV(bvv_value) = bvv.op() {
+                        let combined_value = (v.clone() - bvv_value.clone())?;
+                        let combined_bvv = ctx.bvv(combined_value)?;
+                        let new_add = ctx.add(other.clone(), combined_bvv)?;
+                        state.rerun(new_add)
+                    } else {
+                        unreachable!()
+                    }
+                }
+
                 _ => Ok(ctx.add(arc, arc1)?),
             }
         }
@@ -199,6 +227,33 @@ pub(crate) fn simplify_bv<'c>(
             match (arc.op(), arc1.op()) {
                 (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
                     Ok(ctx.bvv((value1.clone() - value2.clone())?)?)
+                }
+                (BitVecOp::Sub(inner_lhs, inner_rhs), BitVecOp::BVV(v))
+                    if matches!(inner_rhs.op(), BitVecOp::BVV(_)) =>
+                {
+                    // (a - b) - c  => a - (b + c)
+                    if let BitVecOp::BVV(b_val) = inner_rhs.op() {
+                        let combined_value = (b_val.clone() + v.clone())?;
+                        let combined_bvv = ctx.bvv(combined_value)?;
+                        let new_sub = ctx.sub(inner_lhs.clone(), combined_bvv)?;
+                        state.rerun(new_sub)
+                    } else {
+                        unreachable!()
+                    }
+                }
+                (BitVecOp::Add(bvv, other), BitVecOp::BVV(v))
+                | (BitVecOp::Add(other, bvv), BitVecOp::BVV(v))
+                    if matches!(bvv.op(), BitVecOp::BVV(_)) =>
+                {
+                    // (a + b) - c => a + (b - c)
+                    if let BitVecOp::BVV(b_val) = bvv.op() {
+                        let combined_value = (b_val.clone() - v.clone())?;
+                        let combined_bvv = ctx.bvv(combined_value)?;
+                        let new_add = ctx.add(other.clone(), combined_bvv)?;
+                        state.rerun(new_add)
+                    } else {
+                        unreachable!()
+                    }
                 }
                 (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
                 (lhs_op, rhs_op) if lhs_op == rhs_op => Ok(ctx.bvv(BitVec::zeros(arc.size()))?),
