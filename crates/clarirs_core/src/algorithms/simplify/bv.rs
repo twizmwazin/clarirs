@@ -374,6 +374,68 @@ pub(crate) fn simplify_bv<'c>(
                 (BitVecOp::BVV(v), _) if v.is_zero() => Ok(arc),
                 // Shift by zero
                 (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
+
+                // Detect bit extraction pattern: (lshr (shl x n) m)
+                // This extracts bits from position (m) to position (size - 1 - n) of x
+                (BitVecOp::ShL(inner, shl_amt), BitVecOp::BVV(shr_amt)) => {
+                    if let BitVecOp::BVV(shl_val) = shl_amt.op() {
+                        let shl_u32 = shl_val.to_u64().unwrap_or(0) as u32;
+                        let shr_u32 = shr_amt.to_u64().unwrap_or(0) as u32;
+                        let size = arc.size();
+
+                        if shl_u32 + shr_u32 >= size {
+                            // All bits get shifted out, result is zero
+                            Ok(ctx.bvv(BitVec::zeros(size))?)
+                        } else {
+                            // This extracts bits from the original value
+                            // After left shift by n, then right shift by m:
+                            // - The highest bit that remains is at position (size - 1 - shl_u32)
+                            // - The lowest bit that remains is at position shr_u32
+                            // - The result width is (size - shl_u32 - shr_u32)
+                            let high = size - 1 - shl_u32;
+                            let low = shr_u32;
+
+                            // Special handling for zero-extended values
+                            if let BitVecOp::ZeroExt(inner_val, _) = inner.op() {
+                                let inner_size = inner_val.size();
+
+                                if low >= inner_size {
+                                    // All extracted bits are from the zero-extended part
+                                    Ok(ctx.bvv(BitVec::zeros(size))?)
+                                } else if high < inner_size {
+                                    // All extracted bits are from the original value
+                                    let extracted = ctx.extract(inner_val, high, low)?;
+                                    // Need to zero-pad to get back to the expected size
+                                    if extracted.size() < size {
+                                        state.rerun(
+                                            ctx.zero_ext(&extracted, size - extracted.size())?,
+                                        )
+                                    } else {
+                                        Ok(extracted)
+                                    }
+                                } else {
+                                    // Extraction spans both original and zero-extended parts
+                                    // Extract what we can from the original value
+                                    let extracted = ctx.extract(inner_val, inner_size - 1, low)?;
+                                    // Zero-extend to the final size
+                                    state.rerun(ctx.zero_ext(&extracted, size - extracted.size())?)
+                                }
+                            } else {
+                                // Regular extraction from non-zero-extended value
+                                let extracted = ctx.extract(inner, high, low)?;
+                                // Need to zero-pad to get back to the expected size
+                                if extracted.size() < size {
+                                    state.rerun(ctx.zero_ext(&extracted, size - extracted.size())?)
+                                } else {
+                                    Ok(extracted)
+                                }
+                            }
+                        }
+                    } else {
+                        Ok(ctx.lshr(arc, arc1)?)
+                    }
+                }
+
                 // Fully concrete case
                 (BitVecOp::BVV(value), BitVecOp::BVV(shift_amount)) => {
                     let bit_width = value.len();
