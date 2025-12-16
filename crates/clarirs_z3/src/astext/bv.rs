@@ -177,6 +177,13 @@ pub(crate) fn from_z3<'c>(
                     | z3::DeclKind::Bshl
                     | z3::DeclKind::Blshr
                     | z3::DeclKind::Bashr => {
+                        let num_args = z3::get_app_num_args(*z3_ctx, app);
+                        if num_args != 2 {
+                            return Err(ClarirsError::ConversionError(
+                                "Expected binary operation to have 2 arguments".to_string(),
+                            ));
+                        }
+
                         let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
                         let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
                         let a = BitVecAst::from_z3(ctx, arg0)?;
@@ -242,11 +249,19 @@ pub(crate) fn from_z3<'c>(
                         ctx.extract(inner, high, low)
                     }
                     z3::DeclKind::Concat => {
+                        let num_args = z3::get_app_num_args(*z3_ctx, app);
                         let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
                         let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
                         let a = BitVecAst::from_z3(ctx, arg0)?;
                         let b = BitVecAst::from_z3(ctx, arg1)?;
-                        ctx.concat(a, b)
+                        let mut res = ctx.concat(a, b)?;
+
+                        for i in 2..num_args {
+                            let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, i))?;
+                            let val = BitVecAst::from_z3(ctx, arg)?;
+                            res = ctx.concat(res, val)?;
+                        }
+                        Ok(res)
                     }
                     z3::DeclKind::Ite => {
                         let cond = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
