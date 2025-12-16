@@ -317,6 +317,72 @@ impl BitVec {
         self.words.iter().all(|&word| word == 0)
     }
 
+    pub fn is_one(&self) -> bool {
+        if self.length == 0 {
+            return false;
+        }
+
+        // Check if the least significant bit is 1
+        if (self.words[0] & 1) == 0 {
+            return false;
+        }
+
+        // Check that all other bits are 0
+        for (i, &word) in self.words.iter().enumerate() {
+            if i == 0 {
+                // For the first word, ignore the least significant bit
+                if word >> 1 != 0 {
+                    return false;
+                }
+            } else if i == self.words.len() - 1 {
+                // For the last word, apply the final_word_mask
+                if word & self.final_word_mask != 0 {
+                    return false;
+                }
+            } else {
+                // For all other words, they must be completely filled with 0s
+                if word != 0 {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
+    // Check if BitVec is a mask (i.e., consecutive 1s somewhere in the bit pattern),
+    // returning the (high, low) bounds of the consecutive 1s if found.
+    pub fn is_mask(&self) -> Option<(u32, u32)> {
+        let mut first_one_pos = None;
+        let mut last_one_pos = None;
+        let mut found_zero_after_one = false;
+
+        for bit_index in 0..self.length {
+            let word_index = (bit_index / 64) as usize;
+            let bit_in_word = bit_index % 64;
+            let bit_is_set = (self.words[word_index] & (1u64 << bit_in_word)) != 0;
+
+            if bit_is_set {
+                if found_zero_after_one {
+                    // Found a 1 after finding a 0 that came after 1s - not a valid mask
+                    return None;
+                }
+                if first_one_pos.is_none() {
+                    first_one_pos = Some(bit_index);
+                }
+                last_one_pos = Some(bit_index);
+            } else if first_one_pos.is_some() {
+                // Found a 0 after finding 1s
+                found_zero_after_one = true;
+            }
+        }
+
+        // Return (high, low) bounds if we found consecutive 1s
+        match (first_one_pos, last_one_pos) {
+            (Some(low), Some(high)) => Some((high, low)),
+            _ => None,
+        }
+    }
+
     // Converts the BitVec to a usize if it fits within the usize range, otherwise returns None
     pub fn to_usize(&self) -> Option<usize> {
         // Check that the BitVec's bit length does not exceed the size of usize
@@ -394,5 +460,185 @@ impl Debug for BitVec {
             .field("words", &self.words)
             .field("length", &self.length)
             .finish()
+    }
+}
+
+#[cfg(test)]
+mod is_mask_tests {
+    use super::*;
+
+    #[test]
+    fn test_is_mask_all_zeros() {
+        let bv = BitVec::zeros(8);
+        assert_eq!(bv.is_mask(), None);
+
+        let bv = BitVec::zeros(64);
+        assert_eq!(bv.is_mask(), None);
+
+        let bv = BitVec::zeros(128);
+        assert_eq!(bv.is_mask(), None);
+    }
+
+    #[test]
+    fn test_is_mask_all_ones() {
+        let bv = BitVec::ones(8);
+        assert_eq!(bv.is_mask(), Some((7, 0)));
+
+        let bv = BitVec::ones(64);
+        assert_eq!(bv.is_mask(), Some((63, 0)));
+
+        let bv = BitVec::ones(128);
+        assert_eq!(bv.is_mask(), Some((127, 0)));
+    }
+
+    #[test]
+    fn test_is_mask_single_bit() {
+        // Single bit at position 0
+        let bv = BitVec::from_prim_with_size(1u8, 8).unwrap();
+        assert_eq!(bv.is_mask(), Some((0, 0)));
+
+        // Single bit at position 3
+        let bv = BitVec::from_prim_with_size(0b1000u8, 8).unwrap();
+        assert_eq!(bv.is_mask(), Some((3, 3)));
+
+        // Single bit at position 7
+        let bv = BitVec::from_prim_with_size(0b10000000u8, 8).unwrap();
+        assert_eq!(bv.is_mask(), Some((7, 7)));
+    }
+
+    #[test]
+    fn test_is_mask_consecutive_low() {
+        // Consecutive 1s at low end: 0b00001111
+        let bv = BitVec::from_prim_with_size(0x0Fu8, 8).unwrap();
+        assert_eq!(bv.is_mask(), Some((3, 0)));
+
+        // Consecutive 1s at low end: 0b00000111
+        let bv = BitVec::from_prim_with_size(0x07u8, 8).unwrap();
+        assert_eq!(bv.is_mask(), Some((2, 0)));
+    }
+
+    #[test]
+    fn test_is_mask_consecutive_high() {
+        // Consecutive 1s at high end: 0b11110000
+        let bv = BitVec::from_prim_with_size(0xF0u8, 8).unwrap();
+        assert_eq!(bv.is_mask(), Some((7, 4)));
+
+        // Consecutive 1s at high end: 0b11100000
+        let bv = BitVec::from_prim_with_size(0xE0u8, 8).unwrap();
+        assert_eq!(bv.is_mask(), Some((7, 5)));
+    }
+
+    #[test]
+    fn test_is_mask_consecutive_middle() {
+        // Consecutive 1s in middle: 0b00111100
+        let bv = BitVec::from_prim_with_size(0x3Cu8, 8).unwrap();
+        assert_eq!(bv.is_mask(), Some((5, 2)));
+
+        // Consecutive 1s in middle: 0b01111110
+        let bv = BitVec::from_prim_with_size(0x7Eu8, 8).unwrap();
+        assert_eq!(bv.is_mask(), Some((6, 1)));
+    }
+
+    #[test]
+    fn test_is_mask_non_consecutive() {
+        // Non-consecutive: 0b10101010
+        let bv = BitVec::from_prim_with_size(0xAAu8, 8).unwrap();
+        assert_eq!(bv.is_mask(), None);
+
+        // Non-consecutive: 0b11011011
+        let bv = BitVec::from_prim_with_size(0xDBu8, 8).unwrap();
+        assert_eq!(bv.is_mask(), None);
+
+        // Gap in middle: 0b11100111
+        let bv = BitVec::from_prim_with_size(0xE7u8, 8).unwrap();
+        assert_eq!(bv.is_mask(), None);
+    }
+
+    #[test]
+    fn test_is_mask_cross_word_boundary() {
+        // Test masks that cross 64-bit word boundaries
+        // Create a mask from bit 60 to bit 67 (crosses boundary at bit 64)
+        let mut value = BigUint::zero();
+        for i in 60..=67 {
+            value |= BigUint::one() << i;
+        }
+        let bv = BitVec::from_biguint(&value, 128).unwrap();
+        assert_eq!(bv.is_mask(), Some((67, 60)));
+
+        // Create a non-consecutive pattern across boundary
+        let mut value = BigUint::zero();
+        value |= BigUint::one() << 63; // Last bit of first word
+        value |= BigUint::one() << 65; // Skip bit 64, non-consecutive
+        let bv = BitVec::from_biguint(&value, 128).unwrap();
+        assert_eq!(bv.is_mask(), None);
+    }
+
+    #[test]
+    fn test_is_mask_large_bitvec() {
+        // Large BitVec with mask at beginning
+        let mut value = BigUint::zero();
+        for i in 0..32 {
+            value |= BigUint::one() << i;
+        }
+        let bv = BitVec::from_biguint(&value, 256).unwrap();
+        assert_eq!(bv.is_mask(), Some((31, 0)));
+
+        // Large BitVec with mask at end
+        let mut value = BigUint::zero();
+        for i in 224..256 {
+            value |= BigUint::one() << i;
+        }
+        let bv = BitVec::from_biguint(&value, 256).unwrap();
+        assert_eq!(bv.is_mask(), Some((255, 224)));
+
+        // Large BitVec with mask in middle
+        let mut value = BigUint::zero();
+        for i in 100..150 {
+            value |= BigUint::one() << i;
+        }
+        let bv = BitVec::from_biguint(&value, 256).unwrap();
+        assert_eq!(bv.is_mask(), Some((149, 100)));
+    }
+
+    #[test]
+    fn test_is_mask_edge_cases() {
+        // Empty BitVec (0 length) - should return None
+        let bv = BitVec::zeros(0);
+        assert_eq!(bv.is_mask(), None);
+
+        // 1-bit BitVec with 0
+        let bv = BitVec::from_prim_with_size(0u8, 1).unwrap();
+        assert_eq!(bv.is_mask(), None);
+
+        // 1-bit BitVec with 1
+        let bv = BitVec::from_prim_with_size(1u8, 1).unwrap();
+        assert_eq!(bv.is_mask(), Some((0, 0)));
+
+        // Exactly 64 bits, all ones
+        let bv = BitVec::from_prim_with_size(u64::MAX, 64).unwrap();
+        assert_eq!(bv.is_mask(), Some((63, 0)));
+
+        // Exactly 64 bits, mask in middle
+        let bv = BitVec::from_prim_with_size(0x00FFFF0000000000u64, 64).unwrap();
+        assert_eq!(bv.is_mask(), Some((55, 40)));
+    }
+
+    #[test]
+    fn test_is_mask_non_byte_aligned() {
+        // 7-bit BitVec, all ones
+        let bv = BitVec::from_prim_with_size(0x7Fu8, 7).unwrap();
+        assert_eq!(bv.is_mask(), Some((6, 0)));
+
+        // 13-bit BitVec with mask
+        let bv = BitVec::from_prim_with_size(0x0FC0u16, 13).unwrap(); // bits 6-11 set
+        assert_eq!(bv.is_mask(), Some((11, 6)));
+
+        // 100-bit BitVec with mask at high end
+        let mut value = BigUint::zero();
+        for i in 90..100 {
+            value |= BigUint::one() << i;
+        }
+        let bv = BitVec::from_biguint(&value, 100).unwrap();
+        assert_eq!(bv.is_mask(), Some((99, 90)));
     }
 }
