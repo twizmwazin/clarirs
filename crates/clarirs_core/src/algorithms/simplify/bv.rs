@@ -311,7 +311,7 @@ pub(crate) fn simplify_bv<'c>(
                             let low = shr_u32;
 
                             // Special handling for zero-extended values
-                            if let BitVecOp::ZeroExt(inner_val, ext_size) = inner.op() {
+                            if let BitVecOp::ZeroExt(inner_val, _) = inner.op() {
                                 let inner_size = inner_val.size();
 
                                 if low >= inner_size {
