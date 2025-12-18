@@ -10,10 +10,7 @@ pub mod string;
 
 use std::sync::LazyLock;
 
-use crate::{
-    ast::bool::{false_op, true_op},
-    prelude::*,
-};
+use crate::prelude::*;
 
 use super::import_submodule;
 
@@ -32,60 +29,33 @@ pub fn not<'py>(py: Python<'py>, b: Bound<'py, Base>) -> Result<Bound<'py, Base>
     }
 }
 
-macro_rules! define_binop {
-    ($name:ident, $bool_op:ident, $bv_op:ident) => {
-        #[pyfunction]
-        #[allow(non_snake_case)]
-        pub fn $name<'py>(
-            py: Python<'py>,
-            a: Bound<'py, PyAny>,
-            b: Bound<'py, PyAny>,
-        ) -> Result<Bound<'py, Base>, ClaripyError> {
-            if let Ok(a_bool) = a.clone().into_any().cast::<Bool>() {
-                if let Ok(b_bool) = b.clone().into_any().cast::<Bool>() {
-                    return Bool::new(
-                        py,
-                        &GLOBAL_CONTEXT.$bool_op(&a_bool.get().inner, &b_bool.get().inner)?,
-                    )
-                    .map(|b| b.into_any().cast::<Base>().unwrap().clone());
-                } else {
-                    panic!("mismatched types")
-                }
-            } else if let Ok(a_bv) = a.clone().into_any().extract::<CoerceBV>() {
-                if let Ok(b_bv) = b.clone().into_any().extract::<CoerceBV>() {
-                    let (a_bv, b_bv) = CoerceBV::unpack_pair(py, &a_bv, &b_bv)?;
-                    return BV::new(
-                        py,
-                        &GLOBAL_CONTEXT.$bv_op(&a_bv.get().inner, &b_bv.get().inner)?,
-                    )
-                    .map(|b| b.into_any().cast::<Base>().unwrap().clone());
-                } else {
-                    panic!("mismatched types")
-                }
-            } else {
-                panic!("unsupported type")
-            }
-        }
-    };
-}
-
-define_binop!(and_inner, and, bv_and);
-define_binop!(or_inner, or, bv_or);
-define_binop!(xor, xor, xor);
-
-// The following ops are reducable and support a variable number of arguments
-
 #[pyfunction(name = "And", signature = (*args))]
 pub fn and<'py>(
     py: Python<'py>,
     args: Vec<Bound<'py, PyAny>>,
 ) -> Result<Bound<'py, Base>, ClaripyError> {
-    Ok(args
-        .into_iter()
-        .try_fold(true_op(py)?.cast::<PyAny>()?.clone(), |acc, arg| {
-            and_inner(py, acc, arg).map(|b| b.into_any().clone())
-        })?
-        .cast_into::<Base>()?)
+    if args.len() == 2
+        && let Some(lhs) = args[0].extract::<CoerceBV>().ok()
+        && let Some(rhs) = args[1].extract::<CoerceBV>().ok()
+    {
+        let (lhs, rhs) = CoerceBV::unpack_pair(py, &lhs, &rhs)?;
+        return BV::new(
+            py,
+            &GLOBAL_CONTEXT.bv_and(&lhs.get().inner, &rhs.get().inner)?,
+        )
+        .map(|b| b.into_any().cast::<Base>().unwrap().clone());
+    } else {
+        let args = args
+            .into_iter()
+            .map(|arg| {
+                arg.extract::<CoerceBool>()
+                    .map(|b| b.0.get().inner.clone())
+                    .map_err(|_| ClaripyError::TypeError("And arguments must be Bool".to_string()))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        return Bool::new(py, &GLOBAL_CONTEXT.and(args)?)
+            .map(|b| b.into_any().cast::<Base>().unwrap().clone());
+    }
 }
 
 #[pyfunction(name = "Or", signature = (*args))]
@@ -93,12 +63,61 @@ pub fn or<'py>(
     py: Python<'py>,
     args: Vec<Bound<'py, PyAny>>,
 ) -> Result<Bound<'py, Base>, ClaripyError> {
-    Ok(args
-        .into_iter()
-        .try_fold(false_op(py)?.cast::<PyAny>()?.clone(), |acc, arg| {
-            or_inner(py, acc, arg).map(|b| b.into_any().clone())
-        })?
-        .cast_into::<Base>()?)
+    if args.len() == 2
+        && let Some(lhs) = args[0].extract::<CoerceBV>().ok()
+        && let Some(rhs) = args[1].extract::<CoerceBV>().ok()
+    {
+        let (lhs, rhs) = CoerceBV::unpack_pair(py, &lhs, &rhs)?;
+        return BV::new(
+            py,
+            &GLOBAL_CONTEXT.bv_or(&lhs.get().inner, &rhs.get().inner)?,
+        )
+        .map(|b| b.into_any().cast::<Base>().unwrap().clone());
+    } else {
+        let args = args
+            .into_iter()
+            .map(|arg| {
+                arg.extract::<CoerceBool>()
+                    .map(|b| b.0.get().inner.clone())
+                    .map_err(|_| ClaripyError::TypeError("And arguments must be Bool".to_string()))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        return Bool::new(py, &GLOBAL_CONTEXT.or(args)?)
+            .map(|b| b.into_any().cast::<Base>().unwrap().clone());
+    }
+}
+
+#[pyfunction]
+#[allow(non_snake_case)]
+pub fn xor<'py>(
+    py: Python<'py>,
+    a: Bound<'py, PyAny>,
+    b: Bound<'py, PyAny>,
+) -> Result<Bound<'py, Base>, ClaripyError> {
+    if let Ok(a_bool) = a.clone().into_any().cast::<Bool>() {
+        if let Ok(b_bool) = b.clone().into_any().cast::<Bool>() {
+            return Bool::new(
+                py,
+                &GLOBAL_CONTEXT.xor(&a_bool.get().inner, &b_bool.get().inner)?,
+            )
+            .map(|b| b.into_any().cast::<Base>().unwrap().clone());
+        } else {
+            panic!("mismatched types")
+        }
+    } else if let Ok(a_bv) = a.clone().into_any().extract::<CoerceBV>() {
+        if let Ok(b_bv) = b.clone().into_any().extract::<CoerceBV>() {
+            let (a_bv, b_bv) = CoerceBV::unpack_pair(py, &a_bv, &b_bv)?;
+            return BV::new(
+                py,
+                &GLOBAL_CONTEXT.xor(&a_bv.get().inner, &b_bv.get().inner)?,
+            )
+            .map(|b| b.into_any().cast::<Base>().unwrap().clone());
+        } else {
+            panic!("mismatched types")
+        }
+    } else {
+        panic!("unsupported type")
+    }
 }
 
 #[pyfunction(name = "If")]

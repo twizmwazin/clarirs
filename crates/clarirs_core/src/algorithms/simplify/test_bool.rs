@@ -77,7 +77,7 @@ fn test_not() -> Result<()> {
 
     for (lhs, rhs, expected) in table {
         assert_eq!(
-            &ctx.and(lhs, rhs)?.simplify()?,
+            &ctx.and2(lhs, rhs)?.simplify()?,
             expected,
             "lhs: {lhs:?}, rhs: {rhs:?}"
         );
@@ -108,7 +108,7 @@ fn test_or() -> Result<()> {
 
     for (lhs, rhs, expected) in table {
         assert_eq!(
-            &ctx.or(lhs, rhs)?.simplify()?,
+            &ctx.or2(lhs, rhs)?.simplify()?,
             expected,
             "lhs: {lhs:?}, rhs: {rhs:?}"
         );
@@ -455,17 +455,17 @@ fn test_boolean_identity_simplifications() -> Result<()> {
     let not_x = ctx.not(&x)?.simplify()?;
 
     // x && !x == false
-    let simplified = ctx.and(&x, &not_x)?.simplify()?;
+    let simplified = ctx.and2(&x, &not_x)?.simplify()?;
     assert_eq!(simplified, ctx.false_()?);
 
-    let simplified = ctx.and(&not_x, &x)?.simplify()?;
+    let simplified = ctx.and2(&not_x, &x)?.simplify()?;
     assert_eq!(simplified, ctx.false_()?);
 
     // x || !x == true
-    let simplified = ctx.or(&x, &not_x)?.simplify()?;
+    let simplified = ctx.or2(&x, &not_x)?.simplify()?;
     assert_eq!(simplified, ctx.true_()?);
 
-    let simplified = ctx.or(&not_x, &x)?.simplify()?;
+    let simplified = ctx.or2(&not_x, &x)?.simplify()?;
     assert_eq!(simplified, ctx.true_()?);
 
     // x ^ !x == true

@@ -9,8 +9,8 @@ pub enum BooleanOp<'c> {
     BoolS(InternedString),
     BoolV(bool),
     Not(BoolAst<'c>),
-    And(BoolAst<'c>, BoolAst<'c>),
-    Or(BoolAst<'c>, BoolAst<'c>),
+    And(Vec<BoolAst<'c>>),
+    Or(Vec<BoolAst<'c>>),
     Xor(BoolAst<'c>, BoolAst<'c>),
     BoolEq(BoolAst<'c>, BoolAst<'c>),
     BoolNeq(BoolAst<'c>, BoolAst<'c>),
@@ -68,9 +68,7 @@ impl<'a, 'c> Iterator for BooleanOpChildIter<'a, 'c> {
             (BooleanOp::StrIsDigit(a), 0) => Some(a.into()),
 
             // 2 child variants - index 0 (first child)
-            (BooleanOp::And(a, _), 0)
-            | (BooleanOp::Or(a, _), 0)
-            | (BooleanOp::Xor(a, _), 0)
+            (BooleanOp::Xor(a, _), 0)
             | (BooleanOp::BoolEq(a, _), 0)
             | (BooleanOp::BoolNeq(a, _), 0) => Some(a.into()),
 
@@ -99,9 +97,7 @@ impl<'a, 'c> Iterator for BooleanOpChildIter<'a, 'c> {
             | (BooleanOp::StrNeq(a, _), 0) => Some(a.into()),
 
             // 2 child variants - index 1 (second child)
-            (BooleanOp::And(_, b), 1)
-            | (BooleanOp::Or(_, b), 1)
-            | (BooleanOp::Xor(_, b), 1)
+            (BooleanOp::Xor(_, b), 1)
             | (BooleanOp::BoolEq(_, b), 1)
             | (BooleanOp::BoolNeq(_, b), 1) => Some(b.into()),
 
@@ -134,6 +130,14 @@ impl<'a, 'c> Iterator for BooleanOpChildIter<'a, 'c> {
             (BooleanOp::ITE(_, b, _), 1) => Some(b.into()),
             (BooleanOp::ITE(_, _, c), 2) => Some(c.into()),
 
+            // N-ary variants (And/Or with Vec)
+            (BooleanOp::And(args), i) if (i as usize) < args.len() => {
+                Some((&args[i as usize]).into())
+            }
+            (BooleanOp::Or(args), i) if (i as usize) < args.len() => {
+                Some((&args[i as usize]).into())
+            }
+
             _ => None,
         };
 
@@ -160,9 +164,7 @@ impl<'a, 'c> ExactSizeIterator for BooleanOpChildIter<'a, 'c> {
             | BooleanOp::FpIsInf(_)
             | BooleanOp::StrIsDigit(_) => 1,
 
-            BooleanOp::And(..)
-            | BooleanOp::Or(..)
-            | BooleanOp::Xor(..)
+            BooleanOp::Xor(..)
             | BooleanOp::BoolEq(..)
             | BooleanOp::BoolNeq(..)
             | BooleanOp::Eq(..)
@@ -188,6 +190,9 @@ impl<'a, 'c> ExactSizeIterator for BooleanOpChildIter<'a, 'c> {
             | BooleanOp::StrNeq(..) => 2,
 
             BooleanOp::ITE(..) => 3,
+
+            BooleanOp::And(args) => args.len(),
+            BooleanOp::Or(args) => args.len(),
         };
         total.saturating_sub(self.index as usize)
     }
@@ -209,15 +214,13 @@ impl std::hash::Hash for BooleanOp<'_> {
                 2.hash(state);
                 a.hash(state);
             }
-            BooleanOp::And(a, b) => {
+            BooleanOp::And(args) => {
                 3.hash(state);
-                a.hash(state);
-                b.hash(state);
+                args.hash(state);
             }
-            BooleanOp::Or(a, b) => {
+            BooleanOp::Or(args) => {
                 4.hash(state);
-                a.hash(state);
-                b.hash(state);
+                args.hash(state);
             }
             BooleanOp::Xor(a, b) => {
                 5.hash(state);
@@ -379,9 +382,7 @@ impl<'c> Op<'c> for BooleanOp<'c> {
             (BooleanOp::StrIsDigit(a), 0) => Some(a.into()),
 
             // 2 child variants - index 0 (first child)
-            (BooleanOp::And(a, _), 0)
-            | (BooleanOp::Or(a, _), 0)
-            | (BooleanOp::Xor(a, _), 0)
+            (BooleanOp::Xor(a, _), 0)
             | (BooleanOp::BoolEq(a, _), 0)
             | (BooleanOp::BoolNeq(a, _), 0) => Some(a.into()),
 
@@ -410,9 +411,7 @@ impl<'c> Op<'c> for BooleanOp<'c> {
             | (BooleanOp::StrNeq(a, _), 0) => Some(a.into()),
 
             // 2 child variants - index 1 (second child)
-            (BooleanOp::And(_, b), 1)
-            | (BooleanOp::Or(_, b), 1)
-            | (BooleanOp::Xor(_, b), 1)
+            (BooleanOp::Xor(_, b), 1)
             | (BooleanOp::BoolEq(_, b), 1)
             | (BooleanOp::BoolNeq(_, b), 1) => Some(b.into()),
 
@@ -444,6 +443,10 @@ impl<'c> Op<'c> for BooleanOp<'c> {
             (BooleanOp::ITE(a, _, _), 0) => Some(a.into()),
             (BooleanOp::ITE(_, b, _), 1) => Some(b.into()),
             (BooleanOp::ITE(_, _, c), 2) => Some(c.into()),
+
+            // N-ary variants (And/Or with Vec)
+            (BooleanOp::And(args), i) if i < args.len() => Some((&args[i]).into()),
+            (BooleanOp::Or(args), i) if i < args.len() => Some((&args[i]).into()),
 
             _ => None,
         }

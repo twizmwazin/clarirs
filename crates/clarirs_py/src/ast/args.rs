@@ -16,9 +16,11 @@ impl ExtractPyArgs for BoolAst<'static> {
             BooleanOp::BoolS(name) => vec![name.as_str().into_bound_py_any(py)?],
             BooleanOp::BoolV(val) => vec![val.into_bound_py_any(py)?],
             BooleanOp::Not(expr) => vec![Bool::new(py, expr)?.into_any()],
-            BooleanOp::And(lhs, rhs)
-            | BooleanOp::Or(lhs, rhs)
-            | BooleanOp::Xor(lhs, rhs)
+            BooleanOp::And(args) | BooleanOp::Or(args) => args
+                .iter()
+                .map(|a| Bool::new(py, a).map(|b| b.into_any()))
+                .collect::<Result<Vec<_>, _>>()?,
+            BooleanOp::Xor(lhs, rhs)
             | BooleanOp::BoolEq(lhs, rhs)
             | BooleanOp::BoolNeq(lhs, rhs) => vec![
                 Bool::new(py, lhs)?.into_any(),

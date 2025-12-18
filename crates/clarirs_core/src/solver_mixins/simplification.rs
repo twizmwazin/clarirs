@@ -139,7 +139,7 @@ mod tests {
         // Create a tautology: true OR false (should simplify to true)
         let true_val = ctx.true_().unwrap();
         let false_val = ctx.false_().unwrap();
-        let tautology = ctx.or(&true_val, &false_val).unwrap();
+        let tautology = ctx.or2(&true_val, &false_val).unwrap();
 
         // Should simplify to true before checking
         assert!(solver.is_true(&tautology).unwrap());

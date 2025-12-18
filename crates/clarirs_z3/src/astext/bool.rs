@@ -23,12 +23,12 @@ pub(crate) fn to_z3(ast: &BoolAst, children: &[RcAst]) -> Result<RcAst, ClarirsE
             .try_into()?,
             BooleanOp::Not(..) => unop!(z3_ctx, children, mk_not),
             BooleanOp::And(..) => {
-                let args = [**child(children, 0)?, **child(children, 1)?];
-                z3::mk_and(z3_ctx, 2, args.as_ptr()).try_into()?
+                let args: Vec<_> = children.iter().map(|c| **c).collect();
+                z3::mk_and(z3_ctx, args.len() as u32, args.as_ptr()).try_into()?
             }
             BooleanOp::Or(..) => {
-                let args = [**child(children, 0)?, **child(children, 1)?];
-                z3::mk_or(z3_ctx, 2, args.as_ptr()).try_into()?
+                let args: Vec<_> = children.iter().map(|c| **c).collect();
+                z3::mk_or(z3_ctx, args.len() as u32, args.as_ptr()).try_into()?
             }
             BooleanOp::Xor(..) => binop!(z3_ctx, children, mk_xor),
             BooleanOp::BoolEq(..) => binop!(z3_ctx, children, mk_eq),
@@ -130,8 +130,8 @@ pub(crate) fn from_z3<'c>(
 
                         // Create the appropriate operation
                         match decl_kind {
-                            z3::DeclKind::And => ctx.and(a, b),
-                            z3::DeclKind::Or => ctx.or(a, b),
+                            z3::DeclKind::And => ctx.and2(a, b),
+                            z3::DeclKind::Or => ctx.or2(a, b),
                             z3::DeclKind::Xor => ctx.xor(a, b),
                             _ => unreachable!(),
                         }
@@ -417,7 +417,7 @@ mod tests {
             let ctx = Context::new();
             let x = ctx.bools("x").unwrap();
             let y = ctx.bools("y").unwrap();
-            let and = ctx.and(x, y).unwrap();
+            let and = ctx.and2(x, y).unwrap();
 
             let z3_ast = and.to_z3().unwrap();
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::And));
@@ -440,7 +440,7 @@ mod tests {
             let ctx = Context::new();
             let x = ctx.bools("x").unwrap();
             let y = ctx.bools("y").unwrap();
-            let or = ctx.or(x, y).unwrap();
+            let or = ctx.or2(x, y).unwrap();
 
             let z3_ast = or.to_z3().unwrap();
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Or));
@@ -645,7 +645,7 @@ mod tests {
 
                     let result = BoolAst::from_z3(&ctx, and_z3).unwrap();
                     let expected = ctx
-                        .and(ctx.bools("x").unwrap(), ctx.bools("y").unwrap())
+                        .and2(ctx.bools("x").unwrap(), ctx.bools("y").unwrap())
                         .unwrap();
                     assert_eq!(result, expected);
                 });
@@ -676,7 +676,7 @@ mod tests {
 
                     let result = BoolAst::from_z3(&ctx, or_z3).unwrap();
                     let expected = ctx
-                        .or(ctx.bools("x").unwrap(), ctx.bools("y").unwrap())
+                        .or2(ctx.bools("x").unwrap(), ctx.bools("y").unwrap())
                         .unwrap();
                     assert_eq!(result, expected);
                 });
@@ -814,7 +814,7 @@ mod tests {
             let ctx = Context::new();
             let x = ctx.bools("x").unwrap();
             let y = ctx.bools("y").unwrap();
-            let and = ctx.and(x, y).unwrap();
+            let and = ctx.and2(x, y).unwrap();
 
             let result = round_trip(&ctx, &and).unwrap();
             assert_eq!(and, result);
@@ -825,7 +825,7 @@ mod tests {
             let ctx = Context::new();
             let x = ctx.bools("x").unwrap();
             let y = ctx.bools("y").unwrap();
-            let or = ctx.or(x, y).unwrap();
+            let or = ctx.or2(x, y).unwrap();
 
             let result = round_trip(&ctx, &or).unwrap();
             assert_eq!(or, result);

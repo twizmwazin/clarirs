@@ -24,7 +24,7 @@ where
         if ast.is_false() {
             return ctx.false_();
         }
-        result = ctx.and(&result, &ast)?;
+        result = ctx.and2(&result, &ast)?;
     }
     Ok(result)
 }
@@ -38,7 +38,7 @@ where
         if ast.is_true() {
             return ctx.true_();
         }
-        result = ctx.or(&result, &ast)?;
+        result = ctx.or2(&result, &ast)?;
     }
     Ok(result)
 }

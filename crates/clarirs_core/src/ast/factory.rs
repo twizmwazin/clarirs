@@ -1,6 +1,5 @@
 use std::collections::BTreeSet;
 
-use nonempty::NonEmpty;
 use num_bigint::BigUint;
 
 use super::factory_support::*;
@@ -99,18 +98,32 @@ pub trait AstFactory<'c>: Sized {
 
     fn and(
         &'c self,
-        lhs: impl IntoOwned<BoolAst<'c>>,
-        rhs: impl IntoOwned<BoolAst<'c>>,
+        args: impl IntoIterator<Item = BoolAst<'c>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::And(lhs.into_owned(), rhs.into_owned()))
+        self.make_bool(BooleanOp::And(args.into_iter().collect()))
     }
 
-    fn or(
+    fn and2(
         &'c self,
         lhs: impl IntoOwned<BoolAst<'c>>,
         rhs: impl IntoOwned<BoolAst<'c>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::Or(lhs.into_owned(), rhs.into_owned()))
+        self.make_bool(BooleanOp::And(vec![lhs.into_owned(), rhs.into_owned()]))
+    }
+
+    fn or(
+        &'c self,
+        args: impl IntoIterator<Item = BoolAst<'c>>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool(BooleanOp::Or(args.into_iter().collect()))
+    }
+
+    fn or2(
+        &'c self,
+        lhs: impl IntoOwned<BoolAst<'c>>,
+        rhs: impl IntoOwned<BoolAst<'c>>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool(BooleanOp::Or(vec![lhs.into_owned(), rhs.into_owned()]))
     }
 
     fn xor<Op: SupportsXor<'c>>(
@@ -801,21 +814,5 @@ pub trait AstFactory<'c>: Sized {
 
     fn fpv_from_f64(&'c self, value: f64) -> Result<FloatAst<'c>, ClarirsError> {
         self.fpv(Float::from(value))
-    }
-
-    fn or_many(&'c self, ops: NonEmpty<BoolAst<'c>>) -> Result<BoolAst<'c>, ClarirsError> {
-        let mut result = ops[0].clone();
-        for op in ops.iter().skip(1) {
-            result = self.or(result, op)?;
-        }
-        Ok(result)
-    }
-
-    fn and_many(&'c self, ops: NonEmpty<BoolAst<'c>>) -> Result<BoolAst<'c>, ClarirsError> {
-        let mut result = ops[0].clone();
-        for op in ops.iter().skip(1) {
-            result = self.and(result, op)?;
-        }
-        Ok(result)
     }
 }
