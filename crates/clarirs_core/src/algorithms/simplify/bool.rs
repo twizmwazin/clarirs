@@ -235,6 +235,9 @@ pub(crate) fn simplify_bool<'c>(
                 (_, BooleanOp::BoolV(true)) => Ok(state.get_bool_simplified(0)?),
                 (BooleanOp::BoolV(false), _) => Ok(ctx.not(state.get_bool_simplified(1)?)?),
                 (_, BooleanOp::BoolV(false)) => Ok(ctx.not(state.get_bool_simplified(0)?)?),
+                (BooleanOp::BoolS(name1), BooleanOp::BoolS(name2)) if name1 == name2 => {
+                    Ok(ctx.true_()?)
+                }
                 _ => Ok(ctx.eq_(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
             }
         }
@@ -248,6 +251,9 @@ pub(crate) fn simplify_bool<'c>(
                 (_, BooleanOp::BoolV(true)) => Ok(ctx.not(state.get_bool_simplified(0)?)?),
                 (BooleanOp::BoolV(false), _) => Ok(state.get_bool_simplified(1)?),
                 (_, BooleanOp::BoolV(false)) => Ok(state.get_bool_simplified(0)?),
+                (BooleanOp::BoolS(name1), BooleanOp::BoolS(name2)) if name1 == name2 => {
+                    Ok(ctx.false_()?)
+                }
                 _ => Ok(ctx.neq(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
             }
         }
