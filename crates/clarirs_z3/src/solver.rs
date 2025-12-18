@@ -729,8 +729,8 @@ mod tests {
             let t = ctx.true_()?;
             let f = ctx.false_()?;
 
-            let tt = solver.eval_bool(&ctx.if_(&t, &t, &f)?)?;
-            let tf = solver.eval_bool(&ctx.if_(&f, &t, &f)?)?;
+            let tt = solver.eval_bool(&ctx.ite(&t, &t, &f)?)?;
+            let tf = solver.eval_bool(&ctx.ite(&f, &t, &f)?)?;
 
             assert!(tt.is_true());
             assert!(tf.is_false());
@@ -744,7 +744,7 @@ mod tests {
             solver.add(&ctx.eq_(&x, &ctx.true_()?)?)?;
             solver.add(&ctx.eq_(&y, &ctx.false_()?)?)?;
 
-            let result = solver.eval_bool(&ctx.if_(c, x, y)?)?;
+            let result = solver.eval_bool(&ctx.ite(c, x, y)?)?;
             assert!(result.is_true());
 
             Ok(())

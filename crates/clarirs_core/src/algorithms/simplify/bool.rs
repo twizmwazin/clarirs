@@ -236,8 +236,8 @@ pub(crate) fn simplify_bool<'c>(
                 }
 
                 // (ite cond 1 0) == 0  ==>  !cond
-                (BitVecOp::If(cond, then_val, else_val), BitVecOp::BVV(val))
-                | (BitVecOp::BVV(val), BitVecOp::If(cond, then_val, else_val))
+                (BitVecOp::ITE(cond, then_val, else_val), BitVecOp::BVV(val))
+                | (BitVecOp::BVV(val), BitVecOp::ITE(cond, then_val, else_val))
                     if val.is_zero() =>
                 {
                     if let (BitVecOp::BVV(then_bvv), BitVecOp::BVV(else_bvv)) =
@@ -255,8 +255,8 @@ pub(crate) fn simplify_bool<'c>(
                 }
 
                 // (ite cond 1 0) == 1  ==>  cond
-                (BitVecOp::If(cond, then_val, else_val), BitVecOp::BVV(val))
-                | (BitVecOp::BVV(val), BitVecOp::If(cond, then_val, else_val))
+                (BitVecOp::ITE(cond, then_val, else_val), BitVecOp::BVV(val))
+                | (BitVecOp::BVV(val), BitVecOp::ITE(cond, then_val, else_val))
                     if val.is_one() =>
                 {
                     if let (BitVecOp::BVV(then_bvv), BitVecOp::BVV(else_bvv)) =
@@ -310,8 +310,8 @@ pub(crate) fn simplify_bool<'c>(
                 }
 
                 // (ite cond 1 0) != 0  ==>  cond
-                (BitVecOp::If(cond, then_val, else_val), BitVecOp::BVV(val))
-                | (BitVecOp::BVV(val), BitVecOp::If(cond, then_val, else_val))
+                (BitVecOp::ITE(cond, then_val, else_val), BitVecOp::BVV(val))
+                | (BitVecOp::BVV(val), BitVecOp::ITE(cond, then_val, else_val))
                     if val.is_zero() =>
                 {
                     if let (BitVecOp::BVV(then_bvv), BitVecOp::BVV(else_bvv)) =
@@ -329,8 +329,8 @@ pub(crate) fn simplify_bool<'c>(
                 }
 
                 // (ite cond 1 0) != 1  ==>  !cond
-                (BitVecOp::If(cond, then_val, else_val), BitVecOp::BVV(val))
-                | (BitVecOp::BVV(val), BitVecOp::If(cond, then_val, else_val))
+                (BitVecOp::ITE(cond, then_val, else_val), BitVecOp::BVV(val))
+                | (BitVecOp::BVV(val), BitVecOp::ITE(cond, then_val, else_val))
                     if val.is_one() =>
                 {
                     if let (BitVecOp::BVV(then_bvv), BitVecOp::BVV(else_bvv)) =
@@ -813,7 +813,7 @@ pub(crate) fn simplify_bool<'c>(
             }
         }
 
-        BooleanOp::If(..) => {
+        BooleanOp::ITE(..) => {
             let cond = state.get_bool_simplified(0)?;
             let early_then = state.get_bool_available(1)?;
             let early_else = state.get_bool_available(2)?;
@@ -845,7 +845,7 @@ pub(crate) fn simplify_bool<'c>(
                 }
 
                 // Default case
-                _ => Ok(ctx.if_(
+                _ => Ok(ctx.ite(
                     cond,
                     state.get_bool_simplified(1)?,
                     state.get_bool_simplified(2)?,

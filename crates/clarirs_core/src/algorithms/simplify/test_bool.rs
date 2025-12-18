@@ -190,7 +190,7 @@ fn test_if() -> Result<()> {
 
     for (cond, then_, else_, expected) in table {
         assert_eq!(
-            &ctx.if_(cond, then_, else_)?.simplify()?,
+            &ctx.ite(cond, then_, else_)?.simplify()?,
             expected,
             "cond: {cond:?}, then_branch: {then_:?}, else_branch: {else_:?}"
         );

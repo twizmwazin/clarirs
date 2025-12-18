@@ -266,7 +266,7 @@ impl FP {
                     rm,
                 )?
             }
-            "If" => GLOBAL_CONTEXT.if_(
+            "If" => GLOBAL_CONTEXT.ite(
                 &args[0].cast_bound::<Bool>(py)?.get().inner,
                 &args[1].cast_bound::<FP>(py)?.get().inner,
                 &args[2].cast_bound::<FP>(py)?.get().inner,

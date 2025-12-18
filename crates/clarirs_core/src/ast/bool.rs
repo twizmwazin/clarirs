@@ -38,7 +38,7 @@ pub enum BooleanOp<'c> {
     StrIsDigit(StringAst<'c>),
     StrEq(StringAst<'c>, StringAst<'c>),
     StrNeq(StringAst<'c>, StringAst<'c>),
-    If(BoolAst<'c>, BoolAst<'c>, BoolAst<'c>),
+    ITE(BoolAst<'c>, BoolAst<'c>, BoolAst<'c>),
 }
 
 pub type BoolAst<'c> = AstRef<'c, BooleanOp<'c>>;
@@ -130,9 +130,9 @@ impl<'a, 'c> Iterator for BooleanOpChildIter<'a, 'c> {
             | (BooleanOp::StrNeq(_, b), 1) => Some(b.into()),
 
             // 3 child variants
-            (BooleanOp::If(a, _, _), 0) => Some(a.into()),
-            (BooleanOp::If(_, b, _), 1) => Some(b.into()),
-            (BooleanOp::If(_, _, c), 2) => Some(c.into()),
+            (BooleanOp::ITE(a, _, _), 0) => Some(a.into()),
+            (BooleanOp::ITE(_, b, _), 1) => Some(b.into()),
+            (BooleanOp::ITE(_, _, c), 2) => Some(c.into()),
 
             _ => None,
         };
@@ -187,7 +187,7 @@ impl<'a, 'c> ExactSizeIterator for BooleanOpChildIter<'a, 'c> {
             | BooleanOp::StrEq(..)
             | BooleanOp::StrNeq(..) => 2,
 
-            BooleanOp::If(..) => 3,
+            BooleanOp::ITE(..) => 3,
         };
         total.saturating_sub(self.index as usize)
     }
@@ -351,7 +351,7 @@ impl std::hash::Hash for BooleanOp<'_> {
                 a.hash(state);
                 b.hash(state);
             }
-            BooleanOp::If(a, b, c) => {
+            BooleanOp::ITE(a, b, c) => {
                 32.hash(state);
                 a.hash(state);
                 b.hash(state);
@@ -441,9 +441,9 @@ impl<'c> Op<'c> for BooleanOp<'c> {
             | (BooleanOp::StrNeq(_, b), 1) => Some(b.into()),
 
             // 3 child variants
-            (BooleanOp::If(a, _, _), 0) => Some(a.into()),
-            (BooleanOp::If(_, b, _), 1) => Some(b.into()),
-            (BooleanOp::If(_, _, c), 2) => Some(c.into()),
+            (BooleanOp::ITE(a, _, _), 0) => Some(a.into()),
+            (BooleanOp::ITE(_, b, _), 1) => Some(b.into()),
+            (BooleanOp::ITE(_, _, c), 2) => Some(c.into()),
 
             _ => None,
         }

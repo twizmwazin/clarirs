@@ -129,7 +129,7 @@ impl<'c, T: Clone + Into<DynAst<'c>>> Replace<'c, T> for DynAst<'c> {
                     BooleanOp::StrNeq(..) => {
                         ctx.strneq(string_child(children, 0)?, string_child(children, 1)?)
                     }
-                    BooleanOp::If(..) => ctx.if_(
+                    BooleanOp::ITE(..) => ctx.ite(
                         bool_child(children, 0)?,
                         bool_child(children, 1)?,
                         bool_child(children, 2)?,
@@ -208,7 +208,7 @@ impl<'c, T: Clone + Into<DynAst<'c>>> Replace<'c, T> for DynAst<'c> {
                         bitvec_child(children, 2)?,
                     ),
                     BitVecOp::StrToBV(..) => ctx.strtobv(string_child(children, 0)?),
-                    BitVecOp::If(..) => ctx.if_(
+                    BitVecOp::ITE(..) => ctx.ite(
                         bool_child(children, 0)?,
                         bitvec_child(children, 1)?,
                         bitvec_child(children, 2)?,
@@ -253,7 +253,7 @@ impl<'c, T: Clone + Into<DynAst<'c>>> Replace<'c, T> for DynAst<'c> {
                     FloatOp::BvToFpUnsigned(_, fsort, fprm) => {
                         ctx.bv_to_fp_unsigned(bitvec_child(children, 0)?, *fsort, *fprm)
                     }
-                    FloatOp::If(..) => ctx.if_(
+                    FloatOp::ITE(..) => ctx.ite(
                         bool_child(children, 0)?,
                         float_child(children, 1)?,
                         float_child(children, 2)?,
@@ -276,7 +276,7 @@ impl<'c, T: Clone + Into<DynAst<'c>>> Replace<'c, T> for DynAst<'c> {
                         string_child(children, 2)?,
                     ),
                     StringOp::BVToStr(..) => ctx.bvtostr(bitvec_child(children, 0)?),
-                    StringOp::If(..) => ctx.if_(
+                    StringOp::ITE(..) => ctx.ite(
                         bool_child(children, 0)?,
                         string_child(children, 1)?,
                         string_child(children, 2)?,

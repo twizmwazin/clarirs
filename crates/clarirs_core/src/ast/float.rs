@@ -25,7 +25,7 @@ pub enum FloatOp<'c> {
     BvToFpSigned(BitVecAst<'c>, FSort, FPRM),
     /// Transform an unsigned 2's complement bitvector to a float
     BvToFpUnsigned(BitVecAst<'c>, FSort, FPRM),
-    If(AstRef<'c, BooleanOp<'c>>, FloatAst<'c>, FloatAst<'c>),
+    ITE(AstRef<'c, BooleanOp<'c>>, FloatAst<'c>, FloatAst<'c>),
 }
 
 pub type FloatAst<'c> = AstRef<'c, FloatOp<'c>>;
@@ -77,9 +77,9 @@ impl<'a, 'c> Iterator for FloatOpChildIter<'a, 'c> {
             (FloatOp::FpFP(_, _, sig), 2) => Some(sig.into()),
 
             // 3 child variants - If(cond, then, else)
-            (FloatOp::If(a, _, _), 0) => Some(a.into()),
-            (FloatOp::If(_, b, _), 1) => Some(b.into()),
-            (FloatOp::If(_, _, c), 2) => Some(c.into()),
+            (FloatOp::ITE(a, _, _), 0) => Some(a.into()),
+            (FloatOp::ITE(_, b, _), 1) => Some(b.into()),
+            (FloatOp::ITE(_, _, c), 2) => Some(c.into()),
 
             _ => None,
         };
@@ -112,7 +112,7 @@ impl<'a, 'c> ExactSizeIterator for FloatOpChildIter<'a, 'c> {
 
             FloatOp::FpAdd(..) | FloatOp::FpSub(..) | FloatOp::FpMul(..) | FloatOp::FpDiv(..) => 2,
 
-            FloatOp::FpFP(..) | FloatOp::If(..) => 3,
+            FloatOp::FpFP(..) | FloatOp::ITE(..) => 3,
         };
         total.saturating_sub(self.index as usize)
     }
@@ -197,7 +197,7 @@ impl std::hash::Hash for FloatOp<'_> {
                 sort.hash(state);
                 rm.hash(state);
             }
-            FloatOp::If(a, b, c) => {
+            FloatOp::ITE(a, b, c) => {
                 14.hash(state);
                 a.hash(state);
                 b.hash(state);
@@ -247,9 +247,9 @@ impl<'c> Op<'c> for FloatOp<'c> {
             (FloatOp::FpFP(_, _, sig), 2) => Some(sig.into()),
 
             // 3 child variants - If(cond, then, else)
-            (FloatOp::If(a, _, _), 0) => Some(a.into()),
-            (FloatOp::If(_, b, _), 1) => Some(b.into()),
-            (FloatOp::If(_, _, c), 2) => Some(c.into()),
+            (FloatOp::ITE(a, _, _), 0) => Some(a.into()),
+            (FloatOp::ITE(_, b, _), 1) => Some(b.into()),
+            (FloatOp::ITE(_, _, c), 2) => Some(c.into()),
 
             _ => None,
         }
@@ -288,7 +288,7 @@ impl<'c> FloatExt<'c> for FloatOp<'c> {
             | FloatOp::FpSub(a, _, _)
             | FloatOp::FpMul(a, _, _)
             | FloatOp::FpDiv(a, _, _)
-            | FloatOp::If(_, a, _) => a.size(),
+            | FloatOp::ITE(_, a, _) => a.size(),
             FloatOp::FpToFp(_, sort, _)
             | FloatOp::BvToFp(_, sort)
             | FloatOp::BvToFpSigned(_, sort, _)
@@ -323,7 +323,7 @@ impl<'c> FloatOpExt<'c> for FloatOp<'c> {
             | FloatOp::FpSub(a, _, _)
             | FloatOp::FpMul(a, _, _)
             | FloatOp::FpDiv(a, _, _)
-            | FloatOp::If(_, a, _) => a.sort(),
+            | FloatOp::ITE(_, a, _) => a.sort(),
             FloatOp::FpToFp(_, sort, _)
             | FloatOp::BvToFp(_, sort)
             | FloatOp::BvToFpSigned(_, sort, _)

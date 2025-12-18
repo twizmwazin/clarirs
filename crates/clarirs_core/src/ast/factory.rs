@@ -658,13 +658,13 @@ pub trait AstFactory<'c>: Sized {
         self.make_bool(BooleanOp::StrNeq(lhs.into_owned(), rhs.into_owned()))
     }
 
-    fn if_<Op: SupportsIf<'c>>(
+    fn ite<Op: SupportsIf<'c>>(
         &'c self,
         cond: impl IntoOwned<AstRef<'c, BooleanOp<'c>>>,
         then: impl IntoOwned<AstRef<'c, Op>>,
         else_: impl IntoOwned<AstRef<'c, Op>>,
     ) -> Result<AstRef<'c, Op>, ClarirsError> {
-        Op::if_(self, cond, then, else_)
+        Op::ite(self, cond, then, else_)
     }
 
     fn annotate<Op: SupportsAnnotate<'c>>(

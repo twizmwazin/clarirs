@@ -54,7 +54,7 @@ binop_support_trait!(URem, BitVecOp<'c>, make_bitvec);
 binop_support_trait!(SRem, BitVecOp<'c>, make_bitvec);
 
 pub trait SupportsIf<'c>: Op<'c> + Sized {
-    fn if_(
+    fn ite(
         factory: &'c impl AstFactory<'c>,
         cond: impl IntoOwned<BoolAst<'c>>,
         then: impl IntoOwned<AstRef<'c, Self>>,
@@ -66,13 +66,13 @@ macro_rules! impl_supports_if {
     ($($impler:ty, $factory_func:ident),*) => {
         $(
             impl<'c> SupportsIf<'c> for $impler {
-                fn if_(factory: &'c impl AstFactory<'c>, cond: impl IntoOwned<BoolAst<'c>>, then: impl IntoOwned<AstRef<'c, Self>>, els: impl IntoOwned<AstRef<'c, Self>>) -> Result<AstRef<'c, Self>, ClarirsError> {
+                fn ite(factory: &'c impl AstFactory<'c>, cond: impl IntoOwned<BoolAst<'c>>, then: impl IntoOwned<AstRef<'c, Self>>, els: impl IntoOwned<AstRef<'c, Self>>) -> Result<AstRef<'c, Self>, ClarirsError> {
                     let then_owned = then.into_owned();
                     let els_owned = els.into_owned();
                     if !then_owned.check_same_sort(&els_owned) {
                         return Err(ClarirsError::TypeError(format!("Sort mismatch in if-then-else: {:?} and {:?}", then_owned, els_owned)));
                     }
-                    factory.$factory_func(<$impler>::If(cond.into_owned(), then_owned, els_owned))
+                    factory.$factory_func(<$impler>::ITE(cond.into_owned(), then_owned, els_owned))
                 }
             }
         )*

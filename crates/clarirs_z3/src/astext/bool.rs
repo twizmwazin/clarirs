@@ -37,7 +37,7 @@ pub(crate) fn to_z3(ast: &BoolAst, children: &[RcAst]) -> Result<RcAst, ClarirsE
                 let b = child(children, 1)?;
                 z3::mk_distinct(z3_ctx, 2, [**a, **b].as_ptr()).try_into()?
             }
-            BooleanOp::If(..) => {
+            BooleanOp::ITE(..) => {
                 let cond = child(children, 0)?;
                 let then = child(children, 1)?;
                 let else_ = child(children, 2)?;
@@ -260,7 +260,7 @@ pub(crate) fn from_z3<'c>(
                         let cond = BoolAst::from_z3(ctx, cond)?;
                         let then = BoolAst::from_z3(ctx, then)?;
                         let else_ = BoolAst::from_z3(ctx, else_)?;
-                        ctx.if_(cond, then, else_)
+                        ctx.ite(cond, then, else_)
                     }
                     z3::DeclKind::Uninterpreted => {
                         // Verify it's a boolean
@@ -533,7 +533,7 @@ mod tests {
             let cond = ctx.bools("c").unwrap();
             let then = ctx.true_().unwrap();
             let else_ = ctx.false_().unwrap();
-            let if_expr = ctx.if_(cond, then, else_).unwrap();
+            let if_expr = ctx.ite(cond, then, else_).unwrap();
 
             let z3_ast = if_expr.to_z3().unwrap();
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Ite));
@@ -763,7 +763,7 @@ mod tests {
 
                     let result = BoolAst::from_z3(&ctx, if_z3).unwrap();
                     let expected = ctx
-                        .if_(
+                        .ite(
                             ctx.bools("c").unwrap(),
                             ctx.true_().unwrap(),
                             ctx.false_().unwrap(),
@@ -870,7 +870,7 @@ mod tests {
             let cond = ctx.bools("c").unwrap();
             let then = ctx.true_().unwrap();
             let else_ = ctx.false_().unwrap();
-            let if_expr = ctx.if_(cond, then, else_).unwrap();
+            let if_expr = ctx.ite(cond, then, else_).unwrap();
 
             let result = round_trip(&ctx, &if_expr).unwrap();
             assert_eq!(if_expr, result);
