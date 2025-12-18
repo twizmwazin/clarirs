@@ -30,22 +30,22 @@ pub(crate) fn excavate_ite<'c>(
                         cond,
                         ctx.ite(
                             rhs_cond,
-                            ctx.and(then_, rhs_then)?,
-                            ctx.and(then_, rhs_else)?,
+                            ctx.bv_and(then_, rhs_then)?,
+                            ctx.bv_and(then_, rhs_else)?,
                         )?,
                         ctx.ite(
                             rhs_cond,
-                            ctx.and(else_, rhs_then)?,
-                            ctx.and(else_, rhs_else)?,
+                            ctx.bv_and(else_, rhs_then)?,
+                            ctx.bv_and(else_, rhs_else)?,
                         )?,
                     )?)
                 } else {
-                    Ok(ctx.ite(cond, ctx.and(then_, &rhs)?, ctx.and(else_, rhs)?)?)
+                    Ok(ctx.ite(cond, ctx.bv_and(then_, &rhs)?, ctx.bv_and(else_, rhs)?)?)
                 }
             } else if let BitVecOp::ITE(cond, then_, else_) = rhs.op() {
-                Ok(ctx.ite(cond, ctx.and(&lhs, then_)?, ctx.and(lhs, else_)?)?)
+                Ok(ctx.ite(cond, ctx.bv_and(&lhs, then_)?, ctx.bv_and(lhs, else_)?)?)
             } else {
-                Ok(ctx.and(lhs, rhs)?)
+                Ok(ctx.bv_and(lhs, rhs)?)
             }
         }
         BitVecOp::Or(..) => {
@@ -56,14 +56,18 @@ pub(crate) fn excavate_ite<'c>(
                 // Handle case where both sides are If expressions
                 if let BitVecOp::ITE(_, rhs_then, rhs_else) = rhs.op() {
                     // Prioritize left condition as outer if
-                    Ok(ctx.ite(cond, ctx.or(then_, rhs_then)?, ctx.or(then_, rhs_else)?)?)
+                    Ok(ctx.ite(
+                        cond,
+                        ctx.bv_or(then_, rhs_then)?,
+                        ctx.bv_or(then_, rhs_else)?,
+                    )?)
                 } else {
-                    Ok(ctx.ite(cond, ctx.or(then_, &rhs)?, ctx.or(else_, rhs)?)?)
+                    Ok(ctx.ite(cond, ctx.bv_or(then_, &rhs)?, ctx.bv_or(else_, rhs)?)?)
                 }
             } else if let BitVecOp::ITE(cond, then_, else_) = rhs.op() {
-                Ok(ctx.ite(cond, ctx.or(&lhs, then_)?, ctx.or(lhs, else_)?)?)
+                Ok(ctx.ite(cond, ctx.bv_or(&lhs, then_)?, ctx.bv_or(lhs, else_)?)?)
             } else {
-                Ok(ctx.or(lhs, rhs)?)
+                Ok(ctx.bv_or(lhs, rhs)?)
             }
         }
         BitVecOp::Xor(..) => {

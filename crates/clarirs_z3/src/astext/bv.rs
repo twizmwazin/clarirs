@@ -204,8 +204,8 @@ pub(crate) fn from_z3<'c>(
                         };
 
                         match decl_kind {
-                            z3::DeclKind::Band => ctx.and(a, b),
-                            z3::DeclKind::Bor => ctx.or(a, b),
+                            z3::DeclKind::Band => ctx.bv_and(a, b),
+                            z3::DeclKind::Bor => ctx.bv_or(a, b),
                             z3::DeclKind::Bxor => ctx.xor(a, b),
                             z3::DeclKind::Badd => ctx.add(a, b),
                             z3::DeclKind::Bsub => ctx.sub(a, b),
@@ -462,7 +462,7 @@ mod tests {
             let ctx = Context::new();
             let bv1 = ctx.bvv_prim(0xF0u8).unwrap(); // 11110000
             let bv2 = ctx.bvv_prim(0xAAu8).unwrap(); // 10101010
-            let and_bv = ctx.and(bv1, bv2).unwrap();
+            let and_bv = ctx.bv_and(bv1, bv2).unwrap();
             let z3_ast = and_bv.to_z3().unwrap();
 
             // Verify it's an AND operation
@@ -480,7 +480,7 @@ mod tests {
             let ctx = Context::new();
             let bv1 = ctx.bvv_prim(0xF0u8).unwrap(); // 11110000
             let bv2 = ctx.bvv_prim(0x0Fu8).unwrap(); // 00001111
-            let or_bv = ctx.or(bv1, bv2).unwrap();
+            let or_bv = ctx.bv_or(bv1, bv2).unwrap();
             let z3_ast = or_bv.to_z3().unwrap();
 
             // Verify it's an OR operation
@@ -885,7 +885,7 @@ mod tests {
                     let result = BitVecAst::from_z3(&ctx, and_z3).unwrap();
                     let bv1 = ctx.bvv_prim(0xF0u8).unwrap();
                     let bv2 = ctx.bvv_prim(0xAAu8).unwrap();
-                    let expected = ctx.and(bv1, bv2).unwrap();
+                    let expected = ctx.bv_and(bv1, bv2).unwrap();
                     assert_eq!(result, expected);
                 });
             }
@@ -913,7 +913,7 @@ mod tests {
                     let result = BitVecAst::from_z3(&ctx, or_z3).unwrap();
                     let bv1 = ctx.bvv_prim(0xF0u8).unwrap();
                     let bv2 = ctx.bvv_prim(0x0Fu8).unwrap();
-                    let expected = ctx.or(bv1, bv2).unwrap();
+                    let expected = ctx.bv_or(bv1, bv2).unwrap();
                     assert_eq!(result, expected);
                 });
             }
@@ -1473,7 +1473,7 @@ mod tests {
             let ctx = Context::new();
             let bv1 = ctx.bvv_prim(0xF0u8).unwrap();
             let bv2 = ctx.bvv_prim(0xAAu8).unwrap();
-            let and_bv = ctx.and(bv1, bv2).unwrap();
+            let and_bv = ctx.bv_and(bv1, bv2).unwrap();
             let result = round_trip(&ctx, &and_bv).unwrap();
             assert_eq!(and_bv, result);
         }
@@ -1483,7 +1483,7 @@ mod tests {
             let ctx = Context::new();
             let bv1 = ctx.bvv_prim(0xF0u8).unwrap();
             let bv2 = ctx.bvv_prim(0x0Fu8).unwrap();
-            let or_bv = ctx.or(bv1, bv2).unwrap();
+            let or_bv = ctx.bv_or(bv1, bv2).unwrap();
             let result = round_trip(&ctx, &or_bv).unwrap();
             assert_eq!(or_bv, result);
         }

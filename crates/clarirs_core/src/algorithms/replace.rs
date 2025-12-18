@@ -140,10 +140,10 @@ impl<'c, T: Clone + Into<DynAst<'c>>> Replace<'c, T> for DynAst<'c> {
                     BitVecOp::BVS(..) | BitVecOp::BVV(..) => Ok(bv_ast.clone()),
                     BitVecOp::Not(..) => ctx.not(bitvec_child(children, 0)?),
                     BitVecOp::And(..) => {
-                        ctx.and(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                        ctx.bv_and(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
                     }
                     BitVecOp::Or(..) => {
-                        ctx.or(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                        ctx.bv_or(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
                     }
                     BitVecOp::Xor(..) => {
                         ctx.xor(bitvec_child(children, 0)?, bitvec_child(children, 1)?)

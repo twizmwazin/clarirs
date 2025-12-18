@@ -80,11 +80,11 @@ impl BV {
             "BVS" => GLOBAL_CONTEXT.bvs(args[0].extract::<String>(py)?, args[1].extract(py)?)?,
             "BVV" => GLOBAL_CONTEXT
                 .bvv_from_biguint_with_size(&args[0].extract(py)?, args[1].extract(py)?)?,
-            "__and__" => GLOBAL_CONTEXT.and(
+            "__and__" => GLOBAL_CONTEXT.bv_and(
                 &args[0].cast_bound::<BV>(py)?.get().inner,
                 &args[1].cast_bound::<BV>(py)?.get().inner,
             )?,
-            "__or__" => GLOBAL_CONTEXT.or(
+            "__or__" => GLOBAL_CONTEXT.bv_or(
                 &args[0].cast_bound::<BV>(py)?.get().inner,
                 &args[1].cast_bound::<BV>(py)?.get().inner,
             )?,
@@ -778,7 +778,7 @@ impl BV {
     ) -> Result<Bound<'py, BV>, ClaripyError> {
         BV::new(
             py,
-            &GLOBAL_CONTEXT.and(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.bv_and(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -797,7 +797,7 @@ impl BV {
     ) -> Result<Bound<'py, BV>, ClaripyError> {
         BV::new(
             py,
-            &GLOBAL_CONTEXT.or(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.bv_or(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 

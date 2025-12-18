@@ -97,20 +97,20 @@ pub trait AstFactory<'c>: Sized {
         Op::not(self, ast)
     }
 
-    fn and<Op: SupportsAnd<'c>>(
+    fn and(
         &'c self,
-        lhs: impl IntoOwned<AstRef<'c, Op>>,
-        rhs: impl IntoOwned<AstRef<'c, Op>>,
-    ) -> Result<AstRef<'c, Op>, ClarirsError> {
-        Op::and(self, lhs, rhs)
+        lhs: impl IntoOwned<BoolAst<'c>>,
+        rhs: impl IntoOwned<BoolAst<'c>>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool(BooleanOp::And(lhs.into_owned(), rhs.into_owned()))
     }
 
-    fn or<Op: SupportsOr<'c>>(
+    fn or(
         &'c self,
-        lhs: impl IntoOwned<AstRef<'c, Op>>,
-        rhs: impl IntoOwned<AstRef<'c, Op>>,
-    ) -> Result<AstRef<'c, Op>, ClarirsError> {
-        Op::or(self, lhs, rhs)
+        lhs: impl IntoOwned<BoolAst<'c>>,
+        rhs: impl IntoOwned<BoolAst<'c>>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool(BooleanOp::Or(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn xor<Op: SupportsXor<'c>>(
@@ -139,6 +139,22 @@ pub trait AstFactory<'c>: Sized {
 
     fn neg(&'c self, ast: impl IntoOwned<BitVecAst<'c>>) -> Result<BitVecAst<'c>, ClarirsError> {
         self.make_bitvec(BitVecOp::Neg(ast.into_owned()))
+    }
+
+    fn bv_and(
+        &'c self,
+        lhs: impl IntoOwned<BitVecAst<'c>>,
+        rhs: impl IntoOwned<BitVecAst<'c>>,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::And(lhs.into_owned(), rhs.into_owned()))
+    }
+
+    fn bv_or(
+        &'c self,
+        lhs: impl IntoOwned<BitVecAst<'c>>,
+        rhs: impl IntoOwned<BitVecAst<'c>>,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::Or(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn add<Op: SupportsAdd<'c>>(
@@ -787,10 +803,7 @@ pub trait AstFactory<'c>: Sized {
         self.fpv(Float::from(value))
     }
 
-    fn or_many<Op: SupportsOr<'c>>(
-        &'c self,
-        ops: NonEmpty<AstRef<'c, Op>>,
-    ) -> Result<AstRef<'c, Op>, ClarirsError> {
+    fn or_many(&'c self, ops: NonEmpty<BoolAst<'c>>) -> Result<BoolAst<'c>, ClarirsError> {
         let mut result = ops[0].clone();
         for op in ops.iter().skip(1) {
             result = self.or(result, op)?;
@@ -798,10 +811,7 @@ pub trait AstFactory<'c>: Sized {
         Ok(result)
     }
 
-    fn and_many<Op: SupportsAnd<'c>>(
-        &'c self,
-        ops: NonEmpty<AstRef<'c, Op>>,
-    ) -> Result<AstRef<'c, Op>, ClarirsError> {
+    fn and_many(&'c self, ops: NonEmpty<BoolAst<'c>>) -> Result<BoolAst<'c>, ClarirsError> {
         let mut result = ops[0].clone();
         for op in ops.iter().skip(1) {
             result = self.and(result, op)?;

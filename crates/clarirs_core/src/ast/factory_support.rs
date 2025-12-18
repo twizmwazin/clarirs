@@ -42,8 +42,6 @@ macro_rules! binop_support_trait {
     };
 }
 
-binop_support_trait!(And, BooleanOp<'c>, make_bool, BitVecOp<'c>, make_bitvec);
-binop_support_trait!(Or, BooleanOp<'c>, make_bool, BitVecOp<'c>, make_bitvec);
 binop_support_trait!(Xor, BooleanOp<'c>, make_bool, BitVecOp<'c>, make_bitvec);
 binop_support_trait!(Add, BitVecOp<'c>, make_bitvec);
 binop_support_trait!(Sub, BitVecOp<'c>, make_bitvec);
