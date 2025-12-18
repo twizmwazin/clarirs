@@ -1,3 +1,5 @@
+use ahash::HashSet;
+
 use super::SimplifyError;
 use crate::{ast::bitvec::BitVecOpExt, prelude::*};
 
@@ -52,9 +54,18 @@ pub(crate) fn simplify_bool<'c>(
             }
 
             // Absorption simplification
+            let mut seen = HashSet::default();
             let absorbed_args = available_args
                 .into_iter()
                 .filter(|arg| !matches!(arg.op(), BooleanOp::BoolV(true)))
+                .filter(|arg| {
+                    if seen.contains(&arg.hash()) {
+                        false
+                    } else {
+                        seen.insert(arg.hash());
+                        true
+                    }
+                })
                 .collect::<Vec<_>>();
 
             if absorbed_args.is_empty() {
@@ -127,9 +138,18 @@ pub(crate) fn simplify_bool<'c>(
             }
 
             // Absorption simplification
+            let mut seen = HashSet::default();
             let absorbed_args = available_args
                 .into_iter()
                 .filter(|arg| !matches!(arg.op(), BooleanOp::BoolV(false)))
+                .filter(|arg| {
+                    if seen.contains(&arg.hash()) {
+                        false
+                    } else {
+                        seen.insert(arg.hash());
+                        true
+                    }
+                })
                 .collect::<Vec<_>>();
 
             if absorbed_args.is_empty() {
