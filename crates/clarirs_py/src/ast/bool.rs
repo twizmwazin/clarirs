@@ -76,11 +76,11 @@ impl Bool {
             "BoolS" => GLOBAL_CONTEXT.bools(&args[0].extract::<String>(py)?)?,
             "BoolV" => GLOBAL_CONTEXT.boolv(args[0].extract::<bool>(py)?)?,
             "Not" => GLOBAL_CONTEXT.not(&args[0].cast_bound::<Bool>(py)?.get().inner)?,
-            "And" => GLOBAL_CONTEXT.and(
+            "And" => GLOBAL_CONTEXT.and2(
                 &args[0].cast_bound::<Bool>(py)?.get().inner,
                 &args[1].cast_bound::<Bool>(py)?.get().inner,
             )?,
-            "Or" => GLOBAL_CONTEXT.or(
+            "Or" => GLOBAL_CONTEXT.or2(
                 &args[0].cast_bound::<Bool>(py)?.get().inner,
                 &args[1].cast_bound::<Bool>(py)?.get().inner,
             )?,
@@ -539,7 +539,7 @@ impl Bool {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.and(&self.inner, <CoerceBool as Into<BoolAst>>::into(other))?,
+            &GLOBAL_CONTEXT.and2(&self.inner, <CoerceBool as Into<BoolAst>>::into(other))?,
         )
     }
 
@@ -550,7 +550,7 @@ impl Bool {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.or(&self.inner, <CoerceBool as Into<BoolAst>>::into(other))?,
+            &GLOBAL_CONTEXT.or2(&self.inner, <CoerceBool as Into<BoolAst>>::into(other))?,
         )
     }
 

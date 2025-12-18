@@ -37,11 +37,11 @@ fn test_bool_and_with_ite() {
 
     // Create expression: d && (if c then a else b)
     let ite = ctx.ite(&c, &a, &b).unwrap();
-    let expr = ctx.and(&d, &ite).unwrap();
+    let expr = ctx.and2(&d, &ite).unwrap();
 
     // Expected result: if c then (d && a) else (d && b)
-    let d_and_a = ctx.and(&d, &a).unwrap();
-    let d_and_b = ctx.and(&d, &b).unwrap();
+    let d_and_a = ctx.and2(&d, &a).unwrap();
+    let d_and_b = ctx.and2(&d, &b).unwrap();
     let expected = ctx.ite(&c, &d_and_a, &d_and_b).unwrap();
 
     // Excavate ITEs
@@ -63,11 +63,11 @@ fn test_bool_or_with_ite() {
 
     // Create expression: d || (if c then a else b)
     let ite = ctx.ite(&c, &a, &b).unwrap();
-    let expr = ctx.or(&d, &ite).unwrap();
+    let expr = ctx.or2(&d, &ite).unwrap();
 
     // Expected result: if c then (d || a) else (d || b)
-    let d_or_a = ctx.or(&d, &a).unwrap();
-    let d_or_b = ctx.or(&d, &b).unwrap();
+    let d_or_a = ctx.or2(&d, &a).unwrap();
+    let d_or_b = ctx.or2(&d, &b).unwrap();
     let expected = ctx.ite(&c, &d_or_a, &d_or_b).unwrap();
 
     // Excavate ITEs
@@ -116,17 +116,17 @@ fn test_nested_bool_ite() {
     // Create expression: (if c then a else b) && (if d then b else a)
     let ite1 = ctx.ite(&c, &a, &b).unwrap();
     let ite2 = ctx.ite(&d, &b, &a).unwrap();
-    let expr = ctx.and(&ite1, &ite2).unwrap();
+    let expr = ctx.and2(&ite1, &ite2).unwrap();
 
     // Expected result:
     // if c then
     //   (if d then (a && b) else (a && a))
     // else
     //   (if d then (b && b) else (b && a))
-    let a_and_b = ctx.and(&a, &b).unwrap();
-    let a_and_a = ctx.and(&a, &a).unwrap();
-    let b_and_b = ctx.and(&b, &b).unwrap();
-    let b_and_a = ctx.and(&b, &a).unwrap();
+    let a_and_b = ctx.and2(&a, &b).unwrap();
+    let a_and_a = ctx.and2(&a, &a).unwrap();
+    let b_and_b = ctx.and2(&b, &b).unwrap();
+    let b_and_a = ctx.and2(&b, &a).unwrap();
 
     let then_branch = ctx.ite(&d, &a_and_b, &a_and_a).unwrap();
     let else_branch = ctx.ite(&d, &b_and_b, &b_and_a).unwrap();

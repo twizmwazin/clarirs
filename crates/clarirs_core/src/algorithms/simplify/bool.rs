@@ -38,124 +38,155 @@ pub(crate) fn simplify_bool<'c>(
                 _ => Ok(ctx.not(arc)?),
             }
         }
-        BooleanOp::And(..) => {
-            let early_lhs = state.get_bool_available(0)?;
-            let early_rhs = state.get_bool_available(1)?;
+        BooleanOp::And(args) => {
+            let available_args = (0..args.len())
+                .map(|i| state.get_bool_available(i))
+                .collect::<Result<Vec<_>, _>>()?;
 
-            match (early_lhs.op(), early_rhs.op()) {
-                (BooleanOp::BoolV(lhs), BooleanOp::BoolV(rhs)) => Ok(ctx.boolv(*lhs && *rhs)?),
-                (BooleanOp::BoolV(true), _) => Ok(state.get_bool_simplified(1)?),
-                (_, BooleanOp::BoolV(true)) => Ok(state.get_bool_simplified(0)?),
-                (BooleanOp::BoolV(false), _) | (_, BooleanOp::BoolV(false)) => Ok(ctx.false_()?),
-                (BooleanOp::Not(lhs), rhs) if lhs.op() == rhs => Ok(ctx.false_()?),
-                (lhs, BooleanOp::Not(rhs)) if lhs == rhs.op() => Ok(ctx.false_()?),
-                (BooleanOp::Not(lhs), BooleanOp::Not(rhs)) => Ok(ctx.not(ctx.or(lhs, rhs)?)?),
-                _ if early_lhs == early_rhs => state.get_bool_simplified(0),
-                _ => Ok(ctx.and(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
+            // Identity simplification
+            if available_args
+                .iter()
+                .any(|arg| matches!(arg.op(), BooleanOp::BoolV(false)))
+            {
+                return Ok(ctx.false_()?);
             }
+
+            // Absorption simplification
+            let absorbed_args = available_args
+                .into_iter()
+                .filter(|arg| !matches!(arg.op(), BooleanOp::BoolV(true)))
+                .collect::<Vec<_>>();
+
+            if absorbed_args.is_empty() {
+                return Ok(ctx.true_()?);
+            }
+            if absorbed_args.len() == 1 {
+                return state.rerun(absorbed_args[0].clone());
+            }
+
+            // x & !x == false
+            for i in 0..absorbed_args.len() {
+                for j in (i + 1)..absorbed_args.len() {
+                    if let BooleanOp::Not(neg) = absorbed_args[i].op() {
+                        if neg == &absorbed_args[j] {
+                            return Ok(ctx.false_()?);
+                        }
+                    }
+                    if let BooleanOp::Not(neg) = absorbed_args[j].op() {
+                        if neg == &absorbed_args[i] {
+                            return Ok(ctx.false_()?);
+                        }
+                    }
+                }
+            }
+
+            // All of the comparisons
+            // ex x == K & x != K  ==>  false
+            for i in 0..absorbed_args.len() {
+                for j in (i + 1)..absorbed_args.len() {
+                    match (absorbed_args[i].op(), absorbed_args[j].op()) {
+                        (BooleanOp::Eq(var1, val1), BooleanOp::Neq(var2, val2))
+                        | (BooleanOp::Neq(var2, val2), BooleanOp::Eq(var1, val1))
+                        | (BooleanOp::ULT(var1, val1), BooleanOp::UGE(var2, val2))
+                        | (BooleanOp::UGE(var2, val2), BooleanOp::ULT(var1, val1))
+                        | (BooleanOp::ULE(var1, val1), BooleanOp::UGT(var2, val2))
+                        | (BooleanOp::UGT(var2, val2), BooleanOp::ULE(var1, val1))
+                        | (BooleanOp::SLT(var1, val1), BooleanOp::SGE(var2, val2))
+                        | (BooleanOp::SGE(var2, val2), BooleanOp::SLT(var1, val1))
+                        | (BooleanOp::SLE(var1, val1), BooleanOp::SGT(var2, val2))
+                        | (BooleanOp::SGT(var2, val2), BooleanOp::SLE(var1, val1))
+                            if var1 == var2 && val1 == val2 =>
+                        {
+                            return Ok(ctx.false_()?);
+                        }
+                        _ => {}
+                    }
+                }
+            }
+
+            if absorbed_args.len() != args.len() {
+                return state.rerun(ctx.and(absorbed_args)?);
+            }
+
+            let simplified_args = (0..args.len())
+                .map(|i| state.get_bool_simplified(i))
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(ctx.and(simplified_args)?)
         }
-        BooleanOp::Or(..) => {
-            let early_lhs = state.get_bool_available(0)?;
-            let early_rhs = state.get_bool_available(1)?;
+        BooleanOp::Or(args) => {
+            let available_args = (0..args.len())
+                .map(|i| state.get_bool_available(i))
+                .collect::<Result<Vec<_>, _>>()?;
 
-            match (early_lhs.op(), early_rhs.op()) {
-                (BooleanOp::BoolV(lhs), BooleanOp::BoolV(rhs)) => Ok(ctx.boolv(*lhs || *rhs)?),
-                (BooleanOp::BoolV(true), _) | (_, BooleanOp::BoolV(true)) => Ok(ctx.true_()?),
-                (BooleanOp::BoolV(false), _) => Ok(state.get_bool_simplified(1)?),
-                (_, BooleanOp::BoolV(false)) => Ok(state.get_bool_simplified(0)?),
-                (BooleanOp::Not(lhs), rhs) if lhs.op() == rhs => Ok(ctx.true_()?),
-                (lhs, BooleanOp::Not(rhs)) if lhs == rhs.op() => Ok(ctx.true_()?),
-                (BooleanOp::Not(lhs), BooleanOp::Not(rhs)) => Ok(ctx.not(ctx.and(lhs, rhs)?)?),
-                _ if early_lhs == early_rhs => state.get_bool_simplified(0),
-
-                // x == K || x >= K  ==>  x >= K
-                (BooleanOp::Eq(var1, val1), BooleanOp::UGE(var2, val2))
-                | (BooleanOp::UGE(var2, val2), BooleanOp::Eq(var1, val1))
-                    if var1 == var2 && val1 == val2 =>
-                {
-                    state.rerun(ctx.uge(var1.clone(), val1.clone())?)
-                }
-                // x == K || x > K  ==>  x >= K
-                (BooleanOp::Eq(var1, val1), BooleanOp::UGT(var2, val2))
-                | (BooleanOp::UGT(var2, val2), BooleanOp::Eq(var1, val1))
-                    if var1 == var2 && val1 == val2 =>
-                {
-                    state.rerun(ctx.uge(var1.clone(), val1.clone())?)
-                }
-                // x == K || x <= K  ==>  x <= K
-                (BooleanOp::Eq(var1, val1), BooleanOp::ULE(var2, val2))
-                | (BooleanOp::ULE(var2, val2), BooleanOp::Eq(var1, val1))
-                    if var1 == var2 && val1 == val2 =>
-                {
-                    state.rerun(ctx.ule(var1.clone(), val1.clone())?)
-                }
-                // x == K || x < K  ==>  x <= K
-                (BooleanOp::Eq(var1, val1), BooleanOp::ULT(var2, val2))
-                | (BooleanOp::ULT(var2, val2), BooleanOp::Eq(var1, val1))
-                    if var1 == var2 && val1 == val2 =>
-                {
-                    state.rerun(ctx.ule(var1.clone(), val1.clone())?)
-                }
-                // x == K || x s>= K  ==>  x s>= K
-                (BooleanOp::Eq(var1, val1), BooleanOp::SGE(var2, val2))
-                | (BooleanOp::SGE(var2, val2), BooleanOp::Eq(var1, val1))
-                    if var1 == var2 && val1 == val2 =>
-                {
-                    state.rerun(ctx.sge(var1.clone(), val1.clone())?)
-                }
-                // x == K || x s> K  ==>  x s>= K
-                (BooleanOp::Eq(var1, val1), BooleanOp::SGT(var2, val2))
-                | (BooleanOp::SGT(var2, val2), BooleanOp::Eq(var1, val1))
-                    if var1 == var2 && val1 == val2 =>
-                {
-                    state.rerun(ctx.sge(var1.clone(), val1.clone())?)
-                }
-                // x == K || x s<= K  ==>  x s<= K
-                (BooleanOp::Eq(var1, val1), BooleanOp::SLE(var2, val2))
-                | (BooleanOp::SLE(var2, val2), BooleanOp::Eq(var1, val1))
-                    if var1 == var2 && val1 == val2 =>
-                {
-                    state.rerun(ctx.sle(var1.clone(), val1.clone())?)
-                }
-                // x == K || x s< K  ==>  x s<= K
-                (BooleanOp::Eq(var1, val1), BooleanOp::SLT(var2, val2))
-                | (BooleanOp::SLT(var2, val2), BooleanOp::Eq(var1, val1))
-                    if var1 == var2 && val1 == val2 =>
-                {
-                    state.rerun(ctx.sle(var1.clone(), val1.clone())?)
-                }
-
-                // x <= K || x > K  ==>  true
-                (BooleanOp::ULE(var1, val1), BooleanOp::UGT(var2, val2))
-                | (BooleanOp::UGT(var2, val2), BooleanOp::ULE(var1, val1))
-                    if var1 == var2 && val1 == val2 =>
-                {
-                    Ok(ctx.true_()?)
-                }
-                // x < K || x >= K  ==>  true
-                (BooleanOp::ULT(var1, val1), BooleanOp::UGE(var2, val2))
-                | (BooleanOp::UGE(var2, val2), BooleanOp::ULT(var1, val1))
-                    if var1 == var2 && val1 == val2 =>
-                {
-                    Ok(ctx.true_()?)
-                }
-                // x <= K || x > K  ==>  true
-                (BooleanOp::SLE(var1, val1), BooleanOp::SGT(var2, val2))
-                | (BooleanOp::SGT(var2, val2), BooleanOp::SLE(var1, val1))
-                    if var1 == var2 && val1 == val2 =>
-                {
-                    Ok(ctx.true_()?)
-                }
-                // x < K || x >= K  ==>  true
-                (BooleanOp::SLT(var1, val1), BooleanOp::SGE(var2, val2))
-                | (BooleanOp::SGE(var2, val2), BooleanOp::SLT(var1, val1))
-                    if var1 == var2 && val1 == val2 =>
-                {
-                    Ok(ctx.true_()?)
-                }
-
-                _ => Ok(ctx.or(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
+            // Identity simplification
+            if available_args
+                .iter()
+                .any(|arg| matches!(arg.op(), BooleanOp::BoolV(true)))
+            {
+                return Ok(ctx.true_()?);
             }
+
+            // Absorption simplification
+            let absorbed_args = available_args
+                .into_iter()
+                .filter(|arg| !matches!(arg.op(), BooleanOp::BoolV(false)))
+                .collect::<Vec<_>>();
+
+            if absorbed_args.is_empty() {
+                return Ok(ctx.false_()?);
+            }
+            if absorbed_args.len() == 1 {
+                return state.rerun(absorbed_args[0].clone());
+            }
+
+            // x | !x == true
+            for i in 0..absorbed_args.len() {
+                for j in (i + 1)..absorbed_args.len() {
+                    if let BooleanOp::Not(neg) = absorbed_args[i].op() {
+                        if neg == &absorbed_args[j] {
+                            return Ok(ctx.true_()?);
+                        }
+                    }
+                    if let BooleanOp::Not(neg) = absorbed_args[j].op() {
+                        if neg == &absorbed_args[i] {
+                            return Ok(ctx.true_()?);
+                        }
+                    }
+                }
+            }
+
+            // All of the comparisons
+            // ex x == K | x != K  ==>  true
+            for i in 0..absorbed_args.len() {
+                for j in (i + 1)..absorbed_args.len() {
+                    match (absorbed_args[i].op(), absorbed_args[j].op()) {
+                        (BooleanOp::Eq(var1, val1), BooleanOp::Neq(var2, val2))
+                        | (BooleanOp::Neq(var2, val2), BooleanOp::Eq(var1, val1))
+                        | (BooleanOp::ULT(var1, val1), BooleanOp::UGE(var2, val2))
+                        | (BooleanOp::UGE(var2, val2), BooleanOp::ULT(var1, val1))
+                        | (BooleanOp::ULE(var1, val1), BooleanOp::UGT(var2, val2))
+                        | (BooleanOp::UGT(var2, val2), BooleanOp::ULE(var1, val1))
+                        | (BooleanOp::SLT(var1, val1), BooleanOp::SGE(var2, val2))
+                        | (BooleanOp::SGE(var2, val2), BooleanOp::SLT(var1, val1))
+                        | (BooleanOp::SLE(var1, val1), BooleanOp::SGT(var2, val2))
+                        | (BooleanOp::SGT(var2, val2), BooleanOp::SLE(var1, val1))
+                            if var1 == var2 && val1 == val2 =>
+                        {
+                            return Ok(ctx.true_()?);
+                        }
+                        _ => {}
+                    }
+                }
+            }
+
+            if absorbed_args.len() != args.len() {
+                return state.rerun(ctx.or(absorbed_args)?);
+            }
+
+            let simplified_args = (0..args.len())
+                .map(|i| state.get_bool_simplified(i))
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(ctx.or(simplified_args)?)
         }
         BooleanOp::Xor(..) => {
             let early_lhs = state.get_bool_available(0)?;

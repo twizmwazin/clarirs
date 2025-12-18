@@ -200,8 +200,8 @@ mod tests {
         let ctx = Context::new();
 
         // Create two structurally identical boolean ASTs with different variable names
-        let ast1 = ctx.and(&ctx.bools("p")?, &ctx.bools("q")?)?;
-        let ast2 = ctx.and(&ctx.bools("x")?, &ctx.bools("y")?)?;
+        let ast1 = ctx.and2(&ctx.bools("p")?, &ctx.bools("q")?)?;
+        let ast2 = ctx.and2(&ctx.bools("x")?, &ctx.bools("y")?)?;
 
         let dyn_ast1 = DynAst::from(&ast1);
         let dyn_ast2 = DynAst::from(&ast2);
@@ -397,12 +397,12 @@ mod tests {
         let ctx = Context::new();
 
         // Create two structurally identical boolean ASTs with different variable names
-        let ast1 = ctx.or(
-            &ctx.and(&ctx.bools("a")?, &ctx.bools("b")?)?,
+        let ast1 = ctx.or2(
+            &ctx.and2(&ctx.bools("a")?, &ctx.bools("b")?)?,
             &ctx.bools("c")?,
         )?;
-        let ast2 = ctx.or(
-            &ctx.and(&ctx.bools("x")?, &ctx.bools("y")?)?,
+        let ast2 = ctx.or2(
+            &ctx.and2(&ctx.bools("x")?, &ctx.bools("y")?)?,
             &ctx.bools("z")?,
         )?;
 

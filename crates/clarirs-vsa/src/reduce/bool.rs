@@ -42,8 +42,32 @@ pub(crate) fn reduce_bool(
             }
         }
         BooleanOp::Not(..) => !child(children, 0)?,
-        BooleanOp::And(..) => child(children, 0)? & child(children, 1)?,
-        BooleanOp::Or(..) => child(children, 0)? | child(children, 1)?,
+        BooleanOp::And(..) => {
+            let mut result = ComparisonResult::True;
+            for c in children {
+                if let ReduceResult::Bool(b) = c {
+                    result = result & b.clone();
+                } else {
+                    return Err(ClarirsError::InvalidArgumentsWithMessage(
+                        "Expected Bool".to_string(),
+                    ));
+                }
+            }
+            result
+        }
+        BooleanOp::Or(..) => {
+            let mut result = ComparisonResult::False;
+            for c in children {
+                if let ReduceResult::Bool(b) = c {
+                    result = result | b.clone();
+                } else {
+                    return Err(ClarirsError::InvalidArgumentsWithMessage(
+                        "Expected Bool".to_string(),
+                    ));
+                }
+            }
+            result
+        }
         BooleanOp::Xor(..) => child(children, 0)? ^ child(children, 1)?,
         BooleanOp::BoolEq(..) => child(children, 0)?.eq_(child(children, 1)?),
         BooleanOp::BoolNeq(..) => !child(children, 0)?.eq_(child(children, 1)?),

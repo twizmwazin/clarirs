@@ -51,9 +51,19 @@ impl<'c, T: Clone + Into<DynAst<'c>>> Replace<'c, T> for DynAst<'c> {
                     BooleanOp::BoolS(..) | BooleanOp::BoolV(..) => Ok(bool_ast.clone()),
                     BooleanOp::Not(..) => ctx.not(bool_child(children, 0)?),
                     BooleanOp::And(..) => {
-                        ctx.and(bool_child(children, 0)?, bool_child(children, 1)?)
+                        let args: Vec<_> = children
+                            .iter()
+                            .map(|c| bool_child(&[c.clone()], 0))
+                            .collect::<Result<_, _>>()?;
+                        ctx.and(args)
                     }
-                    BooleanOp::Or(..) => ctx.or(bool_child(children, 0)?, bool_child(children, 1)?),
+                    BooleanOp::Or(..) => {
+                        let args: Vec<_> = children
+                            .iter()
+                            .map(|c| bool_child(&[c.clone()], 0))
+                            .collect::<Result<_, _>>()?;
+                        ctx.or(args)
+                    }
                     BooleanOp::Xor(..) => {
                         ctx.xor(bool_child(children, 0)?, bool_child(children, 1)?)
                     }
