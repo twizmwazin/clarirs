@@ -235,7 +235,9 @@ pub(crate) fn simplify_bool<'c>(
                 (_, BooleanOp::BoolV(true)) => Ok(state.get_bool_simplified(0)?),
                 (BooleanOp::BoolV(false), _) => Ok(ctx.not(state.get_bool_simplified(1)?)?),
                 (_, BooleanOp::BoolV(false)) => Ok(ctx.not(state.get_bool_simplified(0)?)?),
-                _ if early_lhs == early_rhs => Ok(ctx.true_()?),
+                (BooleanOp::BoolS(name1), BooleanOp::BoolS(name2)) if name1 == name2 => {
+                    Ok(ctx.true_()?)
+                }
                 _ => Ok(ctx.eq_(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
             }
         }
@@ -249,7 +251,9 @@ pub(crate) fn simplify_bool<'c>(
                 (_, BooleanOp::BoolV(true)) => Ok(ctx.not(state.get_bool_simplified(0)?)?),
                 (BooleanOp::BoolV(false), _) => Ok(state.get_bool_simplified(1)?),
                 (_, BooleanOp::BoolV(false)) => Ok(state.get_bool_simplified(0)?),
-                _ if early_lhs == early_rhs => Ok(ctx.false_()?),
+                (BooleanOp::BoolS(name1), BooleanOp::BoolS(name2)) if name1 == name2 => {
+                    Ok(ctx.false_()?)
+                }
                 _ => Ok(ctx.neq(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
             }
         }
@@ -729,7 +733,6 @@ pub(crate) fn simplify_bool<'c>(
 
             match (early_lhs.op(), early_rhs.op()) {
                 (FloatOp::FPV(arc), FloatOp::FPV(arc1)) => Ok(ctx.boolv(arc.compare_fp(arc1))?),
-                (lhs, rhs) if lhs == rhs => Ok(ctx.true_()?),
                 _ => Ok(ctx.fp_eq(state.get_fp_simplified(0)?, state.get_fp_simplified(1)?)?),
             }
         }
@@ -739,7 +742,6 @@ pub(crate) fn simplify_bool<'c>(
 
             match (early_lhs.op(), early_rhs.op()) {
                 (FloatOp::FPV(arc), FloatOp::FPV(arc1)) => Ok(ctx.boolv(!arc.compare_fp(arc1))?),
-                (lhs, rhs) if lhs == rhs => Ok(ctx.false_()?),
                 _ => Ok(ctx.fp_neq(state.get_fp_simplified(0)?, state.get_fp_simplified(1)?)?),
             }
         }
@@ -843,7 +845,6 @@ pub(crate) fn simplify_bool<'c>(
 
             match (early_lhs.op(), early_rhs.op()) {
                 (StringOp::StringV(str1), StringOp::StringV(str2)) => Ok(ctx.boolv(str1 == str2)?),
-                (lhs, rhs) if lhs == rhs => Ok(ctx.true_()?),
                 _ => Ok(ctx.streq(
                     state.get_string_simplified(0)?,
                     state.get_string_simplified(1)?,
@@ -856,7 +857,6 @@ pub(crate) fn simplify_bool<'c>(
 
             match (early_lhs.op(), early_rhs.op()) {
                 (StringOp::StringV(str1), StringOp::StringV(str2)) => Ok(ctx.boolv(str1 != str2)?),
-                (lhs, rhs) if lhs == rhs => Ok(ctx.false_()?),
                 _ => Ok(ctx.strneq(
                     state.get_string_simplified(0)?,
                     state.get_string_simplified(1)?,
