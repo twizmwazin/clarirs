@@ -87,7 +87,7 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, Clarir
                 // FIXME: recursion
                 acc.unwrap().to_z3()?
             }
-            BitVecOp::If(..) => {
+            BitVecOp::ITE(..) => {
                 let cond = child(children, 0)?;
                 let then = child(children, 1)?;
                 let else_ = child(children, 2)?;
@@ -270,7 +270,7 @@ pub(crate) fn from_z3<'c>(
                         let cond = BoolAst::from_z3(ctx, cond)?;
                         let then = BitVecAst::from_z3(ctx, then)?;
                         let else_ = BitVecAst::from_z3(ctx, else_)?;
-                        ctx.if_(cond, then, else_)
+                        ctx.ite(cond, then, else_)
                     }
                     // Special case for bv2int used in string operations
                     z3::DeclKind::Int2bv => {
@@ -762,7 +762,7 @@ mod tests {
             let cond = ctx.true_().unwrap();
             let then_bv = ctx.bvv_prim(0xAAu8).unwrap();
             let else_bv = ctx.bvv_prim(0xBBu8).unwrap();
-            let if_bv = ctx.if_(cond, then_bv, else_bv).unwrap();
+            let if_bv = ctx.ite(cond, then_bv, else_bv).unwrap();
             let z3_ast = if_bv.to_z3().unwrap();
 
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Ite));
@@ -1420,7 +1420,7 @@ mod tests {
                     let cond = ctx.true_().unwrap();
                     let then_bv = ctx.bvv_prim(0xAAu8).unwrap();
                     let else_bv = ctx.bvv_prim(0xBBu8).unwrap();
-                    let expected = ctx.if_(cond, then_bv, else_bv).unwrap();
+                    let expected = ctx.ite(cond, then_bv, else_bv).unwrap();
                     assert_eq!(result, expected);
                 });
             }
@@ -1661,7 +1661,7 @@ mod tests {
             let cond = ctx.true_().unwrap();
             let then_bv = ctx.bvv_prim(0xAAu8).unwrap();
             let else_bv = ctx.bvv_prim(0xBBu8).unwrap();
-            let if_bv = ctx.if_(cond, then_bv, else_bv).unwrap();
+            let if_bv = ctx.ite(cond, then_bv, else_bv).unwrap();
             let result = round_trip(&ctx, &if_bv).unwrap();
             assert_eq!(if_bv, result);
         }

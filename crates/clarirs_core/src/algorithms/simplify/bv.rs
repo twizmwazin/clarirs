@@ -866,7 +866,7 @@ pub(crate) fn simplify_bv<'c>(
                 _ => Ok(ctx.strtobv(arc)?),
             }
         }
-        BitVecOp::If(..) => {
+        BitVecOp::ITE(..) => {
             let (if_, then_, else_) = (
                 state.get_bool_simplified(0)?,
                 state.get_bv_simplified(1)?,
@@ -888,8 +888,8 @@ pub(crate) fn simplify_bv<'c>(
                     }
                 }
                 // If the condition has a Not at the top level, invert the branches
-                BooleanOp::Not(inner) => state.rerun(ctx.if_(inner, else_, then_)?),
-                _ => Ok(ctx.if_(if_, then_, else_)?),
+                BooleanOp::Not(inner) => state.rerun(ctx.ite(inner, else_, then_)?),
+                _ => Ok(ctx.ite(if_, then_, else_)?),
             }
         }
         BitVecOp::Union(..) => {

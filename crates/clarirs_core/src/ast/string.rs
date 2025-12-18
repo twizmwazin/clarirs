@@ -12,7 +12,7 @@ pub enum StringOp<'c> {
     StrSubstr(StringAst<'c>, BitVecAst<'c>, BitVecAst<'c>),
     StrReplace(StringAst<'c>, StringAst<'c>, StringAst<'c>),
     BVToStr(BitVecAst<'c>),
-    If(AstRef<'c, BooleanOp<'c>>, StringAst<'c>, StringAst<'c>),
+    ITE(AstRef<'c, BooleanOp<'c>>, StringAst<'c>, StringAst<'c>),
 }
 
 pub type StringAst<'c> = AstRef<'c, StringOp<'c>>;
@@ -56,9 +56,9 @@ impl<'a, 'c> Iterator for StringOpChildIter<'a, 'c> {
             (StringOp::StrReplace(_, _, c), 2) => Some(c.into()),
 
             // 3 child variants - If(cond, then, else)
-            (StringOp::If(a, _, _), 0) => Some(a.into()),
-            (StringOp::If(_, b, _), 1) => Some(b.into()),
-            (StringOp::If(_, _, c), 2) => Some(c.into()),
+            (StringOp::ITE(a, _, _), 0) => Some(a.into()),
+            (StringOp::ITE(_, b, _), 1) => Some(b.into()),
+            (StringOp::ITE(_, _, c), 2) => Some(c.into()),
 
             _ => None,
         };
@@ -82,7 +82,7 @@ impl<'a, 'c> ExactSizeIterator for StringOpChildIter<'a, 'c> {
             StringOp::StringS(_) | StringOp::StringV(_) => 0,
             StringOp::BVToStr(_) => 1,
             StringOp::StrConcat(..) => 2,
-            StringOp::StrSubstr(..) | StringOp::StrReplace(..) | StringOp::If(..) => 3,
+            StringOp::StrSubstr(..) | StringOp::StrReplace(..) | StringOp::ITE(..) => 3,
         };
         total.saturating_sub(self.index as usize)
     }
@@ -121,7 +121,7 @@ impl std::hash::Hash for StringOp<'_> {
                 5.hash(state);
                 a.hash(state);
             }
-            StringOp::If(a, b, c) => {
+            StringOp::ITE(a, b, c) => {
                 6.hash(state);
                 a.hash(state);
                 b.hash(state);
@@ -163,9 +163,9 @@ impl<'c> Op<'c> for StringOp<'c> {
             (StringOp::StrReplace(_, _, c), 2) => Some(c.into()),
 
             // 3 child variants - If(cond, then, else)
-            (StringOp::If(a, _, _), 0) => Some(a.into()),
-            (StringOp::If(_, b, _), 1) => Some(b.into()),
-            (StringOp::If(_, _, c), 2) => Some(c.into()),
+            (StringOp::ITE(a, _, _), 0) => Some(a.into()),
+            (StringOp::ITE(_, b, _), 1) => Some(b.into()),
+            (StringOp::ITE(_, _, c), 2) => Some(c.into()),
 
             _ => None,
         }

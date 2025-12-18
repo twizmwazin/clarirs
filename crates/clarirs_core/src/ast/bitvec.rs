@@ -38,7 +38,7 @@ pub enum BitVecOp<'c> {
     StrLen(StringAst<'c>),
     StrIndexOf(StringAst<'c>, StringAst<'c>, BitVecAst<'c>),
     StrToBV(StringAst<'c>),
-    If(AstRef<'c, BooleanOp<'c>>, BitVecAst<'c>, BitVecAst<'c>),
+    ITE(AstRef<'c, BooleanOp<'c>>, BitVecAst<'c>, BitVecAst<'c>),
 
     // VSA Ops
     Union(BitVecAst<'c>, BitVecAst<'c>),
@@ -125,9 +125,9 @@ impl<'a, 'c> Iterator for BitVecOpChildIter<'a, 'c> {
             (BitVecOp::StrIndexOf(_, b, _), 1) => Some(b.into()),
             (BitVecOp::StrIndexOf(_, _, c), 2) => Some(c.into()),
 
-            (BitVecOp::If(a, _, _), 0) => Some(a.into()),
-            (BitVecOp::If(_, b, _), 1) => Some(b.into()),
-            (BitVecOp::If(_, _, c), 2) => Some(c.into()),
+            (BitVecOp::ITE(a, _, _), 0) => Some(a.into()),
+            (BitVecOp::ITE(_, b, _), 1) => Some(b.into()),
+            (BitVecOp::ITE(_, _, c), 2) => Some(c.into()),
 
             _ => None,
         };
@@ -181,7 +181,7 @@ impl<'a, 'c> ExactSizeIterator for BitVecOpChildIter<'a, 'c> {
             | BitVecOp::Union(..)
             | BitVecOp::Intersection(..) => 2,
 
-            BitVecOp::StrIndexOf(..) | BitVecOp::If(..) => 3,
+            BitVecOp::StrIndexOf(..) | BitVecOp::ITE(..) => 3,
         };
         total.saturating_sub(self.index as usize)
     }
@@ -338,7 +338,7 @@ impl std::hash::Hash for BitVecOp<'_> {
                 30.hash(state);
                 a.hash(state);
             }
-            BitVecOp::If(a, b, c) => {
+            BitVecOp::ITE(a, b, c) => {
                 31.hash(state);
                 a.hash(state);
                 b.hash(state);
@@ -429,9 +429,9 @@ impl<'c> Op<'c> for BitVecOp<'c> {
             (BitVecOp::StrIndexOf(_, b, _), 1) => Some(b.into()),
             (BitVecOp::StrIndexOf(_, _, c), 2) => Some(c.into()),
 
-            (BitVecOp::If(a, _, _), 0) => Some(a.into()),
-            (BitVecOp::If(_, b, _), 1) => Some(b.into()),
-            (BitVecOp::If(_, _, c), 2) => Some(c.into()),
+            (BitVecOp::ITE(a, _, _), 0) => Some(a.into()),
+            (BitVecOp::ITE(_, b, _), 1) => Some(b.into()),
+            (BitVecOp::ITE(_, _, c), 2) => Some(c.into()),
 
             _ => None,
         }
@@ -471,7 +471,7 @@ impl<'c> BitVecOpExt<'c> for BitVecOp<'c> {
             BitVecOp::Not(a)
             | BitVecOp::Neg(a)
             | BitVecOp::ByteReverse(a)
-            | BitVecOp::If(_, a, _) => a.size(),
+            | BitVecOp::ITE(_, a, _) => a.size(),
             BitVecOp::And(a, _)
             | BitVecOp::Or(a, _)
             | BitVecOp::Xor(a, _)

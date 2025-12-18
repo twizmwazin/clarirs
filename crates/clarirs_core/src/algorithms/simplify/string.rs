@@ -85,7 +85,7 @@ pub(crate) fn simplify_string<'c>(
                 _ => Ok(ctx.bvtostr(arc)?),
             }
         }
-        StringOp::If(..) => {
+        StringOp::ITE(..) => {
             let (if_, then_, else_) = (
                 state.get_bool_simplified(0)?,
                 state.get_string_simplified(1)?,
@@ -107,8 +107,8 @@ pub(crate) fn simplify_string<'c>(
                     }
                 }
                 // If the condition has a Not at the top level, invert the branches
-                BooleanOp::Not(inner) => Ok(ctx.if_(inner, else_, then_)?),
-                _ => Ok(ctx.if_(if_, then_, else_)?),
+                BooleanOp::Not(inner) => Ok(ctx.ite(inner, else_, then_)?),
+                _ => Ok(ctx.ite(if_, then_, else_)?),
             }
         }
     }

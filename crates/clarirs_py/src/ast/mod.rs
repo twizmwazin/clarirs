@@ -113,7 +113,7 @@ pub fn r#if<'py>(
             let (then_bv, else_bv) = CoerceBV::unpack_pair(py, &then_bv, &else_bv)?;
             BV::new(
                 py,
-                &GLOBAL_CONTEXT.if_(
+                &GLOBAL_CONTEXT.ite(
                     &cond.0.get().inner,
                     &then_bv.get().inner,
                     &else_bv.get().inner,
@@ -131,7 +131,7 @@ pub fn r#if<'py>(
             let else_bv = else_bv.0.get().inner.clone();
             Bool::new(
                 py,
-                &GLOBAL_CONTEXT.if_(&cond.0.get().inner, &then_bv, &else_bv)?,
+                &GLOBAL_CONTEXT.ite(&cond.0.get().inner, &then_bv, &else_bv)?,
             )
             .map(|b| b.into_any().cast::<Base>().unwrap().clone())
         } else {
@@ -144,7 +144,7 @@ pub fn r#if<'py>(
             let (then_fp, else_fp) = CoerceFP::unpack_pair(py, &then_fp, &else_fp)?;
             FP::new(
                 py,
-                &GLOBAL_CONTEXT.if_(
+                &GLOBAL_CONTEXT.ite(
                     &cond.0.get().inner,
                     &then_fp.get().inner,
                     &else_fp.get().inner,
@@ -162,7 +162,7 @@ pub fn r#if<'py>(
             let else_bv = else_string.0.get().inner.clone();
             PyAstString::new(
                 py,
-                &GLOBAL_CONTEXT.if_(&cond.0.get().inner, &then_bv, &else_bv)?,
+                &GLOBAL_CONTEXT.ite(&cond.0.get().inner, &then_bv, &else_bv)?,
             )
             .map(|b| b.into_any().cast::<Base>().unwrap().clone())
         } else {

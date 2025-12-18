@@ -79,7 +79,7 @@ pub(crate) fn reduce_bool(
                 "String operations are not supported".to_string(),
             ));
         }
-        BooleanOp::If(..) => match child(children, 0)? {
+        BooleanOp::ITE(..) => match child(children, 0)? {
             ComparisonResult::True => child(children, 1)?,
             ComparisonResult::False => child(children, 2)?,
             ComparisonResult::Maybe => child(children, 1)? | child(children, 2)?,

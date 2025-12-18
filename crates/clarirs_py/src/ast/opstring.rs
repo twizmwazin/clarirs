@@ -39,7 +39,7 @@ impl ToOpString for BoolAst<'static> {
             BooleanOp::StrIsDigit(..) => "StrIsDigit".to_string(),
             BooleanOp::StrEq(..) => "__eq__".to_string(),
             BooleanOp::StrNeq(..) => "__ne__".to_string(),
-            BooleanOp::If(..) => "If".to_string(),
+            BooleanOp::ITE(..) => "If".to_string(),
         }
     }
 }
@@ -77,7 +77,7 @@ impl ToOpString for BitVecAst<'static> {
             BitVecOp::StrLen(..) => "StrLen".to_string(),
             BitVecOp::StrIndexOf(..) => "StrIndexOf".to_string(),
             BitVecOp::StrToBV(..) => "StrToBV".to_string(),
-            BitVecOp::If(..) => "If".to_string(),
+            BitVecOp::ITE(..) => "If".to_string(),
             BitVecOp::Union(..) => "Union".to_string(),
             BitVecOp::Intersection(..) => "Intersection".to_string(),
         }
@@ -101,7 +101,7 @@ impl ToOpString for FloatAst<'static> {
             FloatOp::BvToFp(..) => "bvToFP".to_string(),
             FloatOp::BvToFpSigned(..) => "fpToFPSigned".to_string(),
             FloatOp::BvToFpUnsigned(..) => "fpToFPUnsigned".to_string(),
-            FloatOp::If(..) => "If".to_string(),
+            FloatOp::ITE(..) => "If".to_string(),
         }
     }
 }
@@ -115,7 +115,7 @@ impl ToOpString for StringAst<'static> {
             StringOp::StrSubstr(..) => "StrSubstr".to_string(),
             StringOp::StrReplace(..) => "StrReplace".to_string(),
             StringOp::BVToStr(..) => "IntToStr".to_string(),
-            StringOp::If(..) => "If".to_string(),
+            StringOp::ITE(..) => "If".to_string(),
         }
     }
 }

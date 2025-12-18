@@ -65,7 +65,7 @@ pub(crate) fn to_z3(ast: &StringAst, children: &[RcAst]) -> Result<RcAst, Clarir
                 RcAst::try_from(z3::mk_seq_replace(z3_ctx, **a, **b, **c))?
             }
             StringOp::BVToStr(_) => todo!("BVToStr - no direct Z3 equivalent"),
-            StringOp::If(cond, then, else_) => {
+            StringOp::ITE(cond, then, else_) => {
                 let cond = cond.to_z3()?;
                 let then = then.to_z3()?;
                 let else_ = else_.to_z3()?;
@@ -153,7 +153,7 @@ pub(crate) fn from_z3<'c>(
                         let cond = BoolAst::from_z3(ctx, cond)?;
                         let then = StringAst::from_z3(ctx, then)?;
                         let else_ = StringAst::from_z3(ctx, else_)?;
-                        ctx.if_(cond, then, else_)
+                        ctx.ite(cond, then, else_)
                     }
                     _ => Err(ClarirsError::ConversionError(
                         "Failed converting from z3: unknown decl kind for string".to_string(),
@@ -322,7 +322,7 @@ mod tests {
             let cond = ctx.bools("c").unwrap();
             let then = ctx.stringv("then").unwrap();
             let else_ = ctx.stringv("else").unwrap();
-            let if_expr = ctx.if_(cond, then, else_).unwrap();
+            let if_expr = ctx.ite(cond, then, else_).unwrap();
 
             let z3_ast = if_expr.to_z3().unwrap();
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Ite));
@@ -512,7 +512,7 @@ mod tests {
                     let cond_ast = ctx.bools("c").unwrap();
                     let then_ast = ctx.stringv("then").unwrap();
                     let else_ast = ctx.stringv("else").unwrap();
-                    let expected = ctx.if_(cond_ast, then_ast, else_ast).unwrap();
+                    let expected = ctx.ite(cond_ast, then_ast, else_ast).unwrap();
                     assert_eq!(result, expected);
                 });
             }
@@ -577,7 +577,7 @@ mod tests {
             let cond = ctx.bools("c").unwrap();
             let then = ctx.stringv("then").unwrap();
             let else_ = ctx.stringv("else").unwrap();
-            let if_expr = ctx.if_(cond, then, else_).unwrap();
+            let if_expr = ctx.ite(cond, then, else_).unwrap();
             let result = round_trip(&ctx, &if_expr).unwrap();
             assert_eq!(if_expr, result);
         }

@@ -56,7 +56,7 @@ impl ExtractPyArgs for BoolAst<'static> {
                 PyAstString::new(py, rhs)?.into_any(),
             ],
             BooleanOp::StrIsDigit(expr) => vec![PyAstString::new(py, expr)?.into_any()],
-            BooleanOp::If(cond, then_, else_) => vec![
+            BooleanOp::ITE(cond, then_, else_) => vec![
                 Bool::new(py, cond)?.into_any(),
                 Bool::new(py, then_)?.into_any(),
                 Bool::new(py, else_)?.into_any(),
@@ -124,7 +124,7 @@ impl ExtractPyArgs for BitVecAst<'static> {
                 PyAstString::new(py, search)?.into_any(),
                 BV::new(py, offset)?.into_any(),
             ],
-            BitVecOp::If(cond, then_, else_) => vec![
+            BitVecOp::ITE(cond, then_, else_) => vec![
                 Bool::new(py, cond)?.into_any(),
                 BV::new(py, then_)?.into_any(),
                 BV::new(py, else_)?.into_any(),
@@ -166,7 +166,7 @@ impl ExtractPyArgs for FloatAst<'static> {
             FloatOp::BvToFp(arc, _)
             | FloatOp::BvToFpSigned(arc, _, _)
             | FloatOp::BvToFpUnsigned(arc, _, _) => vec![BV::new(py, arc)?.into_any()],
-            FloatOp::If(cond, then_, else_) => vec![
+            FloatOp::ITE(cond, then_, else_) => vec![
                 Bool::new(py, cond)?.into_any(),
                 FP::new(py, then_)?.into_any(),
                 FP::new(py, else_)?.into_any(),
@@ -198,7 +198,7 @@ impl ExtractPyArgs for StringAst<'static> {
                 PyAstString::new(py, new)?.into_any(),
             ],
             StringOp::BVToStr(expr) => vec![BV::new(py, expr)?.into_any()],
-            StringOp::If(cond, then_, else_) => vec![
+            StringOp::ITE(cond, then_, else_) => vec![
                 Bool::new(py, cond)?.into_any(),
                 PyAstString::new(py, then_)?.into_any(),
                 PyAstString::new(py, else_)?.into_any(),

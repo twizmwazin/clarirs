@@ -100,7 +100,7 @@ pub(crate) fn to_z3(ast: &FloatAst, children: &[RcAst]) -> Result<RcAst, Clarirs
                 let z3_sort = fsort_to_z3(*sort);
                 RcAst::try_from(z3::mk_fpa_to_fp_unsigned(z3_ctx, *rm_ast, **a, z3_sort))?
             }
-            FloatOp::If(..) => {
+            FloatOp::ITE(..) => {
                 let cond = child(children, 0)?;
                 let then = child(children, 1)?;
                 let else_ = child(children, 2)?;
@@ -286,7 +286,7 @@ pub(crate) fn from_z3<'c>(
                         let cond = crate::astext::bool::from_z3(ctx, cond)?;
                         let then = FloatAst::from_z3(ctx, then)?;
                         let else_ = FloatAst::from_z3(ctx, else_)?;
-                        ctx.if_(cond, then, else_)
+                        ctx.ite(cond, then, else_)
                     }
                     _ => Err(ClarirsError::ConversionError(
                         "Failed converting from z3: unknown decl kind for float".to_string(),
@@ -430,7 +430,7 @@ mod tests {
         let cond = ctx.bools("c").unwrap();
         let a = ctx.fps("a", FSort::f32()).unwrap();
         let b = ctx.fps("b", FSort::f32()).unwrap();
-        let if_expr = ctx.if_(cond, a, b).unwrap();
+        let if_expr = ctx.ite(cond, a, b).unwrap();
         let result = round_trip(&ctx, &if_expr).unwrap();
         assert_eq!(if_expr, result);
     }
