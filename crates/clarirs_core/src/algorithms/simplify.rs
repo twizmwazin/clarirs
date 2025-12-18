@@ -86,15 +86,15 @@ where
 
 struct SimplifyState<'c> {
     expr: DynAst<'c>,
-    children: [Option<DynAst<'c>>; 3], // No op has more than 3 ast children
+    children: Vec<Option<DynAst<'c>>>,
     last_missed_child: Option<u8>,
 }
 
 impl<'c> SimplifyState<'c> {
     fn new(expr: DynAst<'c>) -> Self {
         Self {
-            expr,
-            children: [None, None, None],
+            expr: expr.clone(),
+            children: vec![None; expr.child_iter().count()],
             last_missed_child: None,
         }
     }
