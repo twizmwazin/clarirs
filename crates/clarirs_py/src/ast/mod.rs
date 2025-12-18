@@ -33,7 +33,7 @@ pub fn not<'py>(py: Python<'py>, b: Bound<'py, Base>) -> Result<Bound<'py, Base>
 }
 
 macro_rules! define_binop {
-    ($name:ident, $op:ident) => {
+    ($name:ident, $bool_op:ident, $bv_op:ident) => {
         #[pyfunction]
         #[allow(non_snake_case)]
         pub fn $name<'py>(
@@ -45,7 +45,7 @@ macro_rules! define_binop {
                 if let Ok(b_bool) = b.clone().into_any().cast::<Bool>() {
                     return Bool::new(
                         py,
-                        &GLOBAL_CONTEXT.$op(&a_bool.get().inner, &b_bool.get().inner)?,
+                        &GLOBAL_CONTEXT.$bool_op(&a_bool.get().inner, &b_bool.get().inner)?,
                     )
                     .map(|b| b.into_any().cast::<Base>().unwrap().clone());
                 } else {
@@ -56,7 +56,7 @@ macro_rules! define_binop {
                     let (a_bv, b_bv) = CoerceBV::unpack_pair(py, &a_bv, &b_bv)?;
                     return BV::new(
                         py,
-                        &GLOBAL_CONTEXT.$op(&a_bv.get().inner, &b_bv.get().inner)?,
+                        &GLOBAL_CONTEXT.$bv_op(&a_bv.get().inner, &b_bv.get().inner)?,
                     )
                     .map(|b| b.into_any().cast::<Base>().unwrap().clone());
                 } else {
@@ -69,9 +69,9 @@ macro_rules! define_binop {
     };
 }
 
-define_binop!(and_inner, and);
-define_binop!(or_inner, or);
-define_binop!(xor, xor);
+define_binop!(and_inner, and, bv_and);
+define_binop!(or_inner, or, bv_or);
+define_binop!(xor, xor, xor);
 
 // The following ops are reducable and support a variable number of arguments
 

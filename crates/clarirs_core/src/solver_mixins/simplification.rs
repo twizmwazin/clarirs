@@ -120,7 +120,7 @@ mod tests {
 
         // Create an expression that needs simplification: 5 & 5 (should simplify to 5)
         let five = ctx.bvv_prim(5u64).unwrap();
-        let and_expr = ctx.and(&five, &five).unwrap();
+        let and_expr = ctx.bv_and(&five, &five).unwrap();
 
         // The mixin should simplify this to just 5 before evaluation
         let results = solver.eval_bitvec_n(&and_expr, 1).unwrap();

@@ -41,8 +41,8 @@ pub(crate) fn simplify_bv<'c>(
                     let const_low = const_val.extract(0, rhs_size - 1)?;
 
                     // AND each part with the corresponding concat operand
-                    let high_and = ctx.and(&ctx.bvv(const_high)?, concat_lhs)?;
-                    let low_and = ctx.and(&ctx.bvv(const_low)?, concat_rhs)?;
+                    let high_and = ctx.bv_and(&ctx.bvv(const_high)?, concat_lhs)?;
+                    let low_and = ctx.bv_and(&ctx.bvv(const_low)?, concat_rhs)?;
 
                     // Concatenate the results and recursively simplify
                     state.rerun(ctx.concat(&high_and, &low_and)?)
@@ -56,7 +56,7 @@ pub(crate) fn simplify_bv<'c>(
                     let inner_size = inner.size();
                     let const_inner = const_val.extract(0, inner_size - 1)?;
 
-                    let inner_and = ctx.and(&ctx.bvv(const_inner)?, inner)?;
+                    let inner_and = ctx.bv_and(&ctx.bvv(const_inner)?, inner)?;
                     let zero_extended = ctx.zero_ext(&inner_and, *ext_size)?;
 
                     state.rerun(zero_extended)
@@ -69,7 +69,7 @@ pub(crate) fn simplify_bv<'c>(
                 (lhs, BitVecOp::Not(rhs)) if lhs == rhs.op() => {
                     Ok(ctx.bvv(BitVec::zeros(arc.size()))?)
                 }
-                _ => Ok(ctx.and(arc, arc1)?),
+                _ => Ok(ctx.bv_and(arc, arc1)?),
             }
         }
         BitVecOp::Or(..) => {
@@ -95,8 +95,8 @@ pub(crate) fn simplify_bv<'c>(
                     let const_low = const_val.extract(0, rhs_size - 1)?;
 
                     // OR each part with the corresponding concat operand
-                    let high_or = ctx.or(&ctx.bvv(const_high)?, concat_lhs)?;
-                    let low_or = ctx.or(&ctx.bvv(const_low)?, concat_rhs)?;
+                    let high_or = ctx.bv_or(&ctx.bvv(const_high)?, concat_lhs)?;
+                    let low_or = ctx.bv_or(&ctx.bvv(const_low)?, concat_rhs)?;
 
                     // Concatenate the results and recursively simplify
                     state.rerun(ctx.concat(&high_or, &low_or)?)
@@ -115,7 +115,7 @@ pub(crate) fn simplify_bv<'c>(
                         arc.size(),
                     ))?)
                 }
-                _ => Ok(ctx.or(arc, arc1)?),
+                _ => Ok(ctx.bv_or(arc, arc1)?),
             }
         }
         BitVecOp::Xor(..) => {
@@ -630,13 +630,13 @@ pub(crate) fn simplify_bv<'c>(
                 BitVecOp::And(lhs, rhs) => {
                     let lhs_extracted = ctx.extract(lhs, *high, *low)?;
                     let rhs_extracted = ctx.extract(rhs, *high, *low)?;
-                    state.rerun(ctx.and(&lhs_extracted, &rhs_extracted)?)
+                    state.rerun(ctx.bv_and(&lhs_extracted, &rhs_extracted)?)
                 }
                 // extract(n, m, a | b) = extract(n, m, a) | extract(n, m, b)
                 BitVecOp::Or(lhs, rhs) => {
                     let lhs_extracted = ctx.extract(lhs, *high, *low)?;
                     let rhs_extracted = ctx.extract(rhs, *high, *low)?;
-                    state.rerun(ctx.or(&lhs_extracted, &rhs_extracted)?)
+                    state.rerun(ctx.bv_or(&lhs_extracted, &rhs_extracted)?)
                 }
                 // extract(n, m, a ^ b) = extract(n, m, a) ^ extract(n, m, b)
                 BitVecOp::Xor(lhs, rhs) => {
