@@ -425,6 +425,11 @@ impl BitVec {
         total
     }
 
+    /// Counts the number of bits required to represent the BitVec.
+    pub fn bits(&self) -> usize {
+        self.len() as usize - self.leading_zeros()
+    }
+
     pub fn to_biguint_abs(&self) -> BigUint {
         let n = self.to_biguint();
         if !self.sign() {
