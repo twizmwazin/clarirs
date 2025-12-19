@@ -30,7 +30,7 @@ pub enum BitVecOp<'c> {
     ZeroExt(BitVecAst<'c>, u32),
     SignExt(BitVecAst<'c>, u32),
     Extract(BitVecAst<'c>, u32, u32),
-    Concat(BitVecAst<'c>, BitVecAst<'c>),
+    Concat(Vec<BitVecAst<'c>>),
     ByteReverse(BitVecAst<'c>),
     FpToIEEEBV(FloatAst<'c>),
     FpToUBV(FloatAst<'c>, u32, FPRM),
@@ -49,7 +49,7 @@ pub type BitVecAst<'c> = AstRef<'c, BitVecOp<'c>>;
 
 pub struct BitVecOpChildIter<'a, 'c> {
     op: &'a BitVecOp<'c>,
-    index: u8,
+    index: usize,
 }
 
 impl<'c> BitVecOp<'c> {
@@ -96,7 +96,6 @@ impl<'a, 'c> Iterator for BitVecOpChildIter<'a, 'c> {
             | (BitVecOp::AShR(a, _), 0)
             | (BitVecOp::RotateLeft(a, _), 0)
             | (BitVecOp::RotateRight(a, _), 0)
-            | (BitVecOp::Concat(a, _), 0)
             | (BitVecOp::Union(a, _), 0)
             | (BitVecOp::Intersection(a, _), 0) => Some(a.into()),
 
@@ -116,7 +115,6 @@ impl<'a, 'c> Iterator for BitVecOpChildIter<'a, 'c> {
             | (BitVecOp::AShR(_, b), 1)
             | (BitVecOp::RotateLeft(_, b), 1)
             | (BitVecOp::RotateRight(_, b), 1)
-            | (BitVecOp::Concat(_, b), 1)
             | (BitVecOp::Union(_, b), 1)
             | (BitVecOp::Intersection(_, b), 1) => Some(b.into()),
 
@@ -128,6 +126,9 @@ impl<'a, 'c> Iterator for BitVecOpChildIter<'a, 'c> {
             (BitVecOp::ITE(a, _, _), 0) => Some(a.into()),
             (BitVecOp::ITE(_, b, _), 1) => Some(b.into()),
             (BitVecOp::ITE(_, _, c), 2) => Some(c.into()),
+
+            // N-ary Concat - variable children
+            (BitVecOp::Concat(args), i) if i < args.len() => Some(args[i].clone().into()),
 
             _ => None,
         };
@@ -177,13 +178,14 @@ impl<'a, 'c> ExactSizeIterator for BitVecOpChildIter<'a, 'c> {
             | BitVecOp::AShR(..)
             | BitVecOp::RotateLeft(..)
             | BitVecOp::RotateRight(..)
-            | BitVecOp::Concat(..)
             | BitVecOp::Union(..)
             | BitVecOp::Intersection(..) => 2,
 
+            BitVecOp::Concat(args) => args.len(),
+
             BitVecOp::StrIndexOf(..) | BitVecOp::ITE(..) => 3,
         };
-        total.saturating_sub(self.index as usize)
+        total.saturating_sub(self.index)
     }
 }
 
@@ -299,10 +301,9 @@ impl std::hash::Hash for BitVecOp<'_> {
                 high.hash(state);
                 low.hash(state);
             }
-            BitVecOp::Concat(a, b) => {
+            BitVecOp::Concat(args) => {
                 23.hash(state);
-                a.hash(state);
-                b.hash(state);
+                args.hash(state);
             }
             BitVecOp::ByteReverse(a) => {
                 24.hash(state);
@@ -400,7 +401,6 @@ impl<'c> Op<'c> for BitVecOp<'c> {
             | (BitVecOp::AShR(a, _), 0)
             | (BitVecOp::RotateLeft(a, _), 0)
             | (BitVecOp::RotateRight(a, _), 0)
-            | (BitVecOp::Concat(a, _), 0)
             | (BitVecOp::Union(a, _), 0)
             | (BitVecOp::Intersection(a, _), 0) => Some(a.into()),
 
@@ -420,7 +420,6 @@ impl<'c> Op<'c> for BitVecOp<'c> {
             | (BitVecOp::AShR(_, b), 1)
             | (BitVecOp::RotateLeft(_, b), 1)
             | (BitVecOp::RotateRight(_, b), 1)
-            | (BitVecOp::Concat(_, b), 1)
             | (BitVecOp::Union(_, b), 1)
             | (BitVecOp::Intersection(_, b), 1) => Some(b.into()),
 
@@ -432,6 +431,9 @@ impl<'c> Op<'c> for BitVecOp<'c> {
             (BitVecOp::ITE(a, _, _), 0) => Some(a.into()),
             (BitVecOp::ITE(_, b, _), 1) => Some(b.into()),
             (BitVecOp::ITE(_, _, c), 2) => Some(c.into()),
+
+            // N-ary Concat
+            (BitVecOp::Concat(args), i) if i < args.len() => Some(args[i].clone().into()),
 
             _ => None,
         }
@@ -490,7 +492,7 @@ impl<'c> BitVecOpExt<'c> for BitVecOp<'c> {
             | BitVecOp::Union(a, _)
             | BitVecOp::Intersection(a, _) => a.size(),
             BitVecOp::Extract(_, high, low) => high - low + 1,
-            BitVecOp::Concat(a, b) => a.size() + b.size(),
+            BitVecOp::Concat(args) => args.iter().map(|a| a.size()).sum(),
             BitVecOp::ZeroExt(a, ext) | BitVecOp::SignExt(a, ext) => a.size() + ext,
             BitVecOp::FpToIEEEBV(fp) => fp.size(),
             BitVecOp::FpToUBV(_, size, _) | BitVecOp::FpToSBV(_, size, _) => *size,

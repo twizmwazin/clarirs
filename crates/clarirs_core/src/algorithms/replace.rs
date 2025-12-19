@@ -200,8 +200,11 @@ impl<'c, T: Clone + Into<DynAst<'c>>> Replace<'c, T> for DynAst<'c> {
                     BitVecOp::Extract(_, hi, lo) => {
                         ctx.extract(bitvec_child(children, 0)?, *hi, *lo)
                     }
-                    BitVecOp::Concat(..) => {
-                        ctx.concat(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                    BitVecOp::Concat(args) => {
+                        let new_args: Vec<_> = (0..args.len())
+                            .map(|i| bitvec_child(children, i))
+                            .collect::<Result<_, _>>()?;
+                        ctx.concat(new_args)
                     }
                     BitVecOp::ByteReverse(..) => ctx.byte_reverse(bitvec_child(children, 0)?),
                     BitVecOp::FpToIEEEBV(..) => ctx.fp_to_ieeebv(float_child(children, 0)?),

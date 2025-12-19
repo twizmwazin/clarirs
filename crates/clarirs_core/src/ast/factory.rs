@@ -293,10 +293,23 @@ pub trait AstFactory<'c>: Sized {
 
     fn concat(
         &'c self,
+        args: impl IntoIterator<Item = BitVecAst<'c>>,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        let args: Vec<BitVecAst<'c>> = args.into_iter().collect();
+        if args.is_empty() {
+            return Err(ClarirsError::InvalidArgumentsWithMessage(
+                "Concat requires at least one argument".to_string(),
+            ));
+        }
+        self.make_bitvec(BitVecOp::Concat(args))
+    }
+
+    fn concat2(
+        &'c self,
         lhs: impl IntoOwned<BitVecAst<'c>>,
         rhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::Concat(lhs.into_owned(), rhs.into_owned()))
+        self.concat([lhs.into_owned(), rhs.into_owned()])
     }
 
     fn byte_reverse(

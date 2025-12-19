@@ -154,10 +154,13 @@ impl BV {
                 args[0].extract(py)?,
                 args[1].extract(py)?,
             )?,
-            "Concat" => GLOBAL_CONTEXT.concat(
-                &args[0].cast_bound::<BV>(py)?.get().inner,
-                &args[1].cast_bound::<BV>(py)?.get().inner,
-            )?,
+            "Concat" => {
+                let concat_args: Vec<_> = args
+                    .iter()
+                    .map(|a| a.cast_bound::<BV>(py).map(|b| b.get().inner.clone()))
+                    .collect::<Result<_, _>>()?;
+                GLOBAL_CONTEXT.concat(concat_args)?
+            }
             "Reverse" => GLOBAL_CONTEXT.byte_reverse(&args[0].cast_bound::<BV>(py)?.get().inner)?,
             "fpToIEEEBV" => {
                 GLOBAL_CONTEXT.fp_to_ieeebv(&args[0].cast_bound::<FP>(py)?.get().inner)?
@@ -1412,12 +1415,13 @@ pub fn Concat<'py>(
     py: Python<'py>,
     args: Vec<CoerceBV<'py>>,
 ) -> Result<Bound<'py, BV>, ClaripyError> {
-    let mut args = CoerceBV::unpack_vec_mismatch(py, &args)?.into_iter();
-    let first = args.next().ok_or(ClaripyError::MissingArgIndex(0))?;
-    args.try_fold(first, |acc, arg| {
-        let result = GLOBAL_CONTEXT.concat(&acc.get().inner, &arg.get().inner)?;
-        BV::new(py, &result)
-    })
+    let unpacked = CoerceBV::unpack_vec_mismatch(py, &args)?;
+    if unpacked.is_empty() {
+        return Err(ClaripyError::MissingArgIndex(0));
+    }
+    let inner_args: Vec<_> = unpacked.iter().map(|b| b.get().inner.clone()).collect();
+    let result = GLOBAL_CONTEXT.concat(inner_args)?;
+    BV::new(py, &result)
 }
 
 #[pyfunction]

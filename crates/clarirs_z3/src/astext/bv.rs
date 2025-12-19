@@ -64,7 +64,20 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, Clarir
                 let a = child(children, 0)?;
                 RcAst::try_from(z3::mk_extract(z3_ctx, *high, *low, **a))?
             }
-            BitVecOp::Concat(..) => binop!(z3_ctx, children, mk_concat),
+            BitVecOp::Concat(args) => {
+                // Z3's concat constructor is binary, so we chain them
+                if args.is_empty() {
+                    return Err(ClarirsError::InvalidArgumentsWithMessage(
+                        "Concat requires at least one argument".to_string(),
+                    ));
+                }
+                let mut result = child(children, 0)?.clone();
+                for i in 1..children.len() {
+                    result =
+                        RcAst::try_from(z3::mk_concat(z3_ctx, *result, **child(children, i)?))?;
+                }
+                result
+            }
             BitVecOp::ByteReverse(a) => {
                 if a.size() == 0 || a.size() % 8 != 0 {
                     return Err(ClarirsError::ConversionError(
@@ -79,7 +92,7 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, Clarir
 
                 for byte in reversed {
                     acc = match acc {
-                        Some(inner) => Some(ast.context().concat(inner, byte)?),
+                        Some(inner) => Some(ast.context().concat2(inner, byte)?),
                         None => Some(byte.clone()),
                     };
                 }
@@ -250,18 +263,13 @@ pub(crate) fn from_z3<'c>(
                     }
                     z3::DeclKind::Concat => {
                         let num_args = z3::get_app_num_args(*z3_ctx, app);
-                        let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
-                        let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
-                        let a = BitVecAst::from_z3(ctx, arg0)?;
-                        let b = BitVecAst::from_z3(ctx, arg1)?;
-                        let mut res = ctx.concat(a, b)?;
-
-                        for i in 2..num_args {
+                        let mut concat_args = Vec::with_capacity(num_args as usize);
+                        for i in 0..num_args {
                             let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, i))?;
                             let val = BitVecAst::from_z3(ctx, arg)?;
-                            res = ctx.concat(res, val)?;
+                            concat_args.push(val);
                         }
-                        Ok(res)
+                        ctx.concat(concat_args)
                     }
                     z3::DeclKind::Ite => {
                         let cond = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
@@ -745,7 +753,7 @@ mod tests {
             let ctx = Context::new();
             let bv1 = ctx.bvv_prim(0xAAu8).unwrap();
             let bv2 = ctx.bvv_prim(0xBBu8).unwrap();
-            let concat_bv = ctx.concat(bv1, bv2).unwrap();
+            let concat_bv = ctx.concat2(bv1, bv2).unwrap();
             let z3_ast = concat_bv.to_z3().unwrap();
 
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Concat));
@@ -1386,7 +1394,7 @@ mod tests {
                     let result = BitVecAst::from_z3(&ctx, concat_z3).unwrap();
                     let bv1 = ctx.bvv_prim(0xAAu8).unwrap();
                     let bv2 = ctx.bvv_prim(0xBBu8).unwrap();
-                    let expected = ctx.concat(bv1, bv2).unwrap();
+                    let expected = ctx.concat2(bv1, bv2).unwrap();
                     assert_eq!(result, expected);
                 });
             }
@@ -1650,7 +1658,7 @@ mod tests {
             let ctx = Context::new();
             let bv1 = ctx.bvv_prim(0xAAu8).unwrap();
             let bv2 = ctx.bvv_prim(0xBBu8).unwrap();
-            let concat_bv = ctx.concat(bv1, bv2).unwrap();
+            let concat_bv = ctx.concat2(bv1, bv2).unwrap();
             let result = round_trip(&ctx, &concat_bv).unwrap();
             assert_eq!(concat_bv, result);
         }

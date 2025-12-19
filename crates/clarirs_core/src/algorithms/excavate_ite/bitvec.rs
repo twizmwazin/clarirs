@@ -376,26 +376,34 @@ pub(crate) fn excavate_ite<'c>(
                 Ok(ctx.extract(ast, *ub, *lb)?)
             }
         }
-        BitVecOp::Concat(..) => {
-            let lhs = extract_bitvec_child(children, 0)?;
-            let rhs = extract_bitvec_child(children, 1)?;
+        BitVecOp::Concat(args) => {
+            let excavated_args: Vec<BitVecAst<'c>> = (0..args.len())
+                .map(|i| extract_bitvec_child(children, i))
+                .collect::<Result<_, _>>()?;
 
-            if let BitVecOp::ITE(cond, then_, else_) = lhs.op() {
-                // Handle case where both sides are If expressions
-                if let BitVecOp::ITE(_, rhs_then, rhs_else) = rhs.op() {
-                    // Prioritize left condition as outer if
-                    Ok(ctx.ite(
-                        cond,
-                        ctx.concat(then_, rhs_then)?,
-                        ctx.concat(then_, rhs_else)?,
-                    )?)
+            // Find the first ITE in the args
+            let ite_idx = excavated_args
+                .iter()
+                .position(|arg| matches!(arg.op(), BitVecOp::ITE(..)));
+
+            if let Some(idx) = ite_idx {
+                // Clone the condition/then/else before we move excavated_args
+                let (cond, then_, else_) = if let BitVecOp::ITE(c, t, e) = excavated_args[idx].op()
+                {
+                    (c.clone(), t.clone(), e.clone())
                 } else {
-                    Ok(ctx.ite(cond, ctx.concat(then_, &rhs)?, ctx.concat(else_, rhs)?)?)
-                }
-            } else if let BitVecOp::ITE(cond, then_, else_) = rhs.op() {
-                Ok(ctx.ite(cond, ctx.concat(&lhs, then_)?, ctx.concat(lhs, else_)?)?)
+                    unreachable!()
+                };
+
+                // Build then and else branches by substituting the ITE
+                let mut then_args = excavated_args.clone();
+                then_args[idx] = then_;
+                let mut else_args = excavated_args;
+                else_args[idx] = else_;
+
+                Ok(ctx.ite(&cond, ctx.concat(then_args)?, ctx.concat(else_args)?)?)
             } else {
-                Ok(ctx.concat(lhs, rhs)?)
+                ctx.concat(excavated_args)
             }
         }
         BitVecOp::ByteReverse(..) => {
