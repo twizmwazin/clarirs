@@ -182,20 +182,20 @@ impl Bool {
             )?,
             "fpIsNan" => GLOBAL_CONTEXT.fp_is_nan(&args[0].cast_bound::<FP>(py)?.get().inner)?,
             "fpIsInf" => GLOBAL_CONTEXT.fp_is_inf(&args[0].cast_bound::<FP>(py)?.get().inner)?,
-            "StrContains" => GLOBAL_CONTEXT.strcontains(
+            "StrContains" => GLOBAL_CONTEXT.str_contains(
                 &args[0].cast_bound::<PyAstString>(py)?.get().inner,
                 &args[1].cast_bound::<PyAstString>(py)?.get().inner,
             )?,
-            "StrPrefixOf" => GLOBAL_CONTEXT.strprefixof(
+            "StrPrefixOf" => GLOBAL_CONTEXT.str_prefix_of(
                 &args[0].cast_bound::<PyAstString>(py)?.get().inner,
                 &args[1].cast_bound::<PyAstString>(py)?.get().inner,
             )?,
-            "StrSuffixOf" => GLOBAL_CONTEXT.strsuffixof(
+            "StrSuffixOf" => GLOBAL_CONTEXT.str_suffix_of(
                 &args[0].cast_bound::<PyAstString>(py)?.get().inner,
                 &args[1].cast_bound::<PyAstString>(py)?.get().inner,
             )?,
             "StrIsDigit" => {
-                GLOBAL_CONTEXT.strisdigit(&args[0].cast_bound::<PyAstString>(py)?.get().inner)?
+                GLOBAL_CONTEXT.str_is_digit(&args[0].cast_bound::<PyAstString>(py)?.get().inner)?
             }
             "If" => GLOBAL_CONTEXT.ite(
                 &args[0].cast_bound::<Bool>(py)?.get().inner,

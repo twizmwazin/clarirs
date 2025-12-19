@@ -19,7 +19,7 @@ pub(crate) fn simplify_string<'c>(
                     let concatenated = format!("{str1}{str2}");
                     Ok(ctx.stringv(concatenated)?)
                 }
-                _ => Ok(ctx.strconcat(arc, arc1)?),
+                _ => Ok(ctx.str_concat(arc, arc1)?),
             }
         }
         StringOp::StrSubstr(..) => {
@@ -48,7 +48,7 @@ pub(crate) fn simplify_string<'c>(
                     let substring = s.get(char_start..char_end).unwrap_or("").to_string();
                     Ok(ctx.stringv(substring)?)
                 }
-                _ => Ok(ctx.strsubstr(arc, arc1, arc2)?),
+                _ => Ok(ctx.str_substr(arc, arc1, arc2)?),
             }
         }
         StringOp::StrReplace(..) => {
@@ -69,7 +69,7 @@ pub(crate) fn simplify_string<'c>(
                     // let new_value = initial.replace(pattern, replacement);
                     Ok(ctx.stringv(new_value)?)
                 }
-                _ => Ok(ctx.strreplace(arc, arc1, arc2)?), // Fallback to symbolic StrReplace
+                _ => Ok(ctx.str_replace(arc, arc1, arc2)?), // Fallback to symbolic StrReplace
             }
         }
         StringOp::BVToStr(..) => {
@@ -82,7 +82,7 @@ pub(crate) fn simplify_string<'c>(
 
                     Ok(ctx.stringv(string_value)?)
                 }
-                _ => Ok(ctx.bvtostr(arc)?),
+                _ => Ok(ctx.bv_to_str(arc)?),
             }
         }
         StringOp::ITE(..) => {
