@@ -80,7 +80,14 @@ pub(crate) fn reduce_bv(
         BitVecOp::ZeroExt(_, amount) => child_si(children, 0)?.zero_ext(*amount),
         BitVecOp::SignExt(_, amount) => child_si(children, 0)?.sign_ext(*amount),
         BitVecOp::Extract(_, high, low) => child_si(children, 0)?.extract(*high, *low),
-        BitVecOp::Concat(..) => child_si(children, 0)?.concat(&child_si(children, 1)?),
+        BitVecOp::Concat(args) => {
+            // Fold over all children with concat
+            let mut result = child_si(children, 0)?;
+            for i in 1..args.len() {
+                result = result.concat(&child_si(children, i)?);
+            }
+            result
+        }
         BitVecOp::ByteReverse(..) => child_si(children, 0)?.reverse_bytes()?,
         BitVecOp::FpToIEEEBV(..) | BitVecOp::FpToUBV(..) | BitVecOp::FpToSBV(..) => {
             return Err(ClarirsError::UnsupportedOperation(

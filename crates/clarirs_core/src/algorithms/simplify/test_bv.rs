@@ -913,7 +913,7 @@ fn test_extract_concat() -> Result<()> {
     // Symbolic test cases
     let x = ctx.bvs("x", 16)?;
     let y = ctx.bvs("y", 16)?;
-    let concat = ctx.concat(&x, &y)?;
+    let concat = ctx.concat2(x.clone(), y.clone())?;
 
     // Extract exactly one side of symbolic values
     let extract_left = ctx.extract(&concat, 31, 16)?.simplify()?;

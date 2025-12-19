@@ -30,22 +30,20 @@ pub(crate) fn simplify_bv<'c>(
                 (_, BitVecOp::BVV(v)) if v.is_all_ones() => Ok(arc.clone()),
 
                 // Distribute AND over CONCAT when one operand is constant
-                // (const & concat(a, b)) = concat(const_high & a, const_low & b)
-                (BitVecOp::BVV(const_val), BitVecOp::Concat(concat_lhs, concat_rhs))
-                | (BitVecOp::Concat(concat_lhs, concat_rhs), BitVecOp::BVV(const_val)) => {
-                    let rhs_size = concat_rhs.size();
-                    let lhs_size = concat_lhs.size();
-
-                    // Extract the high and low parts of the constant
-                    let const_high = const_val.extract(rhs_size, lhs_size + rhs_size - 1)?;
-                    let const_low = const_val.extract(0, rhs_size - 1)?;
-
-                    // AND each part with the corresponding concat operand
-                    let high_and = ctx.bv_and(&ctx.bvv(const_high)?, concat_lhs)?;
-                    let low_and = ctx.bv_and(&ctx.bvv(const_low)?, concat_rhs)?;
-
-                    // Concatenate the results and recursively simplify
-                    state.rerun(ctx.concat(&high_and, &low_and)?)
+                // (const & concat(a, b, ...)) = concat(const_parts & a, const_parts & b, ...)
+                (BitVecOp::BVV(const_val), BitVecOp::Concat(concat_args))
+                | (BitVecOp::Concat(concat_args), BitVecOp::BVV(const_val)) => {
+                    // Split constant into parts matching concat operands and AND each
+                    let mut parts = Vec::with_capacity(concat_args.len());
+                    let mut offset = 0u32;
+                    for arg in concat_args.iter().rev() {
+                        let arg_size = arg.size();
+                        let const_part = const_val.extract(offset, offset + arg_size - 1)?;
+                        parts.push(ctx.bv_and(&ctx.bvv(const_part)?, arg)?);
+                        offset += arg_size;
+                    }
+                    parts.reverse();
+                    state.rerun(ctx.concat(parts)?)
                 }
 
                 // Distribute AND over zero-extend when one operand is constant
@@ -84,22 +82,20 @@ pub(crate) fn simplify_bv<'c>(
                 (_, BitVecOp::BVV(v)) if v.is_all_ones() => Ok(ctx.bvv(v.clone())?),
 
                 // Distribute OR over CONCAT when one operand is constant
-                // (const | concat(a, b)) = concat(const_high | a, const_low | b)
-                (BitVecOp::BVV(const_val), BitVecOp::Concat(concat_lhs, concat_rhs))
-                | (BitVecOp::Concat(concat_lhs, concat_rhs), BitVecOp::BVV(const_val)) => {
-                    let rhs_size = concat_rhs.size();
-                    let lhs_size = concat_lhs.size();
-
-                    // Extract the high and low parts of the constant
-                    let const_high = const_val.extract(rhs_size, lhs_size + rhs_size - 1)?;
-                    let const_low = const_val.extract(0, rhs_size - 1)?;
-
-                    // OR each part with the corresponding concat operand
-                    let high_or = ctx.bv_or(&ctx.bvv(const_high)?, concat_lhs)?;
-                    let low_or = ctx.bv_or(&ctx.bvv(const_low)?, concat_rhs)?;
-
-                    // Concatenate the results and recursively simplify
-                    state.rerun(ctx.concat(&high_or, &low_or)?)
+                // (const | concat(a, b, ...)) = concat(const_parts | a, const_parts | b, ...)
+                (BitVecOp::BVV(const_val), BitVecOp::Concat(concat_args))
+                | (BitVecOp::Concat(concat_args), BitVecOp::BVV(const_val)) => {
+                    // Split constant into parts matching concat operands and OR each
+                    let mut parts = Vec::with_capacity(concat_args.len());
+                    let mut offset = 0u32;
+                    for arg in concat_args.iter().rev() {
+                        let arg_size = arg.size();
+                        let const_part = const_val.extract(offset, offset + arg_size - 1)?;
+                        parts.push(ctx.bv_or(&ctx.bvv(const_part)?, arg)?);
+                        offset += arg_size;
+                    }
+                    parts.reverse();
+                    state.rerun(ctx.concat(parts)?)
                 }
 
                 // x | ¬x = -1 (all ones)
@@ -133,22 +129,20 @@ pub(crate) fn simplify_bv<'c>(
                 (BitVecOp::Not(lhs), BitVecOp::Not(rhs)) => state.rerun(ctx.xor(lhs, rhs)?),
 
                 // Distribute XOR over CONCAT when one operand is constant
-                // (const ^ concat(a, b)) = concat(const_high ^ a, const_low ^ b)
-                (BitVecOp::BVV(const_val), BitVecOp::Concat(concat_lhs, concat_rhs))
-                | (BitVecOp::Concat(concat_lhs, concat_rhs), BitVecOp::BVV(const_val)) => {
-                    let rhs_size = concat_rhs.size();
-                    let lhs_size = concat_lhs.size();
-
-                    // Extract the high and low parts of the constant
-                    let const_high = const_val.extract(rhs_size, lhs_size + rhs_size - 1)?;
-                    let const_low = const_val.extract(0, rhs_size - 1)?;
-
-                    // XOR each part with the corresponding concat operand
-                    let high_xor = ctx.xor(&ctx.bvv(const_high)?, concat_lhs)?;
-                    let low_xor = ctx.xor(&ctx.bvv(const_low)?, concat_rhs)?;
-
-                    // Concatenate the results and recursively simplify
-                    state.rerun(ctx.concat(&high_xor, &low_xor)?)
+                // (const ^ concat(a, b, ...)) = concat(const_parts ^ a, const_parts ^ b, ...)
+                (BitVecOp::BVV(const_val), BitVecOp::Concat(concat_args))
+                | (BitVecOp::Concat(concat_args), BitVecOp::BVV(const_val)) => {
+                    // Split constant into parts matching concat operands and XOR each
+                    let mut parts = Vec::with_capacity(concat_args.len());
+                    let mut offset = 0u32;
+                    for arg in concat_args.iter().rev() {
+                        let arg_size = arg.size();
+                        let const_part = const_val.extract(offset, offset + arg_size - 1)?;
+                        parts.push(ctx.xor(&ctx.bvv(const_part)?, arg)?);
+                        offset += arg_size;
+                    }
+                    parts.reverse();
+                    state.rerun(ctx.concat(parts)?)
                 }
 
                 _ => Ok(ctx.xor(arc, arc1)?),
@@ -535,7 +529,7 @@ pub(crate) fn simplify_bv<'c>(
                         let rotate_amount_u32 = outer_amt.to_u64().unwrap_or(0) as u32;
                         let bottom = ctx.extract(&arc, rotate_amount_u32 - 1, 0)?;
                         let top = ctx.extract(&arc, arc.size() - 1, rotate_amount_u32)?;
-                        state.rerun(ctx.concat(bottom, top)?)
+                        state.rerun(ctx.concat2(bottom, top)?)
                     }
                 }
                 // Fallback case
@@ -574,7 +568,7 @@ pub(crate) fn simplify_bv<'c>(
                         let bottom = ctx.extract(&arc, arc.size() - rotate_amount_u32, 0)?;
                         let top =
                             ctx.extract(&arc, arc.size() - 1, arc.size() - rotate_amount_u32)?;
-                        state.rerun(ctx.concat(top, bottom)?)
+                        state.rerun(ctx.concat2(top, bottom)?)
                     }
                 }
                 // Fallback case
@@ -670,56 +664,114 @@ pub(crate) fn simplify_bv<'c>(
                     let sign_bit = ctx.extract(inner, inner.size() - 1, inner.size() - 1)?;
                     // Replicate the sign bit for the extracted width
                     let width = *high - *low + 1;
-                    let mut result = sign_bit.clone();
-                    for _ in 1..width {
-                        result = ctx.concat(&sign_bit, result)?;
+                    let sign_bits: Vec<_> = (0..width).map(|_| sign_bit.clone()).collect();
+                    Ok(ctx.concat(sign_bits)?)
+                }
+
+                // N-ary Concat cases
+                BitVecOp::Concat(args) => {
+                    // Compute cumulative sizes from the right (LSB side)
+                    // For concat(a, b, c), sizes are [a.size()+b.size()+c.size(), b.size()+c.size(), c.size(), 0]
+                    let mut cumulative_sizes: Vec<u32> = Vec::with_capacity(args.len() + 1);
+                    let mut sum = 0u32;
+                    for arg in args.iter().rev() {
+                        cumulative_sizes.push(sum);
+                        sum += arg.size();
                     }
-                    Ok(result)
-                }
+                    cumulative_sizes.push(sum);
+                    cumulative_sizes.reverse();
+                    // Now cumulative_sizes[i] = total size of args[i..] (bits from position 0 to end of arg i)
 
-                // Concat cases
-                // Extracting the entire left side
-                BitVecOp::Concat(lhs, rhs) if *high == arc.size() - 1 && *low == rhs.size() => {
-                    Ok(lhs.clone())
-                }
-                // Extracting the entire right side
-                BitVecOp::Concat(_, rhs) if *high == rhs.size() - 1 && *low == 0 => Ok(rhs.clone()),
-                // Extracting a part of the left side
-                BitVecOp::Concat(lhs, rhs) if *low >= rhs.size() => {
-                    state.rerun(ctx.extract(lhs, *high - rhs.size(), *low - rhs.size())?)
-                }
-                // Extracting a part of the right side
-                BitVecOp::Concat(_, rhs) if *high < rhs.size() => {
-                    state.rerun(ctx.extract(rhs, *high, *low)?)
-                }
-                // Extracting a part that spans both sides
-                BitVecOp::Concat(lhs, rhs) => {
-                    // Extraction spans both left and right
-                    // First extract the needed parts from each side
-                    let left_part = ctx.extract(lhs, *high - rhs.size(), 0)?;
-                    let right_part = ctx.extract(rhs, rhs.size() - 1, *low)?;
+                    // Find which args the extract spans
+                    // The extract covers bits [low, high] inclusive
+                    // arg[i] covers bits [cumulative_sizes[i+1], cumulative_sizes[i] - 1]
+                    let mut first_idx = None;
+                    let mut last_idx = None;
+                    for i in 0..args.len() {
+                        let arg_high = cumulative_sizes[i] - 1; // highest bit of this arg
+                        let arg_low = cumulative_sizes[i + 1]; // lowest bit of this arg
 
-                    // Concatenate the extracted parts
-                    // Simplify the result to apply further optimizations
-                    state.rerun(ctx.concat(left_part, right_part)?)
+                        if *high >= arg_low && *low <= arg_high {
+                            if first_idx.is_none() {
+                                first_idx = Some(i);
+                            }
+                            last_idx = Some(i);
+                        }
+                    }
+
+                    match (first_idx, last_idx) {
+                        (Some(first), Some(last)) if first == last => {
+                            // Extract is entirely within one arg
+                            let arg_low = cumulative_sizes[first + 1];
+                            state.rerun(ctx.extract(
+                                &args[first],
+                                *high - arg_low,
+                                *low - arg_low,
+                            )?)
+                        }
+                        (Some(first), Some(last)) => {
+                            // Extract spans multiple args
+                            let mut parts = Vec::with_capacity(last - first + 1);
+                            for i in first..=last {
+                                let arg = &args[i];
+                                let arg_high = cumulative_sizes[i] - 1;
+                                let arg_low = cumulative_sizes[i + 1];
+
+                                let extract_high = (*high).min(arg_high) - arg_low;
+                                let extract_low = (*low).max(arg_low) - arg_low;
+                                parts.push(ctx.extract(arg, extract_high, extract_low)?);
+                            }
+                            state.rerun(ctx.concat(parts)?)
+                        }
+                        _ => Ok(ctx.extract(arc, *high, *low)?),
+                    }
                 }
                 _ => Ok(ctx.extract(arc, *high, *low)?),
             }
         }
-        BitVecOp::Concat(..) => {
-            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
-            match (arc.op(), arc1.op()) {
-                (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
-                    let concatenated_value = value1.concat(value2)?;
+        BitVecOp::Concat(args) => {
+            // Simplify all children first
+            let simplified_args: Vec<BitVecAst<'c>> = (0..args.len())
+                .map(|i| state.get_bv_simplified(i))
+                .collect::<Result<Vec<_>, _>>()?;
 
-                    // Return a new BitVec with the concatenated result and new length
-                    Ok(ctx.bvv(concatenated_value)?)
+            // Flatten nested Concats and filter zero-size args
+            let mut flattened: Vec<BitVecAst<'c>> = Vec::new();
+            for arg in simplified_args {
+                if arg.size() == 0 {
+                    continue;
                 }
-                // Match cases where one side's size is zero
-                (lhs, _) if lhs.size() == 0 => Ok(arc1.clone()),
-                (_, rhs) if rhs.size() == 0 => Ok(arc.clone()),
+                if let BitVecOp::Concat(inner_args) = arg.op() {
+                    flattened.extend(inner_args.iter().cloned());
+                } else {
+                    flattened.push(arg);
+                }
+            }
 
-                _ => Ok(ctx.concat(arc, arc1)?),
+            // Merge adjacent constants
+            let mut merged: Vec<BitVecAst<'c>> = Vec::new();
+            for arg in flattened {
+                if let (Some(last), BitVecOp::BVV(curr_val)) = (merged.last(), arg.op()) {
+                    if let BitVecOp::BVV(last_val) = last.op() {
+                        // Merge adjacent constants
+                        let merged_val = last_val.concat(curr_val)?;
+                        merged.pop();
+                        merged.push(ctx.bvv(merged_val)?);
+                        continue;
+                    }
+                }
+                merged.push(arg);
+            }
+
+            // Handle result based on merged length
+            match merged.len() {
+                0 => Err(SimplifyError::Error(
+                    ClarirsError::InvalidArgumentsWithMessage(
+                        "Concat resulted in zero arguments".to_string(),
+                    ),
+                )),
+                1 => Ok(merged.into_iter().next().unwrap()),
+                _ => Ok(ctx.concat(merged)?),
             }
         }
         BitVecOp::ByteReverse(..) => {
