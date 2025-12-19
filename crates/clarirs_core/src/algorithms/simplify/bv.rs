@@ -790,7 +790,7 @@ pub(crate) fn simplify_bv<'c>(
                     let length = value.chars().count() as u64;
                     Ok(ctx.bvv(BitVec::from_prim_with_size(length, 64)?)?)
                 }
-                _ => Ok(ctx.strlen(arc)?), // Fallback to symbolic
+                _ => Ok(ctx.str_len(arc)?), // Fallback to symbolic
             }
         }
         BitVecOp::StrIndexOf(..) => {
@@ -836,7 +836,7 @@ pub(crate) fn simplify_bv<'c>(
                         Ok(ctx.bvv(BitVec::from_prim_with_size(-1i64 as u64, 64)?)?)
                     }
                 }
-                _ => Ok(ctx.strindexof(arc, arc1, arc2)?), // Fallback to symbolic
+                _ => Ok(ctx.str_index_of(arc, arc1, arc2)?), // Fallback to symbolic
             }
         }
         BitVecOp::StrToBV(..) => {
@@ -863,7 +863,7 @@ pub(crate) fn simplify_bv<'c>(
 
                     Ok(ctx.bvv(BitVec::from_biguint_trunc(&value, 64))?)
                 }
-                _ => Ok(ctx.strtobv(arc)?),
+                _ => Ok(ctx.str_to_bv(arc)?),
             }
         }
         BitVecOp::ITE(..) => {

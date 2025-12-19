@@ -575,11 +575,14 @@ pub trait AstFactory<'c>: Sized {
         self.make_bool(BooleanOp::FpIsInf(lhs.into_owned()))
     }
 
-    fn strlen(&'c self, lhs: impl IntoOwned<StringAst<'c>>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn str_len(
+        &'c self,
+        lhs: impl IntoOwned<StringAst<'c>>,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
         self.make_bitvec(BitVecOp::StrLen(lhs.into_owned()))
     }
 
-    fn strconcat(
+    fn str_concat(
         &'c self,
         lhs: impl IntoOwned<StringAst<'c>>,
         rhs: impl IntoOwned<StringAst<'c>>,
@@ -587,7 +590,7 @@ pub trait AstFactory<'c>: Sized {
         self.make_string(StringOp::StrConcat(lhs.into_owned(), rhs.into_owned()))
     }
 
-    fn strsubstr(
+    fn str_substr(
         &'c self,
         lhs: impl IntoOwned<StringAst<'c>>,
         start: impl IntoOwned<BitVecAst<'c>>,
@@ -600,7 +603,7 @@ pub trait AstFactory<'c>: Sized {
         ))
     }
 
-    fn strcontains(
+    fn str_contains(
         &'c self,
         lhs: impl IntoOwned<StringAst<'c>>,
         rhs: impl IntoOwned<StringAst<'c>>,
@@ -608,7 +611,7 @@ pub trait AstFactory<'c>: Sized {
         self.make_bool(BooleanOp::StrContains(lhs.into_owned(), rhs.into_owned()))
     }
 
-    fn strindexof(
+    fn str_index_of(
         &'c self,
         base: impl IntoOwned<StringAst<'c>>,
         substr: impl IntoOwned<StringAst<'c>>,
@@ -621,7 +624,7 @@ pub trait AstFactory<'c>: Sized {
         ))
     }
 
-    fn strreplace(
+    fn str_replace(
         &'c self,
         lhs: impl IntoOwned<StringAst<'c>>,
         rhs: impl IntoOwned<StringAst<'c>>,
@@ -634,7 +637,7 @@ pub trait AstFactory<'c>: Sized {
         ))
     }
 
-    fn strprefixof(
+    fn str_prefix_of(
         &'c self,
         lhs: impl IntoOwned<StringAst<'c>>,
         rhs: impl IntoOwned<StringAst<'c>>,
@@ -642,7 +645,7 @@ pub trait AstFactory<'c>: Sized {
         self.make_bool(BooleanOp::StrPrefixOf(lhs.into_owned(), rhs.into_owned()))
     }
 
-    fn strsuffixof(
+    fn str_suffix_of(
         &'c self,
         lhs: impl IntoOwned<StringAst<'c>>,
         rhs: impl IntoOwned<StringAst<'c>>,
@@ -650,28 +653,28 @@ pub trait AstFactory<'c>: Sized {
         self.make_bool(BooleanOp::StrSuffixOf(lhs.into_owned(), rhs.into_owned()))
     }
 
-    fn strtobv(
+    fn str_to_bv(
         &'c self,
         lhs: impl IntoOwned<StringAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
         self.make_bitvec(BitVecOp::StrToBV(lhs.into_owned()))
     }
 
-    fn bvtostr(
+    fn bv_to_str(
         &'c self,
         lhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<StringAst<'c>, ClarirsError> {
         self.make_string(StringOp::BVToStr(lhs.into_owned()))
     }
 
-    fn strisdigit(
+    fn str_is_digit(
         &'c self,
         lhs: impl IntoOwned<StringAst<'c>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
         self.make_bool(BooleanOp::StrIsDigit(lhs.into_owned()))
     }
 
-    fn streq(
+    fn str_eq(
         &'c self,
         lhs: impl IntoOwned<StringAst<'c>>,
         rhs: impl IntoOwned<StringAst<'c>>,
@@ -679,7 +682,7 @@ pub trait AstFactory<'c>: Sized {
         self.make_bool(BooleanOp::StrEq(lhs.into_owned(), rhs.into_owned()))
     }
 
-    fn strneq(
+    fn str_neq(
         &'c self,
         lhs: impl IntoOwned<StringAst<'c>>,
         rhs: impl IntoOwned<StringAst<'c>>,

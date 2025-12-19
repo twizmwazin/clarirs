@@ -169,15 +169,15 @@ impl BV {
             //     &args[0].cast_bound::<FP>(py)?.get().inner,
             // )?,
             "StrLen" => {
-                GLOBAL_CONTEXT.strlen(&args[0].cast_bound::<PyAstString>(py)?.get().inner)?
+                GLOBAL_CONTEXT.str_len(&args[0].cast_bound::<PyAstString>(py)?.get().inner)?
             }
-            "StrIndexOf" => GLOBAL_CONTEXT.strindexof(
+            "StrIndexOf" => GLOBAL_CONTEXT.str_index_of(
                 &args[0].cast_bound::<PyAstString>(py)?.get().inner,
                 &args[1].cast_bound::<PyAstString>(py)?.get().inner,
                 &args[2].cast_bound::<BV>(py)?.get().inner,
             )?,
             "StrToBV" => {
-                GLOBAL_CONTEXT.strtobv(&args[0].cast_bound::<PyAstString>(py)?.get().inner)?
+                GLOBAL_CONTEXT.str_to_bv(&args[0].cast_bound::<PyAstString>(py)?.get().inner)?
             }
             "If" => GLOBAL_CONTEXT.ite(
                 &args[0].cast_bound::<Bool>(py)?.get().inner,

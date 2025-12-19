@@ -797,7 +797,7 @@ pub(crate) fn simplify_bool<'c>(
                 (StringOp::StringV(input_string), StringOp::StringV(substring)) => {
                     Ok(ctx.boolv(input_string.contains(substring))?)
                 }
-                _ => Ok(ctx.strcontains(arc, arc1)?),
+                _ => Ok(ctx.str_contains(arc, arc1)?),
             }
         }
         BooleanOp::StrPrefixOf(..) => {
@@ -810,7 +810,7 @@ pub(crate) fn simplify_bool<'c>(
                 (StringOp::StringV(prefix), StringOp::StringV(input_string)) => {
                     Ok(ctx.boolv(input_string.starts_with(prefix))?)
                 }
-                _ => Ok(ctx.strprefixof(arc, arc1)?),
+                _ => Ok(ctx.str_prefix_of(arc, arc1)?),
             }
         }
         BooleanOp::StrSuffixOf(..) => {
@@ -823,7 +823,7 @@ pub(crate) fn simplify_bool<'c>(
                 (StringOp::StringV(suffix), StringOp::StringV(input_string)) => {
                     Ok(ctx.boolv(input_string.ends_with(suffix))?)
                 }
-                _ => Ok(ctx.strsuffixof(arc, arc1)?),
+                _ => Ok(ctx.str_suffix_of(arc, arc1)?),
             }
         }
         BooleanOp::StrIsDigit(..) => {
@@ -836,7 +836,7 @@ pub(crate) fn simplify_bool<'c>(
                     // is_numeric() is Unicode-aware and will also return true for non-ASCII numeric characters like Z3
                     Ok(ctx.boolv(input_string.chars().all(|c| c.is_numeric()))?)
                 }
-                _ => Ok(ctx.strisdigit(arc)?),
+                _ => Ok(ctx.str_is_digit(arc)?),
             }
         }
         BooleanOp::StrEq(..) => {
@@ -845,7 +845,7 @@ pub(crate) fn simplify_bool<'c>(
 
             match (early_lhs.op(), early_rhs.op()) {
                 (StringOp::StringV(str1), StringOp::StringV(str2)) => Ok(ctx.boolv(str1 == str2)?),
-                _ => Ok(ctx.streq(
+                _ => Ok(ctx.str_eq(
                     state.get_string_simplified(0)?,
                     state.get_string_simplified(1)?,
                 )?),
@@ -857,7 +857,7 @@ pub(crate) fn simplify_bool<'c>(
 
             match (early_lhs.op(), early_rhs.op()) {
                 (StringOp::StringV(str1), StringOp::StringV(str2)) => Ok(ctx.boolv(str1 != str2)?),
-                _ => Ok(ctx.strneq(
+                _ => Ok(ctx.str_neq(
                     state.get_string_simplified(0)?,
                     state.get_string_simplified(1)?,
                 )?),

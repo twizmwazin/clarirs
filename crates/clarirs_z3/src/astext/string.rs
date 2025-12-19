@@ -119,7 +119,7 @@ pub(crate) fn from_z3<'c>(
                         let arg1 = RcAst::try_from(z3::get_app_arg(z3_ctx, app, 1))?;
                         let a = StringAst::from_z3(ctx, arg0)?;
                         let b = StringAst::from_z3(ctx, arg1)?;
-                        ctx.strconcat(a, b)
+                        ctx.str_concat(a, b)
                     }
                     z3::DeclKind::SeqExtract => {
                         let arg0 = RcAst::try_from(z3::get_app_arg(z3_ctx, app, 0))?;
@@ -135,7 +135,7 @@ pub(crate) fn from_z3<'c>(
                         let len_simplified = RcAst::try_from(z3::simplify(z3_ctx, *len_bv))?;
                         let len = BitVecAst::from_z3(ctx, len_simplified)?;
 
-                        ctx.strsubstr(a, offset, len)
+                        ctx.str_substr(a, offset, len)
                     }
                     z3::DeclKind::SeqReplace => {
                         let arg0 = RcAst::try_from(z3::get_app_arg(z3_ctx, app, 0))?;
@@ -144,7 +144,7 @@ pub(crate) fn from_z3<'c>(
                         let a = StringAst::from_z3(ctx, arg0)?;
                         let b = StringAst::from_z3(ctx, arg1)?;
                         let c = StringAst::from_z3(ctx, arg2)?;
-                        ctx.strreplace(a, b, c)
+                        ctx.str_replace(a, b, c)
                     }
                     z3::DeclKind::Ite => {
                         let cond = RcAst::try_from(z3::get_app_arg(z3_ctx, app, 0))?;
@@ -268,7 +268,7 @@ mod tests {
             let ctx = Context::new();
             let s1 = ctx.stringv("hello").unwrap();
             let s2 = ctx.stringv(" world").unwrap();
-            let concat = ctx.strconcat(s1, s2).unwrap();
+            let concat = ctx.str_concat(s1, s2).unwrap();
 
             let z3_ast = concat.to_z3().unwrap();
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::SeqConcat));
@@ -286,7 +286,7 @@ mod tests {
             let s = ctx.stringv("hello world").unwrap();
             let start = ctx.bvv_prim(6u32).unwrap();
             let length = ctx.bvv_prim(5u32).unwrap();
-            let substr = ctx.strsubstr(s, start, length).unwrap();
+            let substr = ctx.str_substr(s, start, length).unwrap();
 
             let z3_ast = substr.to_z3().unwrap();
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::SeqExtract));
@@ -302,7 +302,7 @@ mod tests {
             let s = ctx.stringv("hello world").unwrap();
             let pattern = ctx.stringv("world").unwrap();
             let replacement = ctx.stringv("there").unwrap();
-            let replaced = ctx.strreplace(s, pattern, replacement).unwrap();
+            let replaced = ctx.str_replace(s, pattern, replacement).unwrap();
 
             let z3_ast = replaced.to_z3().unwrap();
             assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::SeqReplace));
@@ -408,7 +408,7 @@ mod tests {
                     let result = StringAst::from_z3(&ctx, concat).unwrap();
                     let s1_ast = ctx.stringv("hello").unwrap();
                     let s2_ast = ctx.stringv(" world").unwrap();
-                    let expected = ctx.strconcat(s1_ast, s2_ast).unwrap();
+                    let expected = ctx.str_concat(s1_ast, s2_ast).unwrap();
                     assert_eq!(result, expected);
                 });
             }
@@ -443,7 +443,7 @@ mod tests {
                     let s_ast = ctx.stringv("hello world").unwrap();
                     let start_ast = ctx.bvv_prim(6u64).unwrap();
                     let len_ast = ctx.bvv_prim(5u64).unwrap();
-                    let expected = ctx.strsubstr(s_ast, start_ast, len_ast).unwrap();
+                    let expected = ctx.str_substr(s_ast, start_ast, len_ast).unwrap();
                     assert_eq!(result, expected);
                 });
             }
@@ -475,7 +475,7 @@ mod tests {
                     let pattern_ast = ctx.stringv("world").unwrap();
                     let replacement_ast = ctx.stringv("there").unwrap();
                     let expected = ctx
-                        .strreplace(&s_ast, &pattern_ast, &replacement_ast)
+                        .str_replace(&s_ast, &pattern_ast, &replacement_ast)
                         .unwrap();
                     assert_eq!(result, expected);
                 });
@@ -544,7 +544,7 @@ mod tests {
             let ctx = Context::new();
             let s1 = ctx.stringv("hello").unwrap();
             let s2 = ctx.stringv(" world").unwrap();
-            let concat = ctx.strconcat(s1, s2).unwrap();
+            let concat = ctx.str_concat(s1, s2).unwrap();
             let result = round_trip(&ctx, &concat).unwrap();
             assert_eq!(concat, result);
         }
@@ -555,7 +555,7 @@ mod tests {
             let s = ctx.stringv("hello world").unwrap();
             let start = ctx.bvv_prim(6u64).unwrap();
             let length = ctx.bvv_prim(5u64).unwrap();
-            let substr = ctx.strsubstr(s, start, length).unwrap();
+            let substr = ctx.str_substr(s, start, length).unwrap();
             let result = round_trip(&ctx, &substr).unwrap();
             assert_eq!(substr, result);
         }
@@ -566,7 +566,7 @@ mod tests {
             let s = ctx.stringv("hello world").unwrap();
             let pattern = ctx.stringv("world").unwrap();
             let replacement = ctx.stringv("there").unwrap();
-            let replaced = ctx.strreplace(s, pattern, replacement).unwrap();
+            let replaced = ctx.str_replace(s, pattern, replacement).unwrap();
             let result = round_trip(&ctx, &replaced).unwrap();
             assert_eq!(replaced, result);
         }
