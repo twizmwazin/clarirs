@@ -7,6 +7,7 @@ use std::{
 };
 
 use crate::{
+    ast::bitvec::BitVecOpExt,
     cache::{AstCache, Cache},
     prelude::*,
 };
@@ -165,6 +166,7 @@ impl<'c> AstFactory<'c> for Context<'c> {
                     op.clone(),
                     annotations.clone(),
                     hash,
+                    0, // size is not used for bools
                 ))))
             })?
             .as_bool()
@@ -191,6 +193,9 @@ impl<'c> AstFactory<'c> for Context<'c> {
         }
         let hash = hasher.finish();
 
+        // Compute size before caching - children already have cached sizes
+        let size = op.size();
+
         Ok(self
             .ast_cache
             .get_or_insert::<ClarirsError>(hash, || {
@@ -199,6 +204,7 @@ impl<'c> AstFactory<'c> for Context<'c> {
                     op.clone(),
                     annotations.clone(),
                     hash,
+                    size,
                 ))))
             })?
             .as_bitvec()
@@ -233,6 +239,7 @@ impl<'c> AstFactory<'c> for Context<'c> {
                     op.clone(),
                     annotations.clone(),
                     hash,
+                    0, // size is not used for floats
                 ))))
             })?
             .as_float()
@@ -267,6 +274,7 @@ impl<'c> AstFactory<'c> for Context<'c> {
                     op.clone(),
                     annotations.clone(),
                     hash,
+                    0, // size is not used for strings
                 ))))
             })?
             .as_string()

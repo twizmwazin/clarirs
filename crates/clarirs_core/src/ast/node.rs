@@ -27,6 +27,8 @@ pub struct AstNode<'c, O: Op<'c>> {
     variables: BTreeSet<InternedString>,
     #[serde(skip)]
     depth: u32,
+    #[serde(skip)]
+    pub(crate) size: u32,
 }
 
 impl<'c, O> Drop for AstNode<'c, O>
@@ -80,6 +82,7 @@ impl<'c, O: Op<'c> + Serialize + SupportsAnnotate<'c>> AstNode<'c, O> {
         op: O,
         annotations: BTreeSet<Annotation>,
         hash: u64,
+        size: u32,
     ) -> Self {
         let variables = op.variables();
         let depth = op.depth();
@@ -90,6 +93,7 @@ impl<'c, O: Op<'c> + Serialize + SupportsAnnotate<'c>> AstNode<'c, O> {
             hash,
             variables,
             depth,
+            size,
             annotations,
         }
     }
@@ -119,6 +123,10 @@ impl<'c, O: Op<'c> + Serialize + SupportsAnnotate<'c>> AstNode<'c, O> {
 
     pub fn variables(&self) -> &BTreeSet<InternedString> {
         &self.variables
+    }
+
+    pub fn size(&self) -> u32 {
+        self.size
     }
 }
 

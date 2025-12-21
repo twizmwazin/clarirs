@@ -503,7 +503,7 @@ impl<'c> BitVecOpExt<'c> for BitVecOp<'c> {
 
 impl<'c> BitVecOpExt<'c> for BitVecAst<'c> {
     fn size(&self) -> u32 {
-        self.op().size()
+        self.size
     }
 }
 
