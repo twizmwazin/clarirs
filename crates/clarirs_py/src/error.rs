@@ -25,8 +25,8 @@ pub enum ClaripyError {
     CastingError(String),
     #[error("Invalid argument type: {0}")]
     InvalidArgumentType(String),
-    #[error("Division by zero error: attempted {dividend}/0")]
-    DivisionByZero { dividend: num_bigint::BigUint },
+    #[error("Division by zero error")]
+    DivisionByZero,
     #[error("Invalid extract bounds: upper: {upper}, lower: {lower}, length: {length}")]
     InvalidExtractBounds { upper: u32, lower: u32, length: u32 },
     #[error("BitVector length {size} must be a multiple of {bits}.")]
@@ -40,7 +40,7 @@ pub enum ClaripyError {
 impl From<ClarirsError> for ClaripyError {
     fn from(e: ClarirsError) -> Self {
         match e {
-            ClarirsError::DivisionByZero { dividend } => ClaripyError::DivisionByZero { dividend },
+            ClarirsError::DivisionByZero => ClaripyError::DivisionByZero,
             ClarirsError::InvalidExtractBounds {
                 upper,
                 lower,
@@ -75,9 +75,9 @@ impl From<PyErr> for ClaripyError {
 impl From<ClaripyError> for PyErr {
     fn from(e: ClaripyError) -> Self {
         match e {
-            ClaripyError::DivisionByZero { dividend } => PyZeroDivisionError::new_err(format!(
-                "Division by zero error: attempted {dividend}/0"
-            )),
+            ClaripyError::DivisionByZero => {
+                PyZeroDivisionError::new_err("Division by zero error".to_string())
+            }
             ClaripyError::InvalidExtractBounds {
                 upper,
                 lower,

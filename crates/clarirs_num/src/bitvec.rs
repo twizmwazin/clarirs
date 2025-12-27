@@ -27,8 +27,8 @@ pub enum BitVecError {
         "Invalid bitvector extract bounds: {upper}:{lower} not valid for bitvector of length {length}"
     )]
     InvalidExtractBounds { upper: u32, lower: u32, length: u32 },
-    #[error("Division by zero error: attempted {dividend} / 0")]
-    DivisionByZero { dividend: BigUint },
+    #[error("Division by zero error")]
+    DivisionByZero,
     #[error(" BitVector length {size} must be a multiple of {bits}.")]
     InvalidChopSize { size: u32, bits: u32 },
     #[error("Conversion error occurred.")]
