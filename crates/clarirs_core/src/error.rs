@@ -13,8 +13,8 @@ pub enum ClarirsError {
     InvalidArguments,
     #[error("Invalid arguments: {0}")]
     InvalidArgumentsWithMessage(String),
-    #[error("Division by zero error: attempted {dividend}/0")]
-    DivisionByZero { dividend: num_bigint::BigUint },
+    #[error("Division by zero error")]
+    DivisionByZero,
     #[error("Invalid extract bounds: upper: {upper}, lower: {lower}, length: {length}")]
     InvalidExtractBounds { upper: u32, lower: u32, length: u32 },
     #[error("BitVector length {size} must be a multiple of {bits}.")]
@@ -59,7 +59,7 @@ impl From<BitVecError> for ClarirsError {
             BitVecError::InvalidChopSize { size, bits } => {
                 ClarirsError::InvalidChopSize { size, bits }
             }
-            BitVecError::DivisionByZero { dividend } => ClarirsError::DivisionByZero { dividend },
+            BitVecError::DivisionByZero => ClarirsError::DivisionByZero,
             BitVecError::ConversionError => ClarirsError::ConversionError("".to_string()),
         }
     }
