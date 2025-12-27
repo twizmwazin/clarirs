@@ -152,7 +152,7 @@ impl<'c> Solver<'c> for ConcreteSolver<'c> {
                 "Concrete solver does not support symbolic expressions".to_string(),
             ));
         }
-        expr.simplify()
+        expr.simplify_ext(false, true)
     }
 
     fn eval_bitvec(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
@@ -161,7 +161,7 @@ impl<'c> Solver<'c> for ConcreteSolver<'c> {
                 "Concrete solver does not support symbolic expressions".to_string(),
             ));
         }
-        expr.simplify()
+        expr.simplify_ext(false, true)
     }
 
     fn eval_float(&mut self, expr: &FloatAst<'c>) -> Result<FloatAst<'c>, ClarirsError> {
@@ -170,7 +170,7 @@ impl<'c> Solver<'c> for ConcreteSolver<'c> {
                 "Concrete solver does not support symbolic expressions".to_string(),
             ));
         }
-        expr.simplify()
+        expr.simplify_ext(false, true)
     }
 
     fn eval_string(&mut self, expr: &StringAst<'c>) -> Result<StringAst<'c>, ClarirsError> {
@@ -179,7 +179,7 @@ impl<'c> Solver<'c> for ConcreteSolver<'c> {
                 "Concrete solver does not support symbolic expressions".to_string(),
             ));
         }
-        expr.simplify()
+        expr.simplify_ext(false, true)
     }
 
     fn is_true(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {

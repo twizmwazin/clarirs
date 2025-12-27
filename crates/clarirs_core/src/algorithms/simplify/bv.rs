@@ -5,6 +5,7 @@ use crate::{algorithms::simplify::SimplifyError, ast::bitvec::BitVecOpExt, prelu
 
 pub(crate) fn simplify_bv<'c>(
     state: &mut super::SimplifyState<'c>,
+    error_on_dbz: bool,
 ) -> Result<BitVecAst<'c>, SimplifyError<'c>> {
     let ctx = state.expr.context();
     let bv_expr = state.expr.clone().into_bitvec().unwrap();
@@ -270,7 +271,10 @@ pub(crate) fn simplify_bv<'c>(
         BitVecOp::UDiv(..) => {
             let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
-                (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
+                (_, BitVecOp::BVV(v)) if error_on_dbz && v.is_zero() => {
+                    Err(SimplifyError::Error(ClarirsError::DivisionByZero))
+                }
+                (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) if !value2.is_zero() => {
                     Ok(ctx.bvv((value1.clone() / value2.clone())?)?)
                 }
                 (_, BitVecOp::BVV(v)) if v.to_u64() == Some(1) => Ok(arc.clone()),
@@ -281,7 +285,12 @@ pub(crate) fn simplify_bv<'c>(
             let (dividend_ast, divisor_ast) =
                 (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (dividend_ast.op(), divisor_ast.op()) {
-                (BitVecOp::BVV(dividend_val), BitVecOp::BVV(divisor_val)) => {
+                (_, BitVecOp::BVV(v)) if error_on_dbz && v.is_zero() => {
+                    Err(SimplifyError::Error(ClarirsError::DivisionByZero))
+                }
+                (BitVecOp::BVV(dividend_val), BitVecOp::BVV(divisor_val))
+                    if !divisor_val.is_zero() =>
+                {
                     Ok(ctx.bvv((dividend_val.sdiv(divisor_val))?)?)
                 }
                 (_, BitVecOp::BVV(v)) if v.to_u64() == Some(1) => Ok(dividend_ast.clone()),
