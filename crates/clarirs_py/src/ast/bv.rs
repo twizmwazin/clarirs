@@ -312,7 +312,7 @@ impl BV {
         py: Python<'py>,
         respect_annotations: bool,
     ) -> Result<Bound<'py, BV>, ClaripyError> {
-        BV::new(py, &self.inner.simplify_ext(respect_annotations)?)
+        BV::new(py, &self.inner.simplify_ext(respect_annotations, false)?)
     }
 
     pub fn replace<'py>(
@@ -343,7 +343,7 @@ impl BV {
 
     #[getter]
     pub fn concrete_value(&self) -> Result<Option<BigUint>, ClaripyError> {
-        Ok(match self.inner.simplify_ext(false)?.op() {
+        Ok(match self.inner.simplify_ext(false, false)?.op() {
             BitVecOp::BVV(bv) => Some(bv.to_biguint()),
             _ => None,
         })

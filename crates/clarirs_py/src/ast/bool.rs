@@ -315,7 +315,7 @@ impl Bool {
         py: Python<'py>,
         respect_annotations: bool,
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
-        Bool::new(py, &self.inner.simplify_ext(respect_annotations)?)
+        Bool::new(py, &self.inner.simplify_ext(respect_annotations, false)?)
     }
 
     pub fn replace<'py>(
@@ -349,7 +349,7 @@ impl Bool {
 
     #[getter]
     pub fn concrete_value(&self) -> Result<Option<bool>, ClaripyError> {
-        Ok(match self.inner.simplify_ext(false)?.op() {
+        Ok(match self.inner.simplify_ext(false, false)?.op() {
             BooleanOp::BoolV(value) => Some(*value),
             _ => None,
         })
