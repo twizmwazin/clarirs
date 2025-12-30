@@ -12,6 +12,8 @@ use pyo3::types::PyTuple;
 #[derive(Debug)]
 pub struct PySolver {
     inner: DynSolver,
+    #[pyo3(get, set)]
+    timeout: Option<u32>,
 }
 
 // Helper function to wrap a solver with mixins
@@ -24,9 +26,14 @@ fn wrap_solver<'c, S: Solver<'c>>(
 #[pymethods]
 impl PySolver {
     #[new]
-    fn new() -> Result<PyClassInitializer<Self>, ClaripyError> {
+    #[pyo3(signature = (timeout = None))]
+    fn new(timeout: Option<u32>) -> Result<PyClassInitializer<Self>, ClaripyError> {
         Ok(PyClassInitializer::from(PySolver {
-            inner: DynSolver::Z3(wrap_solver(Z3Solver::new(&GLOBAL_CONTEXT))),
+            inner: DynSolver::Z3(wrap_solver(Z3Solver::new_with_timeout(
+                &GLOBAL_CONTEXT,
+                timeout,
+            ))),
+            timeout,
         }))
     }
 
@@ -36,9 +43,13 @@ impl PySolver {
                 DynSolver::Concrete(..) => {
                     DynSolver::Concrete(ConcreteSolver::new(&GLOBAL_CONTEXT))
                 }
-                DynSolver::Z3(..) => DynSolver::Z3(wrap_solver(Z3Solver::new(&GLOBAL_CONTEXT))),
+                DynSolver::Z3(..) => DynSolver::Z3(wrap_solver(Z3Solver::new_with_timeout(
+                    &GLOBAL_CONTEXT,
+                    self.timeout,
+                ))),
                 DynSolver::Vsa(..) => DynSolver::Vsa(wrap_solver(VSASolver::new(&GLOBAL_CONTEXT))),
             },
+            timeout: self.timeout,
         })
     }
 
@@ -67,18 +78,21 @@ impl PySolver {
                 py,
                 PySolver {
                     inner: DynSolver::Concrete(concrete_solver.clone()),
+                    timeout: self.timeout,
                 },
             )?),
             DynSolver::Z3(z3_solver) => Ok(Bound::new(
                 py,
                 PySolver {
                     inner: DynSolver::Z3(z3_solver.clone()),
+                    timeout: self.timeout,
                 },
             )?),
             DynSolver::Vsa(vsasolver) => Ok(Bound::new(
                 py,
                 PySolver {
                     inner: DynSolver::Vsa(vsasolver.clone()),
+                    timeout: self.timeout,
                 },
             )?),
         }
@@ -607,7 +621,10 @@ impl PySolver {
         // Create a new solver based on the type
         self.inner = match solver_type.as_str() {
             "Concrete" => DynSolver::Concrete(ConcreteSolver::new(&GLOBAL_CONTEXT)),
-            "Z3" => DynSolver::Z3(wrap_solver(Z3Solver::new(&GLOBAL_CONTEXT))),
+            "Z3" => DynSolver::Z3(wrap_solver(Z3Solver::new_with_timeout(
+                &GLOBAL_CONTEXT,
+                self.timeout,
+            ))),
             "Vsa" => DynSolver::Vsa(wrap_solver(VSASolver::new(&GLOBAL_CONTEXT))),
             _ => {
                 return Err(ClaripyError::TypeError(format!(
@@ -634,6 +651,7 @@ impl PyConcreteSolver {
     fn new() -> Result<PyClassInitializer<Self>, ClaripyError> {
         Ok(PyClassInitializer::from(PySolver {
             inner: DynSolver::Concrete(ConcreteSolver::new(&GLOBAL_CONTEXT)),
+            timeout: None,
         })
         .add_subclass(Self {}))
     }
@@ -647,7 +665,11 @@ impl PyZ3Solver {
     #[new]
     fn new() -> Result<PyClassInitializer<Self>, ClaripyError> {
         Ok(PyClassInitializer::from(PySolver {
-            inner: DynSolver::Z3(wrap_solver(Z3Solver::new(&GLOBAL_CONTEXT))),
+            inner: DynSolver::Z3(wrap_solver(Z3Solver::new_with_timeout(
+                &GLOBAL_CONTEXT,
+                None,
+            ))),
+            timeout: None,
         })
         .add_subclass(Self {}))
     }
@@ -662,6 +684,7 @@ impl PyVSASolver {
     fn new() -> Result<PyClassInitializer<Self>, ClaripyError> {
         Ok(PyClassInitializer::from(PySolver {
             inner: DynSolver::Vsa(wrap_solver(VSASolver::new(&GLOBAL_CONTEXT))),
+            timeout: None,
         })
         .add_subclass(Self {}))
     }

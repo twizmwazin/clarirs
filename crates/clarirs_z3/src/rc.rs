@@ -57,6 +57,63 @@ impl DerefMut for RcAst {
 }
 
 #[repr(transparent)]
+pub struct RcParamSet(z3::Params);
+
+impl RcParamSet {
+    pub fn new() -> Result<Self, ClarirsError> {
+        Z3_CONTEXT.with(|&ctx| unsafe {
+            let params = RcParamSet(z3::mk_params(ctx));
+            z3::params_inc_ref(ctx, params.0);
+            check_z3_error()?;
+            Ok(params)
+        })
+    }
+
+    pub fn set_bool(&mut self, key: &str, value: bool) -> Result<(), ClarirsError> {
+        let key_cstr = std::ffi::CString::new(key).map_err(|_| {
+            ClarirsError::BackendError("Z3", "Failed to convert key to CString".into())
+        })?;
+        Z3_CONTEXT.with(|&ctx| unsafe {
+            let symbol = z3::mk_string_symbol(ctx, key_cstr.as_ptr());
+            z3::params_set_bool(ctx, self.0, symbol, value);
+        });
+        check_z3_error()
+    }
+
+    pub fn set_u32(&mut self, key: &str, value: u32) -> Result<(), ClarirsError> {
+        let key_cstr = std::ffi::CString::new(key).map_err(|_| {
+            ClarirsError::BackendError("Z3", "Failed to convert key to CString".into())
+        })?;
+        Z3_CONTEXT.with(|&ctx| unsafe {
+            let symbol = z3::mk_string_symbol(ctx, key_cstr.as_ptr());
+            z3::params_set_uint(ctx, self.0, symbol, value);
+        });
+        check_z3_error()
+    }
+}
+
+impl Clone for RcParamSet {
+    fn clone(&self) -> Self {
+        Z3_CONTEXT.with(|&ctx| unsafe { z3::params_inc_ref(ctx, self.0) });
+        RcParamSet(self.0)
+    }
+}
+
+impl Deref for RcParamSet {
+    type Target = z3::Params;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Drop for RcParamSet {
+    fn drop(&mut self) {
+        Z3_CONTEXT.with(|&ctx| unsafe { z3::params_dec_ref(ctx, self.0) });
+    }
+}
+
+#[repr(transparent)]
 pub struct RcSolver(z3::Solver);
 
 impl RcSolver {
@@ -66,6 +123,11 @@ impl RcSolver {
             check_z3_error()?;
             Ok(solver)
         })
+    }
+
+    pub fn set_params(&mut self, param: RcParamSet) -> Result<(), ClarirsError> {
+        Z3_CONTEXT.with(|&ctx| unsafe { z3::solver_set_params(ctx, self.0, *param) });
+        check_z3_error()
     }
 
     pub fn assert(&mut self, ast: &RcAst) -> Result<(), ClarirsError> {
