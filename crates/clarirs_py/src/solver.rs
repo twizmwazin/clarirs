@@ -28,7 +28,10 @@ impl PySolver {
     #[new]
     fn new(timeout: Option<u32>) -> Result<PyClassInitializer<Self>, ClaripyError> {
         Ok(PyClassInitializer::from(PySolver {
-            inner: DynSolver::Z3(wrap_solver(Z3Solver::new_with_timeout(&GLOBAL_CONTEXT, timeout))),
+            inner: DynSolver::Z3(wrap_solver(Z3Solver::new_with_timeout(
+                &GLOBAL_CONTEXT,
+                timeout,
+            ))),
             timeout,
         }))
     }
@@ -39,7 +42,10 @@ impl PySolver {
                 DynSolver::Concrete(..) => {
                     DynSolver::Concrete(ConcreteSolver::new(&GLOBAL_CONTEXT))
                 }
-                DynSolver::Z3(..) => DynSolver::Z3(wrap_solver(Z3Solver::new_with_timeout(&GLOBAL_CONTEXT, self.timeout))),
+                DynSolver::Z3(..) => DynSolver::Z3(wrap_solver(Z3Solver::new_with_timeout(
+                    &GLOBAL_CONTEXT,
+                    self.timeout,
+                ))),
                 DynSolver::Vsa(..) => DynSolver::Vsa(wrap_solver(VSASolver::new(&GLOBAL_CONTEXT))),
             },
             timeout: self.timeout,
@@ -614,7 +620,10 @@ impl PySolver {
         // Create a new solver based on the type
         self.inner = match solver_type.as_str() {
             "Concrete" => DynSolver::Concrete(ConcreteSolver::new(&GLOBAL_CONTEXT)),
-            "Z3" => DynSolver::Z3(wrap_solver(Z3Solver::new_with_timeout(&GLOBAL_CONTEXT, self.timeout))),
+            "Z3" => DynSolver::Z3(wrap_solver(Z3Solver::new_with_timeout(
+                &GLOBAL_CONTEXT,
+                self.timeout,
+            ))),
             "Vsa" => DynSolver::Vsa(wrap_solver(VSASolver::new(&GLOBAL_CONTEXT))),
             _ => {
                 return Err(ClaripyError::TypeError(format!(
@@ -655,7 +664,10 @@ impl PyZ3Solver {
     #[new]
     fn new() -> Result<PyClassInitializer<Self>, ClaripyError> {
         Ok(PyClassInitializer::from(PySolver {
-            inner: DynSolver::Z3(wrap_solver(Z3Solver::new_with_timeout(&GLOBAL_CONTEXT, None))),
+            inner: DynSolver::Z3(wrap_solver(Z3Solver::new_with_timeout(
+                &GLOBAL_CONTEXT,
+                None,
+            ))),
             timeout: None,
         })
         .add_subclass(Self {}))
