@@ -26,6 +26,7 @@ fn wrap_solver<'c, S: Solver<'c>>(
 #[pymethods]
 impl PySolver {
     #[new]
+    #[pyo3(signature = (timeout = None))]
     fn new(timeout: Option<u32>) -> Result<PyClassInitializer<Self>, ClaripyError> {
         Ok(PyClassInitializer::from(PySolver {
             inner: DynSolver::Z3(wrap_solver(Z3Solver::new_with_timeout(
