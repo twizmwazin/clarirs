@@ -1,5 +1,5 @@
 use crate::astext::AstExtZ3;
-use crate::rc::{RcModel, RcOptimize, RcSolver};
+use crate::rc::{RcModel, RcOptimize, RcParamSet, RcSolver};
 use clarirs_core::ast::bitvec::BitVecOpExt;
 use clarirs_core::prelude::*;
 use clarirs_z3_sys as z3;
@@ -8,6 +8,7 @@ use clarirs_z3_sys as z3;
 pub struct Z3Solver<'c> {
     ctx: &'c Context<'c>,
     assertions: Vec<BoolAst<'c>>,
+    timeout: Option<u32>,
 }
 
 impl<'c> Z3Solver<'c> {
@@ -15,6 +16,15 @@ impl<'c> Z3Solver<'c> {
         Self {
             ctx,
             assertions: vec![],
+            timeout: None,
+        }
+    }
+
+    pub fn new_with_timeout(ctx: &'c Context<'c>, timeout: Option<u32>) -> Self {
+        Self {
+            ctx,
+            assertions: vec![],
+            timeout,
         }
     }
 }
@@ -28,6 +38,12 @@ impl<'c> HasContext<'c> for Z3Solver<'c> {
 impl<'c> Z3Solver<'c> {
     fn make_filled_solver(&self) -> Result<RcSolver, ClarirsError> {
         let mut z3_solver = RcSolver::new()?;
+
+        if let Some(timeout) = self.timeout {
+            let mut params = RcParamSet::new()?;
+            params.set_u32("timeout", timeout)?;
+            z3_solver.set_params(params)?;
+        }
 
         for assertion in &self.assertions {
             let converted = assertion.to_z3()?;
