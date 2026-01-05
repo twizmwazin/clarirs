@@ -80,6 +80,7 @@ impl ToOpString for BitVecAst<'static> {
             BitVecOp::ITE(..) => "If".to_string(),
             BitVecOp::Union(..) => "Union".to_string(),
             BitVecOp::Intersection(..) => "Intersection".to_string(),
+            BitVecOp::Widen(..) => "Widen".to_string(),
         }
     }
 }

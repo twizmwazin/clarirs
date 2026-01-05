@@ -102,7 +102,8 @@ impl ExtractPyArgs for BitVecAst<'static> {
             | BitVecOp::RotateLeft(lhs, rhs)
             | BitVecOp::RotateRight(lhs, rhs)
             | BitVecOp::Union(lhs, rhs)
-            | BitVecOp::Intersection(lhs, rhs) => {
+            | BitVecOp::Intersection(lhs, rhs)
+            | BitVecOp::Widen(lhs, rhs) => {
                 vec![BV::new(py, lhs)?.into_any(), BV::new(py, rhs)?.into_any()]
             }
             BitVecOp::Concat(args) => args

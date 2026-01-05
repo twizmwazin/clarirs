@@ -480,5 +480,27 @@ pub(crate) fn excavate_ite<'c>(
                 Ok(ctx.intersection(lhs, rhs)?)
             }
         }
+        BitVecOp::Widen(..) => {
+            let lhs = extract_bitvec_child(children, 0)?;
+            let rhs = extract_bitvec_child(children, 1)?;
+
+            if let BitVecOp::ITE(cond, then_, else_) = lhs.op() {
+                // Handle case where both sides are If expressions
+                if let BitVecOp::ITE(_, rhs_then, rhs_else) = rhs.op() {
+                    // Prioritize left condition as outer if
+                    Ok(ctx.ite(
+                        cond,
+                        ctx.widen(then_, rhs_then)?,
+                        ctx.widen(then_, rhs_else)?,
+                    )?)
+                } else {
+                    Ok(ctx.ite(cond, ctx.widen(then_, &rhs)?, ctx.widen(else_, rhs)?)?)
+                }
+            } else if let BitVecOp::ITE(cond, then_, else_) = rhs.op() {
+                Ok(ctx.ite(cond, ctx.widen(&lhs, then_)?, ctx.widen(lhs, else_)?)?)
+            } else {
+                Ok(ctx.widen(lhs, rhs)?)
+            }
+        }
     }
 }

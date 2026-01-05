@@ -799,6 +799,14 @@ pub trait AstFactory<'c>: Sized {
         self.make_bitvec(BitVecOp::Intersection(lhs.into_owned(), rhs.into_owned()))
     }
 
+    fn widen(
+        &'c self,
+        lhs: impl IntoOwned<BitVecAst<'c>>,
+        rhs: impl IntoOwned<BitVecAst<'c>>,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::Widen(lhs.into_owned(), rhs.into_owned()))
+    }
+
     // Helper methods
     fn true_(&'c self) -> Result<BoolAst<'c>, ClarirsError> {
         self.boolv(true)

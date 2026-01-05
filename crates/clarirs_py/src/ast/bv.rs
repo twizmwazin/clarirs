@@ -1239,6 +1239,17 @@ impl BV {
         )
     }
 
+    pub fn widen<'py>(
+        &self,
+        py: Python<'py>,
+        other: CoerceBV,
+    ) -> Result<Bound<'py, BV>, ClaripyError> {
+        BV::new(
+            py,
+            &GLOBAL_CONTEXT.widen(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
+        )
+    }
+
     #[getter]
     pub fn cardinality(self_: Bound<'_, BV>) -> Result<BigUint, ClaripyError> {
         Ok(self_.get().inner.cardinality()?)
@@ -1575,6 +1586,19 @@ pub fn intersection<'py>(
     )
 }
 
+#[pyfunction]
+pub fn widen<'py>(
+    py: Python<'py>,
+    lhs: CoerceBV,
+    rhs: CoerceBV,
+) -> Result<Bound<'py, BV>, ClaripyError> {
+    let (elhs, erhs) = CoerceBV::unpack_pair(py, &lhs, &rhs)?;
+    BV::new(
+        py,
+        &GLOBAL_CONTEXT.widen(&elhs.get().inner, &erhs.get().inner)?,
+    )
+}
+
 pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<BV>()?;
 
@@ -1618,6 +1642,7 @@ pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
         VS,
         union,
         intersection,
+        widen,
     );
 
     Ok(())

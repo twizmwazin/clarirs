@@ -205,6 +205,7 @@ pub fn claripy(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
         ast::bv::VS,
         ast::bv::union,
         ast::bv::intersection,
+        ast::bv::widen,
         // FP
         ast::fp::FPS,
         ast::fp::FPV,
