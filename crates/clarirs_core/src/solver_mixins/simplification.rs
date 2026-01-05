@@ -14,6 +14,14 @@ impl<'c, S: Solver<'c>> SimplificationMixin<'c, S> {
             _marker: std::marker::PhantomData,
         }
     }
+
+    pub fn inner(&self) -> &S {
+        &self.inner
+    }
+
+    pub fn inner_mut(&mut self) -> &mut S {
+        &mut self.inner
+    }
 }
 
 impl<'c, S: Solver<'c>> HasContext<'c> for SimplificationMixin<'c, S> {

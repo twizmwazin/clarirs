@@ -26,6 +26,23 @@ impl HasContext<'static> for DynSolver {
     }
 }
 
+impl DynSolver {
+    /// Get unsat core (only supported for Z3 solver)
+    pub(crate) fn unsat_core(&mut self) -> Result<Vec<usize>, ClarirsError> {
+        match self {
+            DynSolver::Z3(wrapped_solver) => {
+                // Access through the mixin layers
+                // SimplificationMixin -> ConcreteEarlyResolutionMixin -> Z3Solver
+                let z3_solver = wrapped_solver.inner_mut().inner_mut();
+                z3_solver.unsat_core()
+            }
+            _ => Err(ClarirsError::UnsupportedOperation(
+                "unsat_core is only supported for Z3 solver".to_string(),
+            )),
+        }
+    }
+}
+
 impl Solver<'static> for DynSolver {
     fn add(&mut self, constraint: &BoolAst<'static>) -> Result<(), ClarirsError> {
         match self {

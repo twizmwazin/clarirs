@@ -15,6 +15,8 @@ pub struct PySolver {
     inner: DynSolver,
     #[pyo3(get, set)]
     timeout: Option<u32>,
+    #[pyo3(get, set)]
+    unsat_core: bool,
 }
 
 // Helper function to wrap a solver with mixins
@@ -27,14 +29,19 @@ fn wrap_solver<'c, S: Solver<'c>>(
 #[pymethods]
 impl PySolver {
     #[new]
-    #[pyo3(signature = (timeout = None))]
-    fn new(timeout: Option<u32>) -> Result<PyClassInitializer<Self>, ClaripyError> {
+    #[pyo3(signature = (timeout = None, track = false))]
+    fn new(
+        timeout: Option<u32>,
+        track: bool,
+    ) -> Result<PyClassInitializer<Self>, ClaripyError> {
         Ok(PyClassInitializer::from(PySolver {
-            inner: DynSolver::Z3(wrap_solver(Z3Solver::new_with_timeout(
+            inner: DynSolver::Z3(wrap_solver(Z3Solver::new_with_options(
                 &GLOBAL_CONTEXT,
                 timeout,
+                track,
             ))),
             timeout,
+            unsat_core: track,
         }))
     }
 
@@ -44,13 +51,15 @@ impl PySolver {
                 DynSolver::Concrete(..) => {
                     DynSolver::Concrete(ConcreteSolver::new(&GLOBAL_CONTEXT))
                 }
-                DynSolver::Z3(..) => DynSolver::Z3(wrap_solver(Z3Solver::new_with_timeout(
+                DynSolver::Z3(..) => DynSolver::Z3(wrap_solver(Z3Solver::new_with_options(
                     &GLOBAL_CONTEXT,
                     self.timeout,
+                    self.unsat_core,
                 ))),
                 DynSolver::Vsa(..) => DynSolver::Vsa(wrap_solver(VSASolver::new(&GLOBAL_CONTEXT))),
             },
             timeout: self.timeout,
+            unsat_core: self.unsat_core,
         })
     }
 
@@ -80,6 +89,7 @@ impl PySolver {
                 PySolver {
                     inner: DynSolver::Concrete(concrete_solver.clone()),
                     timeout: self.timeout,
+                    unsat_core: self.unsat_core,
                 },
             )?),
             DynSolver::Z3(z3_solver) => Ok(Bound::new(
@@ -87,6 +97,7 @@ impl PySolver {
                 PySolver {
                     inner: DynSolver::Z3(z3_solver.clone()),
                     timeout: self.timeout,
+                    unsat_core: self.unsat_core,
                 },
             )?),
             DynSolver::Vsa(vsasolver) => Ok(Bound::new(
@@ -94,6 +105,7 @@ impl PySolver {
                 PySolver {
                     inner: DynSolver::Vsa(vsasolver.clone()),
                     timeout: self.timeout,
+                    unsat_core: self.unsat_core,
                 },
             )?),
         }
@@ -217,6 +229,10 @@ impl PySolver {
 
         // Check satisfiability with the extra constraints
         Ok(solver.satisfiable()?)
+    }
+
+    fn unsat_core(&mut self) -> Result<Vec<usize>, ClaripyError> {
+        Ok(self.inner.unsat_core()?)
     }
 
     #[pyo3(signature = (expr, n, extra_constraints = None, exact = None))]
@@ -709,6 +725,7 @@ impl PyConcreteSolver {
         Ok(PyClassInitializer::from(PySolver {
             inner: DynSolver::Concrete(ConcreteSolver::new(&GLOBAL_CONTEXT)),
             timeout: None,
+            unsat_core: false,
         })
         .add_subclass(Self {}))
     }
@@ -722,11 +739,13 @@ impl PyZ3Solver {
     #[new]
     fn new() -> Result<PyClassInitializer<Self>, ClaripyError> {
         Ok(PyClassInitializer::from(PySolver {
-            inner: DynSolver::Z3(wrap_solver(Z3Solver::new_with_timeout(
+            inner: DynSolver::Z3(wrap_solver(Z3Solver::new_with_options(
                 &GLOBAL_CONTEXT,
                 None,
+                false,
             ))),
             timeout: None,
+            unsat_core: false,
         })
         .add_subclass(Self {}))
     }
@@ -742,6 +761,7 @@ impl PyVSASolver {
         Ok(PyClassInitializer::from(PySolver {
             inner: DynSolver::Vsa(wrap_solver(VSASolver::new(&GLOBAL_CONTEXT))),
             timeout: None,
+            unsat_core: false,
         })
         .add_subclass(Self {}))
     }

@@ -135,11 +135,38 @@ impl RcSolver {
         check_z3_error()
     }
 
+    pub fn assert_and_track(&mut self, ast: &RcAst, track: &RcAst) -> Result<(), ClarirsError> {
+        Z3_CONTEXT.with(|&ctx| unsafe { z3::solver_assert_and_track(ctx, self.0, **ast, **track) });
+        check_z3_error()
+    }
+
     pub fn check(&mut self) -> Result<z3::Lbool, ClarirsError> {
         Z3_CONTEXT.with(|&ctx| unsafe {
             let result = z3::solver_check(ctx, self.0);
             check_z3_error()?;
             Ok(result)
+        })
+    }
+
+    pub fn check_assumptions(&mut self, assumptions: &[RcAst]) -> Result<z3::Lbool, ClarirsError> {
+        Z3_CONTEXT.with(|&ctx| unsafe {
+            let ast_array: Vec<z3::Ast> = assumptions.iter().map(|a| **a).collect();
+            let result = z3::solver_check_assumptions(
+                ctx,
+                self.0,
+                ast_array.len() as u32,
+                ast_array.as_ptr(),
+            );
+            check_z3_error()?;
+            Ok(result)
+        })
+    }
+
+    pub fn get_unsat_core(&mut self) -> Result<RcAstVector, ClarirsError> {
+        Z3_CONTEXT.with(|&ctx| unsafe {
+            let core = z3::solver_get_unsat_core(ctx, self.0);
+            check_z3_error()?;
+            Ok(RcAstVector::from(core))
         })
     }
 
@@ -347,6 +374,63 @@ impl Deref for RcModel {
 }
 
 impl DerefMut for RcModel {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+#[repr(transparent)]
+pub struct RcAstVector(z3::AstVector);
+
+impl RcAstVector {
+    pub fn size(&self) -> u32 {
+        Z3_CONTEXT.with(|&ctx| unsafe { z3::ast_vector_size(ctx, self.0) })
+    }
+
+    pub fn get(&self, i: u32) -> Result<RcAst, ClarirsError> {
+        Z3_CONTEXT.with(|&ctx| unsafe {
+            let ast = z3::ast_vector_get(ctx, self.0, i);
+            check_z3_error()?;
+            RcAst::try_from(ast)
+        })
+    }
+}
+
+impl Clone for RcAstVector {
+    fn clone(&self) -> Self {
+        Z3_CONTEXT.with(|&ctx| unsafe { z3::ast_vector_inc_ref(ctx, self.0) });
+        RcAstVector(self.0)
+    }
+}
+
+impl Drop for RcAstVector {
+    fn drop(&mut self) {
+        Z3_CONTEXT.with(|&ctx| unsafe { z3::ast_vector_dec_ref(ctx, self.0) });
+    }
+}
+
+impl From<z3::AstVector> for RcAstVector {
+    fn from(ast_vector: z3::AstVector) -> Self {
+        Z3_CONTEXT.with(|&ctx| unsafe { z3::ast_vector_inc_ref(ctx, ast_vector) });
+        RcAstVector(ast_vector)
+    }
+}
+
+impl From<RcAstVector> for z3::AstVector {
+    fn from(ast_vector: RcAstVector) -> Self {
+        ast_vector.0
+    }
+}
+
+impl Deref for RcAstVector {
+    type Target = z3::AstVector;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for RcAstVector {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
