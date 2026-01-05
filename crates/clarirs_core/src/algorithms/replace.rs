@@ -232,6 +232,9 @@ impl<'c, T: Clone + Into<DynAst<'c>>> Replace<'c, T> for DynAst<'c> {
                     BitVecOp::Intersection(..) => {
                         ctx.intersection(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
                     }
+                    BitVecOp::Widen(..) => {
+                        ctx.widen(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                    }
                 }
                 .map(DynAst::BitVec),
                 DynAst::Float(float_ast) => match float_ast.op() {

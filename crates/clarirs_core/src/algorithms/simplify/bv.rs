@@ -1030,5 +1030,12 @@ pub(crate) fn simplify_bv<'c>(
             }
             Ok(ctx.intersection(lhs, rhs)?)
         }
+        BitVecOp::Widen(..) => {
+            let (lhs, rhs) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
+            if lhs == rhs {
+                return Ok(lhs.clone());
+            }
+            Ok(ctx.widen(lhs, rhs)?)
+        }
     }
 }

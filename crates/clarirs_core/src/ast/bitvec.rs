@@ -43,6 +43,7 @@ pub enum BitVecOp<'c> {
     // VSA Ops
     Union(BitVecAst<'c>, BitVecAst<'c>),
     Intersection(BitVecAst<'c>, BitVecAst<'c>),
+    Widen(BitVecAst<'c>, BitVecAst<'c>),
 }
 
 pub type BitVecAst<'c> = AstRef<'c, BitVecOp<'c>>;
@@ -97,7 +98,8 @@ impl<'a, 'c> Iterator for BitVecOpChildIter<'a, 'c> {
             | (BitVecOp::RotateLeft(a, _), 0)
             | (BitVecOp::RotateRight(a, _), 0)
             | (BitVecOp::Union(a, _), 0)
-            | (BitVecOp::Intersection(a, _), 0) => Some(a.into()),
+            | (BitVecOp::Intersection(a, _), 0)
+            | (BitVecOp::Widen(a, _), 0) => Some(a.into()),
 
             // 2 child variants - index 1 (second child)
             (BitVecOp::And(_, b), 1)
@@ -116,7 +118,8 @@ impl<'a, 'c> Iterator for BitVecOpChildIter<'a, 'c> {
             | (BitVecOp::RotateLeft(_, b), 1)
             | (BitVecOp::RotateRight(_, b), 1)
             | (BitVecOp::Union(_, b), 1)
-            | (BitVecOp::Intersection(_, b), 1) => Some(b.into()),
+            | (BitVecOp::Intersection(_, b), 1)
+            | (BitVecOp::Widen(_, b), 1) => Some(b.into()),
 
             // 3 child variants
             (BitVecOp::StrIndexOf(a, _, _), 0) => Some(a.into()),
@@ -179,7 +182,8 @@ impl<'a, 'c> ExactSizeIterator for BitVecOpChildIter<'a, 'c> {
             | BitVecOp::RotateLeft(..)
             | BitVecOp::RotateRight(..)
             | BitVecOp::Union(..)
-            | BitVecOp::Intersection(..) => 2,
+            | BitVecOp::Intersection(..)
+            | BitVecOp::Widen(..) => 2,
 
             BitVecOp::Concat(args) => args.len(),
 
@@ -355,6 +359,11 @@ impl std::hash::Hash for BitVecOp<'_> {
                 a.hash(state);
                 b.hash(state);
             }
+            BitVecOp::Widen(a, b) => {
+                36.hash(state);
+                a.hash(state);
+                b.hash(state);
+            }
         }
     }
 }
@@ -402,7 +411,8 @@ impl<'c> Op<'c> for BitVecOp<'c> {
             | (BitVecOp::RotateLeft(a, _), 0)
             | (BitVecOp::RotateRight(a, _), 0)
             | (BitVecOp::Union(a, _), 0)
-            | (BitVecOp::Intersection(a, _), 0) => Some(a.into()),
+            | (BitVecOp::Intersection(a, _), 0)
+            | (BitVecOp::Widen(a, _), 0) => Some(a.into()),
 
             // 2 child variants - index 1 (second child)
             (BitVecOp::And(_, b), 1)
@@ -421,7 +431,8 @@ impl<'c> Op<'c> for BitVecOp<'c> {
             | (BitVecOp::RotateLeft(_, b), 1)
             | (BitVecOp::RotateRight(_, b), 1)
             | (BitVecOp::Union(_, b), 1)
-            | (BitVecOp::Intersection(_, b), 1) => Some(b.into()),
+            | (BitVecOp::Intersection(_, b), 1)
+            | (BitVecOp::Widen(_, b), 1) => Some(b.into()),
 
             // 3 child variants
             (BitVecOp::StrIndexOf(a, _, _), 0) => Some(a.into()),
@@ -490,7 +501,8 @@ impl<'c> BitVecOpExt<'c> for BitVecOp<'c> {
             | BitVecOp::RotateLeft(a, _)
             | BitVecOp::RotateRight(a, _)
             | BitVecOp::Union(a, _)
-            | BitVecOp::Intersection(a, _) => a.size(),
+            | BitVecOp::Intersection(a, _)
+            | BitVecOp::Widen(a, _) => a.size(),
             BitVecOp::Extract(_, high, low) => high - low + 1,
             BitVecOp::Concat(args) => args.iter().map(|a| a.size()).sum(),
             BitVecOp::ZeroExt(a, ext) | BitVecOp::SignExt(a, ext) => a.size() + ext,
