@@ -8,6 +8,8 @@ use std::sync::atomic::Ordering;
 use ast::args::ExtractPyArgs;
 use clarirs_core::algorithms::canonicalize;
 use clarirs_core::algorithms::structurally_match;
+use clarirs_vsa::reduce::Reduce;
+use clarirs_vsa::strided_interval::ComparisonResult;
 use dashmap::DashMap;
 use pyo3::exceptions::PyValueError;
 use pyo3::types::PyTuple;
@@ -585,6 +587,24 @@ impl Bool {
             py,
             &GLOBAL_CONTEXT.neq(&self.inner, <CoerceBool as Into<BoolAst>>::into(other))?,
         )
+    }
+
+    pub fn reduce(self_: Bound<'_, Bool>) -> Result<Bound<'_, Bool>, ClaripyError> {
+        let reduced = self_.get().inner.reduce()?;
+        match reduced {
+            ComparisonResult::True => true_op(self_.py()),
+            ComparisonResult::False => false_op(self_.py()),
+            ComparisonResult::Maybe => BoolS(self_.py(), "maybe", false),
+        }
+    }
+
+    #[getter]
+    pub fn cardinality(&self) -> Result<usize, ClaripyError> {
+        match self.inner.reduce()? {
+            ComparisonResult::True => Ok(1),
+            ComparisonResult::False => Ok(1),
+            ComparisonResult::Maybe => Ok(2),
+        }
     }
 
     #[allow(clippy::type_complexity)]
