@@ -19,6 +19,7 @@ pub(crate) fn simplify_bool<'c>(
                 BooleanOp::BoolV(v) => Ok(ctx.boolv(!v)?),
 
                 BooleanOp::Eq(lhs, rhs) => Ok(ctx.neq(lhs.clone(), rhs.clone())?),
+                BooleanOp::Neq(lhs, rhs) => Ok(ctx.eq_(lhs.clone(), rhs.clone())?),
 
                 // !(a > b)  ==>  a <= b
                 BooleanOp::UGT(lhs, rhs) => state.rerun(ctx.ule(lhs.clone(), rhs.clone())?),
@@ -45,18 +46,17 @@ pub(crate) fn simplify_bool<'c>(
                 .map(|i| state.get_bool_available(i))
                 .collect::<Result<Vec<_>, _>>()?;
 
-            // Identity simplification
-            if available_args
-                .iter()
-                .any(|arg| matches!(arg.op(), BooleanOp::BoolV(false)))
-            {
-                return Ok(ctx.false_()?);
-            }
-
             // Absorption simplification
             let mut seen = HashSet::default();
             let absorbed_args = available_args
                 .into_iter()
+                .flat_map(|arg| {
+                    if let BooleanOp::And(nested_args) = arg.op() {
+                        nested_args.clone()
+                    } else {
+                        vec![arg]
+                    }
+                })
                 .filter(|arg| !matches!(arg.op(), BooleanOp::BoolV(true)))
                 .filter(|arg| {
                     if seen.contains(&arg.hash()) {
@@ -73,6 +73,14 @@ pub(crate) fn simplify_bool<'c>(
             }
             if absorbed_args.len() == 1 {
                 return state.rerun(absorbed_args[0].clone());
+            }
+
+            // Identity simplification
+            if absorbed_args
+                .iter()
+                .any(|arg| matches!(arg.op(), BooleanOp::BoolV(false)))
+            {
+                return Ok(ctx.false_()?);
             }
 
             // x & !x == false
@@ -129,18 +137,17 @@ pub(crate) fn simplify_bool<'c>(
                 .map(|i| state.get_bool_available(i))
                 .collect::<Result<Vec<_>, _>>()?;
 
-            // Identity simplification
-            if available_args
-                .iter()
-                .any(|arg| matches!(arg.op(), BooleanOp::BoolV(true)))
-            {
-                return Ok(ctx.true_()?);
-            }
-
             // Absorption simplification
             let mut seen = HashSet::default();
             let absorbed_args = available_args
                 .into_iter()
+                .flat_map(|arg| {
+                    if let BooleanOp::Or(nested_args) = arg.op() {
+                        nested_args.clone()
+                    } else {
+                        vec![arg]
+                    }
+                })
                 .filter(|arg| !matches!(arg.op(), BooleanOp::BoolV(false)))
                 .filter(|arg| {
                     if seen.contains(&arg.hash()) {
@@ -151,6 +158,14 @@ pub(crate) fn simplify_bool<'c>(
                     }
                 })
                 .collect::<Vec<_>>();
+
+            // Identity simplification
+            if absorbed_args
+                .iter()
+                .any(|arg| matches!(arg.op(), BooleanOp::BoolV(true)))
+            {
+                return Ok(ctx.true_()?);
+            }
 
             if absorbed_args.is_empty() {
                 return Ok(ctx.false_()?);
