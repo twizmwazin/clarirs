@@ -61,6 +61,23 @@ pub(crate) fn simplify_bv<'c>(
                     state.rerun(zero_extended)
                 }
 
+                // If one operand is a BVV and the other is an AND with a BVV, flatten it
+                (BitVecOp::BVV(v), BitVecOp::And(inner_bvv, inner_sym))
+                | (BitVecOp::BVV(v), BitVecOp::And(inner_sym, inner_bvv))
+                | (BitVecOp::And(inner_bvv, inner_sym), BitVecOp::BVV(v))
+                | (BitVecOp::And(inner_sym, inner_bvv), BitVecOp::BVV(v))
+                    if matches!(inner_bvv.op(), BitVecOp::BVV(_)) =>
+                {
+                    if let BitVecOp::BVV(inner_value) = inner_bvv.op() {
+                        let combined_value = (v.clone() & inner_value.clone())?;
+                        let combined_bvv = ctx.bvv(combined_value)?;
+                        let new_and = ctx.bv_and(inner_sym.clone(), combined_bvv)?;
+                        state.rerun(new_and)
+                    } else {
+                        unreachable!()
+                    }
+                }
+
                 // x & ¬x = 0
                 (BitVecOp::Not(lhs), rhs) if lhs.op() == rhs => {
                     Ok(ctx.bvv(BitVec::zeros(arc.size()))?)
@@ -97,6 +114,23 @@ pub(crate) fn simplify_bv<'c>(
                     }
                     parts.reverse();
                     state.rerun(ctx.concat(parts)?)
+                }
+
+                // If one operand is a BVV and the other is an OR with a BVV, flatten it
+                (BitVecOp::BVV(v), BitVecOp::Or(inner_bvv, inner_sym))
+                | (BitVecOp::BVV(v), BitVecOp::Or(inner_sym, inner_bvv))
+                | (BitVecOp::Or(inner_bvv, inner_sym), BitVecOp::BVV(v))
+                | (BitVecOp::Or(inner_sym, inner_bvv), BitVecOp::BVV(v))
+                    if matches!(inner_bvv.op(), BitVecOp::BVV(_)) =>
+                {
+                    if let BitVecOp::BVV(inner_value) = inner_bvv.op() {
+                        let combined_value = (v.clone() | inner_value.clone())?;
+                        let combined_bvv = ctx.bvv(combined_value)?;
+                        let new_or = ctx.bv_or(inner_sym.clone(), combined_bvv)?;
+                        state.rerun(new_or)
+                    } else {
+                        unreachable!()
+                    }
                 }
 
                 // x | ¬x = -1 (all ones)
@@ -596,6 +630,12 @@ pub(crate) fn simplify_bv<'c>(
                     let total_ext = inner_num_bits + num_bits;
                     state.rerun(ctx.zero_ext(inner, total_ext)?)
                 }
+                // Propogate over ITE when the children are BVVs
+                (BitVecOp::ITE(cond, then_bv, else_bv), _) => {
+                    let then_ext = ctx.zero_ext(then_bv, *num_bits)?;
+                    let else_ext = ctx.zero_ext(else_bv, *num_bits)?;
+                    state.rerun(ctx.ite(cond, &then_ext, &else_ext)?)
+                }
                 // Symbolic case
                 (_, _) => Ok(ctx.zero_ext(arc, *num_bits)?),
             }
@@ -628,6 +668,14 @@ pub(crate) fn simplify_bv<'c>(
                 // Concrete BVV case
                 BitVecOp::BVV(value) => Ok(ctx.bvv(value.extract(*low, *high)?)?),
 
+                // Nested Extract - combine extracts
+                BitVecOp::Extract(inner, _, inner_low) => {
+                    // Calculate new high and low for the inner extract
+                    let new_high = inner_low + *high;
+                    let new_low = inner_low + *low;
+                    state.rerun(ctx.extract(inner, new_high, new_low)?)
+                }
+
                 // Propagate extract through bitwise operations
                 // extract(n, m, a & b) = extract(n, m, a) & extract(n, m, b)
                 BitVecOp::And(lhs, rhs) => {
@@ -653,6 +701,13 @@ pub(crate) fn simplify_bv<'c>(
                     state.rerun(ctx.not(&inner_extracted)?)
                 }
 
+                // Propogate through ITE
+                BitVecOp::ITE(cond, then_bv, else_bv) => {
+                    let then_extracted = ctx.extract(then_bv, *high, *low)?;
+                    let else_extracted = ctx.extract(else_bv, *high, *low)?;
+                    state.rerun(ctx.ite(cond, &then_extracted, &else_extracted)?)
+                }
+
                 // ZeroExt cases
                 // If extracting from the original bits (not the extended zero bits)
                 BitVecOp::ZeroExt(inner, _) if *high < inner.size() => {
@@ -661,6 +716,14 @@ pub(crate) fn simplify_bv<'c>(
                 // If extracting only from the extended zero bits
                 BitVecOp::ZeroExt(inner, _) if *low >= inner.size() => {
                     Ok(ctx.bvv(BitVec::zeros(*high - *low + 1))?)
+                }
+                // If extracting bits that span original and extended parts
+                BitVecOp::ZeroExt(inner, _) => {
+                    let inner_size = inner.size();
+                    // Extract what we can from the original bits
+                    let extracted = ctx.extract(inner, inner_size - 1, *low)?;
+                    // Zero-extend to the final size
+                    state.rerun(ctx.zero_ext(&extracted, *high - inner_size + 1)?)
                 }
 
                 // SignExt cases
@@ -760,16 +823,16 @@ pub(crate) fn simplify_bv<'c>(
             // Merge adjacent constants
             let mut merged: Vec<BitVecAst<'c>> = Vec::new();
             for arg in flattened {
-                if let (Some(last), BitVecOp::BVV(curr_val)) = (merged.last(), arg.op()) {
-                    if let BitVecOp::BVV(last_val) = last.op() {
-                        // Merge adjacent constants
-                        let merged_val = last_val.concat(curr_val)?;
-                        merged.pop();
-                        merged.push(ctx.bvv(merged_val)?);
-                        continue;
-                    }
+                if let (Some(last), BitVecOp::BVV(curr_val)) = (merged.last(), arg.op())
+                    && let BitVecOp::BVV(last_val) = last.op()
+                {
+                    // Merge adjacent constants
+                    let merged_val = last_val.concat(curr_val)?;
+                    merged.pop();
+                    merged.push(ctx.bvv(merged_val)?);
+                } else {
+                    merged.push(arg);
                 }
-                merged.push(arg);
             }
 
             // Handle result based on merged length
