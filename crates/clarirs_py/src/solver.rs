@@ -1,5 +1,6 @@
 use std::collections::BTreeSet;
 
+use crate::ast::{and, or};
 use crate::{dynsolver::DynSolver, prelude::*};
 use clarirs_core::ast::bitvec::BitVecOpExt;
 use clarirs_core::solver_mixins::{ConcreteEarlyResolutionMixin, SimplificationMixin};
@@ -96,6 +97,62 @@ impl PySolver {
                 },
             )?),
         }
+    }
+
+    #[pyo3(signature = (others, merge_conditions, common_ancestor = None))]
+    fn merge<'py>(
+        &mut self,
+        py: Python<'py>,
+        others: Vec<Bound<'py, PySolver>>,
+        merge_conditions: Vec<Bound<'py, Bool>>,
+        common_ancestor: Option<Bound<'py, PySolver>>,
+    ) -> Result<(bool, Bound<'py, PySolver>), ClaripyError> {
+        let merged = if common_ancestor.is_none() {
+            // Create a blank copy
+            let merged_solver = self.blank_copy()?;
+            let merged_bound = Bound::new(py, merged_solver)?;
+
+            // Build options: for each solver and merge condition, create And(condition, *constraints)
+            let mut options = Vec::new();
+
+            // Process self first
+            let self_constraints = self.constraints(py)?;
+            let mut self_and_args: Vec<Bound<PyAny>> = vec![merge_conditions[0].clone().into_any()];
+            self_and_args.extend(self_constraints.into_iter().map(|c| c.into_any()));
+            let self_and_expr = and(py, self_and_args)?;
+            options.push(self_and_expr);
+
+            // Process others
+            for (other, condition) in others.iter().zip(merge_conditions.iter().skip(1)) {
+                let other_constraints = other.borrow().constraints(py)?;
+                let mut other_and_args: Vec<Bound<PyAny>> = vec![condition.clone().into_any()];
+                other_and_args.extend(other_constraints.into_iter().map(|c| c.into_any()));
+                let other_and_expr = and(py, other_and_args)?;
+                options.push(other_and_expr);
+            }
+
+            // Add Or(*options) to the merged solver
+            let or_expr = or(py, options.into_iter().map(|o| o.into_any()).collect())?;
+            let or_expr_any = or_expr.into_any();
+            merged_bound.borrow_mut().add(or_expr_any)?;
+
+            merged_bound
+        } else {
+            // Branch from common ancestor
+            let ancestor = common_ancestor.as_ref().unwrap();
+            let merged_bound = ancestor.borrow().branch(py)?;
+
+            // Add Or(*merge_conditions)
+            let or_args: Vec<Bound<PyAny>> =
+                merge_conditions.into_iter().map(|c| c.into_any()).collect();
+            let or_expr = or(py, or_args)?;
+            let or_expr_any = or_expr.into_any();
+            merged_bound.borrow_mut().add(or_expr_any)?;
+
+            merged_bound
+        };
+
+        Ok((matches!(self.inner, DynSolver::Z3(..)), merged))
     }
 
     #[pyo3(signature = (exprs))]
