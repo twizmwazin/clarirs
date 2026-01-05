@@ -30,10 +30,7 @@ fn wrap_solver<'c, S: Solver<'c>>(
 impl PySolver {
     #[new]
     #[pyo3(signature = (timeout = None, track = false))]
-    fn new(
-        timeout: Option<u32>,
-        track: bool,
-    ) -> Result<PyClassInitializer<Self>, ClaripyError> {
+    fn new(timeout: Option<u32>, track: bool) -> Result<PyClassInitializer<Self>, ClaripyError> {
         Ok(PyClassInitializer::from(PySolver {
             inner: DynSolver::Z3(wrap_solver(Z3Solver::new_with_options(
                 &GLOBAL_CONTEXT,
