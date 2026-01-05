@@ -305,6 +305,23 @@ pub(crate) fn simplify_bool<'c>(
                     )?)
                 }
 
+                // If one side is a = ZeroExt and the other side is a BVV with those bits set to zero,
+                // we can extract the relevant bits and compare directly
+                (BitVecOp::ZeroExt(innner, ext_size), BitVecOp::BVV(outer))
+                | (BitVecOp::BVV(outer), BitVecOp::ZeroExt(innner, ext_size))
+                    if outer.leading_zeros() as u32 >= *ext_size =>
+                {
+                    state.rerun(ctx.eq_(
+                        innner.clone(),
+                        ctx.extract(ctx.bvv(outer.clone())?, innner.size() - 1, 0)?,
+                    )?)
+                }
+
+                // If both sides are ZeroExt of the same size, we can compare the inner values directly
+                (BitVecOp::ZeroExt(inner_lhs, _), BitVecOp::ZeroExt(inner_rhs, _)) => {
+                    state.rerun(ctx.eq_(inner_lhs.clone(), inner_rhs.clone())?)
+                }
+
                 // (ite cond 1 0) == 0  ==>  !cond
                 (BitVecOp::ITE(cond, then_val, else_val), BitVecOp::BVV(val))
                 | (BitVecOp::BVV(val), BitVecOp::ITE(cond, then_val, else_val))
@@ -377,6 +394,23 @@ pub(crate) fn simplify_bool<'c>(
                         ctx.extract(lhs_and, mask_high, mask_low)?,
                         ctx.bvv(bvv.extract(mask_low, mask_high)?)?,
                     )?)
+                }
+
+                // If one side is a = ZeroExt and the other side is a BVV with those bits set to zero,
+                // we can extract the relevant bits and compare directly
+                (BitVecOp::ZeroExt(innner, ext_size), BitVecOp::BVV(outer))
+                | (BitVecOp::BVV(outer), BitVecOp::ZeroExt(innner, ext_size))
+                    if outer.leading_zeros() as u32 >= *ext_size =>
+                {
+                    state.rerun(ctx.neq(
+                        innner.clone(),
+                        ctx.extract(ctx.bvv(outer.clone())?, innner.size() - 1, 0)?,
+                    )?)
+                }
+
+                // If both sides are ZeroExt of the same size, we can compare the inner values directly
+                (BitVecOp::ZeroExt(inner_lhs, _), BitVecOp::ZeroExt(inner_rhs, _)) => {
+                    state.rerun(ctx.neq(inner_lhs.clone(), inner_rhs.clone())?)
                 }
 
                 // (ite cond 1 0) != 0  ==>  cond
@@ -525,7 +559,20 @@ pub(crate) fn simplify_bool<'c>(
                     )?)
                 }
 
-                // If one side is a = ZeroExt and the other side is a BVV with those bits set to zero,
+                // If one side is a ZeroExt, and the other side is a BVV with a value larger than
+                // what can be represented in the inner bits, we can concretize the comparison
+                (BitVecOp::ZeroExt(inner, _), BitVecOp::BVV(outer))
+                    if outer.bits() > inner.size() as usize =>
+                {
+                    Ok(ctx.true_()?)
+                }
+                (BitVecOp::BVV(outer), BitVecOp::ZeroExt(inner, _))
+                    if outer.bits() > inner.size() as usize =>
+                {
+                    Ok(ctx.false_()?)
+                }
+
+                // If one side is a ZeroExt and the other side is a BVV with those bits set to zero,
                 // we can extract the relevant bits and compare directly
                 (BitVecOp::ZeroExt(innner, ext_size), BitVecOp::BVV(outer))
                     if outer.leading_zeros() as u32 >= *ext_size =>
@@ -604,7 +651,20 @@ pub(crate) fn simplify_bool<'c>(
                     )?)
                 }
 
-                // If one side is a = ZeroExt and the other side is a BVV with those bits set to zero,
+                // If one side is a ZeroExt, and the other side is a BVV with a value larger than
+                // what can be represented in the inner bits, we can concretize the comparison
+                (BitVecOp::ZeroExt(inner, _), BitVecOp::BVV(outer))
+                    if outer.bits() > inner.size() as usize =>
+                {
+                    Ok(ctx.false_()?)
+                }
+                (BitVecOp::BVV(outer), BitVecOp::ZeroExt(inner, _))
+                    if outer.bits() > inner.size() as usize =>
+                {
+                    Ok(ctx.true_()?)
+                }
+
+                // If one side is a ZeroExt and the other side is a BVV with those bits set to zero,
                 // we can extract the relevant bits and compare directly
                 (BitVecOp::ZeroExt(innner, ext_size), BitVecOp::BVV(outer))
                     if outer.leading_zeros() as u32 >= *ext_size =>
@@ -683,7 +743,7 @@ pub(crate) fn simplify_bool<'c>(
                     )?)
                 }
 
-                // If one side is a = ZeroExt and the other side is a BVV with those bits set to zero,
+                // If one side is a ZeroExt and the other side is a BVV with those bits set to zero,
                 // we can extract the relevant bits and compare directly
                 (BitVecOp::ZeroExt(innner, ext_size), BitVecOp::BVV(outer))
                     if outer.leading_zeros() as u32 >= *ext_size =>
