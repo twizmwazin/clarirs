@@ -3,12 +3,16 @@ use crate::rc::{RcModel, RcOptimize, RcParamSet, RcSolver};
 use clarirs_core::ast::bitvec::BitVecOpExt;
 use clarirs_core::prelude::*;
 use clarirs_z3_sys as z3;
+use std::collections::HashMap;
 
 #[derive(Clone, Debug)]
 pub struct Z3Solver<'c> {
     ctx: &'c Context<'c>,
     assertions: Vec<BoolAst<'c>>,
     timeout: Option<u32>,
+    unsat_core: bool,
+    // Maps constraint index to tracking variable
+    tracking_vars: HashMap<usize, BoolAst<'c>>,
 }
 
 impl<'c> Z3Solver<'c> {
@@ -17,6 +21,8 @@ impl<'c> Z3Solver<'c> {
             ctx,
             assertions: vec![],
             timeout: None,
+            unsat_core: false,
+            tracking_vars: HashMap::new(),
         }
     }
 
@@ -25,7 +31,69 @@ impl<'c> Z3Solver<'c> {
             ctx,
             assertions: vec![],
             timeout,
+            unsat_core: false,
+            tracking_vars: HashMap::new(),
         }
+    }
+
+    pub fn new_with_options(ctx: &'c Context<'c>, timeout: Option<u32>, unsat_core: bool) -> Self {
+        Self {
+            ctx,
+            assertions: vec![],
+            timeout,
+            unsat_core,
+            tracking_vars: HashMap::new(),
+        }
+    }
+
+    /// Get the unsat core from the last unsatisfiable check.
+    /// Returns a vector of constraint indices that form the unsat core.
+    ///
+    /// This method only works if the solver was created with unsat_core enabled
+    /// and the last satisfiability check returned UNSAT.
+    pub fn unsat_core(&mut self) -> Result<Vec<usize>, ClarirsError> {
+        if !self.unsat_core {
+            return Err(ClarirsError::UnsupportedOperation(
+                "Unsat core tracking is not enabled. Use new_with_options with unsat_core=true"
+                    .to_string(),
+            ));
+        }
+
+        let mut z3_solver = self.make_filled_solver()?;
+
+        // Check if UNSAT
+        if z3_solver.check()? != z3::Lbool::False {
+            return Err(ClarirsError::UnsupportedOperation(
+                "Can only get unsat core after an UNSAT result".to_string(),
+            ));
+        }
+
+        let core_vector = z3_solver.get_unsat_core()?;
+        let core_size = core_vector.size();
+
+        let mut core_indices = Vec::new();
+
+        // Build a reverse map from tracking variable to index
+        let mut track_to_idx: HashMap<String, usize> = HashMap::new();
+        for (idx, track_var) in &self.tracking_vars {
+            // Extract the variable name
+            if let Some(vars) = track_var.variables().iter().next() {
+                track_to_idx.insert(vars.to_string(), *idx);
+            }
+        }
+
+        for i in 0..core_size {
+            let core_ast = core_vector.get(i)?;
+            // Convert the Z3 AST back to a BoolAst to get its variable name
+            let bool_ast = BoolAst::from_z3(self.ctx, &core_ast)?;
+            if let Some(vars) = bool_ast.variables().iter().next() {
+                if let Some(idx) = track_to_idx.get(&vars.to_string()) {
+                    core_indices.push(*idx);
+                }
+            }
+        }
+
+        Ok(core_indices)
     }
 }
 
@@ -39,15 +107,28 @@ impl<'c> Z3Solver<'c> {
     fn make_filled_solver(&self) -> Result<RcSolver, ClarirsError> {
         let mut z3_solver = RcSolver::new()?;
 
+        let mut params = RcParamSet::new()?;
         if let Some(timeout) = self.timeout {
-            let mut params = RcParamSet::new()?;
             params.set_u32("timeout", timeout)?;
-            z3_solver.set_params(params)?;
         }
+        if self.unsat_core {
+            params.set_bool("unsat_core", true)?;
+        }
+        z3_solver.set_params(params)?;
 
-        for assertion in &self.assertions {
+        for (idx, assertion) in self.assertions.iter().enumerate() {
             let converted = assertion.to_z3()?;
-            z3_solver.assert(&converted)?;
+            if self.unsat_core {
+                // Use assert_and_track with a tracking variable
+                if let Some(track_var) = self.tracking_vars.get(&idx) {
+                    let track_z3 = track_var.to_z3()?;
+                    z3_solver.assert_and_track(&converted, &track_z3)?;
+                } else {
+                    z3_solver.assert(&converted)?;
+                }
+            } else {
+                z3_solver.assert(&converted)?;
+            }
         }
 
         Ok(z3_solver)
@@ -100,12 +181,22 @@ impl<'c> Z3Solver<'c> {
 
 impl<'c> Solver<'c> for Z3Solver<'c> {
     fn add(&mut self, constraint: &BoolAst<'c>) -> Result<(), ClarirsError> {
+        let idx = self.assertions.len();
         self.assertions.push(constraint.clone());
+
+        // Create a tracking variable if unsat_core is enabled
+        if self.unsat_core {
+            let track_name = format!("__track_{idx}");
+            let track_var = self.ctx.bools(&track_name)?;
+            self.tracking_vars.insert(idx, track_var);
+        }
+
         Ok(())
     }
 
     fn clear(&mut self) -> Result<(), ClarirsError> {
         self.assertions.clear();
+        self.tracking_vars.clear();
         Ok(())
     }
 
@@ -1099,5 +1190,99 @@ mod tests {
 
             Ok(())
         }
+    }
+
+    #[test]
+    fn test_unsat_core_simple() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut solver = Z3Solver::new_with_options(&ctx, None, true);
+
+        let x = ctx.bools("x")?;
+        let y = ctx.bools("y")?;
+
+        // Add contradictory constraints
+        solver.add(&ctx.eq_(&x, &ctx.true_()?)?)?; // constraint 0
+        solver.add(&ctx.eq_(&y, &ctx.true_()?)?)?; // constraint 1
+        solver.add(&ctx.eq_(&x, &y)?)?; // constraint 2
+        solver.add(&ctx.neq(&x, &y)?)?; // constraint 3 - contradicts with 0, 1, and 2
+
+        // Should be unsat
+        assert!(!solver.satisfiable()?);
+
+        // Get unsat core
+        let core = solver.unsat_core()?;
+
+        // The core should contain the contradictory constraints
+        // At minimum, it should contain constraint 2 and 3 (or 0, 1, and 3)
+        assert!(!core.is_empty());
+        assert!(core.len() <= 4); // Should be a subset of all constraints
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_unsat_core_minimal() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut solver = Z3Solver::new_with_options(&ctx, None, true);
+
+        let x = ctx.bvs("x", 8)?;
+
+        // Add constraints
+        let c0 = ctx.ugt(&x, &ctx.bvv_prim(10u8)?)?; // x > 10
+        let c1 = ctx.ult(&x, &ctx.bvv_prim(5u8)?)?; // x < 5 - contradicts c0
+        let c2 = ctx.ugt(&x, &ctx.bvv_prim(0u8)?)?; // x > 0 - doesn't contribute to unsat
+
+        solver.add(&c0)?; // constraint 0
+        solver.add(&c1)?; // constraint 1
+        solver.add(&c2)?; // constraint 2
+
+        // Should be unsat
+        assert!(!solver.satisfiable()?);
+
+        // Get unsat core
+        let core = solver.unsat_core()?;
+
+        // The core should contain constraints 0 and 1, but not necessarily 2
+        assert!(!core.is_empty());
+        assert!(core.contains(&0));
+        assert!(core.contains(&1));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_unsat_core_not_enabled() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut solver = Z3Solver::new(&ctx); // unsat_core not enabled
+
+        let x = ctx.bools("x")?;
+
+        solver.add(&x)?;
+        solver.add(&ctx.not(&x)?)?;
+
+        // Should be unsat
+        assert!(!solver.satisfiable()?);
+
+        // Getting unsat core should fail because it's not enabled
+        assert!(solver.unsat_core().is_err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_unsat_core_on_sat() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut solver = Z3Solver::new_with_options(&ctx, None, true);
+
+        let x = ctx.bools("x")?;
+        solver.add(&x)?;
+
+        // Should be sat
+        assert!(solver.satisfiable()?);
+
+        // Getting unsat core on a SAT result should fail
+        assert!(solver.unsat_core().is_err());
+
+        Ok(())
     }
 }
