@@ -58,14 +58,14 @@ pub(crate) fn reduce_bv(
                 .unwrap_or_else(|| StridedInterval::top(*bits))
         }
         BitVecOp::BVV(bv) => StridedInterval::constant(bv.len(), bv.to_biguint()),
-        BitVecOp::Not(..) => !child_si(children, 0)?,
-        BitVecOp::And(..) => child_si(children, 0)? & child_si(children, 1)?,
-        BitVecOp::Or(..) => child_si(children, 0)? | child_si(children, 1)?,
-        BitVecOp::Xor(..) => child_si(children, 0)? ^ child_si(children, 1)?,
-        BitVecOp::Neg(..) => -child_si(children, 0)?,
-        BitVecOp::Add(..) => child_si(children, 0)? + child_si(children, 1)?,
-        BitVecOp::Sub(..) => child_si(children, 0)? - child_si(children, 1)?,
-        BitVecOp::Mul(..) => child_si(children, 0)? * child_si(children, 1)?,
+        BitVecOp::Not(..) => child_si(children, 0)?.bitnot(),
+        BitVecOp::And(..) => child_si(children, 0)?.bitand(&child_si(children, 1)?),
+        BitVecOp::Or(..) => child_si(children, 0)?.bitor(&child_si(children, 1)?),
+        BitVecOp::Xor(..) => child_si(children, 0)?.bitxor(&child_si(children, 1)?),
+        BitVecOp::Neg(..) => child_si(children, 0)?.neg(),
+        BitVecOp::Add(..) => child_si(children, 0)?.add(&child_si(children, 1)?),
+        BitVecOp::Sub(..) => child_si(children, 0)?.sub(&child_si(children, 1)?),
+        BitVecOp::Mul(..) => child_si(children, 0)?.mul(&child_si(children, 1)?),
         BitVecOp::UDiv(..) => child_si(children, 0)?.udiv(&child_si(children, 1)?)?,
         BitVecOp::SDiv(..) => child_si(children, 0)?.sdiv(&child_si(children, 1)?)?,
         BitVecOp::URem(..) => child_si(children, 0)?.urem(&child_si(children, 1)?)?,
@@ -77,8 +77,8 @@ pub(crate) fn reduce_bv(
         BitVecOp::RotateRight(..) => {
             child_si(children, 0)?.rotate_right(&child_si(children, 1)?)?
         }
-        BitVecOp::ZeroExt(_, amount) => child_si(children, 0)?.zero_ext(*amount),
-        BitVecOp::SignExt(_, amount) => child_si(children, 0)?.sign_ext(*amount),
+        BitVecOp::ZeroExt(_, amount) => child_si(children, 0)?.zero_extend(*amount),
+        BitVecOp::SignExt(_, amount) => child_si(children, 0)?.sign_extend(*amount),
         BitVecOp::Extract(_, high, low) => child_si(children, 0)?.extract(*high, *low),
         BitVecOp::Concat(args) => {
             // Fold over all children with concat
