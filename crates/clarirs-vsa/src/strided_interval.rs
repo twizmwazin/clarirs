@@ -845,11 +845,11 @@ impl StridedInterval {
                 bits,
                 ..
             } = self
-            {
-                let lower = modular_add(upper_bound, &BigUint::one(), *bits);
-                let upper = modular_sub(lower_bound, &BigUint::one(), *bits);
-                return Self::new(*bits, BigUint::one(), lower, upper);
-            }
+        {
+            let lower = modular_add(upper_bound, &BigUint::one(), *bits);
+            let upper = modular_sub(lower_bound, &BigUint::one(), *bits);
+            return Self::new(*bits, BigUint::one(), lower, upper);
+        }
 
         // For the general case
         match self {
@@ -2117,16 +2117,17 @@ impl StridedInterval {
             ) => {
                 // Simple case: constant shift amount
                 if o_lb == o_ub
-                    && let Some(shift) = o_lb.to_u32() {
-                        if shift >= *bits {
-                            return Ok(Self::constant(*bits, 0u32));
-                        }
-                        let factor = BigUint::one() << shift;
-                        let new_stride = stride * &factor;
-                        let new_lower = modular_mul(lower_bound, &factor, *bits);
-                        let new_upper = modular_mul(upper_bound, &factor, *bits);
-                        return Ok(Self::new(*bits, new_stride, new_lower, new_upper));
+                    && let Some(shift) = o_lb.to_u32()
+                {
+                    if shift >= *bits {
+                        return Ok(Self::constant(*bits, 0u32));
                     }
+                    let factor = BigUint::one() << shift;
+                    let new_stride = stride * &factor;
+                    let new_lower = modular_mul(lower_bound, &factor, *bits);
+                    let new_upper = modular_mul(upper_bound, &factor, *bits);
+                    return Ok(Self::new(*bits, new_stride, new_lower, new_upper));
+                }
 
                 // Improved: compute union of min and max shift results
                 if let (Some(min_shift), Some(max_shift)) = (o_lb.to_u32(), o_ub.to_u32()) {
@@ -2184,20 +2185,21 @@ impl StridedInterval {
             ) => {
                 // Simple case: constant shift amount
                 if o_lb == o_ub
-                    && let Some(shift) = o_lb.to_u32() {
-                        if shift >= *bits {
-                            return Ok(Self::constant(*bits, 0u32));
-                        }
-                        let divisor = BigUint::one() << shift;
-                        let new_stride = if stride == &BigUint::zero() {
-                            BigUint::zero()
-                        } else {
-                            max(BigUint::one(), stride / &divisor)
-                        };
-                        let new_lower = lower_bound >> shift;
-                        let new_upper = upper_bound >> shift;
-                        return Ok(Self::new(*bits, new_stride, new_lower, new_upper));
+                    && let Some(shift) = o_lb.to_u32()
+                {
+                    if shift >= *bits {
+                        return Ok(Self::constant(*bits, 0u32));
                     }
+                    let divisor = BigUint::one() << shift;
+                    let new_stride = if stride == &BigUint::zero() {
+                        BigUint::zero()
+                    } else {
+                        max(BigUint::one(), stride / &divisor)
+                    };
+                    let new_lower = lower_bound >> shift;
+                    let new_upper = upper_bound >> shift;
+                    return Ok(Self::new(*bits, new_stride, new_lower, new_upper));
+                }
 
                 // Improved: compute union of min and max shift results
                 if let (Some(min_shift), Some(max_shift)) = (o_lb.to_u32(), o_ub.to_u32()) {
@@ -2253,24 +2255,25 @@ impl StridedInterval {
             ) => {
                 // Simple case: constant shift amount
                 if o_lb == o_ub
-                    && let Some(shift) = o_lb.to_u32() {
-                        if shift >= *bits {
-                            // Check the sign bit of the lower and upper bounds
-                            let sign_bit_mask = BigUint::one() << (*bits - 1);
-                            let lower_sign = lower_bound & &sign_bit_mask != BigUint::zero();
-                            let upper_sign = upper_bound & &sign_bit_mask != BigUint::zero();
+                    && let Some(shift) = o_lb.to_u32()
+                {
+                    if shift >= *bits {
+                        // Check the sign bit of the lower and upper bounds
+                        let sign_bit_mask = BigUint::one() << (*bits - 1);
+                        let lower_sign = lower_bound & &sign_bit_mask != BigUint::zero();
+                        let upper_sign = upper_bound & &sign_bit_mask != BigUint::zero();
 
-                            if lower_sign && upper_sign {
-                                // Both are negative, result is all 1s (-1)
-                                return Ok(Self::constant(*bits, max_int(*bits)));
-                            } else if !lower_sign && !upper_sign {
-                                // Both are positive, result is 0
-                                return Ok(Self::constant(*bits, 0u32));
-                            } else {
-                                // Mixed signs, result is either 0 or -1
-                                return Ok(Self::range(*bits, 0, max_int(*bits)));
-                            }
+                        if lower_sign && upper_sign {
+                            // Both are negative, result is all 1s (-1)
+                            return Ok(Self::constant(*bits, max_int(*bits)));
+                        } else if !lower_sign && !upper_sign {
+                            // Both are positive, result is 0
+                            return Ok(Self::constant(*bits, 0u32));
+                        } else {
+                            // Mixed signs, result is either 0 or -1
+                            return Ok(Self::range(*bits, 0, max_int(*bits)));
                         }
+                    }
 
                     // For arithmetic right shift, we need to preserve the sign bit
                     let sign_bit_mask = BigUint::one() << (*bits - 1);
@@ -2301,8 +2304,8 @@ impl StridedInterval {
                         max(BigUint::one(), stride >> shift)
                     };
 
-                        return Ok(Self::new(*bits, new_stride, new_lower, new_upper));
-                    }
+                    return Ok(Self::new(*bits, new_stride, new_lower, new_upper));
+                }
 
                 // Improved: compute union of min and max shift results
                 if let (Some(min_shift), Some(max_shift)) = (o_lb.to_u32(), o_ub.to_u32()) {
@@ -2386,17 +2389,19 @@ impl StridedInterval {
                 },
             ) => {
                 // Simple case: both are constants
-                if self.is_integer() && other.is_integer()
-                    && let Some(rot) = o_lb.to_u32() {
-                        let rot = rot % *bits;
-                        if rot == 0 {
-                            return Ok(self.clone());
-                        }
-                        let left_part = s_lb << rot;
-                        let right_part = s_lb >> (*bits - rot);
-                        let rotated = (left_part | right_part) & max_int(*bits);
-                        return Ok(Self::constant(*bits, rotated));
+                if self.is_integer()
+                    && other.is_integer()
+                    && let Some(rot) = o_lb.to_u32()
+                {
+                    let rot = rot % *bits;
+                    if rot == 0 {
+                        return Ok(self.clone());
                     }
+                    let left_part = s_lb << rot;
+                    let right_part = s_lb >> (*bits - rot);
+                    let rotated = (left_part | right_part) & max_int(*bits);
+                    return Ok(Self::constant(*bits, rotated));
+                }
 
                 // Improved: compute union for min and max rotation amounts
                 if let (Some(min_rot), Some(max_rot)) = (o_lb.to_u32(), o_ub.to_u32()) {
@@ -2460,17 +2465,19 @@ impl StridedInterval {
                 },
             ) => {
                 // Simple case: both are constants
-                if self.is_integer() && other.is_integer()
-                    && let Some(rot) = o_lb.to_u32() {
-                        let rot = rot % *bits;
-                        if rot == 0 {
-                            return Ok(self.clone());
-                        }
-                        let right_part = s_lb >> rot;
-                        let left_part = s_lb << (*bits - rot);
-                        let rotated = (left_part | right_part) & max_int(*bits);
-                        return Ok(Self::constant(*bits, rotated));
+                if self.is_integer()
+                    && other.is_integer()
+                    && let Some(rot) = o_lb.to_u32()
+                {
+                    let rot = rot % *bits;
+                    if rot == 0 {
+                        return Ok(self.clone());
                     }
+                    let right_part = s_lb >> rot;
+                    let left_part = s_lb << (*bits - rot);
+                    let rotated = (left_part | right_part) & max_int(*bits);
+                    return Ok(Self::constant(*bits, rotated));
+                }
 
                 // Improved: compute union for min and max rotation amounts
                 if let (Some(min_rot), Some(max_rot)) = (o_lb.to_u32(), o_ub.to_u32()) {

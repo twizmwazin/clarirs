@@ -11,7 +11,6 @@ pub(crate) fn signed_max_int(bits: u32) -> BigUint {
     (BigUint::one() << (bits - 1)) - BigUint::one()
 }
 
-
 /// Performs modular addition of two BigUint values with the given bit width
 pub(crate) fn modular_add(a: &BigUint, b: &BigUint, bits: u32) -> BigUint {
     let mask = max_int(bits);
