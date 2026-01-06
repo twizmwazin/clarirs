@@ -121,19 +121,18 @@ impl<'c> Cache<u64, DynAst<'c>> for AstCache<'c> {
             let mut inner = self.0.write().unwrap();
 
             // Check for hash collision
-            if let Some(existing_value) = inner.get(&hash) {
-                if let Some(existing_arc) = match existing_value {
+            if let Some(existing_value) = inner.get(&hash)
+                && let Some(existing_arc) = match existing_value {
                     AstCacheValue::Boolean(weak) => weak.upgrade().map(DynAst::Boolean),
                     AstCacheValue::BitVec(weak) => weak.upgrade().map(DynAst::BitVec),
                     AstCacheValue::Float(weak) => weak.upgrade().map(DynAst::Float),
                     AstCacheValue::String(weak) => weak.upgrade().map(DynAst::String),
-                } {
-                    if existing_arc != arc {
-                        panic!(
-                            "Hash collision detected! Hash: {hash}, Existing: {existing_arc:?}, New: {arc:?}"
-                        );
-                    }
                 }
+                && existing_arc != arc
+            {
+                panic!(
+                    "Hash collision detected! Hash: {hash}, Existing: {existing_arc:?}, New: {arc:?}"
+                );
             }
 
             // Insert the new value
