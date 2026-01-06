@@ -90,24 +90,24 @@ pub fn canonicalize<'c>(
     for var in vars {
         let var_names_set = var.variables();
         // Each variable should have exactly one name since we collected leaf variables
-        if let Some(original_name) = var_names_set.iter().next() {
-            if let Some(canonical_name) = var_mapping.get(original_name) {
-                // Create the canonical variable with the same type and size as the original
-                let canonical_var = match &var {
-                    DynAst::Boolean(_) => DynAst::Boolean(ctx.bools(canonical_name.as_str())?),
-                    DynAst::BitVec(bv) => {
-                        let size = bv.size();
-                        DynAst::BitVec(ctx.bvs(canonical_name.as_str(), size)?)
-                    }
-                    DynAst::Float(fp) => {
-                        let sort = fp.sort();
-                        DynAst::Float(ctx.fps(canonical_name.as_str(), sort)?)
-                    }
-                    DynAst::String(_) => DynAst::String(ctx.strings(canonical_name.as_str())?),
-                };
-                replacement_map.insert(var.inner_hash(), canonical_var.clone());
-                replacements.insert(var.clone(), canonical_var);
-            }
+        if let Some(original_name) = var_names_set.iter().next()
+            && let Some(canonical_name) = var_mapping.get(original_name)
+        {
+            // Create the canonical variable with the same type and size as the original
+            let canonical_var = match &var {
+                DynAst::Boolean(_) => DynAst::Boolean(ctx.bools(canonical_name.as_str())?),
+                DynAst::BitVec(bv) => {
+                    let size = bv.size();
+                    DynAst::BitVec(ctx.bvs(canonical_name.as_str(), size)?)
+                }
+                DynAst::Float(fp) => {
+                    let sort = fp.sort();
+                    DynAst::Float(ctx.fps(canonical_name.as_str(), sort)?)
+                }
+                DynAst::String(_) => DynAst::String(ctx.strings(canonical_name.as_str())?),
+            };
+            replacement_map.insert(var.inner_hash(), canonical_var.clone());
+            replacements.insert(var.clone(), canonical_var);
         }
     }
 

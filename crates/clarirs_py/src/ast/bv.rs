@@ -1175,7 +1175,7 @@ impl BV {
 
         // Zero-extend if needed
         let extracted_size = extracted.get().size() as u32;
-        let final_size = if extracted_size % 8 != 0 {
+        let final_size = if !extracted_size.is_multiple_of(8) {
             let extend_amount = 8 - extracted_size % 8;
             extracted.get().zero_extend(py, extend_amount)?
         } else {

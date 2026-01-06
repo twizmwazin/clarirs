@@ -74,15 +74,15 @@ impl<'c> Cache<u64, DynAst<'c>> for AstCache<'c> {
             // Step 1: Try to get a read lock and check if the value is already in the cache
             {
                 let inner = self.0.read().unwrap();
-                if let Some(value) = inner.get(&hash) {
-                    if let Some(arc) = match value {
+                if let Some(value) = inner.get(&hash)
+                    && let Some(arc) = match value {
                         AstCacheValue::Boolean(weak) => weak.upgrade().map(DynAst::Boolean),
                         AstCacheValue::BitVec(weak) => weak.upgrade().map(DynAst::BitVec),
                         AstCacheValue::Float(weak) => weak.upgrade().map(DynAst::Float),
                         AstCacheValue::String(weak) => weak.upgrade().map(DynAst::String),
-                    } {
-                        return Ok(arc);
                     }
+                {
+                    return Ok(arc);
                 }
                 // Value not found or expired; we'll compute it next
             } // Read lock is dropped here

@@ -21,21 +21,20 @@ pub(crate) fn excavate_ite<'c>(
         BooleanOp::And(..) => {
             let args: Vec<_> = children
                 .iter()
-                .map(|c| extract_bool_child(&[c.clone()], 0))
+                .map(|c| extract_bool_child(std::slice::from_ref(c), 0))
                 .collect::<Result<_, _>>()?;
 
             // Special case for binary And with two ITEs - expand all combinations
-            if args.len() == 2 {
-                if let (BooleanOp::ITE(cond1, then1, else1), BooleanOp::ITE(cond2, then2, else2)) =
+            if args.len() == 2
+                && let (BooleanOp::ITE(cond1, then1, else1), BooleanOp::ITE(cond2, then2, else2)) =
                     (args[0].op(), args[1].op())
-                {
-                    // Both are ITEs, expand to: ITE(cond1, ITE(cond2, then1&then2, then1&else2), ITE(cond2, else1&then2, else1&else2))
-                    return ctx.ite(
-                        cond1,
-                        ctx.ite(cond2, ctx.and2(then1, then2)?, ctx.and2(then1, else2)?)?,
-                        ctx.ite(cond2, ctx.and2(else1, then2)?, ctx.and2(else1, else2)?)?,
-                    );
-                }
+            {
+                // Both are ITEs, expand to: ITE(cond1, ITE(cond2, then1&then2, then1&else2), ITE(cond2, else1&then2, else1&else2))
+                return ctx.ite(
+                    cond1,
+                    ctx.ite(cond2, ctx.and2(then1, then2)?, ctx.and2(then1, else2)?)?,
+                    ctx.ite(cond2, ctx.and2(else1, then2)?, ctx.and2(else1, else2)?)?,
+                );
             }
 
             // Find first ITE among args
@@ -64,21 +63,20 @@ pub(crate) fn excavate_ite<'c>(
         BooleanOp::Or(..) => {
             let args: Vec<_> = children
                 .iter()
-                .map(|c| extract_bool_child(&[c.clone()], 0))
+                .map(|c| extract_bool_child(std::slice::from_ref(c), 0))
                 .collect::<Result<_, _>>()?;
 
             // Special case for binary Or with two ITEs - expand all combinations
-            if args.len() == 2 {
-                if let (BooleanOp::ITE(cond1, then1, else1), BooleanOp::ITE(cond2, then2, else2)) =
+            if args.len() == 2
+                && let (BooleanOp::ITE(cond1, then1, else1), BooleanOp::ITE(cond2, then2, else2)) =
                     (args[0].op(), args[1].op())
-                {
-                    // Both are ITEs, expand to: ITE(cond1, ITE(cond2, then1|then2, then1|else2), ITE(cond2, else1|then2, else1|else2))
-                    return ctx.ite(
-                        cond1,
-                        ctx.ite(cond2, ctx.or2(then1, then2)?, ctx.or2(then1, else2)?)?,
-                        ctx.ite(cond2, ctx.or2(else1, then2)?, ctx.or2(else1, else2)?)?,
-                    );
-                }
+            {
+                // Both are ITEs, expand to: ITE(cond1, ITE(cond2, then1|then2, then1|else2), ITE(cond2, else1|then2, else1|else2))
+                return ctx.ite(
+                    cond1,
+                    ctx.ite(cond2, ctx.or2(then1, then2)?, ctx.or2(then1, else2)?)?,
+                    ctx.ite(cond2, ctx.or2(else1, then2)?, ctx.or2(else1, else2)?)?,
+                );
             }
 
             // Find first ITE among args

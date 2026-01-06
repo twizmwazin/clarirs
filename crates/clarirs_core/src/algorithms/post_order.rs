@@ -69,12 +69,12 @@ pub fn walk_post_order<'c, T>(
         }
 
         // If we just finished processing a child, add its result to its parent
-        if !result_queue.is_empty() && !stack.is_empty() {
-            if let Some(parent) = stack.last_mut() {
-                if parent.children_processed > 0 {
-                    parent.child_results.push(result_queue.pop_front().unwrap());
-                }
-            }
+        if !result_queue.is_empty()
+            && !stack.is_empty()
+            && let Some(parent) = stack.last_mut()
+            && parent.children_processed > 0
+        {
+            parent.child_results.push(result_queue.pop_front().unwrap());
         }
     }
 
