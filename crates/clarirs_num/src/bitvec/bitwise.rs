@@ -9,10 +9,10 @@ impl Not for BitVec {
 
     fn not(self) -> Self::Output {
         let mut new_bv: SmallVec<[u64; 1]> = self.words.iter().map(|w| !w).collect();
-        if self.length % 64 != 0 {
-            if let Some(w) = new_bv.last_mut() {
-                *w &= self.final_word_mask;
-            }
+        if !self.length.is_multiple_of(64)
+            && let Some(w) = new_bv.last_mut()
+        {
+            *w &= self.final_word_mask;
         }
         BitVec::new(new_bv, self.length)
     }

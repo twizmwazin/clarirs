@@ -86,15 +86,15 @@ pub(crate) fn simplify_bool<'c>(
             // x & !x == false
             for i in 0..absorbed_args.len() {
                 for j in (i + 1)..absorbed_args.len() {
-                    if let BooleanOp::Not(neg) = absorbed_args[i].op() {
-                        if neg == &absorbed_args[j] {
-                            return Ok(ctx.false_()?);
-                        }
+                    if let BooleanOp::Not(neg) = absorbed_args[i].op()
+                        && neg == &absorbed_args[j]
+                    {
+                        return Ok(ctx.false_()?);
                     }
-                    if let BooleanOp::Not(neg) = absorbed_args[j].op() {
-                        if neg == &absorbed_args[i] {
-                            return Ok(ctx.false_()?);
-                        }
+                    if let BooleanOp::Not(neg) = absorbed_args[j].op()
+                        && neg == &absorbed_args[i]
+                    {
+                        return Ok(ctx.false_()?);
                     }
                 }
             }
@@ -177,15 +177,15 @@ pub(crate) fn simplify_bool<'c>(
             // x | !x == true
             for i in 0..absorbed_args.len() {
                 for j in (i + 1)..absorbed_args.len() {
-                    if let BooleanOp::Not(neg) = absorbed_args[i].op() {
-                        if neg == &absorbed_args[j] {
-                            return Ok(ctx.true_()?);
-                        }
+                    if let BooleanOp::Not(neg) = absorbed_args[i].op()
+                        && neg == &absorbed_args[j]
+                    {
+                        return Ok(ctx.true_()?);
                     }
-                    if let BooleanOp::Not(neg) = absorbed_args[j].op() {
-                        if neg == &absorbed_args[i] {
-                            return Ok(ctx.true_()?);
-                        }
+                    if let BooleanOp::Not(neg) = absorbed_args[j].op()
+                        && neg == &absorbed_args[i]
+                    {
+                        return Ok(ctx.true_()?);
                     }
                 }
             }

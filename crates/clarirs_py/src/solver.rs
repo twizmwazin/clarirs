@@ -116,7 +116,19 @@ impl PySolver {
         merge_conditions: Vec<Bound<'py, Bool>>,
         common_ancestor: Option<Bound<'py, PySolver>>,
     ) -> Result<(bool, Bound<'py, PySolver>), ClaripyError> {
-        let merged = if common_ancestor.is_none() {
+        let merged = if let Some(ancestor) = &common_ancestor {
+            // Branch from common ancestor
+            let merged_bound = ancestor.borrow().branch(py)?;
+
+            // Add Or(*merge_conditions)
+            let or_args: Vec<Bound<PyAny>> =
+                merge_conditions.into_iter().map(|c| c.into_any()).collect();
+            let or_expr = or(py, or_args)?;
+            let or_expr_any = or_expr.into_any();
+            merged_bound.borrow_mut().add(or_expr_any)?;
+
+            merged_bound
+        } else {
             // Create a blank copy
             let merged_solver = self.blank_copy()?;
             let merged_bound = Bound::new(py, merged_solver)?;
@@ -142,19 +154,6 @@ impl PySolver {
 
             // Add Or(*options) to the merged solver
             let or_expr = or(py, options.into_iter().map(|o| o.into_any()).collect())?;
-            let or_expr_any = or_expr.into_any();
-            merged_bound.borrow_mut().add(or_expr_any)?;
-
-            merged_bound
-        } else {
-            // Branch from common ancestor
-            let ancestor = common_ancestor.as_ref().unwrap();
-            let merged_bound = ancestor.borrow().branch(py)?;
-
-            // Add Or(*merge_conditions)
-            let or_args: Vec<Bound<PyAny>> =
-                merge_conditions.into_iter().map(|c| c.into_any()).collect();
-            let or_expr = or(py, or_args)?;
             let or_expr_any = or_expr.into_any();
             merged_bound.borrow_mut().add(or_expr_any)?;
 
@@ -305,7 +304,7 @@ impl PySolver {
                 .map(|sol| sol.into_any().cast::<Base>().unwrap().clone())
                 .collect())
         } else {
-            return Err(ClaripyError::TypeError("Unsupported type".to_string()));
+            Err(ClaripyError::TypeError("Unsupported type".to_string()))
         }
     }
 

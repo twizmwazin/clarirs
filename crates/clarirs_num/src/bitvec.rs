@@ -242,7 +242,7 @@ impl BitVec {
     }
 
     pub fn reverse_bytes(&self) -> Result<Self, BitVecError> {
-        if self.length % 8 != 0 {
+        if !self.length.is_multiple_of(8) {
             return Err(BitVecError::BitVectorNotByteSized {
                 length: self.length,
             });
@@ -411,7 +411,7 @@ impl BitVec {
     pub fn leading_zeros(&self) -> usize {
         let mut total = 0;
         for (i, &word) in self.words.iter().rev().enumerate() {
-            let word_size = if i == 0 && self.length % 64 != 0 {
+            let word_size = if i == 0 && !self.length.is_multiple_of(64) {
                 (self.length % 64) as usize
             } else {
                 64

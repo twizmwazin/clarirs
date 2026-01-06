@@ -23,23 +23,21 @@ impl<'c, T: Clone + Into<DynAst<'c>>> Replace<'c, T> for DynAst<'c> {
                 "Replace types must match!".to_string(),
             ));
         }
-        if let Some(from_bv) = from.as_bitvec() {
-            if let Some(to_bv) = to.as_bitvec() {
-                if from_bv.size() != to_bv.size() {
-                    return Err(ClarirsError::TypeError(
-                        "BitVec sizes must match for replacement!".to_string(),
-                    ));
-                }
-            }
+        if let Some(from_bv) = from.as_bitvec()
+            && let Some(to_bv) = to.as_bitvec()
+            && from_bv.size() != to_bv.size()
+        {
+            return Err(ClarirsError::TypeError(
+                "BitVec sizes must match for replacement!".to_string(),
+            ));
         }
-        if let Some(from_fp) = from.as_float() {
-            if let Some(to_fp) = to.as_float() {
-                if from_fp.sort() != to_fp.sort() {
-                    return Err(ClarirsError::TypeError(
-                        "Float sorts must match for replacement!".to_string(),
-                    ));
-                }
-            }
+        if let Some(from_fp) = from.as_float()
+            && let Some(to_fp) = to.as_float()
+            && from_fp.sort() != to_fp.sort()
+        {
+            return Err(ClarirsError::TypeError(
+                "Float sorts must match for replacement!".to_string(),
+            ));
         }
 
         let ctx = self.context();
@@ -54,14 +52,14 @@ impl<'c, T: Clone + Into<DynAst<'c>>> Replace<'c, T> for DynAst<'c> {
                         BooleanOp::And(..) => {
                             let args: Vec<_> = children
                                 .iter()
-                                .map(|c| bool_child(&[c.clone()], 0))
+                                .map(|c| bool_child(std::slice::from_ref(c), 0))
                                 .collect::<Result<_, _>>()?;
                             ctx.and(args)
                         }
                         BooleanOp::Or(..) => {
                             let args: Vec<_> = children
                                 .iter()
-                                .map(|c| bool_child(&[c.clone()], 0))
+                                .map(|c| bool_child(std::slice::from_ref(c), 0))
                                 .collect::<Result<_, _>>()?;
                             ctx.or(args)
                         }

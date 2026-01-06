@@ -86,10 +86,10 @@ impl<'c> Z3Solver<'c> {
             let core_ast = core_vector.get(i)?;
             // Convert the Z3 AST back to a BoolAst to get its variable name
             let bool_ast = BoolAst::from_z3(self.ctx, &core_ast)?;
-            if let Some(vars) = bool_ast.variables().iter().next() {
-                if let Some(idx) = track_to_idx.get(&vars.to_string()) {
-                    core_indices.push(*idx);
-                }
+            if let Some(vars) = bool_ast.variables().iter().next()
+                && let Some(idx) = track_to_idx.get(&vars.to_string())
+            {
+                core_indices.push(*idx);
             }
         }
 
