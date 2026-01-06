@@ -92,33 +92,33 @@ impl<'c, S: Solver<'c>> Solver<'c> for ConcreteEarlyResolutionMixin<'c, S> {
     }
 
     fn min_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        // If concrete, the min is the value itself (assumes already simplified)
+        // If concrete, the min is the value itself
         if expr.concrete() {
-            return Ok(expr.clone());
+            return expr.simplify_ext(false, true);
         }
         self.inner.min_unsigned(expr)
     }
 
     fn max_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        // If concrete, the max is the value itself (assumes already simplified)
+        // If concrete, the max is the value itself
         if expr.concrete() {
-            return Ok(expr.clone());
+            return expr.simplify_ext(false, true);
         }
         self.inner.max_unsigned(expr)
     }
 
     fn min_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        // If concrete, the min is the value itself (assumes already simplified)
+        // If concrete, the min is the value itself
         if expr.concrete() {
-            return Ok(expr.clone());
+            return expr.simplify_ext(false, true);
         }
         self.inner.min_signed(expr)
     }
 
     fn max_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        // If concrete, the max is the value itself (assumes already simplified)
+        // If concrete, the max is the value itself
         if expr.concrete() {
-            return Ok(expr.clone());
+            return expr.simplify_ext(false, true);
         }
         self.inner.max_signed(expr)
     }
@@ -128,12 +128,12 @@ impl<'c, S: Solver<'c>> Solver<'c> for ConcreteEarlyResolutionMixin<'c, S> {
         expr: &BoolAst<'c>,
         n: u32,
     ) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
-        // If concrete, return the value without invoking the solver (assumes already simplified)
+        // If concrete, return the value without invoking the solver
         if expr.concrete() {
             if n == 0 {
                 return Ok(Vec::new());
             }
-            return Ok(vec![expr.clone()]);
+            return Ok(vec![expr.simplify_ext(false, true)?]);
         }
         self.inner.eval_bool_n(expr, n)
     }
@@ -143,12 +143,12 @@ impl<'c, S: Solver<'c>> Solver<'c> for ConcreteEarlyResolutionMixin<'c, S> {
         expr: &BitVecAst<'c>,
         n: u32,
     ) -> Result<Vec<BitVecAst<'c>>, ClarirsError> {
-        // If concrete, return the value without invoking the solver (assumes already simplified)
+        // If concrete, return the value without invoking the solver
         if expr.concrete() {
             if n == 0 {
                 return Ok(Vec::new());
             }
-            return Ok(vec![expr.clone()]);
+            return Ok(vec![expr.simplify_ext(false, true)?]);
         }
         self.inner.eval_bitvec_n(expr, n)
     }
@@ -158,12 +158,12 @@ impl<'c, S: Solver<'c>> Solver<'c> for ConcreteEarlyResolutionMixin<'c, S> {
         expr: &FloatAst<'c>,
         n: u32,
     ) -> Result<Vec<FloatAst<'c>>, ClarirsError> {
-        // If concrete, return the value without invoking the solver (assumes already simplified)
+        // If concrete, return the value without invoking the solver
         if expr.concrete() {
             if n == 0 {
                 return Ok(Vec::new());
             }
-            return Ok(vec![expr.clone()]);
+            return Ok(vec![expr.simplify_ext(false, true)?]);
         }
         self.inner.eval_float_n(expr, n)
     }
@@ -178,7 +178,7 @@ impl<'c, S: Solver<'c>> Solver<'c> for ConcreteEarlyResolutionMixin<'c, S> {
             if n == 0 {
                 return Ok(Vec::new());
             }
-            return Ok(vec![expr.clone()]);
+            return Ok(vec![expr.simplify_ext(false, true)?]);
         }
         self.inner.eval_string_n(expr, n)
     }
