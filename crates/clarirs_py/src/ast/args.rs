@@ -111,7 +111,7 @@ impl ExtractPyArgs for BitVecAst<'static> {
                 .map(|arg| BV::new(py, arg).map(|b| b.into_any()))
                 .collect::<Result<Vec<_>, _>>()?,
             BitVecOp::ZeroExt(expr, amount) | BitVecOp::SignExt(expr, amount) => {
-                vec![BV::new(py, expr)?.into_any(), amount.into_bound_py_any(py)?]
+                vec![amount.into_bound_py_any(py)?, BV::new(py, expr)?.into_any()]
             }
             BitVecOp::Extract(expr, end, start) => vec![
                 end.into_bound_py_any(py)?,
