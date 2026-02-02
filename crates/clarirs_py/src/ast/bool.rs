@@ -73,7 +73,7 @@ impl Bool {
         op: &str,
         args: Vec<Py<PyAny>>,
         annotations: Option<Vec<PyAnnotation>>,
-    ) -> Result<Bound<'py, Bool>, ClaripyError> {
+    ) -> Result<Py<Bool>, ClaripyError> {
         let inner = match op {
             "BoolS" => GLOBAL_CONTEXT.bools(&args[0].extract::<String>(py)?)?,
             "BoolV" => GLOBAL_CONTEXT.boolv(args[0].extract::<bool>(py)?)?,
@@ -213,7 +213,7 @@ impl Bool {
             inner
         };
 
-        Bool::new(py, &inner_with_annotations)
+        Ok(Bool::new(py, &inner_with_annotations)?.unbind())
     }
 
     #[getter]

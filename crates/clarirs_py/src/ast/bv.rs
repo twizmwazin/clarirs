@@ -75,7 +75,7 @@ impl BV {
         op: &str,
         args: Vec<Py<PyAny>>,
         annotations: Option<Vec<PyAnnotation>>,
-    ) -> Result<Bound<'py, BV>, ClaripyError> {
+    ) -> Result<Py<BV>, ClaripyError> {
         let inner = match op {
             "BVS" => GLOBAL_CONTEXT.bvs(args[0].extract::<String>(py)?, args[1].extract(py)?)?,
             "BVV" => GLOBAL_CONTEXT
@@ -196,7 +196,7 @@ impl BV {
             inner
         };
 
-        BV::new(py, &inner_with_annotations)
+        Ok(BV::new(py, &inner_with_annotations)?.unbind())
     }
 
     #[getter]
