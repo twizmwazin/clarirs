@@ -19,7 +19,7 @@ use clarirs_core::smtlib::ToSmtLib;
 static FPS_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static PY_FP_CACHE: LazyLock<DashMap<u64, Py<PyWeakrefReference>>> = LazyLock::new(DashMap::new);
 
-#[pyclass(name = "RM", module = "claripy.ast.fp", eq)]
+#[pyclass(name = "RM", module = "claripy.ast.fp", eq, from_py_object)]
 #[derive(Clone, PartialEq, Eq, Default)]
 #[allow(non_camel_case_types)]
 pub enum PyRM {
@@ -76,7 +76,7 @@ impl From<&FPRM> for PyRM {
     }
 }
 
-#[pyclass(name = "FSort", module = "claripy.ast.fp")]
+#[pyclass(name = "FSort", module = "claripy.ast.fp", from_py_object)]
 #[derive(Clone)]
 pub struct PyFSort(FSort);
 
@@ -190,7 +190,7 @@ impl FP {
         op: &str,
         args: Vec<Py<PyAny>>,
         annotations: Option<Vec<PyAnnotation>>,
-    ) -> Result<Bound<'py, FP>, ClaripyError> {
+    ) -> Result<Py<FP>, ClaripyError> {
         let inner = match op {
             "FPS" => {
                 let name = args[0].extract::<String>(py)?;
@@ -280,7 +280,7 @@ impl FP {
             inner
         };
 
-        FP::new(py, &inner_with_annotations)
+        Ok(FP::new(py, &inner_with_annotations)?.unbind())
     }
 
     #[getter]

@@ -70,7 +70,7 @@ impl PyAstString {
         op: &str,
         args: Vec<Py<PyAny>>,
         annotations: Option<Vec<PyAnnotation>>,
-    ) -> Result<Bound<'py, PyAstString>, ClaripyError> {
+    ) -> Result<Py<PyAstString>, ClaripyError> {
         let inner = match op {
             "StringS" => GLOBAL_CONTEXT.strings(&args[0].extract::<String>(py)?)?,
             "StringV" => GLOBAL_CONTEXT.stringv(&args[0].extract::<String>(py)?)?,
@@ -103,7 +103,7 @@ impl PyAstString {
             inner
         };
 
-        PyAstString::new(py, &inner_with_annotations)
+        Ok(PyAstString::new(py, &inner_with_annotations)?.unbind())
     }
 
     #[getter]
