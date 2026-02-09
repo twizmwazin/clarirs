@@ -5,7 +5,7 @@ import claripy
 def test_unsat_core_simple():
     """Test basic unsat core functionality"""
     # Create a solver with unsat_core enabled
-    s = claripy.Solver(unsat_core=True)
+    s = claripy.Solver(track=True)
 
     x = claripy.BVS("x", 8)
 
@@ -29,7 +29,7 @@ def test_unsat_core_simple():
 
 def test_unsat_core_bool():
     """Test unsat core with boolean constraints"""
-    s = claripy.Solver(unsat_core=True)
+    s = claripy.Solver(track=True)
 
     a = claripy.BoolS("a")
     b = claripy.BoolS("b")
@@ -64,7 +64,7 @@ def test_unsat_core_not_enabled():
 
 def test_unsat_core_on_sat():
     """Test that unsat_core raises error on SAT result"""
-    s = claripy.Solver(unsat_core=True)
+    s = claripy.Solver(track=True)
 
     x = claripy.BVS("x", 8)
     s.add(x > 5)
@@ -79,7 +79,7 @@ def test_unsat_core_on_sat():
 
 def test_unsat_core_complex():
     """Test unsat core with more complex constraints"""
-    s = claripy.Solver(unsat_core=True)
+    s = claripy.Solver(track=True)
 
     x = claripy.BVS("x", 32)
     y = claripy.BVS("y", 32)
