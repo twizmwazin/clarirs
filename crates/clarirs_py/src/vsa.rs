@@ -8,58 +8,61 @@ use num_bigint::BigInt;
 
 use crate::prelude::*;
 
-/// Reduce a Bool AST using VSA abstract interpretation.
+/// Reduce an AST expression using VSA abstract interpretation.
 ///
-/// Returns `true` if the expression is definitely true, `false` if definitely false,
-/// or a symbolic `BoolS("maybe")` if the result is indeterminate.
-#[pyfunction]
-pub fn reduce_bool<'py>(
-    py: Python<'py>,
-    expr: Bound<'py, Bool>,
-) -> Result<Bound<'py, Bool>, ClaripyError> {
-    let reduced = expr.get().inner.reduce()?;
-    match reduced {
-        ComparisonResult::True => Bool::new(py, &GLOBAL_CONTEXT.true_()?),
-        ComparisonResult::False => Bool::new(py, &GLOBAL_CONTEXT.false_()?),
-        ComparisonResult::Maybe => {
-            use crate::ast::bool::BoolS;
-            BoolS(py, "maybe", false)
-        }
-    }
-}
-
-/// Reduce a BV AST using VSA abstract interpretation.
+/// For Bool expressions: returns `true` if definitely true, `false` if definitely
+/// false, or a symbolic `BoolS("maybe")` if the result is indeterminate.
 ///
-/// Returns a concrete BVV if the strided interval resolves to a single value,
-/// an SI (strided interval annotated BV) if it resolves to a range,
+/// For BV expressions: returns a concrete BVV if the strided interval resolves to
+/// a single value, an SI (strided interval annotated BV) if it resolves to a range,
 /// or the original expression if the interval is empty.
 #[pyfunction]
-pub fn reduce_bv<'py>(
+pub fn reduce<'py>(
     py: Python<'py>,
-    expr: Bound<'py, BV>,
-) -> Result<Bound<'py, BV>, ClaripyError> {
-    let reduced = expr.get().inner.reduce()?;
-    match reduced {
-        StridedInterval::Empty { .. } => Ok(expr),
-        StridedInterval::Normal {
-            bits,
-            stride,
-            lower_bound,
-            upper_bound,
-        } => {
-            if lower_bound == upper_bound {
-                BV::new(
-                    py,
-                    &GLOBAL_CONTEXT.bvv_from_biguint_with_size(&lower_bound, bits)?,
-                )
-            } else {
-                BV::new(
-                    py,
-                    &GLOBAL_CONTEXT.si(bits, stride, lower_bound, upper_bound)?,
-                )
+    expr: Bound<'py, Base>,
+) -> Result<Bound<'py, Base>, ClaripyError> {
+    if let Ok(bool_expr) = expr.clone().into_any().cast::<Bool>() {
+        let reduced = bool_expr.get().inner.reduce()?;
+        let result = match reduced {
+            ComparisonResult::True => Bool::new(py, &GLOBAL_CONTEXT.true_()?)?,
+            ComparisonResult::False => Bool::new(py, &GLOBAL_CONTEXT.false_()?)?,
+            ComparisonResult::Maybe => {
+                use crate::ast::bool::BoolS;
+                BoolS(py, "maybe", false)?
             }
-        }
+        };
+        return Ok(result.into_any().cast::<Base>()?.clone());
     }
+
+    if let Ok(bv_expr) = expr.clone().into_any().cast::<BV>() {
+        let reduced = bv_expr.get().inner.reduce()?;
+        let result = match reduced {
+            StridedInterval::Empty { .. } => bv_expr.clone(),
+            StridedInterval::Normal {
+                bits,
+                stride,
+                lower_bound,
+                upper_bound,
+            } => {
+                if lower_bound == upper_bound {
+                    BV::new(
+                        py,
+                        &GLOBAL_CONTEXT.bvv_from_biguint_with_size(&lower_bound, bits)?,
+                    )?
+                } else {
+                    BV::new(
+                        py,
+                        &GLOBAL_CONTEXT.si(bits, stride, lower_bound, upper_bound)?,
+                    )?
+                }
+            }
+        };
+        return Ok(result.into_any().cast::<Base>()?.clone());
+    }
+
+    Err(ClaripyError::TypeError(
+        "reduce: expression must be a Bool or BV".to_string(),
+    ))
 }
 
 /// Check if a Bool expression is definitely true via VSA.
@@ -178,17 +181,7 @@ pub fn identical(a: Bound<'_, Base>, b: Bound<'_, Base>) -> Result<bool, Claripy
 
 pub(crate) fn import(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     add_pyfunctions!(
-        m,
-        reduce_bool,
-        reduce_bv,
-        is_true,
-        is_false,
-        has_true,
-        has_false,
-        min,
-        max,
-        eval,
-        identical,
+        m, reduce, is_true, is_false, has_true, has_false, min, max, eval, identical,
     );
     Ok(())
 }
