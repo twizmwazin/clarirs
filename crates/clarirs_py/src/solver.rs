@@ -227,8 +227,21 @@ impl PySolver {
         Ok(solver.satisfiable()?)
     }
 
-    fn unsat_core(&mut self) -> Result<Vec<usize>, ClaripyError> {
-        Ok(self.inner.unsat_core()?)
+    #[pyo3(signature = (extra_constraints = None))]
+    fn unsat_core<'py>(
+        &mut self,
+        extra_constraints: Option<Vec<CoerceBool<'py>>>,
+    ) -> Result<Vec<usize>, ClaripyError> {
+        if extra_constraints.is_none() {
+            return Ok(self.inner.unsat_core()?);
+        }
+
+        let mut solver = self.inner.clone();
+        for constraint in extra_constraints.unwrap() {
+            solver.add(&constraint.0.get().inner)?;
+        }
+
+        Ok(solver.unsat_core()?)
     }
 
     #[pyo3(signature = (expr, n, extra_constraints = None, exact = None))]
