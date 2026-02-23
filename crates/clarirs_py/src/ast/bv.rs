@@ -42,6 +42,7 @@ impl BV {
         inner: &BitVecAst<'static>,
         name: Option<String>,
     ) -> Result<Bound<'py, BV>, ClaripyError> {
+        let inner = &inner.simplify()?;
         if let Some(cache_hit) = PY_BV_CACHE.get(&inner.hash()).and_then(|cache_hit| {
             cache_hit
                 .bind(py)
