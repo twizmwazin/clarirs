@@ -26,6 +26,28 @@ fn wrap_solver<'c, S: Solver<'c>>(
     SimplificationMixin::new(ConcreteEarlyResolutionMixin::new(solver))
 }
 
+impl PySolver {
+    /// Calls `f` with a mutable reference to a solver that includes the given
+    /// extra constraints. When no extra constraints are provided, `f` receives
+    /// `&mut self.inner` directly, avoiding a clone.
+    fn with_extra_constraints<T>(
+        &mut self,
+        extra_constraints: Option<Vec<CoerceBool<'_>>>,
+        f: impl FnOnce(&mut DynSolver) -> Result<T, ClaripyError>,
+    ) -> Result<T, ClaripyError> {
+        match extra_constraints {
+            Some(ec) if !ec.is_empty() => {
+                let mut solver = self.inner.clone();
+                for constraint in ec {
+                    solver.add(&constraint.0.get().inner)?;
+                }
+                f(&mut solver)
+            }
+            _ => f(&mut self.inner),
+        }
+    }
+}
+
 #[pymethods]
 impl PySolver {
     #[new]
@@ -211,20 +233,7 @@ impl PySolver {
         exact: Option<Bound<'py, PyAny>>,
     ) -> Result<bool, ClaripyError> {
         let _ = exact; // TODO: Implement approximate solutions
-
-        // If there are no extra constraints, use the original solver
-        if extra_constraints.is_none() {
-            return Ok(self.inner.satisfiable()?);
-        }
-
-        // Otherwise, clone the solver and add the constraints
-        let mut solver = self.inner.clone();
-        for constraint in extra_constraints.unwrap() {
-            solver.add(&constraint.0.get().inner)?;
-        }
-
-        // Check satisfiability with the extra constraints
-        Ok(solver.satisfiable()?)
+        self.with_extra_constraints(extra_constraints, |solver| Ok(solver.satisfiable()?))
     }
 
     #[pyo3(signature = (extra_constraints = None))]
@@ -232,16 +241,7 @@ impl PySolver {
         &mut self,
         extra_constraints: Option<Vec<CoerceBool<'py>>>,
     ) -> Result<Vec<usize>, ClaripyError> {
-        if extra_constraints.is_none() {
-            return Ok(self.inner.unsat_core()?);
-        }
-
-        let mut solver = self.inner.clone();
-        for constraint in extra_constraints.unwrap() {
-            solver.add(&constraint.0.get().inner)?;
-        }
-
-        Ok(solver.unsat_core()?)
+        self.with_extra_constraints(extra_constraints, |solver| Ok(solver.unsat_core()?))
     }
 
     #[pyo3(signature = (expr, n, extra_constraints = None, exact = None))]
@@ -254,71 +254,52 @@ impl PySolver {
         exact: Option<Bound<'py, PyAny>>,
     ) -> Result<Vec<Bound<'py, Base>>, ClaripyError> {
         let _ = exact; // TODO: Implement approximate solutions
-
-        // Fork the solver for extra constraints
-        let mut solver = self.inner.clone();
-        if let Some(extra_constraints) = extra_constraints {
-            for constraint in extra_constraints {
-                solver.add(&constraint.0.get().inner)?;
+        self.with_extra_constraints(extra_constraints, |solver| {
+            // Get multiple solutions based on expression type
+            if let Ok(bv_value) = expr.clone().into_any().cast::<BV>() {
+                let solutions = solver.eval_bitvec_n(&bv_value.get().inner, n)?;
+                let py_solutions = solutions
+                    .into_iter()
+                    .map(|sol| BV::new(py, &sol))
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok(py_solutions
+                    .into_iter()
+                    .map(|sol| sol.into_any().cast::<Base>().unwrap().clone())
+                    .collect())
+            } else if let Ok(bool_value) = expr.clone().into_any().cast::<Bool>() {
+                let solutions = solver.eval_bool_n(&bool_value.get().inner, n)?;
+                let py_solutions = solutions
+                    .into_iter()
+                    .map(|sol| Bool::new(py, &sol))
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok(py_solutions
+                    .into_iter()
+                    .map(|sol| sol.into_any().cast::<Base>().unwrap().clone())
+                    .collect())
+            } else if let Ok(fp_value) = expr.clone().into_any().cast::<FP>() {
+                let solutions = solver.eval_float_n(&fp_value.get().inner, n)?;
+                let py_solutions = solutions
+                    .into_iter()
+                    .map(|sol| FP::new(py, &sol))
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok(py_solutions
+                    .into_iter()
+                    .map(|sol| sol.into_any().cast::<Base>().unwrap().clone())
+                    .collect())
+            } else if let Ok(string_value) = expr.clone().into_any().cast::<PyAstString>() {
+                let solutions = solver.eval_string_n(&string_value.get().inner, n)?;
+                let py_solutions = solutions
+                    .into_iter()
+                    .map(|sol| PyAstString::new(py, &sol))
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok(py_solutions
+                    .into_iter()
+                    .map(|sol| sol.into_any().cast::<Base>().unwrap().clone())
+                    .collect())
+            } else {
+                Err(ClaripyError::TypeError("Unsupported type".to_string()))
             }
-        }
-
-        // Get multiple solutions based on expression type
-        if let Ok(bv_value) = expr.clone().into_any().cast::<BV>() {
-            // Use the new multi-solution trait method
-            let solutions = solver.eval_bitvec_n(&bv_value.get().inner, n)?;
-            let py_solutions = solutions
-                .into_iter()
-                .map(|sol| BV::new(py, &sol))
-                .collect::<Result<Vec<_>, _>>()?;
-
-            // Convert to Base type
-            Ok(py_solutions
-                .into_iter()
-                .map(|sol| sol.into_any().cast::<Base>().unwrap().clone())
-                .collect())
-        } else if let Ok(bool_value) = expr.clone().into_any().cast::<Bool>() {
-            // Use the new multi-solution trait method
-            let solutions = solver.eval_bool_n(&bool_value.get().inner, n)?;
-            let py_solutions = solutions
-                .into_iter()
-                .map(|sol| Bool::new(py, &sol))
-                .collect::<Result<Vec<_>, _>>()?;
-
-            // Convert to Base type
-            Ok(py_solutions
-                .into_iter()
-                .map(|sol| sol.into_any().cast::<Base>().unwrap().clone())
-                .collect())
-        } else if let Ok(fp_value) = expr.clone().into_any().cast::<FP>() {
-            // Use the new multi-solution trait method
-            let solutions = solver.eval_float_n(&fp_value.get().inner, n)?;
-            let py_solutions = solutions
-                .into_iter()
-                .map(|sol| FP::new(py, &sol))
-                .collect::<Result<Vec<_>, _>>()?;
-
-            // Convert to Base type
-            Ok(py_solutions
-                .into_iter()
-                .map(|sol| sol.into_any().cast::<Base>().unwrap().clone())
-                .collect())
-        } else if let Ok(string_value) = expr.clone().into_any().cast::<PyAstString>() {
-            // Use the new multi-solution trait method
-            let solutions = solver.eval_string_n(&string_value.get().inner, n)?;
-            let py_solutions = solutions
-                .into_iter()
-                .map(|sol| PyAstString::new(py, &sol))
-                .collect::<Result<Vec<_>, _>>()?;
-
-            // Convert to Base type
-            Ok(py_solutions
-                .into_iter()
-                .map(|sol| sol.into_any().cast::<Base>().unwrap().clone())
-                .collect())
-        } else {
-            Err(ClaripyError::TypeError("Unsupported type".to_string()))
-        }
+        })
     }
 
     #[pyo3(signature = (expr, n, extra_constraints = None, exact = None))]
@@ -393,7 +374,7 @@ impl PySolver {
 
     #[pyo3(signature = (expr, value, extra_constraints = None, exact = None))]
     fn solution(
-        &self,
+        &mut self,
         expr: CoerceBase,
         value: Bound<PyAny>,
         extra_constraints: Option<Vec<Bound<Bool>>>,
@@ -402,72 +383,66 @@ impl PySolver {
         _ = exact; // TODO: Implement approximate solutions
         let expr = expr.0;
 
-        // Fork the solver for extra constraints
-        let mut solver = self.inner.clone();
-        if let Some(extra_constraints) = extra_constraints {
-            for expr in extra_constraints {
-                solver.add(&expr.get().inner)?;
-            }
-        }
-
-        // Add the solution as a constraint, and check if it is satisfiable
-        if let Ok(bool_ast) = expr.cast::<Bool>() {
-            if let Ok(value) = value.extract::<CoerceBool>() {
-                Ok(solver.has_true(
-                    &self
-                        .inner
-                        .context()
-                        .eq_(&bool_ast.get().inner, &value.0.get().inner)?,
-                )?)
-            } else {
-                let value_type = value.get_type().name()?.extract::<String>()?;
-                Err(ClaripyError::TypeError(format!(
-                    "can't coerce a {value_type} to a bool ast"
-                )))
-            }
-        } else if let Ok(bv_ast) = expr.cast::<BV>() {
-            if let Ok(value) = value.extract::<CoerceBV>() {
-                Ok(solver.has_true(&self.inner.context().eq_(
-                    &bv_ast.get().inner,
-                    &value.unpack_like(bv_ast.py(), bv_ast.get())?.get().inner,
-                )?)?)
-            } else {
-                let value_type = value.get_type().name()?.extract::<String>()?;
-                Err(ClaripyError::TypeError(format!(
-                    "can't coerce a {value_type} to a bv ast"
-                )))
-            }
-        } else if let Ok(fp_ast) = expr.cast::<FP>() {
-            if let Ok(value) = value.extract::<CoerceFP>() {
-                Ok(solver.has_true(&self.inner.context().eq_(
-                    &fp_ast.get().inner,
-                    &value.unpack_like(fp_ast.py(), fp_ast.get())?.get().inner,
-                )?)?)
-            } else {
-                let value_type = value.get_type().name()?.extract::<String>()?;
-                Err(ClaripyError::TypeError(format!(
-                    "can't coerce a {value_type} to a float ast"
-                )))
-            }
-        } else if let Ok(string_ast) = expr.cast::<PyAstString>() {
-            if let Ok(value) = value.extract::<CoerceString>() {
-                Ok(solver.has_true(
-                    &self
-                        .inner
-                        .context()
-                        .eq_(&string_ast.get().inner, &value.0.get().inner)?,
-                )?)
-            } else {
-                let value_type = value.get_type().name()?.extract::<String>()?;
-                Err(ClaripyError::TypeError(format!(
-                    "can't coerce a {value_type} to a string ast"
-                )))
-            }
-        } else {
-            Err(ClaripyError::TypeError(
-                "expression must be a boolean, bitvector, float, or string".to_string(),
-            ))
-        }
+        self.with_extra_constraints(
+            extra_constraints.map(|v| v.into_iter().map(CoerceBool).collect()),
+            |solver| {
+                if let Ok(bool_ast) = expr.cast::<Bool>() {
+                    if let Ok(value) = value.extract::<CoerceBool>() {
+                        Ok(solver.has_true(
+                            &solver
+                                .context()
+                                .eq_(&bool_ast.get().inner, &value.0.get().inner)?,
+                        )?)
+                    } else {
+                        let value_type = value.get_type().name()?.extract::<String>()?;
+                        Err(ClaripyError::TypeError(format!(
+                            "can't coerce a {value_type} to a bool ast"
+                        )))
+                    }
+                } else if let Ok(bv_ast) = expr.cast::<BV>() {
+                    if let Ok(value) = value.extract::<CoerceBV>() {
+                        Ok(solver.has_true(&solver.context().eq_(
+                            &bv_ast.get().inner,
+                            &value.unpack_like(bv_ast.py(), bv_ast.get())?.get().inner,
+                        )?)?)
+                    } else {
+                        let value_type = value.get_type().name()?.extract::<String>()?;
+                        Err(ClaripyError::TypeError(format!(
+                            "can't coerce a {value_type} to a bv ast"
+                        )))
+                    }
+                } else if let Ok(fp_ast) = expr.cast::<FP>() {
+                    if let Ok(value) = value.extract::<CoerceFP>() {
+                        Ok(solver.has_true(&solver.context().eq_(
+                            &fp_ast.get().inner,
+                            &value.unpack_like(fp_ast.py(), fp_ast.get())?.get().inner,
+                        )?)?)
+                    } else {
+                        let value_type = value.get_type().name()?.extract::<String>()?;
+                        Err(ClaripyError::TypeError(format!(
+                            "can't coerce a {value_type} to a float ast"
+                        )))
+                    }
+                } else if let Ok(string_ast) = expr.cast::<PyAstString>() {
+                    if let Ok(value) = value.extract::<CoerceString>() {
+                        Ok(solver.has_true(
+                            &solver
+                                .context()
+                                .eq_(&string_ast.get().inner, &value.0.get().inner)?,
+                        )?)
+                    } else {
+                        let value_type = value.get_type().name()?.extract::<String>()?;
+                        Err(ClaripyError::TypeError(format!(
+                            "can't coerce a {value_type} to a string ast"
+                        )))
+                    }
+                } else {
+                    Err(ClaripyError::TypeError(
+                        "expression must be a boolean, bitvector, float, or string".to_string(),
+                    ))
+                }
+            },
+        )
     }
 
     #[pyo3(signature = (expr, extra_constraints = None, exact = None))]
@@ -486,38 +461,32 @@ impl PySolver {
             return Ok(py_int != 0);
         }
 
-        // Fork the solver for extra constraints
-        let mut solver = self.inner.clone();
-        if let Some(extra_constraints) = extra_constraints {
-            for constraint in extra_constraints {
-                solver.add(&constraint.0.get().inner)?;
-            }
-        }
-
-        // Handle different expression types
-        if let Ok(bool_expr) = expr.cast::<Bool>() {
-            match bool_expr.get().inner.op() {
-                BooleanOp::BoolV(b) => Ok(*b),
-                _ => Ok(solver.is_true(&bool_expr.get().inner)?),
-            }
-        } else if let Ok(bv_expr) = expr.cast::<BV>() {
-            // For bitvectors, check if it's concrete and non-zero
-            if let BitVecOp::BVV(bv) = bv_expr.get().inner.op() {
-                Ok(!bv.is_zero())
+        self.with_extra_constraints(extra_constraints, |solver| {
+            // Handle different expression types
+            if let Ok(bool_expr) = expr.cast::<Bool>() {
+                match bool_expr.get().inner.op() {
+                    BooleanOp::BoolV(b) => Ok(*b),
+                    _ => Ok(solver.is_true(&bool_expr.get().inner)?),
+                }
+            } else if let Ok(bv_expr) = expr.cast::<BV>() {
+                // For bitvectors, check if it's concrete and non-zero
+                if let BitVecOp::BVV(bv) = bv_expr.get().inner.op() {
+                    Ok(!bv.is_zero())
+                } else {
+                    // For symbolic BVs, check if it can be non-zero
+                    let zero = solver
+                        .context()
+                        .bvv_prim_with_size(0u64, bv_expr.get().inner.size())?;
+                    let eq_zero = solver.context().eq_(&bv_expr.get().inner, &zero)?;
+                    let is_zero = solver.is_true(&eq_zero)?;
+                    Ok(!is_zero)
+                }
             } else {
-                // For symbolic BVs, check if it can be non-zero
-                let zero = solver
-                    .context()
-                    .bvv_prim_with_size(0u64, bv_expr.get().inner.size())?;
-                let eq_zero = solver.context().eq_(&bv_expr.get().inner, &zero)?;
-                let is_zero = solver.is_true(&eq_zero)?;
-                Ok(!is_zero)
+                Err(ClaripyError::TypeError(
+                    "is_true: expression must be a boolean, integer, or bitvector".to_string(),
+                ))
             }
-        } else {
-            Err(ClaripyError::TypeError(
-                "is_true: expression must be a boolean, integer, or bitvector".to_string(),
-            ))
-        }
+        })
     }
 
     #[pyo3(signature = (expr, extra_constraints = None, exact = None))]
@@ -536,34 +505,28 @@ impl PySolver {
             return Ok(py_int == 0);
         }
 
-        // Fork the solver for extra constraints
-        let mut solver = self.inner.clone();
-        if let Some(extra_constraints) = extra_constraints {
-            for constraint in extra_constraints {
-                solver.add(&constraint.0.get().inner)?;
-            }
-        }
-
-        // Handle different expression types
-        if let Ok(bool_expr) = expr.cast::<Bool>() {
-            Ok(solver.is_false(&bool_expr.get().inner)?)
-        } else if let Ok(bv_expr) = expr.cast::<BV>() {
-            // For bitvectors, check if it's concrete and zero
-            if let BitVecOp::BVV(bv) = bv_expr.get().inner.op() {
-                Ok(bv.is_zero())
+        self.with_extra_constraints(extra_constraints, |solver| {
+            // Handle different expression types
+            if let Ok(bool_expr) = expr.cast::<Bool>() {
+                Ok(solver.is_false(&bool_expr.get().inner)?)
+            } else if let Ok(bv_expr) = expr.cast::<BV>() {
+                // For bitvectors, check if it's concrete and zero
+                if let BitVecOp::BVV(bv) = bv_expr.get().inner.op() {
+                    Ok(bv.is_zero())
+                } else {
+                    // For symbolic BVs, check if it must be zero
+                    let zero = solver
+                        .context()
+                        .bvv_prim_with_size(0u64, bv_expr.get().inner.size())?;
+                    let eq_zero = solver.context().eq_(&bv_expr.get().inner, &zero)?;
+                    Ok(solver.is_true(&eq_zero)?)
+                }
             } else {
-                // For symbolic BVs, check if it must be zero
-                let zero = solver
-                    .context()
-                    .bvv_prim_with_size(0u64, bv_expr.get().inner.size())?;
-                let eq_zero = solver.context().eq_(&bv_expr.get().inner, &zero)?;
-                Ok(solver.is_true(&eq_zero)?)
+                Err(ClaripyError::TypeError(
+                    "is_false: expression must be a boolean, integer, or bitvector".to_string(),
+                ))
             }
-        } else {
-            Err(ClaripyError::TypeError(
-                "is_false: expression must be a boolean, integer, or bitvector".to_string(),
-            ))
-        }
+        })
     }
 
     #[pyo3(signature = (expr, extra_constraints = None, exact = None))]
@@ -574,16 +537,9 @@ impl PySolver {
         exact: Option<Bound<'py, PyAny>>,
     ) -> Result<bool, ClaripyError> {
         _ = exact; // TODO: Implement approximate solutions
-
-        // Fork the solver for extra constraints
-        let mut solver = self.inner.clone();
-        if let Some(extra_constraints) = extra_constraints {
-            for constraint in extra_constraints {
-                solver.add(&constraint.0.get().inner)?;
-            }
-        }
-
-        Ok(solver.has_true(&expr.get().inner)?)
+        self.with_extra_constraints(extra_constraints, |solver| {
+            Ok(solver.has_true(&expr.get().inner)?)
+        })
     }
 
     #[pyo3(signature = (expr, extra_constraints = None, exact = None))]
@@ -594,16 +550,9 @@ impl PySolver {
         exact: Option<Bound<'py, PyAny>>,
     ) -> Result<bool, ClaripyError> {
         _ = exact; // TODO: Implement approximate solutions
-
-        // Fork the solver for extra constraints
-        let mut solver = self.inner.clone();
-        if let Some(extra_constraints) = extra_constraints {
-            for constraint in extra_constraints {
-                solver.add(&constraint.0.get().inner)?;
-            }
-        }
-
-        Ok(solver.has_false(&expr.get().inner)?)
+        self.with_extra_constraints(extra_constraints, |solver| {
+            Ok(solver.has_false(&expr.get().inner)?)
+        })
     }
 
     #[pyo3(signature = (expr, extra_constraints = None, exact = None, signed = false))]
@@ -615,27 +564,21 @@ impl PySolver {
         signed: bool,
     ) -> Result<BigInt, ClaripyError> {
         let _ = exact; // TODO: Implement approximate solutions
+        self.with_extra_constraints(extra_constraints, |solver| {
+            let result = if signed {
+                solver.min_signed(&expr.get().inner)?
+            } else {
+                solver.min_unsigned(&expr.get().inner)?
+            };
 
-        let mut solver = self.inner.clone();
-        if let Some(extra_constraints) = extra_constraints {
-            for expr in extra_constraints {
-                solver.add(&expr.0.get().inner)?;
+            if let BitVecOp::BVV(bv) = result.op() {
+                Ok(BigInt::from(bv.to_biguint()))
+            } else {
+                Err(ClaripyError::TypeError(
+                    "max: expression must be a bitvector".to_string(),
+                ))
             }
-        }
-
-        let result = if signed {
-            solver.min_signed(&expr.get().inner)?
-        } else {
-            solver.min_unsigned(&expr.get().inner)?
-        };
-
-        if let BitVecOp::BVV(bv) = result.op() {
-            Ok(BigInt::from(bv.to_biguint()))
-        } else {
-            Err(ClaripyError::TypeError(
-                "max: expression must be a bitvector".to_string(),
-            ))
-        }
+        })
     }
 
     #[pyo3(signature = (expr, extra_constraints = None, exact = None, signed = false))]
@@ -647,27 +590,21 @@ impl PySolver {
         signed: bool,
     ) -> Result<BigInt, ClaripyError> {
         let _ = exact; // TODO: Implement approximate solutions
+        self.with_extra_constraints(extra_constraints, |solver| {
+            let result = if signed {
+                solver.max_signed(&expr.get().inner)?
+            } else {
+                solver.max_unsigned(&expr.get().inner)?
+            };
 
-        let mut solver = self.inner.clone();
-        if let Some(extra_constraints) = extra_constraints {
-            for expr in extra_constraints {
-                solver.add(&expr.0.get().inner)?;
+            if let BitVecOp::BVV(bv) = result.op() {
+                Ok(BigInt::from(bv.to_biguint()))
+            } else {
+                Err(ClaripyError::TypeError(
+                    "max: expression must be a bitvector".to_string(),
+                ))
             }
-        }
-
-        let result = if signed {
-            solver.max_signed(&expr.get().inner)?
-        } else {
-            solver.max_unsigned(&expr.get().inner)?
-        };
-
-        if let BitVecOp::BVV(bv) = result.op() {
-            Ok(BigInt::from(bv.to_biguint()))
-        } else {
-            Err(ClaripyError::TypeError(
-                "max: expression must be a bitvector".to_string(),
-            ))
-        }
+        })
     }
 
     fn __getstate__<'py>(&self, py: Python<'py>) -> Result<Bound<'py, PyTuple>, ClaripyError> {
@@ -773,95 +710,6 @@ impl PyVSASolver {
             unsat_core: false,
         })
         .add_subclass(Self {}))
-    }
-
-    fn has_true<'py>(slf: PyRefMut<'py, Self>, expr: Bound<'py, Bool>) -> PyResult<bool> {
-        let mut py_solver: PyRefMut<'py, PySolver> = slf.into_super();
-        match &mut py_solver.inner {
-            DynSolver::Vsa(vsa_solver) => vsa_solver
-                .has_true(&expr.get().inner)
-                .map_err(|e| ClaripyError::from(e).into()),
-            _ => {
-                Err(ClaripyError::UnsupportedOperation("has_true not supported".to_string()).into())
-            }
-        }
-    }
-
-    fn has_false<'py>(slf: PyRefMut<'py, Self>, expr: Bound<'py, Bool>) -> PyResult<bool> {
-        let mut py_solver: PyRefMut<'py, PySolver> = slf.into_super();
-        match &mut py_solver.inner {
-            DynSolver::Vsa(vsa_solver) => vsa_solver
-                .has_false(&expr.get().inner)
-                .map_err(|e| ClaripyError::from(e).into()),
-            _ => Err(
-                ClaripyError::UnsupportedOperation("has_false not supported".to_string()).into(),
-            ),
-        }
-    }
-
-    #[pyo3(signature = (expr, value, extra_constraints = None, exact = None))]
-    fn solution<'py>(
-        slf: PyRefMut<'py, Self>,
-        expr: CoerceBase<'py>,
-        value: Bound<'py, PyAny>,
-        extra_constraints: Option<Vec<Bound<'py, Bool>>>,
-        exact: Option<Bound<'py, PyAny>>,
-    ) -> PyResult<bool> {
-        let _ = exact; // TODO: Implement approximate solutions
-        let _ = extra_constraints; // VSA solver doesn't support constraints
-        let expr = expr.0;
-
-        // Get the parent solver
-        let py_solver: PyRefMut<'py, PySolver> = slf.into_super();
-
-        // Handle different expression types
-        if let Ok(bv_ast) = expr.cast::<BV>() {
-            if let Ok(value) = value.extract::<CoerceBV>() {
-                // Extract the value as a BigUint
-                let value_bv = value.unpack_like(bv_ast.py(), bv_ast.get())?;
-
-                // Clone the solver to get a mutable version
-                let mut solver = match &py_solver.inner {
-                    DynSolver::Vsa(vsa_solver) => vsa_solver.clone(),
-                    _ => {
-                        return Err(ClaripyError::UnsupportedOperation(
-                            "solution not supported".to_string(),
-                        )
-                        .into());
-                    }
-                };
-
-                // Check if the value is concrete
-                if let BitVecOp::BVV(_bv) = value_bv.get().inner.op() {
-                    // Create an equality expression
-                    let ctx = solver.context();
-                    let eq_expr = match ctx.eq_(&bv_ast.get().inner, &value_bv.get().inner) {
-                        Ok(expr) => expr,
-                        Err(e) => return Err(ClaripyError::from(e).into()),
-                    };
-
-                    // Use the VSA solver to check if the equality can be true
-                    match solver.has_true(&eq_expr) {
-                        Ok(result) => Ok(result),
-                        Err(e) => Err(ClaripyError::from(e).into()),
-                    }
-                } else {
-                    // If the value is not concrete, we can't check
-                    Ok(false)
-                }
-            } else {
-                let value_type = value.get_type().name()?.extract::<String>()?;
-                Err(
-                    ClaripyError::TypeError(format!("can't coerce a {value_type} to a bv ast"))
-                        .into(),
-                )
-            }
-        } else {
-            // For other types, fall back to the default implementation
-            let super_method =
-                py_solver.solution(CoerceBase(expr), value, extra_constraints, exact)?;
-            Ok(super_method)
-        }
     }
 }
 
