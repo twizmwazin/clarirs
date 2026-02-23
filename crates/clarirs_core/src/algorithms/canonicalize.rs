@@ -4,7 +4,8 @@ use std::collections::HashMap;
 
 use crate::{ast::bitvec::BitVecOpExt, ast::float::FloatOpExt, prelude::*};
 
-use super::{collect_vars::collect_vars, replace::Replace};
+use super::collect_vars::collect_vars;
+use super::replace::Replace;
 
 /// Checks if two ASTs are structurally matching by comparing their canonical forms.
 ///
@@ -113,59 +114,13 @@ pub fn canonicalize<'c>(
 
     // Apply all replacements to the AST
     let mut result = ast.clone();
-    for (from, to) in replacements {
-        result = replace_dyn(&result, &from, &to)?;
+    for (from, to) in &replacements {
+        result = result.replace(from, to)?;
     }
 
     let counter = var_mapping.len();
 
     Ok((replacement_map, counter, result))
-}
-
-/// Helper function to replace a DynAst with another DynAst in a DynAst tree
-fn replace_dyn<'c>(
-    ast: &DynAst<'c>,
-    from: &DynAst<'c>,
-    to: &DynAst<'c>,
-) -> Result<DynAst<'c>, ClarirsError> {
-    if ast == from {
-        return Ok(to.clone());
-    }
-
-    match (ast, to) {
-        (DynAst::Boolean(ast_bool), DynAst::Boolean(to_bool)) => {
-            if let DynAst::Boolean(from_bool) = from {
-                Ok(DynAst::Boolean(ast_bool.replace(from_bool, to_bool)?))
-            } else {
-                Ok(ast.clone())
-            }
-        }
-        (DynAst::BitVec(ast_bv), DynAst::BitVec(to_bv)) => {
-            if let DynAst::BitVec(from_bv) = from {
-                Ok(DynAst::BitVec(ast_bv.replace(from_bv, to_bv)?))
-            } else {
-                Ok(ast.clone())
-            }
-        }
-        (DynAst::Float(ast_fp), DynAst::Float(to_fp)) => {
-            if let DynAst::Float(from_fp) = from {
-                Ok(DynAst::Float(ast_fp.replace(from_fp, to_fp)?))
-            } else {
-                Ok(ast.clone())
-            }
-        }
-        (DynAst::String(ast_str), DynAst::String(to_str)) => {
-            if let DynAst::String(from_str) = from {
-                Ok(DynAst::String(ast_str.replace(from_str, to_str)?))
-            } else {
-                Ok(ast.clone())
-            }
-        }
-        _ => {
-            // Type mismatch, can't replace
-            Ok(ast.clone())
-        }
-    }
 }
 
 #[cfg(test)]
@@ -444,6 +399,38 @@ mod tests {
         assert!(structurally_match(&dyn_ast1, &dyn_ast2)?);
         // Different constant values should not match
         assert!(!structurally_match(&dyn_ast1, &dyn_ast3)?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_canonicalize_cross_type() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+
+        // Create Bool ASTs that contain BitVec variables (cross-type)
+        // e.g. (x + y) == 5 where x,y are BVS and the result is Bool
+        let ast1 = ctx.eq_(
+            &ctx.add(&ctx.bvs("x", 32)?, &ctx.bvs("y", 32)?)?,
+            &ctx.bvv_prim_with_size(5u64, 32)?,
+        )?;
+        let ast2 = ctx.eq_(
+            &ctx.add(&ctx.bvs("a", 32)?, &ctx.bvs("b", 32)?)?,
+            &ctx.bvv_prim_with_size(5u64, 32)?,
+        )?;
+
+        let dyn_ast1 = DynAst::from(&ast1);
+        let dyn_ast2 = DynAst::from(&ast2);
+
+        let (_, counter1, canonical1) = canonicalize(&dyn_ast1)?;
+        let (_, counter2, canonical2) = canonicalize(&dyn_ast2)?;
+
+        // Both should canonicalize to: (v0 + v1) == 5
+        assert_eq!(canonical1, canonical2);
+        assert_eq!(counter1, 2);
+        assert_eq!(counter2, 2);
+
+        // Also verify structurally_match works for cross-type
+        assert!(structurally_match(&dyn_ast1, &dyn_ast2)?);
 
         Ok(())
     }
