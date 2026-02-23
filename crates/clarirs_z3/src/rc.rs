@@ -1,7 +1,7 @@
 use std::ffi::CStr;
 use std::ops::{Deref, DerefMut};
 
-use crate::{check_z3_error, Z3_CONTEXT};
+use crate::{Z3_CONTEXT, check_z3_error};
 use clarirs_core::error::ClarirsError;
 use clarirs_z3_sys as z3;
 

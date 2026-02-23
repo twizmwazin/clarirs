@@ -1,4 +1,4 @@
-use crate::{astext::child, check_z3_error, rc::RcAst, Z3_CONTEXT};
+use crate::{Z3_CONTEXT, astext::child, check_z3_error, rc::RcAst};
 use clarirs_core::prelude::*;
 use clarirs_z3_sys::{self as z3};
 use regex::Regex;

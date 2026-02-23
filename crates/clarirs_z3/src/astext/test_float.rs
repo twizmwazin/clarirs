@@ -2,7 +2,7 @@ use clarirs_core::prelude::*;
 use clarirs_z3_sys as z3;
 
 use super::AstExtZ3;
-use crate::{rc::RcAst, Z3_CONTEXT};
+use crate::{Z3_CONTEXT, rc::RcAst};
 
 fn round_trip<'c>(ctx: &'c Context<'c>, ast: &FloatAst<'c>) -> Result<FloatAst<'c>, ClarirsError> {
     FloatAst::from_z3(ctx, ast.to_z3()?)

@@ -1,6 +1,6 @@
 use std::ffi::CStr;
 
-use crate::{astext::child, check_z3_error, rc::RcAst, Z3_CONTEXT};
+use crate::{Z3_CONTEXT, astext::child, check_z3_error, rc::RcAst};
 use clarirs_core::prelude::*;
 use clarirs_z3_sys as z3;
 

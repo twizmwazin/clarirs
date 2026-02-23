@@ -5,7 +5,7 @@ use clarirs_core::{
 use clarirs_z3_sys as z3;
 
 use super::AstExtZ3;
-use crate::{astext::child, check_z3_error, rc::RcAst, Z3_CONTEXT};
+use crate::{Z3_CONTEXT, astext::child, check_z3_error, rc::RcAst};
 
 pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, ClarirsError> {
     Z3_CONTEXT.with(|&z3_ctx| unsafe {
