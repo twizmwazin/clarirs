@@ -1,15 +1,13 @@
 #![allow(non_snake_case)]
 
 use std::collections::{BTreeSet, HashMap};
-use std::sync::LazyLock;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
+use std::sync::LazyLock;
 
 use ast::args::ExtractPyArgs;
 use clarirs_core::algorithms::canonicalize;
 use clarirs_core::algorithms::structurally_match;
-use clarirs_vsa::reduce::Reduce;
-use clarirs_vsa::strided_interval::ComparisonResult;
 use dashmap::DashMap;
 use pyo3::exceptions::PyValueError;
 use pyo3::types::PyTuple;
@@ -588,15 +586,6 @@ impl Bool {
             py,
             &GLOBAL_CONTEXT.neq(&self.inner, <CoerceBool as Into<BoolAst>>::into(other))?,
         )
-    }
-
-    #[getter]
-    pub fn cardinality(&self) -> Result<usize, ClaripyError> {
-        match self.inner.reduce()? {
-            ComparisonResult::True => Ok(1),
-            ComparisonResult::False => Ok(1),
-            ComparisonResult::Maybe => Ok(2),
-        }
     }
 
     #[allow(clippy::type_complexity)]

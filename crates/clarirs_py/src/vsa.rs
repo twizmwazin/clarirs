@@ -2,9 +2,10 @@
 
 use clarirs_core::ast::bitvec::BitVecOpExt;
 use clarirs_vsa::StridedInterval;
+use clarirs_vsa::cardinality::Cardinality;
 use clarirs_vsa::reduce::Reduce;
 use clarirs_vsa::strided_interval::ComparisonResult;
-use num_bigint::BigInt;
+use num_bigint::{BigInt, BigUint};
 
 use crate::prelude::*;
 
@@ -179,9 +180,22 @@ pub fn identical(a: Bound<'_, Base>, b: Bound<'_, Base>) -> Result<bool, Claripy
     ))
 }
 
+/// Get the cardinality (number of possible values) of an AST expression via VSA.
+///
+/// For Bool expressions: returns 1 if definitely true or definitely false,
+/// or 2 if the result is indeterminate.
+///
+/// For BV expressions: returns the number of concrete values in the
+/// strided interval.
+#[pyfunction]
+pub fn cardinality(expr: Bound<'_, Base>) -> Result<BigUint, ClaripyError> {
+    let dynast = Base::to_dynast(expr)?;
+    Ok(dynast.cardinality()?)
+}
+
 pub(crate) fn import(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     add_pyfunctions!(
-        m, reduce, is_true, is_false, has_true, has_false, min, max, eval, identical,
+        m, reduce, is_true, is_false, has_true, has_false, min, max, eval, identical, cardinality,
     );
     Ok(())
 }

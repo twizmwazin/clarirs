@@ -2,12 +2,11 @@
 
 use std::collections::{BTreeSet, HashMap};
 use std::iter::once;
-use std::sync::LazyLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::LazyLock;
 
 use clarirs_core::algorithms::{canonicalize, structurally_match};
 use clarirs_core::ast::bitvec::{BitVecAstExt, BitVecOpExt};
-use clarirs_vsa::cardinality::Cardinality;
 use dashmap::DashMap;
 use num_bigint::{BigInt, BigUint, Sign};
 use pyo3::exceptions::{PyTypeError, PyValueError};
@@ -1236,21 +1235,6 @@ impl BV {
             py,
             &GLOBAL_CONTEXT.widen(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
-    }
-
-    #[getter]
-    pub fn cardinality(self_: Bound<'_, BV>) -> Result<BigUint, ClaripyError> {
-        Ok(self_.get().inner.cardinality()?)
-    }
-
-    #[getter]
-    pub fn singlevalued(self_: Bound<'_, BV>) -> Result<bool, ClaripyError> {
-        Ok(BV::cardinality(self_)? == BigUint::from(1u32))
-    }
-
-    #[getter]
-    pub fn multivalued(self_: Bound<'_, BV>) -> Result<bool, ClaripyError> {
-        Ok(BV::cardinality(self_)? > BigUint::from(1u32))
     }
 
     #[allow(clippy::type_complexity)]
