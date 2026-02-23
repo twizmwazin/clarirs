@@ -131,10 +131,9 @@ class TestBoolOperations(unittest.TestCase):
         # FIXME: claripy simplifies this
         # self.assertTrue(sym_eq.op == "__eq__")
 
-        # Test symbolic equality
+        # Test symbolic equality - auto-simplified to True
         sym_eq2 = self.bool_sym == self.bool_sym
-        # For symbolic equality, it should be true
-        self.assertTrue(sym_eq2.op == "__eq__")
+        self._check_equal(sym_eq2, True)
 
     def test_ne(self):
         """Test inequality"""
@@ -145,9 +144,9 @@ class TestBoolOperations(unittest.TestCase):
         result = self.true != self.true
         self._check_equal(result, False)
 
-        # Test symbolic values
+        # Test symbolic values - auto-simplified: (x != False) simplifies to x
         sym_ne = self.bool_sym != self.false
-        self.assertTrue(sym_ne.op == "__ne__")
+        self.assertTrue(sym_ne.op == "BoolS")
 
         # Test symbolic inequality
         sym_ne2 = self.bool_sym != self.bool_sym

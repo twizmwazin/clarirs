@@ -42,6 +42,7 @@ impl Bool {
         inner: &BoolAst<'static>,
         name: Option<String>,
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
+        let inner = &inner.simplify()?;
         if let Some(cache_hit) = PY_BOOL_CACHE.get(&inner.hash()).and_then(|cache_hit| {
             cache_hit
                 .bind(py)

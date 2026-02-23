@@ -157,6 +157,7 @@ impl FP {
         inner: &FloatAst<'static>,
         name: Option<String>,
     ) -> Result<Bound<'py, FP>, ClaripyError> {
+        let inner = &inner.simplify()?;
         if let Some(cache_hit) = PY_FP_CACHE.get(&inner.hash()).and_then(|cache_hit| {
             cache_hit
                 .bind(py)

@@ -39,6 +39,7 @@ impl PyAstString {
         inner: &StringAst<'static>,
         name: Option<String>,
     ) -> Result<Bound<'py, PyAstString>, ClaripyError> {
+        let inner = &inner.simplify()?;
         if let Some(cache_hit) = PY_STRING_CACHE.get(&inner.hash()).and_then(|cache_hit| {
             cache_hit
                 .bind(py)
