@@ -11,6 +11,7 @@ pub mod prelude;
 pub mod py_err;
 pub mod pyslicemethodsext;
 pub mod solver;
+pub mod vsa;
 
 use clarirs_core::{
     algorithms::{ExcavateIte, Replace},
@@ -162,6 +163,7 @@ pub fn claripy(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     let annotation = add_submodule(py, m, "claripy", "annotation", annotation::build_module)?;
     import_submodule(py, m, "claripy", "ast", ast::import)?;
     import_submodule(py, m, "claripy", "solver", solver::import)?;
+    import_submodule(py, m, "claripy", "vsa", vsa::import)?;
 
     add_pyfunctions!(
         m,
