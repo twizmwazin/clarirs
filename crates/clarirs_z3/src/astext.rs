@@ -22,6 +22,15 @@ mod bv;
 mod float;
 mod string;
 
+#[cfg(test)]
+mod test_bool;
+#[cfg(test)]
+mod test_bv;
+#[cfg(test)]
+mod test_float;
+#[cfg(test)]
+mod test_string;
+
 use clarirs_core::{algorithms::walk_post_order, prelude::*};
 use clarirs_z3_sys as z3;
 
