@@ -120,7 +120,11 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, Clarir
                 let a = child(children, 0)?;
                 RcAst::try_from(z3::mk_fpa_to_sbv(z3_ctx, *rm_ast, **a, *size))?
             }
-            BitVecOp::StrLen(..) => todo!("StrLen"),
+            BitVecOp::StrLen(..) => {
+                let a = child(children, 0)?;
+                let str_len = RcAst::try_from(z3::mk_seq_length(z3_ctx, **a))?;
+                RcAst::try_from(z3::mk_int2bv(z3_ctx, 64, *str_len))?
+            }
             BitVecOp::StrIndexOf(..) => todo!("StrIndexOf"),
             BitVecOp::StrToBV(..) => todo!("StrToBV"),
             BitVecOp::Union(..) | BitVecOp::Intersection(..) | BitVecOp::Widen(..) => {
