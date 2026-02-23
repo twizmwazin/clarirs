@@ -1,0 +1,194 @@
+#![allow(non_snake_case)]
+
+use clarirs_core::ast::bitvec::BitVecOpExt;
+use clarirs_vsa::StridedInterval;
+use clarirs_vsa::reduce::Reduce;
+use clarirs_vsa::strided_interval::ComparisonResult;
+use num_bigint::BigInt;
+
+use crate::prelude::*;
+
+/// Reduce a Bool AST using VSA abstract interpretation.
+///
+/// Returns `true` if the expression is definitely true, `false` if definitely false,
+/// or a symbolic `BoolS("maybe")` if the result is indeterminate.
+#[pyfunction]
+pub fn reduce_bool<'py>(
+    py: Python<'py>,
+    expr: Bound<'py, Bool>,
+) -> Result<Bound<'py, Bool>, ClaripyError> {
+    let reduced = expr.get().inner.reduce()?;
+    match reduced {
+        ComparisonResult::True => Bool::new(py, &GLOBAL_CONTEXT.true_()?),
+        ComparisonResult::False => Bool::new(py, &GLOBAL_CONTEXT.false_()?),
+        ComparisonResult::Maybe => {
+            use crate::ast::bool::BoolS;
+            BoolS(py, "maybe", false)
+        }
+    }
+}
+
+/// Reduce a BV AST using VSA abstract interpretation.
+///
+/// Returns a concrete BVV if the strided interval resolves to a single value,
+/// an SI (strided interval annotated BV) if it resolves to a range,
+/// or the original expression if the interval is empty.
+#[pyfunction]
+pub fn reduce_bv<'py>(
+    py: Python<'py>,
+    expr: Bound<'py, BV>,
+) -> Result<Bound<'py, BV>, ClaripyError> {
+    let reduced = expr.get().inner.reduce()?;
+    match reduced {
+        StridedInterval::Empty { .. } => Ok(expr),
+        StridedInterval::Normal {
+            bits,
+            stride,
+            lower_bound,
+            upper_bound,
+        } => {
+            if lower_bound == upper_bound {
+                BV::new(
+                    py,
+                    &GLOBAL_CONTEXT.bvv_from_biguint_with_size(&lower_bound, bits)?,
+                )
+            } else {
+                BV::new(
+                    py,
+                    &GLOBAL_CONTEXT.si(bits, stride, lower_bound, upper_bound)?,
+                )
+            }
+        }
+    }
+}
+
+/// Check if a Bool expression is definitely true via VSA.
+#[pyfunction]
+pub fn is_true(expr: Bound<'_, Bool>) -> Result<bool, ClaripyError> {
+    Ok(matches!(
+        expr.get().inner.simplify()?.reduce()?,
+        ComparisonResult::True
+    ))
+}
+
+/// Check if a Bool expression is definitely false via VSA.
+#[pyfunction]
+pub fn is_false(expr: Bound<'_, Bool>) -> Result<bool, ClaripyError> {
+    Ok(matches!(
+        expr.get().inner.simplify()?.reduce()?,
+        ComparisonResult::False
+    ))
+}
+
+/// Check if a Bool expression could possibly be true via VSA.
+#[pyfunction]
+pub fn has_true(expr: Bound<'_, Bool>) -> Result<bool, ClaripyError> {
+    Ok(matches!(
+        expr.get().inner.simplify()?.reduce()?,
+        ComparisonResult::True | ComparisonResult::Maybe
+    ))
+}
+
+/// Check if a Bool expression could possibly be false via VSA.
+#[pyfunction]
+pub fn has_false(expr: Bound<'_, Bool>) -> Result<bool, ClaripyError> {
+    Ok(matches!(
+        expr.get().inner.simplify()?.reduce()?,
+        ComparisonResult::False | ComparisonResult::Maybe
+    ))
+}
+
+/// Get the minimum unsigned value of a BV expression via VSA.
+#[pyfunction]
+#[pyo3(signature = (expr, signed = false))]
+pub fn min(expr: Bound<'_, BV>, signed: bool) -> Result<BigInt, ClaripyError> {
+    let si = expr.get().inner.simplify()?.reduce()?;
+    if signed {
+        let (min_bound, _) = si.get_signed_bounds();
+        Ok(min_bound)
+    } else {
+        let (min_bound, _) = si.get_unsigned_bounds();
+        Ok(BigInt::from(min_bound))
+    }
+}
+
+/// Get the maximum unsigned value of a BV expression via VSA.
+#[pyfunction]
+#[pyo3(signature = (expr, signed = false))]
+pub fn max(expr: Bound<'_, BV>, signed: bool) -> Result<BigInt, ClaripyError> {
+    let si = expr.get().inner.simplify()?.reduce()?;
+    if signed {
+        let (_, max_bound) = si.get_signed_bounds();
+        Ok(max_bound)
+    } else {
+        let (_, max_bound) = si.get_unsigned_bounds();
+        Ok(BigInt::from(max_bound))
+    }
+}
+
+/// Evaluate a BV expression via VSA, returning up to `n` concrete values.
+#[pyfunction]
+pub fn eval<'py>(
+    py: Python<'py>,
+    expr: Bound<'py, BV>,
+    n: u32,
+) -> Result<Vec<Bound<'py, BV>>, ClaripyError> {
+    let si = expr.get().inner.simplify()?.reduce()?;
+    if si.is_empty() {
+        return Ok(vec![]);
+    }
+    si.eval(n)
+        .into_iter()
+        .map(|bv| {
+            BV::new(
+                py,
+                &GLOBAL_CONTEXT.bvv_from_biguint_with_size(&bv, expr.get().inner.size())?,
+            )
+        })
+        .collect()
+}
+
+/// Check if two AST expressions are identical after VSA reduction.
+///
+/// Both expressions are reduced and then compared for equality.
+#[pyfunction]
+pub fn identical(a: Bound<'_, Base>, b: Bound<'_, Base>) -> Result<bool, ClaripyError> {
+    // Try as BV first
+    if let Ok(a_bv) = a.clone().into_any().cast::<BV>()
+        && let Ok(b_bv) = b.clone().into_any().cast::<BV>()
+    {
+        let reduced_a = a_bv.get().inner.reduce()?;
+        let reduced_b = b_bv.get().inner.reduce()?;
+        return Ok(reduced_a == reduced_b);
+    }
+
+    // Try as Bool
+    if let Ok(a_bool) = a.clone().into_any().cast::<Bool>()
+        && let Ok(b_bool) = b.clone().into_any().cast::<Bool>()
+    {
+        let reduced_a = a_bool.get().inner.reduce()?;
+        let reduced_b = b_bool.get().inner.reduce()?;
+        return Ok(reduced_a == reduced_b);
+    }
+
+    Err(ClaripyError::TypeError(
+        "identical: both arguments must be the same type (Bool or BV)".to_string(),
+    ))
+}
+
+pub(crate) fn import(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
+    add_pyfunctions!(
+        m,
+        reduce_bool,
+        reduce_bv,
+        is_true,
+        is_false,
+        has_true,
+        has_false,
+        min,
+        max,
+        eval,
+        identical,
+    );
+    Ok(())
+}

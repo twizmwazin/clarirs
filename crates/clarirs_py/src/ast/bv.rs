@@ -7,9 +7,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use clarirs_core::algorithms::{canonicalize, structurally_match};
 use clarirs_core::ast::bitvec::{BitVecAstExt, BitVecOpExt};
-use clarirs_vsa::StridedInterval;
 use clarirs_vsa::cardinality::Cardinality;
-use clarirs_vsa::reduce::Reduce;
 use dashmap::DashMap;
 use num_bigint::{BigInt, BigUint, Sign};
 use pyo3::exceptions::{PyTypeError, PyValueError};
@@ -280,21 +278,10 @@ impl BV {
     }
 
     pub fn identical(&self, other: Bound<'_, Base>) -> Result<bool, ClaripyError> {
-        let other_bv = other.cast::<BV>()?.clone();
-
-        // Try reducing and comparing first
-        if let Ok(result) = {
-            let reduced_self = self.inner.reduce()?;
-            let reduced_other = other_bv.get().inner.reduce()?;
-            Ok::<_, ClarirsError>(reduced_self == reduced_other)
-        } {
-            Ok(result)
-        } else {
-            Ok(structurally_match(
-                &DynAst::BitVec(self.inner.clone()),
-                &Base::to_dynast(other)?,
-            )?)
-        }
+        Ok(structurally_match(
+            &DynAst::BitVec(self.inner.clone()),
+            &Base::to_dynast(other)?,
+        )?)
     }
 
     #[getter]
@@ -1263,32 +1250,6 @@ impl BV {
     #[getter]
     pub fn multivalued(self_: Bound<'_, BV>) -> Result<bool, ClaripyError> {
         Ok(BV::cardinality(self_)? > BigUint::from(1u32))
-    }
-
-    pub fn reduce(self_: Bound<'_, BV>) -> Result<Bound<'_, BV>, ClaripyError> {
-        let reduced = self_.get().inner.reduce()?;
-        match reduced {
-            StridedInterval::Empty { .. } => Ok(self_),
-            StridedInterval::Normal {
-                bits,
-                stride,
-                lower_bound,
-                upper_bound,
-            } => {
-                // If lower_bound == upper_bound, return a concrete BVV instead of an annotated BVS
-                if lower_bound == upper_bound {
-                    BV::new(
-                        self_.py(),
-                        &GLOBAL_CONTEXT.bvv_from_biguint_with_size(&lower_bound, bits)?,
-                    )
-                } else {
-                    BV::new(
-                        self_.py(),
-                        &GLOBAL_CONTEXT.si(bits, stride, lower_bound, upper_bound)?,
-                    )
-                }
-            }
-        }
     }
 
     #[allow(clippy::type_complexity)]
