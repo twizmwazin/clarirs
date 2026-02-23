@@ -22,10 +22,19 @@ mod bv;
 mod float;
 mod string;
 
+#[cfg(test)]
+mod test_bool;
+#[cfg(test)]
+mod test_bv;
+#[cfg(test)]
+mod test_float;
+#[cfg(test)]
+mod test_string;
+
 use clarirs_core::{algorithms::walk_post_order, prelude::*};
 use clarirs_z3_sys as z3;
 
-use crate::{Z3_CONTEXT, rc::RcAst};
+use crate::{rc::RcAst, Z3_CONTEXT};
 
 pub(crate) trait AstExtZ3<'c>: HasContext<'c> + Simplify<'c> + Sized {
     fn to_z3(&self) -> Result<RcAst, ClarirsError>;

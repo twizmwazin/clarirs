@@ -1,6 +1,6 @@
 use std::ffi::CStr;
 
-use crate::{Z3_CONTEXT, astext::child, check_z3_error, rc::RcAst};
+use crate::{astext::child, check_z3_error, rc::RcAst, Z3_CONTEXT};
 use clarirs_core::prelude::*;
 use clarirs_z3_sys as z3;
 
@@ -120,66 +120,59 @@ pub(crate) fn from_z3<'c>(
                             ctx.not(inner)
                         }
                     }
-                    z3::DeclKind::And | z3::DeclKind::Or | z3::DeclKind::Xor => {
-                        let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
-                        let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
-
-                        // Convert both arguments
-                        let a = BoolAst::from_z3(ctx, arg0)?;
-                        let b = BoolAst::from_z3(ctx, arg1)?;
-
-                        // Create the appropriate operation
+                    z3::DeclKind::And | z3::DeclKind::Or => {
+                        let num_args = z3::get_app_num_args(*z3_ctx, app);
+                        let mut args = Vec::with_capacity(num_args as usize);
+                        for i in 0..num_args {
+                            let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, i))?;
+                            args.push(BoolAst::from_z3(ctx, arg)?);
+                        }
                         match decl_kind {
-                            z3::DeclKind::And => ctx.and2(a, b),
-                            z3::DeclKind::Or => ctx.or2(a, b),
-                            z3::DeclKind::Xor => ctx.xor(a, b),
+                            z3::DeclKind::And => ctx.and(args),
+                            z3::DeclKind::Or => ctx.or(args),
                             _ => unreachable!(),
                         }
+                    }
+                    z3::DeclKind::Xor => {
+                        let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
+                        let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
+                        let a = BoolAst::from_z3(ctx, arg0)?;
+                        let b = BoolAst::from_z3(ctx, arg1)?;
+                        ctx.xor(a, b)
                     }
                     z3::DeclKind::Eq => {
                         let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
                         let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
+                        let sort = z3::get_sort(*z3_ctx, *arg0);
+                        let sort_kind = z3::get_sort_kind(*z3_ctx, sort);
 
-                        if let Ok(lhs) = BoolAst::from_z3(ctx, &arg0) {
-                            if let Ok(rhs) = BoolAst::from_z3(ctx, arg1) {
+                        match sort_kind {
+                            z3::SortKind::Bool => {
+                                let lhs = BoolAst::from_z3(ctx, arg0)?;
+                                let rhs = BoolAst::from_z3(ctx, arg1)?;
                                 ctx.eq_(lhs, rhs)
-                            } else {
-                                Err(ClarirsError::ConversionError(
-                                    "Eq lhs is bool, rhs is not".to_string(),
-                                ))
                             }
-                        } else if let Ok(lhs) = BitVecAst::from_z3(ctx, &arg0) {
-                            if let Ok(rhs) = BitVecAst::from_z3(ctx, arg1) {
+                            z3::SortKind::Bv => {
+                                let lhs = BitVecAst::from_z3(ctx, arg0)?;
+                                let rhs = BitVecAst::from_z3(ctx, arg1)?;
                                 ctx.eq_(lhs, rhs)
-                            } else {
-                                Err(ClarirsError::ConversionError(
-                                    "Eq lhs is bv, rhs is not".to_string(),
-                                ))
                             }
-                        } else if let Ok(lhs) = FloatAst::from_z3(ctx, &arg0) {
-                            if let Ok(rhs) = FloatAst::from_z3(ctx, arg1) {
+                            z3::SortKind::FloatingPoint => {
+                                let lhs = FloatAst::from_z3(ctx, arg0)?;
+                                let rhs = FloatAst::from_z3(ctx, arg1)?;
                                 ctx.eq_(lhs, rhs)
-                            } else {
-                                Err(ClarirsError::ConversionError(
-                                    "Eq lhs is fp, rhs is not".to_string(),
-                                ))
                             }
-                        } else if let Ok(lhs) = StringAst::from_z3(ctx, &arg0) {
-                            if let Ok(rhs) = StringAst::from_z3(ctx, arg1) {
-                                ctx.eq_(lhs, rhs)
-                            } else {
-                                Err(ClarirsError::ConversionError(
-                                    "Eq lhs is string, rhs is not".to_string(),
-                                ))
+                            z3::SortKind::Seq => {
+                                let lhs = StringAst::from_z3(ctx, arg0)?;
+                                let rhs = StringAst::from_z3(ctx, arg1)?;
+                                ctx.str_eq(lhs, rhs)
                             }
-                        } else {
-                            Err(ClarirsError::ConversionError(
-                                "Eq lhs is not a recognized type".to_string(),
-                            ))
+                            _ => Err(ClarirsError::ConversionError(
+                                "Eq operand has unrecognized sort".to_string(),
+                            )),
                         }
                     }
                     z3::DeclKind::Distinct => {
-                        // Check args are exactly 2, otherwise error
                         if z3::get_app_num_args(*z3_ctx, app) != 2 {
                             return Err(ClarirsError::ConversionError(
                                 "Distinct with != 2 args not supported".to_string(),
@@ -187,42 +180,33 @@ pub(crate) fn from_z3<'c>(
                         }
                         let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
                         let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
-                        if let Ok(lhs) = BoolAst::from_z3(ctx, &arg0) {
-                            if let Ok(rhs) = BoolAst::from_z3(ctx, arg1) {
+                        let sort = z3::get_sort(*z3_ctx, *arg0);
+                        let sort_kind = z3::get_sort_kind(*z3_ctx, sort);
+
+                        match sort_kind {
+                            z3::SortKind::Bool => {
+                                let lhs = BoolAst::from_z3(ctx, arg0)?;
+                                let rhs = BoolAst::from_z3(ctx, arg1)?;
                                 ctx.neq(lhs, rhs)
-                            } else {
-                                Err(ClarirsError::ConversionError(
-                                    "Neq lhs is bool, rhs is not".to_string(),
-                                ))
                             }
-                        } else if let Ok(lhs) = BitVecAst::from_z3(ctx, &arg0) {
-                            if let Ok(rhs) = BitVecAst::from_z3(ctx, arg1) {
+                            z3::SortKind::Bv => {
+                                let lhs = BitVecAst::from_z3(ctx, arg0)?;
+                                let rhs = BitVecAst::from_z3(ctx, arg1)?;
                                 ctx.neq(lhs, rhs)
-                            } else {
-                                Err(ClarirsError::ConversionError(
-                                    "Neq lhs is bv, rhs is not".to_string(),
-                                ))
                             }
-                        } else if let Ok(lhs) = FloatAst::from_z3(ctx, &arg0) {
-                            if let Ok(rhs) = FloatAst::from_z3(ctx, arg1) {
-                                ctx.neq(lhs, rhs)
-                            } else {
-                                Err(ClarirsError::ConversionError(
-                                    "Neq lhs is fp, rhs is not".to_string(),
-                                ))
+                            z3::SortKind::FloatingPoint => {
+                                let lhs = FloatAst::from_z3(ctx, arg0)?;
+                                let rhs = FloatAst::from_z3(ctx, arg1)?;
+                                ctx.fp_neq(lhs, rhs)
                             }
-                        } else if let Ok(lhs) = StringAst::from_z3(ctx, &arg0) {
-                            if let Ok(rhs) = StringAst::from_z3(ctx, arg1) {
-                                ctx.neq(lhs, rhs)
-                            } else {
-                                Err(ClarirsError::ConversionError(
-                                    "Neq lhs is string, rhs is not".to_string(),
-                                ))
+                            z3::SortKind::Seq => {
+                                let lhs = StringAst::from_z3(ctx, arg0)?;
+                                let rhs = StringAst::from_z3(ctx, arg1)?;
+                                ctx.str_neq(lhs, rhs)
                             }
-                        } else {
-                            Err(ClarirsError::ConversionError(
-                                "Neq lhs is not a recognized type".to_string(),
-                            ))
+                            _ => Err(ClarirsError::ConversionError(
+                                "Distinct operand has unrecognized sort".to_string(),
+                            )),
                         }
                     }
                     z3::DeclKind::Ult
@@ -253,6 +237,56 @@ pub(crate) fn from_z3<'c>(
                             _ => unreachable!(),
                         }
                     }
+                    // FP comparisons
+                    z3::DeclKind::FpaEq
+                    | z3::DeclKind::FpaLt
+                    | z3::DeclKind::FpaLe
+                    | z3::DeclKind::FpaGt
+                    | z3::DeclKind::FpaGe => {
+                        let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
+                        let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
+
+                        let a = FloatAst::from_z3(ctx, arg0)?;
+                        let b = FloatAst::from_z3(ctx, arg1)?;
+
+                        match decl_kind {
+                            z3::DeclKind::FpaEq => ctx.fp_eq(a, b),
+                            z3::DeclKind::FpaLt => ctx.fp_lt(a, b),
+                            z3::DeclKind::FpaLe => ctx.fp_leq(a, b),
+                            z3::DeclKind::FpaGt => ctx.fp_gt(a, b),
+                            z3::DeclKind::FpaGe => ctx.fp_geq(a, b),
+                            _ => unreachable!(),
+                        }
+                    }
+                    z3::DeclKind::FpaIsNan => {
+                        let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
+                        let a = FloatAst::from_z3(ctx, arg0)?;
+                        ctx.fp_is_nan(a)
+                    }
+                    z3::DeclKind::FpaIsInf => {
+                        let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
+                        let a = FloatAst::from_z3(ctx, arg0)?;
+                        ctx.fp_is_inf(a)
+                    }
+
+                    // String predicates
+                    z3::DeclKind::SeqContains
+                    | z3::DeclKind::SeqPrefix
+                    | z3::DeclKind::SeqSuffix => {
+                        let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
+                        let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
+
+                        let a = StringAst::from_z3(ctx, arg0)?;
+                        let b = StringAst::from_z3(ctx, arg1)?;
+
+                        match decl_kind {
+                            z3::DeclKind::SeqContains => ctx.str_contains(a, b),
+                            z3::DeclKind::SeqPrefix => ctx.str_prefix_of(a, b),
+                            z3::DeclKind::SeqSuffix => ctx.str_suffix_of(a, b),
+                            _ => unreachable!(),
+                        }
+                    }
+
                     z3::DeclKind::Ite => {
                         let cond = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
                         let then = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
@@ -292,588 +326,4 @@ pub(crate) fn from_z3<'c>(
             )),
         }
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // Helper functions to verify Z3 AST structure and values
-    fn verify_z3_ast_kind(ast: z3::Ast, expected_kind: z3::DeclKind) -> bool {
-        Z3_CONTEXT.with(|z3_ctx| unsafe {
-            let app = z3::to_app(*z3_ctx, ast);
-            let decl = z3::get_app_decl(*z3_ctx, app);
-            let kind = z3::get_decl_kind(*z3_ctx, decl);
-            kind == expected_kind
-        })
-    }
-
-    fn verify_z3_bool_value(ast: z3::Ast, expected_value: bool) -> bool {
-        Z3_CONTEXT.with(|z3_ctx| unsafe {
-            let app = z3::to_app(*z3_ctx, ast);
-            let decl = z3::get_app_decl(*z3_ctx, app);
-            let kind = z3::get_decl_kind(*z3_ctx, decl);
-            matches!(
-                (kind, expected_value),
-                (z3::DeclKind::True, true) | (z3::DeclKind::False, false)
-            )
-        })
-    }
-
-    fn verify_z3_symbol_name(ast: z3::Ast, expected_name: &str) -> bool {
-        Z3_CONTEXT.with(|z3_ctx| unsafe {
-            // For non-constant ASTs, we need to handle the case where the AST is an application
-            let ast_kind = z3::get_ast_kind(*z3_ctx, ast);
-            if ast_kind != z3::AstKind::App {
-                return false;
-            }
-
-            let app = z3::to_app(*z3_ctx, ast);
-            let decl = z3::get_app_decl(*z3_ctx, app);
-            let decl_kind = z3::get_decl_kind(*z3_ctx, decl);
-
-            // Only proceed if this is an uninterpreted function (symbol)
-            if decl_kind != z3::DeclKind::Uninterpreted {
-                return false;
-            }
-
-            let sym = z3::get_decl_name(*z3_ctx, decl);
-            let name = z3::get_symbol_string(*z3_ctx, sym);
-            let name = std::ffi::CStr::from_ptr(name).to_str().unwrap();
-            name == expected_name
-        })
-    }
-
-    fn get_z3_app_arg(ast: z3::Ast, index: u32) -> Option<z3::Ast> {
-        Z3_CONTEXT.with(|z3_ctx| unsafe {
-            let ast_kind = z3::get_ast_kind(*z3_ctx, ast);
-            if ast_kind != z3::AstKind::App {
-                return None;
-            }
-
-            let app = z3::to_app(*z3_ctx, ast);
-            let num_args = z3::get_app_num_args(*z3_ctx, app);
-            if index >= num_args {
-                return None;
-            }
-
-            Some(z3::get_app_arg(*z3_ctx, app, index))
-        })
-    }
-
-    fn round_trip<'c>(
-        ctx: &'c Context<'c>,
-        ast: &BoolAst<'c>,
-    ) -> Result<BoolAst<'c>, ClarirsError> {
-        BoolAst::from_z3(ctx, ast.to_z3()?)
-    }
-
-    // One-way conversion tests
-    mod to_z3 {
-        use super::*;
-
-        #[test]
-        fn symbol() {
-            let ctx = Context::new();
-            let sym = ctx.bools("x").unwrap();
-
-            let z3_ast = sym.to_z3().unwrap();
-            assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Uninterpreted));
-            assert!(verify_z3_symbol_name(*z3_ast, "x"));
-        }
-
-        #[test]
-        fn values() {
-            let ctx = Context::new();
-            let t = ctx.true_().unwrap();
-            let f = ctx.false_().unwrap();
-
-            let t_z3 = t.to_z3().unwrap();
-            let f_z3 = f.to_z3().unwrap();
-
-            assert!(verify_z3_bool_value(*t_z3, true));
-            assert!(verify_z3_bool_value(*f_z3, false));
-        }
-
-        #[test]
-        fn not() {
-            let ctx = Context::new();
-            let x = ctx.bools("x").unwrap();
-            let not_x = ctx.not(x).unwrap();
-
-            let z3_ast = not_x.to_z3().unwrap();
-            assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Not));
-
-            // Verify the operand is the symbol "x"
-            let arg = get_z3_app_arg(*z3_ast, 0).expect("Failed to get NOT argument");
-            assert!(
-                verify_z3_symbol_name(arg, "x"),
-                "NOT argument should be 'x'"
-            );
-        }
-
-        #[test]
-        fn and() {
-            let ctx = Context::new();
-            let x = ctx.bools("x").unwrap();
-            let y = ctx.bools("y").unwrap();
-            let and = ctx.and2(x, y).unwrap();
-
-            let z3_ast = and.to_z3().unwrap();
-            assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::And));
-
-            // Verify operands
-            let arg0 = get_z3_app_arg(*z3_ast, 0).expect("Failed to get first AND argument");
-            let arg1 = get_z3_app_arg(*z3_ast, 1).expect("Failed to get second AND argument");
-            assert!(
-                verify_z3_symbol_name(arg0, "x"),
-                "First AND argument should be 'x'"
-            );
-            assert!(
-                verify_z3_symbol_name(arg1, "y"),
-                "Second AND argument should be 'y'"
-            );
-        }
-
-        #[test]
-        fn or() {
-            let ctx = Context::new();
-            let x = ctx.bools("x").unwrap();
-            let y = ctx.bools("y").unwrap();
-            let or = ctx.or2(x, y).unwrap();
-
-            let z3_ast = or.to_z3().unwrap();
-            assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Or));
-
-            // Verify operands
-            let arg0 = get_z3_app_arg(*z3_ast, 0).expect("Failed to get first OR argument");
-            let arg1 = get_z3_app_arg(*z3_ast, 1).expect("Failed to get second OR argument");
-            assert!(
-                verify_z3_symbol_name(arg0, "x"),
-                "First OR argument should be 'x'"
-            );
-            assert!(
-                verify_z3_symbol_name(arg1, "y"),
-                "Second OR argument should be 'y'"
-            );
-        }
-
-        #[test]
-        fn xor() {
-            let ctx = Context::new();
-            let x = ctx.bools("x").unwrap();
-            let y = ctx.bools("y").unwrap();
-            let xor = ctx.xor(x, y).unwrap();
-
-            let z3_ast = xor.to_z3().unwrap();
-            assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Xor));
-
-            // Verify operands
-            let arg0 = get_z3_app_arg(*z3_ast, 0).expect("Failed to get first XOR argument");
-            let arg1 = get_z3_app_arg(*z3_ast, 1).expect("Failed to get second XOR argument");
-            assert!(
-                verify_z3_symbol_name(arg0, "x"),
-                "First XOR argument should be 'x'"
-            );
-            assert!(
-                verify_z3_symbol_name(arg1, "y"),
-                "Second XOR argument should be 'y'"
-            );
-        }
-
-        #[test]
-        fn eq() {
-            let ctx = Context::new();
-            let x = ctx.bools("x").unwrap();
-            let y = ctx.bools("y").unwrap();
-            let eq = ctx.eq_(x, y).unwrap();
-
-            let z3_ast = eq.to_z3().unwrap();
-            assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Eq));
-
-            // Verify operands
-            let arg0 = get_z3_app_arg(*z3_ast, 0).expect("Failed to get first EQ argument");
-            let arg1 = get_z3_app_arg(*z3_ast, 1).expect("Failed to get second EQ argument");
-            assert!(
-                verify_z3_symbol_name(arg0, "x"),
-                "First EQ argument should be 'x'"
-            );
-            assert!(
-                verify_z3_symbol_name(arg1, "y"),
-                "Second EQ argument should be 'y'"
-            );
-        }
-
-        #[test]
-        fn neq() {
-            let ctx = Context::new();
-            let x = ctx.bools("x").unwrap();
-            let y = ctx.bools("y").unwrap();
-            let neq = ctx.neq(x, y).unwrap();
-
-            let z3_ast = neq.to_z3().unwrap();
-            assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Distinct));
-
-            // Verify the inner EQ and its operands
-            let arg0 = get_z3_app_arg(*z3_ast, 0).expect("Failed to get first NEQ argument");
-            let arg1 = get_z3_app_arg(*z3_ast, 1).expect("Failed to get second NEQ argument");
-            assert!(
-                verify_z3_symbol_name(arg0, "x"),
-                "First NEQ argument should be 'x'"
-            );
-            assert!(
-                verify_z3_symbol_name(arg1, "y"),
-                "Second NEQ argument should be 'y'"
-            );
-        }
-
-        #[test]
-        fn if_() {
-            let ctx = Context::new();
-            let cond = ctx.bools("c").unwrap();
-            let then = ctx.true_().unwrap();
-            let else_ = ctx.false_().unwrap();
-            let if_expr = ctx.ite(cond, then, else_).unwrap();
-
-            let z3_ast = if_expr.to_z3().unwrap();
-            assert!(verify_z3_ast_kind(*z3_ast, z3::DeclKind::Ite));
-
-            // Verify condition and branches
-            let cond_ast = get_z3_app_arg(*z3_ast, 0).expect("Failed to get IF condition");
-            let then_ast = get_z3_app_arg(*z3_ast, 1).expect("Failed to get IF then branch");
-            let else_ast = get_z3_app_arg(*z3_ast, 2).expect("Failed to get IF else branch");
-
-            assert!(
-                verify_z3_symbol_name(cond_ast, "c"),
-                "IF condition should be 'c'"
-            );
-            assert!(
-                verify_z3_bool_value(then_ast, true),
-                "IF then branch should be true"
-            );
-            assert!(
-                verify_z3_bool_value(else_ast, false),
-                "IF else branch should be false"
-            );
-        }
-    }
-
-    // Tests for convert_bool_from_z3
-    mod from_z3 {
-        use super::*;
-
-        #[test]
-        fn symbol() {
-            unsafe {
-                let ctx = Context::new();
-                Z3_CONTEXT.with(|z3_ctx| {
-                    // Create a Z3 boolean symbol
-                    let s_cstr = std::ffi::CString::new("x").unwrap();
-                    let sym = z3::mk_string_symbol(*z3_ctx, s_cstr.as_ptr());
-                    let sort = z3::mk_bool_sort(*z3_ctx);
-                    let decl = z3::mk_func_decl(*z3_ctx, sym, 0, std::ptr::null(), sort);
-                    let z3_ast =
-                        RcAst::try_from(z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())).unwrap();
-
-                    // Convert from Z3 to Clarirs
-                    let result = BoolAst::from_z3(&ctx, z3_ast).unwrap();
-                    let expected = ctx.bools("x").unwrap();
-                    assert_eq!(result, expected);
-                });
-            }
-        }
-
-        #[test]
-        fn values() {
-            unsafe {
-                let ctx = Context::new();
-                Z3_CONTEXT.with(|z3_ctx| {
-                    let true_z3 = RcAst::try_from(z3::mk_true(*z3_ctx)).unwrap();
-                    let false_z3 = RcAst::try_from(z3::mk_false(*z3_ctx)).unwrap();
-
-                    let true_result = BoolAst::from_z3(&ctx, true_z3).unwrap();
-                    let false_result = BoolAst::from_z3(&ctx, false_z3).unwrap();
-
-                    assert_eq!(true_result, ctx.true_().unwrap());
-                    assert_eq!(false_result, ctx.false_().unwrap());
-                });
-            }
-        }
-
-        #[test]
-        fn not() {
-            unsafe {
-                let ctx = Context::new();
-                Z3_CONTEXT.with(|z3_ctx| {
-                    let x_z3 = {
-                        let s_cstr = std::ffi::CString::new("x").unwrap();
-                        let sym = z3::mk_string_symbol(*z3_ctx, s_cstr.as_ptr());
-                        let sort = z3::mk_bool_sort(*z3_ctx);
-                        let decl = z3::mk_func_decl(*z3_ctx, sym, 0, std::ptr::null(), sort);
-                        RcAst::try_from(z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())).unwrap()
-                    };
-                    let not_z3 = RcAst::try_from(z3::mk_not(*z3_ctx, *x_z3)).unwrap();
-
-                    let result = BoolAst::from_z3(&ctx, &not_z3).unwrap();
-                    let expected = ctx.not(ctx.bools("x").unwrap()).unwrap();
-                    assert_eq!(result, expected);
-                });
-            }
-        }
-
-        #[test]
-        fn and() {
-            unsafe {
-                let ctx = Context::new();
-                Z3_CONTEXT.with(|z3_ctx| {
-                    let x_z3 = {
-                        let s_cstr = std::ffi::CString::new("x").unwrap();
-                        let sym = z3::mk_string_symbol(*z3_ctx, s_cstr.as_ptr());
-                        let sort = z3::mk_bool_sort(*z3_ctx);
-                        let decl = z3::mk_func_decl(*z3_ctx, sym, 0, std::ptr::null(), sort);
-                        RcAst::try_from(z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())).unwrap()
-                    };
-                    let y_z3 = {
-                        let s_cstr = std::ffi::CString::new("y").unwrap();
-                        let sym = z3::mk_string_symbol(*z3_ctx, s_cstr.as_ptr());
-                        let sort = z3::mk_bool_sort(*z3_ctx);
-                        let decl = z3::mk_func_decl(*z3_ctx, sym, 0, std::ptr::null(), sort);
-                        RcAst::try_from(z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())).unwrap()
-                    };
-                    let args = [*x_z3, *y_z3];
-                    let and_z3 = RcAst::try_from(z3::mk_and(*z3_ctx, 2, args.as_ptr())).unwrap();
-
-                    let result = BoolAst::from_z3(&ctx, and_z3).unwrap();
-                    let expected = ctx
-                        .and2(ctx.bools("x").unwrap(), ctx.bools("y").unwrap())
-                        .unwrap();
-                    assert_eq!(result, expected);
-                });
-            }
-        }
-
-        #[test]
-        fn or() {
-            unsafe {
-                let ctx = Context::new();
-                Z3_CONTEXT.with(|z3_ctx| {
-                    let x_z3 = {
-                        let s_cstr = std::ffi::CString::new("x").unwrap();
-                        let sym = z3::mk_string_symbol(*z3_ctx, s_cstr.as_ptr());
-                        let sort = z3::mk_bool_sort(*z3_ctx);
-                        let decl = z3::mk_func_decl(*z3_ctx, sym, 0, std::ptr::null(), sort);
-                        RcAst::try_from(z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())).unwrap()
-                    };
-                    let y_z3 = {
-                        let s_cstr = std::ffi::CString::new("y").unwrap();
-                        let sym = z3::mk_string_symbol(*z3_ctx, s_cstr.as_ptr());
-                        let sort = z3::mk_bool_sort(*z3_ctx);
-                        let decl = z3::mk_func_decl(*z3_ctx, sym, 0, std::ptr::null(), sort);
-                        RcAst::try_from(z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())).unwrap()
-                    };
-                    let args = [*x_z3, *y_z3];
-                    let or_z3 = RcAst::try_from(z3::mk_or(*z3_ctx, 2, args.as_ptr())).unwrap();
-
-                    let result = BoolAst::from_z3(&ctx, or_z3).unwrap();
-                    let expected = ctx
-                        .or2(ctx.bools("x").unwrap(), ctx.bools("y").unwrap())
-                        .unwrap();
-                    assert_eq!(result, expected);
-                });
-            }
-        }
-
-        #[test]
-        fn xor() {
-            unsafe {
-                let ctx = Context::new();
-                Z3_CONTEXT.with(|z3_ctx| {
-                    let x_z3 = {
-                        let s_cstr = std::ffi::CString::new("x").unwrap();
-                        let sym = z3::mk_string_symbol(*z3_ctx, s_cstr.as_ptr());
-                        let sort = z3::mk_bool_sort(*z3_ctx);
-                        let decl = z3::mk_func_decl(*z3_ctx, sym, 0, std::ptr::null(), sort);
-                        RcAst::try_from(z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())).unwrap()
-                    };
-                    let y_z3 = {
-                        let s_cstr = std::ffi::CString::new("y").unwrap();
-                        let sym = z3::mk_string_symbol(*z3_ctx, s_cstr.as_ptr());
-                        let sort = z3::mk_bool_sort(*z3_ctx);
-                        let decl = z3::mk_func_decl(*z3_ctx, sym, 0, std::ptr::null(), sort);
-                        RcAst::try_from(z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())).unwrap()
-                    };
-                    let xor_z3 = RcAst::try_from(z3::mk_xor(*z3_ctx, *x_z3, *y_z3)).unwrap();
-
-                    let result = BoolAst::from_z3(&ctx, xor_z3).unwrap();
-                    let expected = ctx
-                        .xor(ctx.bools("x").unwrap(), ctx.bools("y").unwrap())
-                        .unwrap();
-                    assert_eq!(result, expected);
-                });
-            }
-        }
-
-        #[test]
-        fn eq() {
-            unsafe {
-                let ctx = Context::new();
-                Z3_CONTEXT.with(|z3_ctx| {
-                    let x_z3 = {
-                        let s_cstr = std::ffi::CString::new("x").unwrap();
-                        let sym = z3::mk_string_symbol(*z3_ctx, s_cstr.as_ptr());
-                        let sort = z3::mk_bool_sort(*z3_ctx);
-                        let decl = z3::mk_func_decl(*z3_ctx, sym, 0, std::ptr::null(), sort);
-                        RcAst::try_from(z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())).unwrap()
-                    };
-                    let y_z3 = {
-                        let s_cstr = std::ffi::CString::new("y").unwrap();
-                        let sym = z3::mk_string_symbol(*z3_ctx, s_cstr.as_ptr());
-                        let sort = z3::mk_bool_sort(*z3_ctx);
-                        let decl = z3::mk_func_decl(*z3_ctx, sym, 0, std::ptr::null(), sort);
-                        RcAst::try_from(z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())).unwrap()
-                    };
-                    let eq_z3 = RcAst::try_from(z3::mk_eq(*z3_ctx, *x_z3, *y_z3)).unwrap();
-
-                    let result = BoolAst::from_z3(&ctx, eq_z3).unwrap();
-                    let expected = ctx
-                        .eq_(ctx.bools("x").unwrap(), ctx.bools("y").unwrap())
-                        .unwrap();
-                    assert_eq!(result, expected);
-                });
-            }
-        }
-
-        #[test]
-        fn if_() {
-            unsafe {
-                let ctx = Context::new();
-                Z3_CONTEXT.with(|z3_ctx| {
-                    let c_z3 = RcAst::try_from({
-                        let s_cstr = std::ffi::CString::new("c").unwrap();
-                        let sym = z3::mk_string_symbol(*z3_ctx, s_cstr.as_ptr());
-                        let sort = z3::mk_bool_sort(*z3_ctx);
-                        let decl = z3::mk_func_decl(*z3_ctx, sym, 0, std::ptr::null(), sort);
-                        z3::mk_app(*z3_ctx, decl, 0, std::ptr::null())
-                    })
-                    .unwrap();
-                    let true_z3 = RcAst::try_from(z3::mk_true(*z3_ctx)).unwrap();
-                    let false_z3 = RcAst::try_from(z3::mk_false(*z3_ctx)).unwrap();
-                    let if_z3 =
-                        RcAst::try_from(z3::mk_ite(*z3_ctx, *c_z3, *true_z3, *false_z3)).unwrap();
-
-                    let result = BoolAst::from_z3(&ctx, if_z3).unwrap();
-                    let expected = ctx
-                        .ite(
-                            ctx.bools("c").unwrap(),
-                            ctx.true_().unwrap(),
-                            ctx.false_().unwrap(),
-                        )
-                        .unwrap();
-                    assert_eq!(result, expected);
-                });
-            }
-        }
-    }
-    mod roundtrip {
-        use super::*;
-
-        // Round-trip conversion tests
-        #[test]
-        fn symbol() {
-            let ctx = Context::new();
-            let sym = ctx.bools("x").unwrap();
-            let result = round_trip(&ctx, &sym).unwrap();
-            assert_eq!(sym, result);
-        }
-
-        #[test]
-        fn values() {
-            let ctx = Context::new();
-            let t = ctx.true_().unwrap();
-            let f = ctx.false_().unwrap();
-
-            let t_result = round_trip(&ctx, &t).unwrap();
-            let f_result = round_trip(&ctx, &f).unwrap();
-
-            assert_eq!(t, t_result);
-            assert_eq!(f, f_result);
-        }
-
-        #[test]
-        fn not() {
-            let ctx = Context::new();
-            let x = ctx.bools("x").unwrap();
-            let not_x = ctx.not(x).unwrap();
-
-            let result = round_trip(&ctx, &not_x).unwrap();
-            assert_eq!(not_x, result);
-        }
-
-        #[test]
-        fn and() {
-            let ctx = Context::new();
-            let x = ctx.bools("x").unwrap();
-            let y = ctx.bools("y").unwrap();
-            let and = ctx.and2(x, y).unwrap();
-
-            let result = round_trip(&ctx, &and).unwrap();
-            assert_eq!(and, result);
-        }
-
-        #[test]
-        fn or() {
-            let ctx = Context::new();
-            let x = ctx.bools("x").unwrap();
-            let y = ctx.bools("y").unwrap();
-            let or = ctx.or2(x, y).unwrap();
-
-            let result = round_trip(&ctx, &or).unwrap();
-            assert_eq!(or, result);
-        }
-
-        #[test]
-        fn xor() {
-            let ctx = Context::new();
-            let x = ctx.bools("x").unwrap();
-            let y = ctx.bools("y").unwrap();
-            let xor = ctx.xor(x, y).unwrap();
-
-            let result = round_trip(&ctx, &xor).unwrap();
-            assert_eq!(xor, result);
-        }
-
-        #[test]
-        fn eq() {
-            let ctx = Context::new();
-            let x = ctx.bools("x").unwrap();
-            let y = ctx.bools("y").unwrap();
-            let eq = ctx.eq_(x, y).unwrap();
-
-            let result = round_trip(&ctx, &eq).unwrap();
-            assert_eq!(eq, result);
-        }
-
-        #[test]
-        fn neq() {
-            let ctx = Context::new();
-            let x = ctx.bools("x").unwrap();
-            let y = ctx.bools("y").unwrap();
-            let neq = ctx.neq(x, y).unwrap();
-
-            let result = round_trip(&ctx, &neq).unwrap();
-            assert_eq!(neq, result);
-        }
-
-        #[test]
-        fn if_() {
-            let ctx = Context::new();
-            let cond = ctx.bools("c").unwrap();
-            let then = ctx.true_().unwrap();
-            let else_ = ctx.false_().unwrap();
-            let if_expr = ctx.ite(cond, then, else_).unwrap();
-
-            let result = round_trip(&ctx, &if_expr).unwrap();
-            assert_eq!(if_expr, result);
-        }
-    }
 }

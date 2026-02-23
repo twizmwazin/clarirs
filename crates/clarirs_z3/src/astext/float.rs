@@ -2,7 +2,7 @@ use clarirs_core::prelude::*;
 use clarirs_z3_sys as z3;
 
 use super::AstExtZ3;
-use crate::{Z3_CONTEXT, astext::child, check_z3_error, rc::RcAst};
+use crate::{astext::child, check_z3_error, rc::RcAst, Z3_CONTEXT};
 
 pub(crate) fn fprm_to_z3(rm: FPRM) -> Result<RcAst, ClarirsError> {
     RcAst::try_from(Z3_CONTEXT.with(|&z3_ctx| unsafe {
@@ -231,36 +231,38 @@ pub(crate) fn from_z3<'c>(
                         ctx.fp_sqrt(inner, rm)
                     }
                     z3::DeclKind::FpaToFp => {
-                        // This could be FpToFp, BvToFp, BvToFpSigned, or BvToFpUnsigned
+                        // Z3 uses FpaToFp for several conversions:
+                        //   1 arg:  BvToFp(bv)           — reinterpret BV bits as FP
+                        //   2 args: [rm, fp] → FpToFp    — convert between FP sorts
+                        //           [rm, bv] → BvToFpSigned — signed int to FP
                         let num_args = z3::get_app_num_args(*z3_ctx, app);
 
-                        if num_args == 2 {
-                            // Could be BvToFp (no rounding mode)
+                        if num_args == 1 {
+                            // BvToFp: no rounding mode, single BV operand
                             let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
-                            if let Ok(bv) = crate::astext::bv::from_z3(ctx, arg) {
-                                ctx.bv_to_fp(bv, fsort)
-                            } else {
-                                Err(ClarirsError::ConversionError(
-                                    "Failed to parse BvToFp".to_string(),
-                                ))
-                            }
-                        } else if num_args == 3 {
-                            // Has rounding mode: FpToFp, BvToFpSigned, or BvToFpUnsigned
+                            let bv = crate::astext::bv::from_z3(ctx, arg)?;
+                            ctx.bv_to_fp(bv, fsort)
+                        } else if num_args == 2 {
+                            // Has rounding mode as arg0, operand as arg1
                             let rm_arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
                             let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
                             let rm = parse_fprm_from_z3(*z3_ctx, *rm_arg)?;
 
-                            // Try to determine which conversion it is by the argument type
-                            if let Ok(fp) = FloatAst::from_z3(ctx, &arg) {
-                                ctx.fp_to_fp(fp, fsort, rm)
-                            } else if let Ok(bv) = crate::astext::bv::from_z3(ctx, arg) {
-                                // Need to determine if signed or unsigned
-                                // This is ambiguous in Z3, default to signed
-                                ctx.bv_to_fp_signed(bv, fsort, rm)
-                            } else {
-                                Err(ClarirsError::ConversionError(
-                                    "Failed to parse FpToFp conversion".to_string(),
-                                ))
+                            // Use sort-kind of the operand to determine FP vs BV
+                            let arg_sort = z3::get_sort(*z3_ctx, *arg);
+                            let sort_kind = z3::get_sort_kind(*z3_ctx, arg_sort);
+                            match sort_kind {
+                                z3::SortKind::FloatingPoint => {
+                                    let fp = FloatAst::from_z3(ctx, arg)?;
+                                    ctx.fp_to_fp(fp, fsort, rm)
+                                }
+                                z3::SortKind::Bv => {
+                                    let bv = crate::astext::bv::from_z3(ctx, arg)?;
+                                    ctx.bv_to_fp_signed(bv, fsort, rm)
+                                }
+                                _ => Err(ClarirsError::ConversionError(
+                                    "FpaToFp: unexpected sort kind for operand".to_string(),
+                                )),
                             }
                         } else {
                             Err(ClarirsError::ConversionError(
@@ -316,122 +318,5 @@ fn parse_fprm_from_z3(z3_ctx: z3::Context, ast: z3::Ast) -> Result<FPRM, Clarirs
                 "Unknown rounding mode".to_string(),
             )),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn round_trip<'c>(
-        ctx: &'c Context<'c>,
-        ast: &FloatAst<'c>,
-    ) -> Result<FloatAst<'c>, ClarirsError> {
-        match ast.to_z3() {
-            Ok(z3_ast) => FloatAst::from_z3(ctx, z3_ast),
-            Err(e) => Err(e),
-        }
-    }
-
-    #[test]
-    fn test_float_symbol() {
-        let ctx = Context::new();
-        let x = ctx.fps("x", FSort::f32()).unwrap();
-        let result = round_trip(&ctx, &x).unwrap();
-        assert_eq!(x, result);
-    }
-
-    #[test]
-    fn test_float_value_f32() {
-        let ctx = Context::new();
-        let f = ctx.fpv(Float::F32(std::f32::consts::PI)).unwrap();
-        let result = round_trip(&ctx, &f).unwrap();
-        assert_eq!(f, result);
-    }
-
-    #[test]
-    fn test_float_value_f64() {
-        let ctx = Context::new();
-        let f = ctx.fpv(Float::F64(std::f64::consts::E)).unwrap();
-        let result = round_trip(&ctx, &f).unwrap();
-        assert_eq!(f, result);
-    }
-
-    #[test]
-    fn test_float_neg() {
-        let ctx = Context::new();
-        let x = ctx.fps("x", FSort::f32()).unwrap();
-        let neg = ctx.fp_neg(x).unwrap();
-        let result = round_trip(&ctx, &neg).unwrap();
-        assert_eq!(neg, result);
-    }
-
-    #[test]
-    fn test_float_abs() {
-        let ctx = Context::new();
-        let x = ctx.fps("x", FSort::f32()).unwrap();
-        let abs = ctx.fp_abs(x).unwrap();
-        let result = round_trip(&ctx, &abs).unwrap();
-        assert_eq!(abs, result);
-    }
-
-    #[test]
-    fn test_float_add() {
-        let ctx = Context::new();
-        let a = ctx.fps("a", FSort::f32()).unwrap();
-        let b = ctx.fps("b", FSort::f32()).unwrap();
-        let add = ctx.fp_add(a, b, FPRM::NearestTiesToEven).unwrap();
-        let result = round_trip(&ctx, &add).unwrap();
-        assert_eq!(add, result);
-    }
-
-    #[test]
-    fn test_float_sub() {
-        let ctx = Context::new();
-        let a = ctx.fps("a", FSort::f32()).unwrap();
-        let b = ctx.fps("b", FSort::f32()).unwrap();
-        let sub = ctx.fp_sub(a, b, FPRM::NearestTiesToEven).unwrap();
-        let result = round_trip(&ctx, &sub).unwrap();
-        assert_eq!(sub, result);
-    }
-
-    #[test]
-    fn test_float_mul() {
-        let ctx = Context::new();
-        let a = ctx.fps("a", FSort::f32()).unwrap();
-        let b = ctx.fps("b", FSort::f32()).unwrap();
-        let mul = ctx.fp_mul(a, b, FPRM::NearestTiesToEven).unwrap();
-        let result = round_trip(&ctx, &mul).unwrap();
-        assert_eq!(mul, result);
-    }
-
-    #[test]
-    fn test_float_div() {
-        let ctx = Context::new();
-        let a = ctx.fps("a", FSort::f32()).unwrap();
-        let b = ctx.fps("b", FSort::f32()).unwrap();
-        let div = ctx.fp_div(a, b, FPRM::NearestTiesToEven).unwrap();
-        let result = round_trip(&ctx, &div).unwrap();
-        assert_eq!(div, result);
-    }
-
-    #[test]
-    fn test_float_sqrt() {
-        let ctx = Context::new();
-        let x = ctx.fps("x", FSort::f32()).unwrap();
-        let sqrt = ctx.fp_sqrt(x, FPRM::NearestTiesToEven).unwrap();
-        let result = round_trip(&ctx, &sqrt).unwrap();
-        assert_eq!(sqrt, result);
-    }
-
-    #[test]
-    fn test_float_if() {
-        let ctx = Context::new();
-        let cond = ctx.bools("c").unwrap();
-        let a = ctx.fps("a", FSort::f32()).unwrap();
-        let b = ctx.fps("b", FSort::f32()).unwrap();
-        let if_expr = ctx.ite(cond, a, b).unwrap();
-        let result = round_trip(&ctx, &if_expr).unwrap();
-        assert_eq!(if_expr, result);
     }
 }
