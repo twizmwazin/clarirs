@@ -142,12 +142,12 @@ impl BV {
                 &args[1].cast_bound::<BV>(py)?.get().inner,
             )?,
             "ZeroExt" => GLOBAL_CONTEXT.zero_ext(
-                &args[0].cast_bound::<BV>(py)?.get().inner,
-                args[1].extract(py)?,
+                &args[1].cast_bound::<BV>(py)?.get().inner,
+                args[0].extract(py)?,
             )?,
             "SignExt" => GLOBAL_CONTEXT.sign_ext(
-                &args[0].cast_bound::<BV>(py)?.get().inner,
-                args[1].extract(py)?,
+                &args[1].cast_bound::<BV>(py)?.get().inner,
+                args[0].extract(py)?,
             )?,
             "Extract" => GLOBAL_CONTEXT.extract(
                 &args[2].cast_bound::<BV>(py)?.get().inner,
