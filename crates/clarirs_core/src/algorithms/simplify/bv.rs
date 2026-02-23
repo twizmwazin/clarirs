@@ -357,31 +357,28 @@ pub(crate) fn simplify_bv<'c>(
                 (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
 
                 // Simplify shift left of zero-extended value when shift amount is >= extension size
-                // (shl (zero_extend n x) m) where m >= n => (shl x (m - n)) zero-extended back
-                (BitVecOp::ZeroExt(inner, ext_size), BitVecOp::BVV(shift_amt)) => {
+                // (shl (zero_extend n x) m) where m >= n => (zero_extend n (shl x (m - n)))
+                (BitVecOp::ZeroExt(inner, ext_size), BitVecOp::BVV(shift_amt))
+                    if { shift_amt.to_u64().unwrap_or(0) as u32 >= *ext_size } =>
+                {
                     let shift_val = shift_amt.to_u64().unwrap_or(0) as u32;
                     let total_size = inner.size() + ext_size;
 
-                    if shift_val >= *ext_size {
-                        // The zero-extended bits will be shifted out entirely or partially
-                        let inner_shift = shift_val - ext_size;
-                        if inner_shift >= inner.size() {
-                            // Everything gets shifted out
-                            Ok(ctx.bvv(BitVec::zeros(total_size))?)
-                        } else {
-                            // Shift the inner value and zero-extend the result
-                            let shifted_inner = ctx.shl(
-                                inner,
-                                &ctx.bvv(BitVec::from_prim_with_size(
-                                    inner_shift as u64,
-                                    arc1.size(),
-                                )?)?,
-                            )?;
-                            state.rerun(ctx.zero_ext(&shifted_inner, ext_size + inner_shift)?)
-                        }
+                    // The zero-extended bits will be shifted out entirely or partially
+                    let inner_shift = shift_val - ext_size;
+                    if inner_shift >= inner.size() {
+                        // Everything gets shifted out
+                        Ok(ctx.bvv(BitVec::zeros(total_size))?)
                     } else {
-                        // Normal case - just do the shift
-                        Ok(ctx.shl(arc, arc1)?)
+                        // Shift the inner value and zero-extend back to the original total size
+                        let shifted_inner = ctx.shl(
+                            inner,
+                            &ctx.bvv(BitVec::from_prim_with_size(
+                                inner_shift as u64,
+                                inner.size(),
+                            )?)?,
+                        )?;
+                        state.rerun(ctx.zero_ext(&shifted_inner, total_size - inner.size())?)
                     }
                 }
 
