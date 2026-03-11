@@ -1,5 +1,3 @@
-use ahash::HashSet;
-
 use super::SimplifyError;
 use crate::{ast::bitvec::BitVecOpExt, prelude::*};
 
@@ -47,7 +45,6 @@ pub(crate) fn simplify_bool<'c>(
                 .collect::<Result<Vec<_>, _>>()?;
 
             // Absorption simplification
-            let mut seen = HashSet::default();
             let absorbed_args = available_args
                 .into_iter()
                 .flat_map(|arg| {
@@ -58,15 +55,15 @@ pub(crate) fn simplify_bool<'c>(
                     }
                 })
                 .filter(|arg| !matches!(arg.op(), BooleanOp::BoolV(true)))
-                .filter(|arg| {
-                    if seen.contains(&arg.hash()) {
-                        false
-                    } else {
-                        seen.insert(arg.hash());
-                        true
-                    }
-                })
                 .collect::<Vec<_>>();
+            // Deduplicate using == comparison
+            let mut deduped = Vec::with_capacity(absorbed_args.len());
+            for arg in absorbed_args {
+                if !deduped.iter().any(|existing| existing == &arg) {
+                    deduped.push(arg);
+                }
+            }
+            let absorbed_args = deduped;
 
             if absorbed_args.is_empty() {
                 return Ok(ctx.true_()?);
@@ -138,7 +135,6 @@ pub(crate) fn simplify_bool<'c>(
                 .collect::<Result<Vec<_>, _>>()?;
 
             // Absorption simplification
-            let mut seen = HashSet::default();
             let absorbed_args = available_args
                 .into_iter()
                 .flat_map(|arg| {
@@ -149,15 +145,15 @@ pub(crate) fn simplify_bool<'c>(
                     }
                 })
                 .filter(|arg| !matches!(arg.op(), BooleanOp::BoolV(false)))
-                .filter(|arg| {
-                    if seen.contains(&arg.hash()) {
-                        false
-                    } else {
-                        seen.insert(arg.hash());
-                        true
-                    }
-                })
                 .collect::<Vec<_>>();
+            // Deduplicate using == comparison
+            let mut deduped = Vec::with_capacity(absorbed_args.len());
+            for arg in absorbed_args {
+                if !deduped.iter().any(|existing| existing == &arg) {
+                    deduped.push(arg);
+                }
+            }
+            let absorbed_args = deduped;
 
             // Identity simplification
             if absorbed_args
@@ -245,7 +241,8 @@ pub(crate) fn simplify_bool<'c>(
             let early_rhs = state.get_bool_available(1)?;
 
             match (early_lhs.op(), early_rhs.op()) {
-                (lhs, rhs) if lhs == rhs => Ok(ctx.true_()?),
+                // Note: we do NOT simplify a == a -> true here because nested
+                // float operations could involve NaN, where NaN != NaN.
                 (BooleanOp::BoolV(arc), BooleanOp::BoolV(arc1)) => Ok(ctx.boolv(arc == arc1)?),
                 (BooleanOp::BoolV(true), _) => Ok(state.get_bool_simplified(1)?),
                 (_, BooleanOp::BoolV(true)) => Ok(state.get_bool_simplified(0)?),
@@ -259,7 +256,8 @@ pub(crate) fn simplify_bool<'c>(
             let early_rhs = state.get_bool_available(1)?;
 
             match (early_lhs.op(), early_rhs.op()) {
-                (lhs, rhs) if lhs == rhs => Ok(ctx.false_()?),
+                // Note: we do NOT simplify a != a -> false here because nested
+                // float operations could involve NaN, where NaN != NaN.
                 (BooleanOp::BoolV(arc), BooleanOp::BoolV(arc1)) => Ok(ctx.boolv(arc != arc1)?),
                 (BooleanOp::BoolV(true), _) => Ok(ctx.not(state.get_bool_simplified(1)?)?),
                 (_, BooleanOp::BoolV(true)) => Ok(ctx.not(state.get_bool_simplified(0)?)?),
