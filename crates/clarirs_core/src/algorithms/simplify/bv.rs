@@ -96,10 +96,14 @@ pub(crate) fn simplify_bv<'c>(
                 (BitVecOp::Or(or_lhs, or_rhs), BitVecOp::BVV(mask_val))
                 | (BitVecOp::BVV(mask_val), BitVecOp::Or(or_lhs, or_rhs)) => {
                     match (or_lhs.op(), or_rhs.op()) {
-                        (BitVecOp::ShL(shl_inner, shl_amt), BitVecOp::LShR(lshr_inner, lshr_amt))
-                        | (BitVecOp::LShR(lshr_inner, lshr_amt), BitVecOp::ShL(shl_inner, shl_amt))
-                            if shl_inner.hash() == lshr_inner.hash() =>
-                        {
+                        (
+                            BitVecOp::ShL(shl_inner, shl_amt),
+                            BitVecOp::LShR(lshr_inner, lshr_amt),
+                        )
+                        | (
+                            BitVecOp::LShR(lshr_inner, lshr_amt),
+                            BitVecOp::ShL(shl_inner, shl_amt),
+                        ) if shl_inner.hash() == lshr_inner.hash() => {
                             if let (BitVecOp::BVV(shl_val), BitVecOp::BVV(lshr_val)) =
                                 (shl_amt.op(), lshr_amt.op())
                             {
@@ -128,10 +132,8 @@ pub(crate) fn simplify_bv<'c>(
                                         ))?;
                                         let masked_a =
                                             ctx.bv_and(shl_inner.clone(), unrotated_bvv)?;
-                                        let new_shl =
-                                            ctx.shl(&masked_a, shl_amt.clone())?;
-                                        let new_lshr =
-                                            ctx.lshr(&masked_a, lshr_amt.clone())?;
+                                        let new_shl = ctx.shl(&masked_a, shl_amt.clone())?;
+                                        let new_lshr = ctx.lshr(&masked_a, lshr_amt.clone())?;
                                         let result = ctx.bv_or(new_shl, new_lshr)?;
                                         state.rerun(result)
                                     } else {
@@ -925,13 +927,11 @@ pub(crate) fn simplify_bv<'c>(
             }
 
             // Concat(BVV(0, N), x) -> ZeroExt(N, x)
-            if merged.len() == 2 {
-                if let BitVecOp::BVV(high_val) = merged[0].op() {
-                    if high_val.is_zero() {
-                        let ext_size = merged[0].size();
-                        return state.rerun(ctx.zero_ext(&merged[1], ext_size)?);
-                    }
-                }
+            if merged.len() == 2
+                && matches!(merged[0].op(), BitVecOp::BVV(high_val) if high_val.is_zero())
+            {
+                let ext_size = merged[0].size();
+                return state.rerun(ctx.zero_ext(&merged[1], ext_size)?);
             }
 
             // Handle result based on merged length
