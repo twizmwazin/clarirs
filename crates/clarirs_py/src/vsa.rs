@@ -188,7 +188,17 @@ pub fn identical(a: Bound<'_, Base>, b: Bound<'_, Base>) -> Result<bool, Claripy
 
 pub(crate) fn import(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     add_pyfunctions!(
-        m, reduce, is_true, is_false, has_true, has_false, min, max, eval, cardinality, identical,
+        m,
+        reduce,
+        is_true,
+        is_false,
+        has_true,
+        has_false,
+        min,
+        max,
+        eval,
+        cardinality,
+        identical,
     );
     Ok(())
 }

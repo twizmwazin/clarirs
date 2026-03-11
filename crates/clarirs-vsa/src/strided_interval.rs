@@ -617,9 +617,18 @@ impl StridedInterval {
             // Quick containment check for wrapping SIs to avoid imprecise union
             if self_wraps && other_wraps {
                 if let (
-                    StridedInterval::Normal { lower_bound: s_lb, upper_bound: s_ub, .. },
-                    StridedInterval::Normal { lower_bound: o_lb, upper_bound: o_ub, .. },
-                ) = (self, other) {
+                    StridedInterval::Normal {
+                        lower_bound: s_lb,
+                        upper_bound: s_ub,
+                        ..
+                    },
+                    StridedInterval::Normal {
+                        lower_bound: o_lb,
+                        upper_bound: o_ub,
+                        ..
+                    },
+                ) = (self, other)
+                {
                     // For two wrapping SIs [s_lb, MAX]∪[0, s_ub] and [o_lb, MAX]∪[0, o_ub]:
                     // self ⊆ other when o_lb <= s_lb && s_ub <= o_ub
                     if o_lb <= s_lb && s_ub <= o_ub {
@@ -634,48 +643,79 @@ impl StridedInterval {
                 // self wraps: self = [s_lb, MAX] ∪ [0, s_ub]
                 // other ⊆ self if other is fully in the upper or lower part
                 if let (
-                    StridedInterval::Normal { lower_bound: s_lb, upper_bound: s_ub, .. },
-                    StridedInterval::Normal { lower_bound: o_lb, upper_bound: o_ub, .. },
-                ) = (self, other) {
-                    if o_lb >= s_lb || o_ub <= s_ub {
-                        // other might be contained in self
-                        if (o_lb >= s_lb && o_ub >= s_lb) || (o_lb <= s_ub && o_ub <= s_ub) {
-                            return other.clone();
-                        }
-                    }
+                    StridedInterval::Normal {
+                        lower_bound: s_lb,
+                        upper_bound: s_ub,
+                        ..
+                    },
+                    StridedInterval::Normal {
+                        lower_bound: o_lb,
+                        upper_bound: o_ub,
+                        ..
+                    },
+                ) = (self, other)
+                    && (o_lb >= s_lb || o_ub <= s_ub)
+                    && ((o_lb >= s_lb && o_ub >= s_lb) || (o_lb <= s_ub && o_ub <= s_ub))
+                {
+                    return other.clone();
                 }
             } else {
                 // self doesn't wrap, other wraps - symmetric case
                 if let (
-                    StridedInterval::Normal { lower_bound: s_lb, upper_bound: s_ub, .. },
-                    StridedInterval::Normal { lower_bound: o_lb, upper_bound: o_ub, .. },
-                ) = (self, other) {
-                    if s_lb >= o_lb || s_ub <= o_ub {
-                        if (s_lb >= o_lb && s_ub >= o_lb) || (s_lb <= o_ub && s_ub <= o_ub) {
-                            return self.clone();
-                        }
-                    }
+                    StridedInterval::Normal {
+                        lower_bound: s_lb,
+                        upper_bound: s_ub,
+                        ..
+                    },
+                    StridedInterval::Normal {
+                        lower_bound: o_lb,
+                        upper_bound: o_ub,
+                        ..
+                    },
+                ) = (self, other)
+                    && (s_lb >= o_lb || s_ub <= o_ub)
+                    && ((s_lb >= o_lb && s_ub >= o_lb) || (s_lb <= o_ub && s_ub <= o_ub))
+                {
+                    return self.clone();
                 }
             }
 
             // Fall back to splitting into non-wrapping parts
             let self_parts = if self_wraps {
-                if let StridedInterval::Normal { stride, lower_bound, upper_bound, bits, .. } = self {
+                if let StridedInterval::Normal {
+                    stride,
+                    lower_bound,
+                    upper_bound,
+                    bits,
+                    ..
+                } = self
+                {
                     vec![
                         Self::new(*bits, stride.clone(), lower_bound.clone(), max_int(*bits)),
                         Self::new(*bits, stride.clone(), BigUint::zero(), upper_bound.clone()),
                     ]
-                } else { vec![self.clone()] }
+                } else {
+                    vec![self.clone()]
+                }
             } else {
                 vec![self.clone()]
             };
             let other_parts = if other_wraps {
-                if let StridedInterval::Normal { stride, lower_bound, upper_bound, bits, .. } = other {
+                if let StridedInterval::Normal {
+                    stride,
+                    lower_bound,
+                    upper_bound,
+                    bits,
+                    ..
+                } = other
+                {
                     vec![
                         Self::new(*bits, stride.clone(), lower_bound.clone(), max_int(*bits)),
                         Self::new(*bits, stride.clone(), BigUint::zero(), upper_bound.clone()),
                     ]
-                } else { vec![other.clone()] }
+                } else {
+                    vec![other.clone()]
+                }
             } else {
                 vec![other.clone()]
             };
@@ -706,11 +746,19 @@ impl StridedInterval {
                 // If one part is near MAX and other near 0, create wrapping SI
                 if p_hi_0 == max_int(self.bits()) || p_lo_1 == BigUint::zero() {
                     let stride = match (&parts[0], &parts[1]) {
-                        (StridedInterval::Normal { stride: s0, .. }, StridedInterval::Normal { stride: s1, .. }) => {
-                            if s0.is_zero() && s1.is_zero() { BigUint::one() }
-                            else if s0.is_zero() { s1.clone() }
-                            else if s1.is_zero() { s0.clone() }
-                            else { gcd(s0, s1) }
+                        (
+                            StridedInterval::Normal { stride: s0, .. },
+                            StridedInterval::Normal { stride: s1, .. },
+                        ) => {
+                            if s0.is_zero() && s1.is_zero() {
+                                BigUint::one()
+                            } else if s0.is_zero() {
+                                s1.clone()
+                            } else if s1.is_zero() {
+                                s0.clone()
+                            } else {
+                                gcd(s0, s1)
+                            }
                         }
                         _ => BigUint::one(),
                     };
@@ -718,11 +766,19 @@ impl StridedInterval {
                 }
                 if p_hi_1 == max_int(self.bits()) || p_lo_0 == BigUint::zero() {
                     let stride = match (&parts[0], &parts[1]) {
-                        (StridedInterval::Normal { stride: s0, .. }, StridedInterval::Normal { stride: s1, .. }) => {
-                            if s0.is_zero() && s1.is_zero() { BigUint::one() }
-                            else if s0.is_zero() { s1.clone() }
-                            else if s1.is_zero() { s0.clone() }
-                            else { gcd(s0, s1) }
+                        (
+                            StridedInterval::Normal { stride: s0, .. },
+                            StridedInterval::Normal { stride: s1, .. },
+                        ) => {
+                            if s0.is_zero() && s1.is_zero() {
+                                BigUint::one()
+                            } else if s0.is_zero() {
+                                s1.clone()
+                            } else if s1.is_zero() {
+                                s0.clone()
+                            } else {
+                                gcd(s0, s1)
+                            }
                         }
                         _ => BigUint::one(),
                     };
@@ -970,7 +1026,7 @@ impl StridedInterval {
                 };
                 // Compute stride: when both strides are zero, derive from the range
                 let new_stride = if stride1.is_zero() && stride2.is_zero() {
-                    if &new_lower == &new_upper {
+                    if new_lower == new_upper {
                         BigUint::zero()
                     } else {
                         BigUint::one()
