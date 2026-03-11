@@ -30,6 +30,9 @@ pub(crate) fn simplify_bv<'c>(
                 (BitVecOp::BVV(v), _) if v.is_all_ones() => Ok(arc1.clone()),
                 (_, BitVecOp::BVV(v)) if v.is_all_ones() => Ok(arc.clone()),
 
+                // x & x -> x (idempotent)
+                _ if arc.hash() == arc1.hash() => Ok(arc.clone()),
+
                 // Distribute AND over CONCAT when one operand is constant
                 // (const & concat(a, b, ...)) = concat(const_parts & a, const_parts & b, ...)
                 (BitVecOp::BVV(const_val), BitVecOp::Concat(concat_args))
@@ -85,6 +88,68 @@ pub(crate) fn simplify_bv<'c>(
                 (lhs, BitVecOp::Not(rhs)) if lhs == rhs.op() => {
                     Ok(ctx.bvv(BitVec::zeros(arc.size()))?)
                 }
+
+                // rotate_shift_mask: ((A << a) | (A >> (N - a))) & mask
+                // When the mask after unrotation covers only the lower half,
+                // simplify to (A & unrotated_mask) << a | (A & unrotated_mask) >> (N-a)
+                // which effectively drops unconstrained upper bits.
+                (BitVecOp::Or(or_lhs, or_rhs), BitVecOp::BVV(mask_val))
+                | (BitVecOp::BVV(mask_val), BitVecOp::Or(or_lhs, or_rhs)) => {
+                    match (or_lhs.op(), or_rhs.op()) {
+                        (
+                            BitVecOp::ShL(shl_inner, shl_amt),
+                            BitVecOp::LShR(lshr_inner, lshr_amt),
+                        )
+                        | (
+                            BitVecOp::LShR(lshr_inner, lshr_amt),
+                            BitVecOp::ShL(shl_inner, shl_amt),
+                        ) if shl_inner.hash() == lshr_inner.hash() => {
+                            if let (BitVecOp::BVV(shl_val), BitVecOp::BVV(lshr_val)) =
+                                (shl_amt.op(), lshr_amt.op())
+                            {
+                                if let (Some(lshift), Some(rshift)) =
+                                    (shl_val.to_u64(), lshr_val.to_u64())
+                                {
+                                    let bitwidth = arc.size() as u64;
+                                    if lshift + rshift == bitwidth
+                                        && (bitwidth == 32 || bitwidth == 64)
+                                    {
+                                        // Unrotate the mask: mask_unrotated = (mask >> lshift) | (mask << rshift)
+                                        let mask_big = mask_val.to_biguint();
+                                        let full_mask = if bitwidth == 64 {
+                                            BigUint::from(u64::MAX)
+                                        } else {
+                                            BigUint::from(u32::MAX)
+                                        };
+                                        let unrotated = ((&mask_big >> lshift as usize)
+                                            | ((&mask_big << rshift as usize) & &full_mask))
+                                            & &full_mask;
+
+                                        // Apply the unrotated mask to A, then rotate the result
+                                        let unrotated_bvv = ctx.bvv(BitVec::from_biguint_trunc(
+                                            &unrotated,
+                                            bitwidth as u32,
+                                        ))?;
+                                        let masked_a =
+                                            ctx.bv_and(shl_inner.clone(), unrotated_bvv)?;
+                                        let new_shl = ctx.shl(&masked_a, shl_amt.clone())?;
+                                        let new_lshr = ctx.lshr(&masked_a, lshr_amt.clone())?;
+                                        let result = ctx.bv_or(new_shl, new_lshr)?;
+                                        state.rerun(result)
+                                    } else {
+                                        Ok(ctx.bv_and(arc, arc1)?)
+                                    }
+                                } else {
+                                    Ok(ctx.bv_and(arc, arc1)?)
+                                }
+                            } else {
+                                Ok(ctx.bv_and(arc, arc1)?)
+                            }
+                        }
+                        _ => Ok(ctx.bv_and(arc, arc1)?),
+                    }
+                }
+
                 _ => Ok(ctx.bv_and(arc, arc1)?),
             }
         }
@@ -98,6 +163,9 @@ pub(crate) fn simplify_bv<'c>(
                 (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
                 (BitVecOp::BVV(v), _) if v.is_all_ones() => Ok(ctx.bvv(v.clone())?),
                 (_, BitVecOp::BVV(v)) if v.is_all_ones() => Ok(ctx.bvv(v.clone())?),
+
+                // x | x -> x (idempotent)
+                _ if arc.hash() == arc1.hash() => Ok(arc.clone()),
 
                 // Distribute OR over CONCAT when one operand is constant
                 // (const | concat(a, b, ...)) = concat(const_parts | a, const_parts | b, ...)
@@ -357,28 +425,40 @@ pub(crate) fn simplify_bv<'c>(
                 (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
 
                 // Simplify shift left of zero-extended value when shift amount is >= extension size
-                // (shl (zero_extend n x) m) where m >= n => (zero_extend n (shl x (m - n)))
+                // (shl (zero_extend n x) m) where m >= n
+                // The n zero-extended MSBs are shifted out, inner is shifted left by (m-n),
+                // and m zero bits appear at the LSB side.
+                // Result: concat(shl(inner, m-n), BVV(0, m)) truncated to total_size
+                // Which is: concat(extract(inner_size-1-(m-n), 0, inner), BVV(0, m))
+                // Simplified: concat(shl(inner, m-n), BVV(0, ext_size))
                 (BitVecOp::ZeroExt(inner, ext_size), BitVecOp::BVV(shift_amt))
                     if { shift_amt.to_u64().unwrap_or(0) as u32 >= *ext_size } =>
                 {
                     let shift_val = shift_amt.to_u64().unwrap_or(0) as u32;
                     let total_size = inner.size() + ext_size;
 
-                    // The zero-extended bits will be shifted out entirely or partially
+                    // The zero-extended MSB bits are shifted out entirely
                     let inner_shift = shift_val - ext_size;
                     if inner_shift >= inner.size() {
                         // Everything gets shifted out
                         Ok(ctx.bvv(BitVec::zeros(total_size))?)
                     } else {
-                        // Shift the inner value and zero-extend back to the original total size
-                        let shifted_inner = ctx.shl(
-                            inner,
-                            &ctx.bvv(BitVec::from_prim_with_size(
-                                inner_shift as u64,
-                                inner.size(),
-                            )?)?,
-                        )?;
-                        state.rerun(ctx.zero_ext(&shifted_inner, total_size - inner.size())?)
+                        // Shift the inner value left by (m - ext_size), then concatenate
+                        // with ext_size zero bits at the bottom (LSB side)
+                        let shifted_inner = if inner_shift == 0 {
+                            inner.clone()
+                        } else {
+                            ctx.shl(
+                                inner,
+                                &ctx.bvv(BitVec::from_prim_with_size(
+                                    inner_shift as u64,
+                                    inner.size(),
+                                )?)?,
+                            )?
+                        };
+                        // Zeros go at the bottom (LSB), shifted_inner goes at the top (MSB)
+                        let zero_bottom = ctx.bvv(BitVec::zeros(*ext_size))?;
+                        state.rerun(ctx.concat(vec![shifted_inner, zero_bottom])?)
                     }
                 }
 
@@ -673,6 +753,20 @@ pub(crate) fn simplify_bv<'c>(
                     state.rerun(ctx.extract(inner, new_high, new_low)?)
                 }
 
+                // Propagate extract(n, 0, ...) through add/sub
+                // extract(n, 0, a + b) = extract(n, 0, a) + extract(n, 0, b)
+                // This is valid because the low bits of add/sub only depend on the low bits of the operands
+                BitVecOp::Add(lhs, rhs) if *low == 0 => {
+                    let lhs_extracted = ctx.extract(lhs, *high, 0)?;
+                    let rhs_extracted = ctx.extract(rhs, *high, 0)?;
+                    state.rerun(ctx.add(&lhs_extracted, &rhs_extracted)?)
+                }
+                BitVecOp::Sub(lhs, rhs) if *low == 0 => {
+                    let lhs_extracted = ctx.extract(lhs, *high, 0)?;
+                    let rhs_extracted = ctx.extract(rhs, *high, 0)?;
+                    state.rerun(ctx.sub(&lhs_extracted, &rhs_extracted)?)
+                }
+
                 // Propagate extract through bitwise operations
                 // extract(n, m, a & b) = extract(n, m, a) & extract(n, m, b)
                 BitVecOp::And(lhs, rhs) => {
@@ -830,6 +924,14 @@ pub(crate) fn simplify_bv<'c>(
                 } else {
                     merged.push(arg);
                 }
+            }
+
+            // Concat(BVV(0, N), x) -> ZeroExt(N, x)
+            if merged.len() == 2
+                && matches!(merged[0].op(), BitVecOp::BVV(high_val) if high_val.is_zero())
+            {
+                let ext_size = merged[0].size();
+                return state.rerun(ctx.zero_ext(&merged[1], ext_size)?);
             }
 
             // Handle result based on merged length
