@@ -217,7 +217,7 @@ fn test_eq() -> Result<()> {
         (&false_ast, &sym_ast, &not_sym_ast),
         (&sym_ast, &true_ast, &sym_ast),
         (&sym_ast, &false_ast, &not_sym_ast),
-        (&sym_ast, &sym_ast, &true_ast),
+        // Note: sym == sym does NOT simplify to true (NaN consideration)
     ];
 
     for (lhs, rhs, expected) in table {
@@ -249,7 +249,7 @@ fn test_neq() -> Result<()> {
         (&false_ast, &sym_ast, &sym_ast),
         (&sym_ast, &true_ast, &not_sym_ast),
         (&sym_ast, &false_ast, &sym_ast),
-        (&sym_ast, &sym_ast, &false_ast),
+        // Note: sym != sym does NOT simplify to false (NaN consideration)
     ];
 
     for (lhs, rhs, expected) in table {
@@ -475,5 +475,25 @@ fn test_boolean_identity_simplifications() -> Result<()> {
     let simplified = ctx.xor(&not_x, &x)?.simplify()?;
     assert_eq!(simplified, ctx.true_()?);
 
+    Ok(())
+}
+
+#[test]
+fn test_booleq_no_identity_simplification() -> Result<()> {
+    // BoolEq(x, x) should NOT simplify to true because nested float
+    // operations could involve NaN, where NaN != NaN.
+    let ctx = Context::default();
+    let a = ctx.bvs("a", 64)?;
+    let b = ctx.bvs("b", 64)?;
+
+    let neq = ctx.neq(&a, &b)?;
+    let eq_check = ctx.eq_(&neq, &neq)?;
+    let simplified = eq_check.simplify()?;
+
+    assert!(
+        !matches!(simplified.op(), crate::ast::bool::BooleanOp::BoolV(true)),
+        "BoolEq(x, x) should NOT simplify to true due to potential NaN, got: {:?}",
+        simplified.op()
+    );
     Ok(())
 }

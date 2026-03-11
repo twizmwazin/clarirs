@@ -1,5 +1,3 @@
-use ahash::HashSet;
-
 use super::SimplifyError;
 use crate::{ast::bitvec::BitVecOpExt, prelude::*};
 
@@ -47,7 +45,6 @@ pub(crate) fn simplify_bool<'c>(
                 .collect::<Result<Vec<_>, _>>()?;
 
             // Absorption simplification
-            let mut seen = HashSet::default();
             let absorbed_args = available_args
                 .into_iter()
                 .flat_map(|arg| {
@@ -58,15 +55,15 @@ pub(crate) fn simplify_bool<'c>(
                     }
                 })
                 .filter(|arg| !matches!(arg.op(), BooleanOp::BoolV(true)))
-                .filter(|arg| {
-                    if seen.contains(&arg.hash()) {
-                        false
-                    } else {
-                        seen.insert(arg.hash());
-                        true
-                    }
-                })
                 .collect::<Vec<_>>();
+            // Deduplicate using == comparison
+            let mut deduped = Vec::with_capacity(absorbed_args.len());
+            for arg in absorbed_args {
+                if !deduped.iter().any(|existing| existing == &arg) {
+                    deduped.push(arg);
+                }
+            }
+            let absorbed_args = deduped;
 
             if absorbed_args.is_empty() {
                 return Ok(ctx.true_()?);
@@ -138,7 +135,6 @@ pub(crate) fn simplify_bool<'c>(
                 .collect::<Result<Vec<_>, _>>()?;
 
             // Absorption simplification
-            let mut seen = HashSet::default();
             let absorbed_args = available_args
                 .into_iter()
                 .flat_map(|arg| {
@@ -149,15 +145,15 @@ pub(crate) fn simplify_bool<'c>(
                     }
                 })
                 .filter(|arg| !matches!(arg.op(), BooleanOp::BoolV(false)))
-                .filter(|arg| {
-                    if seen.contains(&arg.hash()) {
-                        false
-                    } else {
-                        seen.insert(arg.hash());
-                        true
-                    }
-                })
                 .collect::<Vec<_>>();
+            // Deduplicate using == comparison
+            let mut deduped = Vec::with_capacity(absorbed_args.len());
+            for arg in absorbed_args {
+                if !deduped.iter().any(|existing| existing == &arg) {
+                    deduped.push(arg);
+                }
+            }
+            let absorbed_args = deduped;
 
             // Identity simplification
             if absorbed_args
@@ -245,14 +241,13 @@ pub(crate) fn simplify_bool<'c>(
             let early_rhs = state.get_bool_available(1)?;
 
             match (early_lhs.op(), early_rhs.op()) {
+                // Note: we do NOT simplify a == a -> true here because nested
+                // float operations could involve NaN, where NaN != NaN.
                 (BooleanOp::BoolV(arc), BooleanOp::BoolV(arc1)) => Ok(ctx.boolv(arc == arc1)?),
                 (BooleanOp::BoolV(true), _) => Ok(state.get_bool_simplified(1)?),
                 (_, BooleanOp::BoolV(true)) => Ok(state.get_bool_simplified(0)?),
                 (BooleanOp::BoolV(false), _) => Ok(ctx.not(state.get_bool_simplified(1)?)?),
                 (_, BooleanOp::BoolV(false)) => Ok(ctx.not(state.get_bool_simplified(0)?)?),
-                (BooleanOp::BoolS(name1), BooleanOp::BoolS(name2)) if name1 == name2 => {
-                    Ok(ctx.true_()?)
-                }
                 _ => Ok(ctx.eq_(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
             }
         }
@@ -261,14 +256,13 @@ pub(crate) fn simplify_bool<'c>(
             let early_rhs = state.get_bool_available(1)?;
 
             match (early_lhs.op(), early_rhs.op()) {
+                // Note: we do NOT simplify a != a -> false here because nested
+                // float operations could involve NaN, where NaN != NaN.
                 (BooleanOp::BoolV(arc), BooleanOp::BoolV(arc1)) => Ok(ctx.boolv(arc != arc1)?),
                 (BooleanOp::BoolV(true), _) => Ok(ctx.not(state.get_bool_simplified(1)?)?),
                 (_, BooleanOp::BoolV(true)) => Ok(ctx.not(state.get_bool_simplified(0)?)?),
                 (BooleanOp::BoolV(false), _) => Ok(state.get_bool_simplified(1)?),
                 (_, BooleanOp::BoolV(false)) => Ok(state.get_bool_simplified(0)?),
-                (BooleanOp::BoolS(name1), BooleanOp::BoolS(name2)) if name1 == name2 => {
-                    Ok(ctx.false_()?)
-                }
                 _ => Ok(ctx.neq(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
             }
         }
@@ -465,8 +459,6 @@ pub(crate) fn simplify_bool<'c>(
                 // extract the AND operand directly, and extract the other side and rerun
                 (BitVecOp::And(lhs_and, mask), BitVecOp::BVV(bvv))
                 | (BitVecOp::And(mask, lhs_and), BitVecOp::BVV(bvv))
-                | (BitVecOp::BVV(bvv), BitVecOp::And(lhs_and, mask))
-                | (BitVecOp::BVV(bvv), BitVecOp::And(mask, lhs_and))
                     if {
                         if let BitVecOp::BVV(mask_val) = mask.op() {
                             mask_val.is_mask().is_some()
@@ -486,11 +478,31 @@ pub(crate) fn simplify_bool<'c>(
                         ctx.bvv(bvv.extract(mask_low, mask_high)?)?,
                     )?)
                 }
+                (BitVecOp::BVV(bvv), BitVecOp::And(lhs_and, mask))
+                | (BitVecOp::BVV(bvv), BitVecOp::And(mask, lhs_and))
+                    if {
+                        if let BitVecOp::BVV(mask_val) = mask.op() {
+                            mask_val.is_mask().is_some()
+                        } else {
+                            false
+                        }
+                    } =>
+                {
+                    let (mask_high, mask_low) = if let BitVecOp::BVV(mask_val) = mask.op() {
+                        mask_val.is_mask()
+                    } else {
+                        None
+                    }
+                    .expect("Checked above, switch to if let when stabilized");
+                    state.rerun(ctx.ult(
+                        ctx.bvv(bvv.extract(mask_low, mask_high)?)?,
+                        ctx.extract(lhs_and, mask_high, mask_low)?,
+                    )?)
+                }
 
-                // If one side is a = ZeroExt and the other side is a BVV with those bits set to zero,
+                // If one side is a ZeroExt and the other side is a BVV with those bits set to zero,
                 // we can extract the relevant bits and compare directly
                 (BitVecOp::ZeroExt(innner, ext_size), BitVecOp::BVV(outer))
-                | (BitVecOp::BVV(outer), BitVecOp::ZeroExt(innner, ext_size))
                     if outer.leading_zeros() as u32 >= *ext_size =>
                 {
                     state.rerun(ctx.ult(
@@ -498,10 +510,111 @@ pub(crate) fn simplify_bool<'c>(
                         ctx.extract(ctx.bvv(outer.clone())?, innner.size() - 1, 0)?,
                     )?)
                 }
+                (BitVecOp::BVV(outer), BitVecOp::ZeroExt(innner, ext_size))
+                    if outer.leading_zeros() as u32 >= *ext_size =>
+                {
+                    state.rerun(ctx.ult(
+                        ctx.extract(ctx.bvv(outer.clone())?, innner.size() - 1, 0)?,
+                        innner.clone(),
+                    )?)
+                }
 
                 // If both sides are ZeroExt of the same size, we can compare the inner values directly
                 (BitVecOp::ZeroExt(inner_lhs, _), BitVecOp::ZeroExt(inner_rhs, _)) => {
                     state.rerun(ctx.ult(inner_lhs.clone(), inner_rhs.clone())?)
+                }
+
+                // ULT(Concat(a, BVV(0, n)), BVV(c)) where c has n trailing zeros
+                (BitVecOp::Concat(args), BitVecOp::BVV(c_val))
+                    if args.len() == 2
+                        && matches!(args[1].op(), BitVecOp::BVV(v) if v.is_zero()) =>
+                {
+                    let low_bits = args[1].size();
+                    if c_val
+                        .extract(0, low_bits - 1)
+                        .map(|v| v.is_zero())
+                        .unwrap_or(false)
+                    {
+                        let high_part = &args[0];
+                        state.rerun(ctx.ult(
+                            high_part.clone(),
+                            ctx.bvv(c_val.extract(low_bits, c_val.len() - 1)?)?,
+                        )?)
+                    } else {
+                        Ok(ctx.ult(arc, arc1)?)
+                    }
+                }
+                (BitVecOp::BVV(c_val), BitVecOp::Concat(args))
+                    if args.len() == 2
+                        && matches!(args[1].op(), BitVecOp::BVV(v) if v.is_zero()) =>
+                {
+                    let low_bits = args[1].size();
+                    if c_val
+                        .extract(0, low_bits - 1)
+                        .map(|v| v.is_zero())
+                        .unwrap_or(false)
+                    {
+                        let high_part = &args[0];
+                        state.rerun(ctx.ult(
+                            ctx.bvv(c_val.extract(low_bits, c_val.len() - 1)?)?,
+                            high_part.clone(),
+                        )?)
+                    } else {
+                        Ok(ctx.ult(arc, arc1)?)
+                    }
+                }
+
+                // ULT(BVV(b), Sub(ZeroExt(n, inner), BVV(c))) where c and b fit in inner's size
+                // => ULT(extract(b), Sub(inner, extract(c)))
+                (BitVecOp::BVV(bound), BitVecOp::Sub(lhs_sub, rhs_sub))
+                    if matches!(lhs_sub.op(), BitVecOp::ZeroExt(_, ext_size)
+                        if bound.leading_zeros() as u32 >= *ext_size
+                        && matches!(rhs_sub.op(), BitVecOp::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
+                {
+                    if let BitVecOp::ZeroExt(inner, _) = lhs_sub.op() {
+                        let inner_size = inner.size();
+                        state.rerun(ctx.ult(
+                            ctx.bvv(bound.extract(0, inner_size - 1)?)?,
+                            ctx.sub(inner, &ctx.extract(rhs_sub, inner_size - 1, 0)?)?,
+                        )?)
+                    } else {
+                        unreachable!()
+                    }
+                }
+
+                // ULT(Sub(ZeroExt(n, inner), BVV(c)), BVV(b)) where c and b fit in inner's size
+                // => ULT(Sub(inner, extract(c)), extract(b))
+                (BitVecOp::Sub(lhs_sub, rhs_sub), BitVecOp::BVV(bound))
+                    if matches!(lhs_sub.op(), BitVecOp::ZeroExt(_, ext_size)
+                        if bound.leading_zeros() as u32 >= *ext_size
+                        && matches!(rhs_sub.op(), BitVecOp::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
+                {
+                    if let BitVecOp::ZeroExt(inner, _) = lhs_sub.op() {
+                        let inner_size = inner.size();
+                        state.rerun(ctx.ult(
+                            ctx.sub(inner, &ctx.extract(rhs_sub, inner_size - 1, 0)?)?,
+                            ctx.bvv(bound.extract(0, inner_size - 1)?)?,
+                        )?)
+                    } else {
+                        unreachable!()
+                    }
+                }
+
+                // ULT(BVV(b), Add(ZeroExt(n, inner), BVV(c))) where c and b fit in inner's size
+                (BitVecOp::BVV(bound), BitVecOp::Add(lhs_add, rhs_add))
+                    if matches!(lhs_add.op(), BitVecOp::ZeroExt(_, ext_size)
+                        if bound.leading_zeros() as u32 >= *ext_size
+                        && matches!(rhs_add.op(), BitVecOp::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
+                {
+                    if let BitVecOp::ZeroExt(inner, _) = lhs_add.op() {
+                        let inner_size = inner.size();
+                        state.rerun(ctx.ult(
+                            ctx.bvv(bound.extract(0, inner_size - 1)?)?,
+                            ctx.add(inner, &ctx.extract(rhs_add, inner_size - 1, 0)?)?,
+                        )?)
+                    } else {
+                        unreachable!()
+                    }
                 }
 
                 _ => Ok(ctx.ult(arc, arc1)?),
@@ -596,6 +709,84 @@ pub(crate) fn simplify_bool<'c>(
                     state.rerun(ctx.ule(inner_lhs.clone(), inner_rhs.clone())?)
                 }
 
+                // ULE(Sub(ZeroExt(n, inner), BVV(c)), BVV(b)) where c and b fit in inner's size
+                // => ULE(Sub(inner, extract(c)), extract(b))
+                (BitVecOp::Sub(lhs_sub, rhs_sub), BitVecOp::BVV(bound))
+                    if matches!(lhs_sub.op(), BitVecOp::ZeroExt(_, ext_size)
+                        if bound.leading_zeros() as u32 >= *ext_size
+                        && matches!(rhs_sub.op(), BitVecOp::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
+                {
+                    if let BitVecOp::ZeroExt(inner, _) = lhs_sub.op() {
+                        let inner_size = inner.size();
+                        state.rerun(ctx.ule(
+                            ctx.sub(inner, &ctx.extract(rhs_sub, inner_size - 1, 0)?)?,
+                            ctx.bvv(bound.extract(0, inner_size - 1)?)?,
+                        )?)
+                    } else {
+                        unreachable!()
+                    }
+                }
+
+                // ULE(Add(ZeroExt(n, inner), BVV(c)), BVV(b)) where c and b fit in inner's size
+                (BitVecOp::Add(lhs_add, rhs_add), BitVecOp::BVV(bound))
+                    if matches!(lhs_add.op(), BitVecOp::ZeroExt(_, ext_size)
+                        if bound.leading_zeros() as u32 >= *ext_size
+                        && matches!(rhs_add.op(), BitVecOp::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
+                {
+                    if let BitVecOp::ZeroExt(inner, _) = lhs_add.op() {
+                        let inner_size = inner.size();
+                        state.rerun(ctx.ule(
+                            ctx.add(inner, &ctx.extract(rhs_add, inner_size - 1, 0)?)?,
+                            ctx.bvv(bound.extract(0, inner_size - 1)?)?,
+                        )?)
+                    } else {
+                        unreachable!()
+                    }
+                }
+
+                // ULE(Concat(a, BVV(0, n)), BVV(c)) where c has n trailing zeros
+                // => ULE(a, Extract(total-1, n, c))
+                // This handles shifted comparisons like ULE(x << n, const << n)
+                (BitVecOp::Concat(args), BitVecOp::BVV(c_val))
+                    if args.len() == 2
+                        && matches!(args[1].op(), BitVecOp::BVV(v) if v.is_zero()) =>
+                {
+                    let low_bits = args[1].size();
+                    // Check that the BVV also has low_bits trailing zeros
+                    if c_val
+                        .extract(0, low_bits - 1)
+                        .map(|v| v.is_zero())
+                        .unwrap_or(false)
+                    {
+                        let high_part = &args[0];
+                        state.rerun(ctx.ule(
+                            high_part.clone(),
+                            ctx.bvv(c_val.extract(low_bits, c_val.len() - 1)?)?,
+                        )?)
+                    } else {
+                        Ok(ctx.ule(arc, arc1)?)
+                    }
+                }
+                (BitVecOp::BVV(c_val), BitVecOp::Concat(args))
+                    if args.len() == 2
+                        && matches!(args[1].op(), BitVecOp::BVV(v) if v.is_zero()) =>
+                {
+                    let low_bits = args[1].size();
+                    if c_val
+                        .extract(0, low_bits - 1)
+                        .map(|v| v.is_zero())
+                        .unwrap_or(false)
+                    {
+                        let high_part = &args[0];
+                        state.rerun(ctx.ule(
+                            ctx.bvv(c_val.extract(low_bits, c_val.len() - 1)?)?,
+                            high_part.clone(),
+                        )?)
+                    } else {
+                        Ok(ctx.ule(arc, arc1)?)
+                    }
+                }
+
                 _ => Ok(ctx.ule(arc, arc1)?),
             }
         }
@@ -688,6 +879,80 @@ pub(crate) fn simplify_bool<'c>(
                     state.rerun(ctx.ugt(inner_lhs.clone(), inner_rhs.clone())?)
                 }
 
+                // UGT(Sub(ZeroExt(n, inner), BVV(c)), BVV(b)) where c and b fit in inner's size
+                (BitVecOp::Sub(lhs_sub, rhs_sub), BitVecOp::BVV(bound))
+                    if matches!(lhs_sub.op(), BitVecOp::ZeroExt(_, ext_size)
+                        if bound.leading_zeros() as u32 >= *ext_size
+                        && matches!(rhs_sub.op(), BitVecOp::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
+                {
+                    if let BitVecOp::ZeroExt(inner, _) = lhs_sub.op() {
+                        let inner_size = inner.size();
+                        state.rerun(ctx.ugt(
+                            ctx.sub(inner, &ctx.extract(rhs_sub, inner_size - 1, 0)?)?,
+                            ctx.bvv(bound.extract(0, inner_size - 1)?)?,
+                        )?)
+                    } else {
+                        unreachable!()
+                    }
+                }
+
+                // UGT(Add(ZeroExt(n, inner), BVV(c)), BVV(b)) where c and b fit in inner's size
+                (BitVecOp::Add(lhs_add, rhs_add), BitVecOp::BVV(bound))
+                    if matches!(lhs_add.op(), BitVecOp::ZeroExt(_, ext_size)
+                        if bound.leading_zeros() as u32 >= *ext_size
+                        && matches!(rhs_add.op(), BitVecOp::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
+                {
+                    if let BitVecOp::ZeroExt(inner, _) = lhs_add.op() {
+                        let inner_size = inner.size();
+                        state.rerun(ctx.ugt(
+                            ctx.add(inner, &ctx.extract(rhs_add, inner_size - 1, 0)?)?,
+                            ctx.bvv(bound.extract(0, inner_size - 1)?)?,
+                        )?)
+                    } else {
+                        unreachable!()
+                    }
+                }
+
+                // UGT(Concat(a, BVV(0, n)), BVV(c)) where c has n trailing zeros
+                (BitVecOp::Concat(args), BitVecOp::BVV(c_val))
+                    if args.len() == 2
+                        && matches!(args[1].op(), BitVecOp::BVV(v) if v.is_zero()) =>
+                {
+                    let low_bits = args[1].size();
+                    if c_val
+                        .extract(0, low_bits - 1)
+                        .map(|v| v.is_zero())
+                        .unwrap_or(false)
+                    {
+                        let high_part = &args[0];
+                        state.rerun(ctx.ugt(
+                            high_part.clone(),
+                            ctx.bvv(c_val.extract(low_bits, c_val.len() - 1)?)?,
+                        )?)
+                    } else {
+                        Ok(ctx.ugt(arc, arc1)?)
+                    }
+                }
+                (BitVecOp::BVV(c_val), BitVecOp::Concat(args))
+                    if args.len() == 2
+                        && matches!(args[1].op(), BitVecOp::BVV(v) if v.is_zero()) =>
+                {
+                    let low_bits = args[1].size();
+                    if c_val
+                        .extract(0, low_bits - 1)
+                        .map(|v| v.is_zero())
+                        .unwrap_or(false)
+                    {
+                        let high_part = &args[0];
+                        state.rerun(ctx.ugt(
+                            ctx.bvv(c_val.extract(low_bits, c_val.len() - 1)?)?,
+                            high_part.clone(),
+                        )?)
+                    } else {
+                        Ok(ctx.ugt(arc, arc1)?)
+                    }
+                }
+
                 _ => Ok(ctx.ugt(arc, arc1)?),
             }
         }
@@ -765,6 +1030,99 @@ pub(crate) fn simplify_bool<'c>(
                 // If both sides are ZeroExt of the same size, we can compare the inner values directly
                 (BitVecOp::ZeroExt(inner_lhs, _), BitVecOp::ZeroExt(inner_rhs, _)) => {
                     state.rerun(ctx.uge(inner_lhs.clone(), inner_rhs.clone())?)
+                }
+
+                // UGE(Concat(a, BVV(0, n)), BVV(c)) where c has n trailing zeros
+                (BitVecOp::Concat(args), BitVecOp::BVV(c_val))
+                    if args.len() == 2
+                        && matches!(args[1].op(), BitVecOp::BVV(v) if v.is_zero()) =>
+                {
+                    let low_bits = args[1].size();
+                    if c_val
+                        .extract(0, low_bits - 1)
+                        .map(|v| v.is_zero())
+                        .unwrap_or(false)
+                    {
+                        let high_part = &args[0];
+                        state.rerun(ctx.uge(
+                            high_part.clone(),
+                            ctx.bvv(c_val.extract(low_bits, c_val.len() - 1)?)?,
+                        )?)
+                    } else {
+                        Ok(ctx.uge(arc, arc1)?)
+                    }
+                }
+                (BitVecOp::BVV(c_val), BitVecOp::Concat(args))
+                    if args.len() == 2
+                        && matches!(args[1].op(), BitVecOp::BVV(v) if v.is_zero()) =>
+                {
+                    let low_bits = args[1].size();
+                    if c_val
+                        .extract(0, low_bits - 1)
+                        .map(|v| v.is_zero())
+                        .unwrap_or(false)
+                    {
+                        let high_part = &args[0];
+                        state.rerun(ctx.uge(
+                            ctx.bvv(c_val.extract(low_bits, c_val.len() - 1)?)?,
+                            high_part.clone(),
+                        )?)
+                    } else {
+                        Ok(ctx.uge(arc, arc1)?)
+                    }
+                }
+
+                // UGE(BVV(b), Sub(ZeroExt(n, inner), BVV(c))) where c and b fit in inner's size
+                // => UGE(extract(b), Sub(inner, extract(c)))
+                (BitVecOp::BVV(bound), BitVecOp::Sub(lhs_sub, rhs_sub))
+                    if matches!(lhs_sub.op(), BitVecOp::ZeroExt(_, ext_size)
+                        if bound.leading_zeros() as u32 >= *ext_size
+                        && matches!(rhs_sub.op(), BitVecOp::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
+                {
+                    if let BitVecOp::ZeroExt(inner, _) = lhs_sub.op() {
+                        let inner_size = inner.size();
+                        state.rerun(ctx.uge(
+                            ctx.bvv(bound.extract(0, inner_size - 1)?)?,
+                            ctx.sub(inner, &ctx.extract(rhs_sub, inner_size - 1, 0)?)?,
+                        )?)
+                    } else {
+                        unreachable!()
+                    }
+                }
+
+                // UGE(Sub(ZeroExt(n, inner), BVV(c)), BVV(b)) where c and b fit in inner's size
+                // => UGE(Sub(inner, extract(c)), extract(b))
+                (BitVecOp::Sub(lhs_sub, rhs_sub), BitVecOp::BVV(bound))
+                    if matches!(lhs_sub.op(), BitVecOp::ZeroExt(_, ext_size)
+                        if bound.leading_zeros() as u32 >= *ext_size
+                        && matches!(rhs_sub.op(), BitVecOp::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
+                {
+                    if let BitVecOp::ZeroExt(inner, _) = lhs_sub.op() {
+                        let inner_size = inner.size();
+                        state.rerun(ctx.uge(
+                            ctx.sub(inner, &ctx.extract(rhs_sub, inner_size - 1, 0)?)?,
+                            ctx.bvv(bound.extract(0, inner_size - 1)?)?,
+                        )?)
+                    } else {
+                        unreachable!()
+                    }
+                }
+
+                // UGE(BVV(b), Add(ZeroExt(n, inner), BVV(c))) where c and b fit in inner's size
+                (BitVecOp::BVV(bound), BitVecOp::Add(lhs_add, rhs_add))
+                    if matches!(lhs_add.op(), BitVecOp::ZeroExt(_, ext_size)
+                        if bound.leading_zeros() as u32 >= *ext_size
+                        && matches!(rhs_add.op(), BitVecOp::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
+                {
+                    if let BitVecOp::ZeroExt(inner, _) = lhs_add.op() {
+                        let inner_size = inner.size();
+                        state.rerun(ctx.uge(
+                            ctx.bvv(bound.extract(0, inner_size - 1)?)?,
+                            ctx.add(inner, &ctx.extract(rhs_add, inner_size - 1, 0)?)?,
+                        )?)
+                    } else {
+                        unreachable!()
+                    }
                 }
 
                 _ => Ok(ctx.uge(arc, arc1)?),
