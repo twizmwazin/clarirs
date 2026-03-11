@@ -146,14 +146,24 @@ impl<'py> FromPyObject<'_, 'py> for PyAnnotation {
                 ("claripy.annotation", "UninitializedAnnotation") => {
                     PyAnnotation::new(AnnotationType::Uninitialized, false, true)
                 }
-                (anno_module_name, anno_class_name) => PyAnnotation::new(
-                    AnnotationType::Unknown {
-                        name: format!("{anno_module_name}:{anno_class_name}"),
-                        value: pickle_dumps.call1((annotation,))?.extract::<Vec<u8>>()?,
-                    },
-                    false,
-                    false,
-                ),
+                (anno_module_name, anno_class_name) => {
+                    let eliminatable = annotation
+                        .getattr("eliminatable")
+                        .and_then(|v| v.extract::<bool>())
+                        .unwrap_or(true);
+                    let relocatable = annotation
+                        .getattr("relocatable")
+                        .and_then(|v| v.extract::<bool>())
+                        .unwrap_or(true);
+                    PyAnnotation::new(
+                        AnnotationType::Unknown {
+                            name: format!("{anno_module_name}:{anno_class_name}"),
+                            value: pickle_dumps.call1((annotation,))?.extract::<Vec<u8>>()?,
+                        },
+                        eliminatable,
+                        relocatable,
+                    )
+                }
             },
         )
     }
