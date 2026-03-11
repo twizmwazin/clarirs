@@ -295,7 +295,6 @@ impl StridedInterval {
                     (lower_bound.clone(), upper_bound.clone())
                 } else {
                     // Wrapping SI: [lower_bound, MAX] ∪ [0, upper_bound]
-                    // Unsigned min is 0, unsigned max is max_int
                     (BigUint::zero(), max_int(*bits))
                 }
             }
@@ -333,9 +332,23 @@ impl StridedInterval {
                         (to_signed(lower_bound), to_signed(upper_bound))
                     }
                 } else {
-                    // Wrapping unsigned interval: covers [lower, max] ∪ [0, upper]
-                    // This always straddles all values, so full signed range
-                    (signed_min, signed_max)
+                    // Wrapping unsigned interval: covers [lower, MAX] ∪ [0, upper]
+                    let lb_signed = to_signed(lower_bound);
+                    let ub_signed = to_signed(upper_bound);
+                    let lb_neg = (lower_bound & &msb_mask) != BigUint::zero();
+                    let ub_neg = (upper_bound & &msb_mask) != BigUint::zero();
+                    if lb_neg && !ub_neg {
+                        // lower is in negative territory, upper is in positive territory
+                        // e.g., [250, 5] in 8 bits = [-6, 5] signed - contiguous signed range
+                        (lb_signed, ub_signed)
+                    } else if !lb_neg && !ub_neg {
+                        // Both positive unsigned but wrapping: [lower, MAX] ∪ [0, upper]
+                        // Signed: [lower, 127] ∪ [-128, -1] ∪ [0, upper] = full range
+                        (signed_min, signed_max)
+                    } else {
+                        // Both negative or upper negative: full signed range
+                        (signed_min, signed_max)
+                    }
                 }
             }
         }
@@ -3089,6 +3102,8 @@ mod si_bounds_tests {
         assert_eq!(max_u, BigUint::from(20u32));
 
         // Wrap-around interval: lower > upper
+        // [250, 5] represents {250, 251, ..., 255, 0, 1, ..., 5}
+        // Unsigned min is 0 (from [0, upper] part), max is 255 (from [lower, MAX] part)
         let si = StridedInterval::Normal {
             bits: 8,
             stride: BigUint::one(),
@@ -3096,7 +3111,7 @@ mod si_bounds_tests {
             upper_bound: BigUint::from(5u32),
         };
         let (min_u, max_u) = si.get_unsigned_bounds();
-        assert_eq!(min_u, BigUint::from(250u32));
+        assert_eq!(min_u, BigUint::zero());
         assert_eq!(max_u, BigUint::from(255u32)); // max for 8 bits
 
         // Empty interval
