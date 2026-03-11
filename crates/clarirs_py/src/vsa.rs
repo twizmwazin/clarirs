@@ -151,6 +151,13 @@ pub fn eval<'py>(
         .collect()
 }
 
+/// Get the cardinality (number of possible concrete values) of a BV expression via VSA.
+#[pyfunction]
+pub fn cardinality(expr: Bound<'_, BV>) -> Result<num_bigint::BigUint, ClaripyError> {
+    let si = expr.get().inner.simplify()?.reduce()?;
+    Ok(si.cardinality())
+}
+
 /// Check if two AST expressions are identical after VSA reduction.
 ///
 /// Both expressions are reduced and then compared for equality.
@@ -181,7 +188,17 @@ pub fn identical(a: Bound<'_, Base>, b: Bound<'_, Base>) -> Result<bool, Claripy
 
 pub(crate) fn import(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     add_pyfunctions!(
-        m, reduce, is_true, is_false, has_true, has_false, min, max, eval, identical,
+        m,
+        reduce,
+        is_true,
+        is_false,
+        has_true,
+        has_false,
+        min,
+        max,
+        eval,
+        cardinality,
+        identical,
     );
     Ok(())
 }
