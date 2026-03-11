@@ -90,9 +90,8 @@ impl<'c, O: Op<'c> + Serialize + SupportsAnnotate<'c>> AstNode<'c, O> {
         let depth = op.depth();
         // Symbolic propagates from: having variables, the op itself being symbolic
         // (e.g. VSA Union/Intersection/Widen), or any child being symbolic
-        let symbolic = !variables.is_empty()
-            || op.symbolic()
-            || op.child_iter().any(|c| c.symbolic());
+        let symbolic =
+            !variables.is_empty() || op.symbolic() || op.child_iter().any(|c| c.symbolic());
 
         Self {
             op,
