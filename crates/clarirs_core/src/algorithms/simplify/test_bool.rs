@@ -493,6 +493,10 @@ fn test_booleq_identity() -> Result<()> {
     let simplified = eq_check.simplify()?;
     println!("simplified: {:?}", simplified.op());
 
-    assert!(matches!(simplified.op(), crate::ast::bool::BooleanOp::BoolV(true)), "BoolEq(x, x) should simplify to true, got: {:?}", simplified.op());
+    assert!(
+        matches!(simplified.op(), crate::ast::bool::BooleanOp::BoolV(true)),
+        "BoolEq(x, x) should simplify to true, got: {:?}",
+        simplified.op()
+    );
     Ok(())
 }
