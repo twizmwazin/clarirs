@@ -462,6 +462,15 @@ impl<'c> Op<'c> for BitVecOp<'c> {
         }
     }
 
+    fn symbolic(&self) -> bool {
+        // VSA ops (Union, Intersection, Widen) are always symbolic even if their
+        // children are concrete, because they represent abstract multi-valued results
+        matches!(
+            self,
+            BitVecOp::Union(..) | BitVecOp::Intersection(..) | BitVecOp::Widen(..)
+        ) || !self.variables().is_empty()
+    }
+
     fn check_same_sort(&self, other: &Self) -> bool {
         self.size() == other.size()
     }
