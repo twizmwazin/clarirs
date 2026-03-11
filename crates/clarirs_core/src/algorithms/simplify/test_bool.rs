@@ -477,3 +477,22 @@ fn test_boolean_identity_simplifications() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_booleq_identity() -> Result<()> {
+    let ctx = Context::default();
+    let a = ctx.bvs("a", 64)?;
+    let b = ctx.bvs("b", 64)?;
+
+    let neq = ctx.neq(&a, &b)?;
+    println!("neq: {:?}", neq.op());
+
+    let eq_check = ctx.eq_(&neq, &neq)?;
+    println!("eq_check: {:?}", eq_check.op());
+
+    let simplified = eq_check.simplify()?;
+    println!("simplified: {:?}", simplified.op());
+
+    assert!(matches!(simplified.op(), crate::ast::bool::BooleanOp::BoolV(true)), "BoolEq(x, x) should simplify to true, got: {:?}", simplified.op());
+    Ok(())
+}
