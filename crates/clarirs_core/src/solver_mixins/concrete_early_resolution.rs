@@ -92,33 +92,41 @@ impl<'c, S: Solver<'c>> Solver<'c> for ConcreteEarlyResolutionMixin<'c, S> {
     }
 
     fn min_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        // If concrete, the min is the value itself
         if expr.concrete() {
-            return expr.simplify_ext(false, true);
+            let simplified = expr.simplify_ext(false, true)?;
+            if matches!(simplified.op(), BitVecOp::BVV(..)) {
+                return Ok(simplified);
+            }
         }
         self.inner.min_unsigned(expr)
     }
 
     fn max_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        // If concrete, the max is the value itself
         if expr.concrete() {
-            return expr.simplify_ext(false, true);
+            let simplified = expr.simplify_ext(false, true)?;
+            if matches!(simplified.op(), BitVecOp::BVV(..)) {
+                return Ok(simplified);
+            }
         }
         self.inner.max_unsigned(expr)
     }
 
     fn min_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        // If concrete, the min is the value itself
         if expr.concrete() {
-            return expr.simplify_ext(false, true);
+            let simplified = expr.simplify_ext(false, true)?;
+            if matches!(simplified.op(), BitVecOp::BVV(..)) {
+                return Ok(simplified);
+            }
         }
         self.inner.min_signed(expr)
     }
 
     fn max_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        // If concrete, the max is the value itself
         if expr.concrete() {
-            return expr.simplify_ext(false, true);
+            let simplified = expr.simplify_ext(false, true)?;
+            if matches!(simplified.op(), BitVecOp::BVV(..)) {
+                return Ok(simplified);
+            }
         }
         self.inner.max_signed(expr)
     }
@@ -143,12 +151,19 @@ impl<'c, S: Solver<'c>> Solver<'c> for ConcreteEarlyResolutionMixin<'c, S> {
         expr: &BitVecAst<'c>,
         n: u32,
     ) -> Result<Vec<BitVecAst<'c>>, ClarirsError> {
-        // If concrete, return the value without invoking the solver
+        // If concrete, try to simplify to a constant value
         if expr.concrete() {
             if n == 0 {
                 return Ok(Vec::new());
             }
-            return Ok(vec![expr.simplify_ext(false, true)?]);
+            let simplified = expr.simplify_ext(false, true)?;
+            // Only use the shortcut if simplification produced a BVV constant.
+            // VSA ops (Union, Intersection, Widen) on concrete values are
+            // "concrete" (no variables) but multi-valued, and need the full
+            // solver to enumerate values.
+            if matches!(simplified.op(), BitVecOp::BVV(..)) {
+                return Ok(vec![simplified]);
+            }
         }
         self.inner.eval_bitvec_n(expr, n)
     }

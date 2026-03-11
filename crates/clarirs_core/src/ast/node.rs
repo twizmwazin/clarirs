@@ -29,6 +29,8 @@ pub struct AstNode<'c, O: Op<'c>> {
     depth: u32,
     #[serde(skip)]
     pub(crate) size: u32,
+    #[serde(skip)]
+    symbolic: bool,
 }
 
 impl<'c, O> Drop for AstNode<'c, O>
@@ -86,6 +88,10 @@ impl<'c, O: Op<'c> + Serialize + SupportsAnnotate<'c>> AstNode<'c, O> {
     ) -> Self {
         let variables = op.variables();
         let depth = op.depth();
+        // Symbolic propagates from: having variables, the op itself being symbolic
+        // (e.g. VSA Union/Intersection/Widen), or any child being symbolic
+        let symbolic =
+            !variables.is_empty() || op.symbolic() || op.child_iter().any(|c| c.symbolic());
 
         Self {
             op,
@@ -95,6 +101,7 @@ impl<'c, O: Op<'c> + Serialize + SupportsAnnotate<'c>> AstNode<'c, O> {
             depth,
             size,
             annotations,
+            symbolic,
         }
     }
 
@@ -118,7 +125,7 @@ impl<'c, O: Op<'c> + Serialize + SupportsAnnotate<'c>> AstNode<'c, O> {
     }
 
     pub fn symbolic(&self) -> bool {
-        !self.variables.is_empty()
+        self.symbolic
     }
 
     pub fn variables(&self) -> &BTreeSet<InternedString> {
@@ -154,6 +161,10 @@ impl<'c, O: Op<'c>> Op<'c> for AstNode<'c, O> {
 
     fn is_false(&self) -> bool {
         self.op.is_false()
+    }
+
+    fn symbolic(&self) -> bool {
+        self.symbolic
     }
 
     fn variables(&self) -> BTreeSet<InternedString> {
@@ -238,6 +249,15 @@ impl DynAst<'_> {
             DynAst::BitVec(ast) => ast.annotations().clone(),
             DynAst::Float(ast) => ast.annotations().clone(),
             DynAst::String(ast) => ast.annotations().clone(),
+        }
+    }
+
+    pub fn symbolic(&self) -> bool {
+        match self {
+            DynAst::Boolean(ast) => ast.symbolic(),
+            DynAst::BitVec(ast) => ast.symbolic(),
+            DynAst::Float(ast) => ast.symbolic(),
+            DynAst::String(ast) => ast.symbolic(),
         }
     }
 }
