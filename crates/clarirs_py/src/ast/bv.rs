@@ -661,7 +661,10 @@ impl BV {
         py: Python<'py>,
         other: CoerceBV,
     ) -> Result<Bound<'py, BV>, ClaripyError> {
-        self.__sub__(py, other)
+        BV::new(
+            py,
+            &GLOBAL_CONTEXT.sub(&other.unpack_like(py, self)?.get().inner, &self.inner)?,
+        )
     }
 
     pub fn __mul__<'py>(
@@ -699,7 +702,10 @@ impl BV {
         py: Python<'py>,
         other: CoerceBV,
     ) -> Result<Bound<'py, BV>, ClaripyError> {
-        self.__truediv__(py, other)
+        BV::new(
+            py,
+            &GLOBAL_CONTEXT.udiv(&other.unpack_like(py, self)?.get().inner, &self.inner)?,
+        )
     }
 
     pub fn __floordiv__<'py>(
@@ -718,7 +724,10 @@ impl BV {
         py: Python<'py>,
         other: CoerceBV,
     ) -> Result<Bound<'py, BV>, ClaripyError> {
-        self.__floordiv__(py, other)
+        BV::new(
+            py,
+            &GLOBAL_CONTEXT.udiv(&other.unpack_like(py, self)?.get().inner, &self.inner)?,
+        )
     }
 
     pub fn __mod__<'py>(
@@ -737,7 +746,10 @@ impl BV {
         py: Python<'py>,
         other: CoerceBV,
     ) -> Result<Bound<'py, BV>, ClaripyError> {
-        self.__mod__(py, other)
+        BV::new(
+            py,
+            &GLOBAL_CONTEXT.urem(&other.unpack_like(py, self)?.get().inner, &self.inner)?,
+        )
     }
 
     pub fn SDiv<'py>(
@@ -835,7 +847,10 @@ impl BV {
         py: Python<'py>,
         other: CoerceBV,
     ) -> Result<Bound<'py, BV>, ClaripyError> {
-        self.__lshift__(py, other)
+        BV::new(
+            py,
+            &GLOBAL_CONTEXT.shl(&other.unpack_like(py, self)?.get().inner, &self.inner)?,
+        )
     }
 
     pub fn __rshift__<'py>(
@@ -854,7 +869,10 @@ impl BV {
         py: Python<'py>,
         other: CoerceBV,
     ) -> Result<Bound<'py, BV>, ClaripyError> {
-        self.__rshift__(py, other)
+        BV::new(
+            py,
+            &GLOBAL_CONTEXT.ashr(&other.unpack_like(py, self)?.get().inner, &self.inner)?,
+        )
     }
 
     pub fn LShR<'py>(
