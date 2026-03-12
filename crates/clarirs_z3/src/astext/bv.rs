@@ -1,7 +1,4 @@
-use clarirs_core::{
-    ast::bitvec::{BitVecAstExt, BitVecOpExt},
-    prelude::*,
-};
+use clarirs_core::{ast::bitvec::BitVecOpExt, prelude::*};
 use clarirs_z3_sys as z3;
 
 use super::AstExtZ3;
@@ -79,26 +76,28 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, Clarir
                 result
             }
             BitVecOp::ByteReverse(a) => {
-                if a.size() == 0 || a.size() % 8 != 0 {
+                let size = a.size();
+                if size == 0 || size % 8 != 0 {
                     return Err(ClarirsError::ConversionError(
                         "reverse only supports bitvectors with size multiple of 8".to_string(),
                     ));
                 }
 
-                let bytes = a.chop(8)?;
-                let reversed = bytes.iter().rev().collect::<Vec<_>>();
+                let child_z3 = child(children, 0)?;
+                let num_bytes = size / 8;
 
-                let mut acc: Option<BitVecAst> = None;
+                // Extract the last byte (lowest bits) as the initial accumulator
+                let mut result = RcAst::try_from(z3::mk_extract(z3_ctx, 7, 0, **child_z3))?;
 
-                for byte in reversed {
-                    acc = match acc {
-                        Some(inner) => Some(ast.context().concat2(inner, byte)?),
-                        None => Some(byte.clone()),
-                    };
+                // Extract remaining bytes in reverse order and concat
+                for i in 1..num_bytes {
+                    let high = (i + 1) * 8 - 1;
+                    let low = i * 8;
+                    let byte = RcAst::try_from(z3::mk_extract(z3_ctx, high, low, **child_z3))?;
+                    result = RcAst::try_from(z3::mk_concat(z3_ctx, *result, *byte))?;
                 }
 
-                // FIXME: recursion
-                acc.unwrap().to_z3()?
+                result
             }
             BitVecOp::ITE(..) => {
                 let cond = child(children, 0)?;
