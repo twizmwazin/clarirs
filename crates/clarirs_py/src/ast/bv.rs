@@ -335,10 +335,10 @@ impl BV {
         match simplified.op() {
             BitVecOp::BVV(bv) => Ok(Some(bv.to_biguint())),
             BitVecOp::UDiv(_, b) | BitVecOp::SDiv(_, b) => {
-                if let BitVecOp::BVV(v) = b.op() {
-                    if v.is_zero() {
-                        return Err(ClaripyError::DivisionByZero);
-                    }
+                if let BitVecOp::BVV(v) = b.op()
+                    && v.is_zero()
+                {
+                    return Err(ClaripyError::DivisionByZero);
                 }
                 Ok(None)
             }
