@@ -5,35 +5,24 @@ on:
   pull_request:
 
 jobs:
-  formatting:
-    name: Formatting
+  lint:
+    name: Formatting & Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Setup Rust toolchain with rustfmt
+      - name: Setup Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          components: rustfmt
+          components: rustfmt, clippy
+          rustflags: ""
 
       - name: Rustfmt Check
+        id: rustfmt
         uses: actions-rust-lang/rustfmt@v1
-
-  clippy:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Setup Rust toolchain with clippy
-        uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          components: clippy
-          rustflags: ""
+        continue-on-error: true
 
       - name: Install ninja
         uses: seanmiddleditch/gha-setup-ninja@v6
@@ -42,7 +31,9 @@ jobs:
         uses: mozilla-actions/sccache-action@7d986dd989559c6ecdb630a3fd2557667be217ad
 
       - name: Clippy Check
+        id: clippy
         run: cargo clippy --all-features -- -D warnings
+        continue-on-error: true
         env:
           SCCACHE_GHA_ENABLED: "true"
           RUSTC_WRAPPER: "sccache"
@@ -53,6 +44,10 @@ jobs:
           CMAKE_GENERATOR: Ninja
           CC: "clang"
           CXX: "clang++"
+
+      - name: Check results
+        if: steps.rustfmt.outcome == 'failure' || steps.clippy.outcome == 'failure'
+        run: exit 1
 
   test:
     name: Rust Tests (${{ matrix.os }})
