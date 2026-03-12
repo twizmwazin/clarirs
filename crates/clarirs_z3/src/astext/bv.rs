@@ -87,15 +87,13 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, Clarir
                 let num_bytes = size / 8;
 
                 // Extract the last byte (lowest bits) as the initial accumulator
-                let mut result =
-                    RcAst::try_from(z3::mk_extract(z3_ctx, 7, 0, **child_z3))?;
+                let mut result = RcAst::try_from(z3::mk_extract(z3_ctx, 7, 0, **child_z3))?;
 
                 // Extract remaining bytes in reverse order and concat
                 for i in 1..num_bytes {
                     let high = (i + 1) * 8 - 1;
                     let low = i * 8;
-                    let byte =
-                        RcAst::try_from(z3::mk_extract(z3_ctx, high, low, **child_z3))?;
+                    let byte = RcAst::try_from(z3::mk_extract(z3_ctx, high, low, **child_z3))?;
                     result = RcAst::try_from(z3::mk_concat(z3_ctx, *result, *byte))?;
                 }
 
