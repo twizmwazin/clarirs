@@ -1,4 +1,4 @@
-use super::{extract_bitvec_child, extract_bool_child};
+use super::{extract_bitvec_child, extract_bool_child, extract_float_child, extract_string_child};
 use crate::prelude::*;
 
 pub(crate) fn excavate_ite<'c>(
@@ -492,23 +492,364 @@ pub(crate) fn excavate_ite<'c>(
                 Ok(ctx.sge(lhs, rhs)?)
             }
         }
-        BooleanOp::FpEq(..)
-        | BooleanOp::FpNeq(..)
-        | BooleanOp::FpLt(..)
-        | BooleanOp::FpLeq(..)
-        | BooleanOp::FpGt(..)
-        | BooleanOp::FpGeq(..)
-        | BooleanOp::FpIsNan(..)
-        | BooleanOp::FpIsInf(..) => {
-            todo!("excavate ite for floating point operations")
+        BooleanOp::FpEq(..) => {
+            let lhs = extract_float_child(children, 0)?;
+            let rhs = extract_float_child(children, 1)?;
+
+            if let FloatOp::ITE(cond, then_, else_) = lhs.op() {
+                if let FloatOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+                    Ok(ctx.ite(
+                        cond,
+                        ctx.ite(
+                            rhs_cond,
+                            ctx.fp_eq(then_, rhs_then)?,
+                            ctx.fp_eq(then_, rhs_else)?,
+                        )?,
+                        ctx.ite(
+                            rhs_cond,
+                            ctx.fp_eq(else_, rhs_then)?,
+                            ctx.fp_eq(else_, rhs_else)?,
+                        )?,
+                    )?)
+                } else {
+                    Ok(ctx.ite(cond, ctx.fp_eq(then_, &rhs)?, ctx.fp_eq(else_, rhs)?)?)
+                }
+            } else if let FloatOp::ITE(cond, then_, else_) = rhs.op() {
+                Ok(ctx.ite(cond, ctx.fp_eq(&lhs, then_)?, ctx.fp_eq(lhs, else_)?)?)
+            } else {
+                Ok(ctx.fp_eq(lhs, rhs)?)
+            }
         }
-        BooleanOp::StrContains(..)
-        | BooleanOp::StrPrefixOf(..)
-        | BooleanOp::StrSuffixOf(..)
-        | BooleanOp::StrIsDigit(..)
-        | BooleanOp::StrEq(..)
-        | BooleanOp::StrNeq(..) => {
-            todo!("excavate ite for string operations")
+        BooleanOp::FpNeq(..) => {
+            let lhs = extract_float_child(children, 0)?;
+            let rhs = extract_float_child(children, 1)?;
+
+            if let FloatOp::ITE(cond, then_, else_) = lhs.op() {
+                if let FloatOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+                    Ok(ctx.ite(
+                        cond,
+                        ctx.ite(
+                            rhs_cond,
+                            ctx.fp_neq(then_, rhs_then)?,
+                            ctx.fp_neq(then_, rhs_else)?,
+                        )?,
+                        ctx.ite(
+                            rhs_cond,
+                            ctx.fp_neq(else_, rhs_then)?,
+                            ctx.fp_neq(else_, rhs_else)?,
+                        )?,
+                    )?)
+                } else {
+                    Ok(ctx.ite(cond, ctx.fp_neq(then_, &rhs)?, ctx.fp_neq(else_, rhs)?)?)
+                }
+            } else if let FloatOp::ITE(cond, then_, else_) = rhs.op() {
+                Ok(ctx.ite(cond, ctx.fp_neq(&lhs, then_)?, ctx.fp_neq(lhs, else_)?)?)
+            } else {
+                Ok(ctx.fp_neq(lhs, rhs)?)
+            }
+        }
+        BooleanOp::FpLt(..) => {
+            let lhs = extract_float_child(children, 0)?;
+            let rhs = extract_float_child(children, 1)?;
+
+            if let FloatOp::ITE(cond, then_, else_) = lhs.op() {
+                if let FloatOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+                    Ok(ctx.ite(
+                        cond,
+                        ctx.ite(
+                            rhs_cond,
+                            ctx.fp_lt(then_, rhs_then)?,
+                            ctx.fp_lt(then_, rhs_else)?,
+                        )?,
+                        ctx.ite(
+                            rhs_cond,
+                            ctx.fp_lt(else_, rhs_then)?,
+                            ctx.fp_lt(else_, rhs_else)?,
+                        )?,
+                    )?)
+                } else {
+                    Ok(ctx.ite(cond, ctx.fp_lt(then_, &rhs)?, ctx.fp_lt(else_, rhs)?)?)
+                }
+            } else if let FloatOp::ITE(cond, then_, else_) = rhs.op() {
+                Ok(ctx.ite(cond, ctx.fp_lt(&lhs, then_)?, ctx.fp_lt(lhs, else_)?)?)
+            } else {
+                Ok(ctx.fp_lt(lhs, rhs)?)
+            }
+        }
+        BooleanOp::FpLeq(..) => {
+            let lhs = extract_float_child(children, 0)?;
+            let rhs = extract_float_child(children, 1)?;
+
+            if let FloatOp::ITE(cond, then_, else_) = lhs.op() {
+                if let FloatOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+                    Ok(ctx.ite(
+                        cond,
+                        ctx.ite(
+                            rhs_cond,
+                            ctx.fp_leq(then_, rhs_then)?,
+                            ctx.fp_leq(then_, rhs_else)?,
+                        )?,
+                        ctx.ite(
+                            rhs_cond,
+                            ctx.fp_leq(else_, rhs_then)?,
+                            ctx.fp_leq(else_, rhs_else)?,
+                        )?,
+                    )?)
+                } else {
+                    Ok(ctx.ite(cond, ctx.fp_leq(then_, &rhs)?, ctx.fp_leq(else_, rhs)?)?)
+                }
+            } else if let FloatOp::ITE(cond, then_, else_) = rhs.op() {
+                Ok(ctx.ite(cond, ctx.fp_leq(&lhs, then_)?, ctx.fp_leq(lhs, else_)?)?)
+            } else {
+                Ok(ctx.fp_leq(lhs, rhs)?)
+            }
+        }
+        BooleanOp::FpGt(..) => {
+            let lhs = extract_float_child(children, 0)?;
+            let rhs = extract_float_child(children, 1)?;
+
+            if let FloatOp::ITE(cond, then_, else_) = lhs.op() {
+                if let FloatOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+                    Ok(ctx.ite(
+                        cond,
+                        ctx.ite(
+                            rhs_cond,
+                            ctx.fp_gt(then_, rhs_then)?,
+                            ctx.fp_gt(then_, rhs_else)?,
+                        )?,
+                        ctx.ite(
+                            rhs_cond,
+                            ctx.fp_gt(else_, rhs_then)?,
+                            ctx.fp_gt(else_, rhs_else)?,
+                        )?,
+                    )?)
+                } else {
+                    Ok(ctx.ite(cond, ctx.fp_gt(then_, &rhs)?, ctx.fp_gt(else_, rhs)?)?)
+                }
+            } else if let FloatOp::ITE(cond, then_, else_) = rhs.op() {
+                Ok(ctx.ite(cond, ctx.fp_gt(&lhs, then_)?, ctx.fp_gt(lhs, else_)?)?)
+            } else {
+                Ok(ctx.fp_gt(lhs, rhs)?)
+            }
+        }
+        BooleanOp::FpGeq(..) => {
+            let lhs = extract_float_child(children, 0)?;
+            let rhs = extract_float_child(children, 1)?;
+
+            if let FloatOp::ITE(cond, then_, else_) = lhs.op() {
+                if let FloatOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+                    Ok(ctx.ite(
+                        cond,
+                        ctx.ite(
+                            rhs_cond,
+                            ctx.fp_geq(then_, rhs_then)?,
+                            ctx.fp_geq(then_, rhs_else)?,
+                        )?,
+                        ctx.ite(
+                            rhs_cond,
+                            ctx.fp_geq(else_, rhs_then)?,
+                            ctx.fp_geq(else_, rhs_else)?,
+                        )?,
+                    )?)
+                } else {
+                    Ok(ctx.ite(cond, ctx.fp_geq(then_, &rhs)?, ctx.fp_geq(else_, rhs)?)?)
+                }
+            } else if let FloatOp::ITE(cond, then_, else_) = rhs.op() {
+                Ok(ctx.ite(cond, ctx.fp_geq(&lhs, then_)?, ctx.fp_geq(lhs, else_)?)?)
+            } else {
+                Ok(ctx.fp_geq(lhs, rhs)?)
+            }
+        }
+        BooleanOp::FpIsNan(..) => {
+            let inner = extract_float_child(children, 0)?;
+
+            if let FloatOp::ITE(cond, then_, else_) = inner.op() {
+                Ok(ctx.ite(cond, ctx.fp_is_nan(then_)?, ctx.fp_is_nan(else_)?)?)
+            } else {
+                Ok(ctx.fp_is_nan(inner)?)
+            }
+        }
+        BooleanOp::FpIsInf(..) => {
+            let inner = extract_float_child(children, 0)?;
+
+            if let FloatOp::ITE(cond, then_, else_) = inner.op() {
+                Ok(ctx.ite(cond, ctx.fp_is_inf(then_)?, ctx.fp_is_inf(else_)?)?)
+            } else {
+                Ok(ctx.fp_is_inf(inner)?)
+            }
+        }
+        BooleanOp::StrContains(..) => {
+            let lhs = extract_string_child(children, 0)?;
+            let rhs = extract_string_child(children, 1)?;
+
+            if let StringOp::ITE(cond, then_, else_) = lhs.op() {
+                if let StringOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+                    Ok(ctx.ite(
+                        cond,
+                        ctx.ite(
+                            rhs_cond,
+                            ctx.str_contains(then_, rhs_then)?,
+                            ctx.str_contains(then_, rhs_else)?,
+                        )?,
+                        ctx.ite(
+                            rhs_cond,
+                            ctx.str_contains(else_, rhs_then)?,
+                            ctx.str_contains(else_, rhs_else)?,
+                        )?,
+                    )?)
+                } else {
+                    Ok(ctx.ite(
+                        cond,
+                        ctx.str_contains(then_, &rhs)?,
+                        ctx.str_contains(else_, rhs)?,
+                    )?)
+                }
+            } else if let StringOp::ITE(cond, then_, else_) = rhs.op() {
+                Ok(ctx.ite(
+                    cond,
+                    ctx.str_contains(&lhs, then_)?,
+                    ctx.str_contains(lhs, else_)?,
+                )?)
+            } else {
+                Ok(ctx.str_contains(lhs, rhs)?)
+            }
+        }
+        BooleanOp::StrPrefixOf(..) => {
+            let lhs = extract_string_child(children, 0)?;
+            let rhs = extract_string_child(children, 1)?;
+
+            if let StringOp::ITE(cond, then_, else_) = lhs.op() {
+                if let StringOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+                    Ok(ctx.ite(
+                        cond,
+                        ctx.ite(
+                            rhs_cond,
+                            ctx.str_prefix_of(then_, rhs_then)?,
+                            ctx.str_prefix_of(then_, rhs_else)?,
+                        )?,
+                        ctx.ite(
+                            rhs_cond,
+                            ctx.str_prefix_of(else_, rhs_then)?,
+                            ctx.str_prefix_of(else_, rhs_else)?,
+                        )?,
+                    )?)
+                } else {
+                    Ok(ctx.ite(
+                        cond,
+                        ctx.str_prefix_of(then_, &rhs)?,
+                        ctx.str_prefix_of(else_, rhs)?,
+                    )?)
+                }
+            } else if let StringOp::ITE(cond, then_, else_) = rhs.op() {
+                Ok(ctx.ite(
+                    cond,
+                    ctx.str_prefix_of(&lhs, then_)?,
+                    ctx.str_prefix_of(lhs, else_)?,
+                )?)
+            } else {
+                Ok(ctx.str_prefix_of(lhs, rhs)?)
+            }
+        }
+        BooleanOp::StrSuffixOf(..) => {
+            let lhs = extract_string_child(children, 0)?;
+            let rhs = extract_string_child(children, 1)?;
+
+            if let StringOp::ITE(cond, then_, else_) = lhs.op() {
+                if let StringOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+                    Ok(ctx.ite(
+                        cond,
+                        ctx.ite(
+                            rhs_cond,
+                            ctx.str_suffix_of(then_, rhs_then)?,
+                            ctx.str_suffix_of(then_, rhs_else)?,
+                        )?,
+                        ctx.ite(
+                            rhs_cond,
+                            ctx.str_suffix_of(else_, rhs_then)?,
+                            ctx.str_suffix_of(else_, rhs_else)?,
+                        )?,
+                    )?)
+                } else {
+                    Ok(ctx.ite(
+                        cond,
+                        ctx.str_suffix_of(then_, &rhs)?,
+                        ctx.str_suffix_of(else_, rhs)?,
+                    )?)
+                }
+            } else if let StringOp::ITE(cond, then_, else_) = rhs.op() {
+                Ok(ctx.ite(
+                    cond,
+                    ctx.str_suffix_of(&lhs, then_)?,
+                    ctx.str_suffix_of(lhs, else_)?,
+                )?)
+            } else {
+                Ok(ctx.str_suffix_of(lhs, rhs)?)
+            }
+        }
+        BooleanOp::StrIsDigit(..) => {
+            let inner = extract_string_child(children, 0)?;
+
+            if let StringOp::ITE(cond, then_, else_) = inner.op() {
+                Ok(ctx.ite(cond, ctx.str_is_digit(then_)?, ctx.str_is_digit(else_)?)?)
+            } else {
+                Ok(ctx.str_is_digit(inner)?)
+            }
+        }
+        BooleanOp::StrEq(..) => {
+            let lhs = extract_string_child(children, 0)?;
+            let rhs = extract_string_child(children, 1)?;
+
+            if let StringOp::ITE(cond, then_, else_) = lhs.op() {
+                if let StringOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+                    Ok(ctx.ite(
+                        cond,
+                        ctx.ite(
+                            rhs_cond,
+                            ctx.str_eq(then_, rhs_then)?,
+                            ctx.str_eq(then_, rhs_else)?,
+                        )?,
+                        ctx.ite(
+                            rhs_cond,
+                            ctx.str_eq(else_, rhs_then)?,
+                            ctx.str_eq(else_, rhs_else)?,
+                        )?,
+                    )?)
+                } else {
+                    Ok(ctx.ite(cond, ctx.str_eq(then_, &rhs)?, ctx.str_eq(else_, rhs)?)?)
+                }
+            } else if let StringOp::ITE(cond, then_, else_) = rhs.op() {
+                Ok(ctx.ite(cond, ctx.str_eq(&lhs, then_)?, ctx.str_eq(lhs, else_)?)?)
+            } else {
+                Ok(ctx.str_eq(lhs, rhs)?)
+            }
+        }
+        BooleanOp::StrNeq(..) => {
+            let lhs = extract_string_child(children, 0)?;
+            let rhs = extract_string_child(children, 1)?;
+
+            if let StringOp::ITE(cond, then_, else_) = lhs.op() {
+                if let StringOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+                    Ok(ctx.ite(
+                        cond,
+                        ctx.ite(
+                            rhs_cond,
+                            ctx.str_neq(then_, rhs_then)?,
+                            ctx.str_neq(then_, rhs_else)?,
+                        )?,
+                        ctx.ite(
+                            rhs_cond,
+                            ctx.str_neq(else_, rhs_then)?,
+                            ctx.str_neq(else_, rhs_else)?,
+                        )?,
+                    )?)
+                } else {
+                    Ok(ctx.ite(cond, ctx.str_neq(then_, &rhs)?, ctx.str_neq(else_, rhs)?)?)
+                }
+            } else if let StringOp::ITE(cond, then_, else_) = rhs.op() {
+                Ok(ctx.ite(cond, ctx.str_neq(&lhs, then_)?, ctx.str_neq(lhs, else_)?)?)
+            } else {
+                Ok(ctx.str_neq(lhs, rhs)?)
+            }
         }
         BooleanOp::ITE(..) => {
             let cond = extract_bool_child(children, 0)?;
