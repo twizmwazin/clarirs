@@ -343,14 +343,11 @@ pub(crate) fn from_z3<'c>(
                                         let haystack = StringAst::from_z3(ctx, arg0)?;
                                         let needle = StringAst::from_z3(ctx, arg1)?;
                                         // offset is an int, convert to bv
-                                        let offset_bv = RcAst::try_from(z3::mk_int2bv(
-                                            *z3_ctx, 64, *arg2,
-                                        ))?;
-                                        let offset_simplified = RcAst::try_from(z3::simplify(
-                                            *z3_ctx, *offset_bv,
-                                        ))?;
-                                        let offset =
-                                            BitVecAst::from_z3(ctx, offset_simplified)?;
+                                        let offset_bv =
+                                            RcAst::try_from(z3::mk_int2bv(*z3_ctx, 64, *arg2))?;
+                                        let offset_simplified =
+                                            RcAst::try_from(z3::simplify(*z3_ctx, *offset_bv))?;
+                                        let offset = BitVecAst::from_z3(ctx, offset_simplified)?;
                                         ctx.str_index_of(haystack, needle, offset)
                                     }
                                     z3::DeclKind::StrToInt => {

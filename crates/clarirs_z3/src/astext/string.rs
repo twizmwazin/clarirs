@@ -148,8 +148,7 @@ pub(crate) fn from_z3<'c>(
                         let inner_decl = z3::get_app_decl(z3_ctx, inner_app);
                         let inner_kind = z3::get_decl_kind(z3_ctx, inner_decl);
                         if inner_kind == z3::DeclKind::Bv2int {
-                            let bv_arg =
-                                RcAst::try_from(z3::get_app_arg(z3_ctx, inner_app, 0))?;
+                            let bv_arg = RcAst::try_from(z3::get_app_arg(z3_ctx, inner_app, 0))?;
                             let bv = BitVecAst::from_z3(ctx, bv_arg)?;
                             ctx.bv_to_str(bv)
                         } else {
