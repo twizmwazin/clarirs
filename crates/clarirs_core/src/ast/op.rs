@@ -13,7 +13,9 @@ pub trait Op<'c>: Debug + Hash + Serialize + PartialEq {
 
     fn child_iter(&self) -> Self::ChildIter<'_>;
 
-    fn get_child(&self, index: usize) -> Option<DynAst<'c>>;
+    fn get_child(&self, index: usize) -> Option<DynAst<'c>> {
+        self.child_iter().nth(index)
+    }
 
     fn depth(&self) -> u32 {
         1 + self.child_iter().map(|c| c.depth()).max().unwrap_or(0)
