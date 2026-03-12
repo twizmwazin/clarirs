@@ -2963,7 +2963,12 @@ impl StridedInterval {
     }
 
     /// Zero-extend the interval to a new bit width
-    pub fn zero_extend(&self, new_bits: u32) -> Self {
+    /// Zero-extend the interval by `extra_bits` additional bits.
+    ///
+    /// This matches the semantics of `BitVecOp::ZeroExt(_, amount)` where
+    /// `amount` is the number of bits to add, not the total target width.
+    pub fn zero_extend(&self, extra_bits: u32) -> Self {
+        let new_bits = self.bits() + extra_bits;
         match self {
             StridedInterval::Empty { .. } => Self::empty(new_bits),
             StridedInterval::Normal {
@@ -2972,7 +2977,7 @@ impl StridedInterval {
                 upper_bound,
                 ..
             } => {
-                if new_bits <= self.bits() {
+                if extra_bits == 0 {
                     return self.clone();
                 }
                 Self::new(
@@ -2985,8 +2990,12 @@ impl StridedInterval {
         }
     }
 
-    /// Sign-extend the interval to a new bit width
-    pub fn sign_extend(&self, new_bits: u32) -> Self {
+    /// Sign-extend the interval by `extra_bits` additional bits.
+    ///
+    /// This matches the semantics of `BitVecOp::SignExt(_, amount)` where
+    /// `amount` is the number of bits to add, not the total target width.
+    pub fn sign_extend(&self, extra_bits: u32) -> Self {
+        let new_bits = self.bits() + extra_bits;
         match self {
             StridedInterval::Empty { .. } => Self::empty(new_bits),
             StridedInterval::Normal {
@@ -2995,13 +3004,12 @@ impl StridedInterval {
                 lower_bound,
                 upper_bound,
             } => {
-                if new_bits <= *bits {
+                if extra_bits == 0 {
                     return self.clone();
                 }
 
                 let sign_bit_mask = BigUint::one() << (*bits - 1);
-                let extension_bits = new_bits - *bits;
-                let extension_mask = (BigUint::one() << extension_bits) - BigUint::one();
+                let extension_mask = (BigUint::one() << extra_bits) - BigUint::one();
 
                 let new_lower = if lower_bound & &sign_bit_mask != BigUint::zero() {
                     lower_bound | (&extension_mask << *bits)
