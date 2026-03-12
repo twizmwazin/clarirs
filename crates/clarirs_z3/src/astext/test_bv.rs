@@ -1066,4 +1066,52 @@ mod roundtrip {
         let ast = ctx.fp_to_sbv(fp, 32, FPRM::TowardZero).unwrap();
         assert!(ast.to_z3().is_ok());
     }
+
+    // -- String-related BV ops --
+
+    #[test]
+    fn str_index_of_symbols() {
+        let ctx = Context::new();
+        let s = ctx.strings("s").unwrap();
+        let t = ctx.strings("t").unwrap();
+        let offset = ctx.bvv_prim(0u64).unwrap();
+        let ast = ctx.str_index_of(s, t, offset).unwrap();
+        assert_eq!(ast, round_trip(&ctx, &ast).unwrap());
+    }
+
+    #[test]
+    fn str_index_of_values() {
+        let ctx = Context::new();
+        let s = ctx.stringv("hello world").unwrap();
+        let t = ctx.stringv("world").unwrap();
+        let offset = ctx.bvv_prim(0u64).unwrap();
+        let ast = ctx.str_index_of(s, t, offset).unwrap();
+        assert_eq!(ast, round_trip(&ctx, &ast).unwrap());
+    }
+
+    #[test]
+    fn str_index_of_with_offset() {
+        let ctx = Context::new();
+        let s = ctx.strings("s").unwrap();
+        let t = ctx.strings("t").unwrap();
+        let offset = ctx.bvv_prim(5u64).unwrap();
+        let ast = ctx.str_index_of(s, t, offset).unwrap();
+        assert_eq!(ast, round_trip(&ctx, &ast).unwrap());
+    }
+
+    #[test]
+    fn str_to_bv_symbol() {
+        let ctx = Context::new();
+        let s = ctx.strings("s").unwrap();
+        let ast = ctx.str_to_bv(s).unwrap();
+        assert_eq!(ast, round_trip(&ctx, &ast).unwrap());
+    }
+
+    #[test]
+    fn str_to_bv_value() {
+        let ctx = Context::new();
+        let s = ctx.stringv("12345").unwrap();
+        let ast = ctx.str_to_bv(s).unwrap();
+        assert_eq!(ast, round_trip(&ctx, &ast).unwrap());
+    }
 }

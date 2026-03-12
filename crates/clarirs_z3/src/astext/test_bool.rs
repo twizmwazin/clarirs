@@ -1272,4 +1272,24 @@ mod roundtrip {
         let ast = ctx.str_neq(a, b).unwrap();
         assert_eq!(ast, round_trip(&ctx, &ast).unwrap());
     }
+
+    // -- StrIsDigit --
+    // StrIsDigit is encoded as a composite Z3 expression, so round-trip
+    // won't produce the same AST. We test that to_z3 succeeds.
+
+    #[test]
+    fn str_is_digit_symbol() {
+        let ctx = Context::new();
+        let s = ctx.strings("s").unwrap();
+        let ast = ctx.str_is_digit(s).unwrap();
+        assert!(ast.to_z3().is_ok());
+    }
+
+    #[test]
+    fn str_is_digit_value() {
+        let ctx = Context::new();
+        let s = ctx.stringv("123").unwrap();
+        let ast = ctx.str_is_digit(s).unwrap();
+        assert!(ast.to_z3().is_ok());
+    }
 }

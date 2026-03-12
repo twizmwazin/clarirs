@@ -530,4 +530,22 @@ mod roundtrip {
         let ast = ctx.ite(c, a, b).unwrap();
         assert_eq!(ast, round_trip(&ctx, &ast).unwrap());
     }
+
+    // -- BVToStr --
+
+    #[test]
+    fn bv_to_str_symbol() {
+        let ctx = Context::new();
+        let bv = ctx.bvs("x", 64).unwrap();
+        let ast = ctx.bv_to_str(bv).unwrap();
+        assert_eq!(ast, round_trip(&ctx, &ast).unwrap());
+    }
+
+    #[test]
+    fn bv_to_str_value() {
+        let ctx = Context::new();
+        let bv = ctx.bvv_prim(42u64).unwrap();
+        let ast = ctx.bv_to_str(bv).unwrap();
+        assert_eq!(ast, round_trip(&ctx, &ast).unwrap());
+    }
 }
