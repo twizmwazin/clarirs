@@ -103,9 +103,9 @@ class TestBVOperations(unittest.TestCase):
         result = self.bv_neg // self.bv2
         self._check_equal(result, ((-5) & ((1 << 32) - 1)) // 5)
 
-        # Test division by zero raises exception
-        with self.assertRaises(ZeroDivisionError):
-            _ = (self.bv1 // self.bv_zero).concrete_value
+        # Division by zero produces a symbolic expression (no concrete value)
+        result = self.bv1 // self.bv_zero
+        self.assertIsNone(result.concrete_value)
 
         # Test symbolic division
         sym_div = self.sym_x // claripy.BVV(2, 8)
