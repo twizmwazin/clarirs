@@ -33,12 +33,20 @@ pub trait Op<'c>: Debug + Hash + Serialize + PartialEq {
 
     fn variables(&self) -> BTreeSet<InternedString>;
 
+    /// Returns true if the op is inherently symbolic regardless of whether it
+    /// has variables. For example, VSA operations (Union, Intersection, Widen)
+    /// are always symbolic because they represent abstract multi-valued results.
+    /// The default implementation returns false.
+    fn is_inherently_symbolic(&self) -> bool {
+        false
+    }
+
     fn symbolic(&self) -> bool {
-        !self.variables().is_empty()
+        self.is_inherently_symbolic() || !self.variables().is_empty()
     }
 
     fn concrete(&self) -> bool {
-        self.variables().is_empty()
+        !self.symbolic()
     }
 
     fn check_same_sort(&self, other: &Self) -> bool;
