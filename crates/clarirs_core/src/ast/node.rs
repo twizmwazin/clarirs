@@ -147,10 +147,6 @@ impl<'c, O: Op<'c>> Op<'c> for AstNode<'c, O> {
         self.op.child_iter()
     }
 
-    fn get_child(&self, index: usize) -> Option<DynAst<'c>> {
-        self.op.get_child(index)
-    }
-
     fn depth(&self) -> u32 {
         self.depth
     }
@@ -209,67 +205,61 @@ pub enum DynAstChildIter<'a, 'c> {
     String(StringOpChildIter<'a, 'c>),
 }
 
+/// Dispatches a method call across all DynAst variants.
+macro_rules! dynast_dispatch {
+    ($self:expr, |$ast:ident| $body:expr) => {
+        match $self {
+            DynAst::Boolean($ast) => $body,
+            DynAst::BitVec($ast) => $body,
+            DynAst::Float($ast) => $body,
+            DynAst::String($ast) => $body,
+        }
+    };
+}
+
+/// Dispatches a method call across all DynAstChildIter variants.
+macro_rules! dynast_iter_dispatch {
+    ($self:expr, |$iter:ident| $body:expr) => {
+        match $self {
+            DynAstChildIter::Boolean($iter) => $body,
+            DynAstChildIter::BitVec($iter) => $body,
+            DynAstChildIter::Float($iter) => $body,
+            DynAstChildIter::String($iter) => $body,
+        }
+    };
+}
+
 impl<'a, 'c> Iterator for DynAstChildIter<'a, 'c> {
     type Item = DynAst<'c>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self {
-            Self::Boolean(iter) => iter.next(),
-            Self::BitVec(iter) => iter.next(),
-            Self::Float(iter) => iter.next(),
-            Self::String(iter) => iter.next(),
-        }
+        dynast_iter_dispatch!(self, |iter| iter.next())
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        match self {
-            Self::Boolean(iter) => iter.size_hint(),
-            Self::BitVec(iter) => iter.size_hint(),
-            Self::Float(iter) => iter.size_hint(),
-            Self::String(iter) => iter.size_hint(),
-        }
+        dynast_iter_dispatch!(self, |iter| iter.size_hint())
     }
 }
 
 impl<'a, 'c> ExactSizeIterator for DynAstChildIter<'a, 'c> {
     fn len(&self) -> usize {
-        match self {
-            DynAstChildIter::Boolean(iter) => iter.len(),
-            DynAstChildIter::BitVec(iter) => iter.len(),
-            DynAstChildIter::Float(iter) => iter.len(),
-            DynAstChildIter::String(iter) => iter.len(),
-        }
+        dynast_iter_dispatch!(self, |iter| iter.len())
     }
 }
 
 impl DynAst<'_> {
     pub fn annotations(&self) -> BTreeSet<Annotation> {
-        match self {
-            DynAst::Boolean(ast) => ast.annotations().clone(),
-            DynAst::BitVec(ast) => ast.annotations().clone(),
-            DynAst::Float(ast) => ast.annotations().clone(),
-            DynAst::String(ast) => ast.annotations().clone(),
-        }
+        dynast_dispatch!(self, |ast| ast.annotations().clone())
     }
 
     pub fn symbolic(&self) -> bool {
-        match self {
-            DynAst::Boolean(ast) => ast.symbolic(),
-            DynAst::BitVec(ast) => ast.symbolic(),
-            DynAst::Float(ast) => ast.symbolic(),
-            DynAst::String(ast) => ast.symbolic(),
-        }
+        dynast_dispatch!(self, |ast| ast.symbolic())
     }
 }
 
 impl<'c> HasContext<'c> for DynAst<'c> {
     fn context(&self) -> &'c Context<'c> {
-        match self {
-            DynAst::Boolean(ast) => ast.context(),
-            DynAst::BitVec(ast) => ast.context(),
-            DynAst::Float(ast) => ast.context(),
-            DynAst::String(ast) => ast.context(),
-        }
+        dynast_dispatch!(self, |ast| ast.context())
     }
 }
 
@@ -288,22 +278,8 @@ impl<'c> Op<'c> for DynAst<'c> {
         }
     }
 
-    fn get_child(&self, index: usize) -> Option<DynAst<'c>> {
-        match self {
-            DynAst::Boolean(ast) => ast.get_child(index),
-            DynAst::BitVec(ast) => ast.get_child(index),
-            DynAst::Float(ast) => ast.get_child(index),
-            DynAst::String(ast) => ast.get_child(index),
-        }
-    }
-
     fn depth(&self) -> u32 {
-        match self {
-            DynAst::Boolean(ast) => ast.depth(),
-            DynAst::BitVec(ast) => ast.depth(),
-            DynAst::Float(ast) => ast.depth(),
-            DynAst::String(ast) => ast.depth(),
-        }
+        dynast_dispatch!(self, |ast| ast.depth())
     }
 
     fn is_true(&self) -> bool {
@@ -321,13 +297,7 @@ impl<'c> Op<'c> for DynAst<'c> {
     }
 
     fn variables(&self) -> BTreeSet<InternedString> {
-        match self {
-            DynAst::Boolean(ast) => ast.variables(),
-            DynAst::BitVec(ast) => ast.variables(),
-            DynAst::Float(ast) => ast.variables(),
-            DynAst::String(ast) => ast.variables(),
-        }
-        .clone()
+        dynast_dispatch!(self, |ast| ast.variables()).clone()
     }
 
     fn check_same_sort(&self, other: &Self) -> bool {
@@ -343,12 +313,7 @@ impl<'c> Op<'c> for DynAst<'c> {
 
 impl<'c> DynAst<'c> {
     pub fn inner_hash(&self) -> u64 {
-        match self {
-            DynAst::Boolean(ast) => ast.hash,
-            DynAst::BitVec(ast) => ast.hash,
-            DynAst::Float(ast) => ast.hash,
-            DynAst::String(ast) => ast.hash,
-        }
+        dynast_dispatch!(self, |ast| ast.hash)
     }
 
     pub fn as_bool(&self) -> Option<&BoolAst<'c>> {
@@ -408,94 +373,39 @@ impl<'c> DynAst<'c> {
     }
 }
 
-impl<'c> From<BoolAst<'c>> for DynAst<'c> {
-    fn from(ast: BoolAst<'c>) -> Self {
-        DynAst::Boolean(ast.clone())
-    }
+/// Generates From<AstType> and From<&AstType> for DynAst, plus TryFrom<DynAst> for AstType.
+macro_rules! impl_dynast_conversions {
+    ($( $Variant:ident($AstType:ty, $err:expr) ),* $(,)?) => {
+        $(
+            impl<'c> From<$AstType> for DynAst<'c> {
+                fn from(ast: $AstType) -> Self {
+                    DynAst::$Variant(ast.clone())
+                }
+            }
+
+            impl<'c> From<&$AstType> for DynAst<'c> {
+                fn from(ast: &$AstType) -> Self {
+                    DynAst::$Variant(ast.clone())
+                }
+            }
+
+            impl<'c> TryFrom<DynAst<'c>> for $AstType {
+                type Error = ClarirsError;
+
+                fn try_from(value: DynAst<'c>) -> Result<Self, Self::Error> {
+                    match value {
+                        DynAst::$Variant(ast) => Ok(ast),
+                        _ => Err(ClarirsError::TypeError($err.to_string())),
+                    }
+                }
+            }
+        )*
+    };
 }
 
-impl<'c> From<&BoolAst<'c>> for DynAst<'c> {
-    fn from(ast: &BoolAst<'c>) -> Self {
-        DynAst::Boolean(ast.clone())
-    }
-}
-
-impl<'c> From<BitVecAst<'c>> for DynAst<'c> {
-    fn from(ast: BitVecAst<'c>) -> Self {
-        DynAst::BitVec(ast.clone())
-    }
-}
-
-impl<'c> From<&BitVecAst<'c>> for DynAst<'c> {
-    fn from(ast: &BitVecAst<'c>) -> Self {
-        DynAst::BitVec(ast.clone())
-    }
-}
-
-impl<'c> From<FloatAst<'c>> for DynAst<'c> {
-    fn from(ast: FloatAst<'c>) -> Self {
-        DynAst::Float(ast.clone())
-    }
-}
-
-impl<'c> From<&FloatAst<'c>> for DynAst<'c> {
-    fn from(ast: &FloatAst<'c>) -> Self {
-        DynAst::Float(ast.clone())
-    }
-}
-
-impl<'c> From<StringAst<'c>> for DynAst<'c> {
-    fn from(ast: StringAst<'c>) -> Self {
-        DynAst::String(ast.clone())
-    }
-}
-
-impl<'c> From<&StringAst<'c>> for DynAst<'c> {
-    fn from(ast: &StringAst<'c>) -> Self {
-        DynAst::String(ast.clone())
-    }
-}
-
-impl<'c> TryFrom<DynAst<'c>> for BoolAst<'c> {
-    type Error = ClarirsError;
-
-    fn try_from(value: DynAst<'c>) -> Result<Self, Self::Error> {
-        match value {
-            DynAst::Boolean(ast) => Ok(ast),
-            _ => Err(ClarirsError::TypeError("Expected BoolAst".to_string())),
-        }
-    }
-}
-
-impl<'c> TryFrom<DynAst<'c>> for BitVecAst<'c> {
-    type Error = ClarirsError;
-
-    fn try_from(value: DynAst<'c>) -> Result<Self, Self::Error> {
-        match value {
-            DynAst::BitVec(ast) => Ok(ast),
-            _ => Err(ClarirsError::TypeError("Expected BitVecAst".to_string())),
-        }
-    }
-}
-
-impl<'c> TryFrom<DynAst<'c>> for FloatAst<'c> {
-    type Error = ClarirsError;
-
-    fn try_from(value: DynAst<'c>) -> Result<Self, Self::Error> {
-        match value {
-            DynAst::Float(ast) => Ok(ast),
-            _ => Err(ClarirsError::TypeError("Expected FloatAst".to_string())),
-        }
-    }
-}
-
-impl<'c> TryFrom<DynAst<'c>> for StringAst<'c> {
-    type Error = ClarirsError;
-
-    fn try_from(value: DynAst<'c>) -> Result<Self, Self::Error> {
-        match value {
-            DynAst::String(ast) => Ok(ast),
-            _ => Err(ClarirsError::TypeError("Expected StringAst".to_string())),
-        }
-    }
-}
+impl_dynast_conversions!(
+    Boolean(BoolAst<'c>, "Expected BoolAst"),
+    BitVec(BitVecAst<'c>, "Expected BitVecAst"),
+    Float(FloatAst<'c>, "Expected FloatAst"),
+    String(StringAst<'c>, "Expected StringAst"),
+);

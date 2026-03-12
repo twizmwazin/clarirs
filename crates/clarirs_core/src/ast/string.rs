@@ -88,48 +88,15 @@ impl<'a, 'c> ExactSizeIterator for StringOpChildIter<'a, 'c> {
     }
 }
 
-impl std::hash::Hash for StringOp<'_> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        "string".hash(state);
-        match self {
-            StringOp::StringS(s) => {
-                0.hash(state);
-                s.hash(state);
-            }
-            StringOp::StringV(s) => {
-                1.hash(state);
-                s.hash(state);
-            }
-            StringOp::StrConcat(a, b) => {
-                2.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            StringOp::StrSubstr(a, b, c) => {
-                3.hash(state);
-                a.hash(state);
-                b.hash(state);
-                c.hash(state);
-            }
-            StringOp::StrReplace(a, b, c) => {
-                4.hash(state);
-                a.hash(state);
-                b.hash(state);
-                c.hash(state);
-            }
-            StringOp::BVToStr(a) => {
-                5.hash(state);
-                a.hash(state);
-            }
-            StringOp::ITE(a, b, c) => {
-                6.hash(state);
-                a.hash(state);
-                b.hash(state);
-                c.hash(state);
-            }
-        }
-    }
-}
+impl_op_hash!(StringOp, "string",
+    StringS(s) => 0,
+    StringV(s) => 1,
+    StrConcat(a, b) => 2,
+    StrSubstr(a, b, c) => 3,
+    StrReplace(a, b, c) => 4,
+    BVToStr(a) => 5,
+    ITE(a, b, c) => 6,
+);
 
 impl<'c> Op<'c> for StringOp<'c> {
     type ChildIter<'a>
@@ -139,36 +106,6 @@ impl<'c> Op<'c> for StringOp<'c> {
 
     fn child_iter(&self) -> Self::ChildIter<'_> {
         StringOp::child_iter(self)
-    }
-
-    fn get_child(&self, index: usize) -> Option<DynAst<'c>> {
-        match (self, index) {
-            // 1 child variants - index 0
-            (StringOp::BVToStr(a), 0) => Some(a.into()),
-
-            // 2 child variants - index 0 (first child)
-            (StringOp::StrConcat(a, _), 0) => Some(a.into()),
-
-            // 2 child variants - index 1 (second child)
-            (StringOp::StrConcat(_, b), 1) => Some(b.into()),
-
-            // 3 child variants - StrSubstr(str, start, len)
-            (StringOp::StrSubstr(a, _, _), 0) => Some(a.into()),
-            (StringOp::StrSubstr(_, b, _), 1) => Some(b.into()),
-            (StringOp::StrSubstr(_, _, c), 2) => Some(c.into()),
-
-            // 3 child variants - StrReplace(str, from, to)
-            (StringOp::StrReplace(a, _, _), 0) => Some(a.into()),
-            (StringOp::StrReplace(_, b, _), 1) => Some(b.into()),
-            (StringOp::StrReplace(_, _, c), 2) => Some(c.into()),
-
-            // 3 child variants - If(cond, then, else)
-            (StringOp::ITE(a, _, _), 0) => Some(a.into()),
-            (StringOp::ITE(_, b, _), 1) => Some(b.into()),
-            (StringOp::ITE(_, _, c), 2) => Some(c.into()),
-
-            _ => None,
-        }
     }
 
     fn variables(&self) -> BTreeSet<InternedString> {

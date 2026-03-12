@@ -193,180 +193,42 @@ impl<'a, 'c> ExactSizeIterator for BitVecOpChildIter<'a, 'c> {
     }
 }
 
-impl std::hash::Hash for BitVecOp<'_> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        "bv".hash(state);
-        match self {
-            BitVecOp::BVS(s, size) => {
-                0.hash(state);
-                s.hash(state);
-                size.hash(state);
-            }
-            BitVecOp::BVV(bv) => {
-                1.hash(state);
-                bv.hash(state);
-            }
-            BitVecOp::Not(a) => {
-                2.hash(state);
-                a.hash(state);
-            }
-            BitVecOp::And(a, b) => {
-                3.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BitVecOp::Or(a, b) => {
-                4.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BitVecOp::Xor(a, b) => {
-                5.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BitVecOp::Neg(a) => {
-                6.hash(state);
-                a.hash(state);
-            }
-            BitVecOp::Add(a, b) => {
-                7.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BitVecOp::Sub(a, b) => {
-                8.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BitVecOp::Mul(a, b) => {
-                9.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BitVecOp::UDiv(a, b) => {
-                10.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BitVecOp::SDiv(a, b) => {
-                11.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BitVecOp::URem(a, b) => {
-                12.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BitVecOp::SRem(a, b) => {
-                13.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BitVecOp::ShL(a, b) => {
-                15.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BitVecOp::LShR(a, b) => {
-                16.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BitVecOp::AShR(a, b) => {
-                17.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BitVecOp::RotateLeft(a, b) => {
-                18.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BitVecOp::RotateRight(a, b) => {
-                19.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BitVecOp::ZeroExt(a, size) => {
-                20.hash(state);
-                a.hash(state);
-                size.hash(state);
-            }
-            BitVecOp::SignExt(a, size) => {
-                21.hash(state);
-                a.hash(state);
-                size.hash(state);
-            }
-            BitVecOp::Extract(a, high, low) => {
-                22.hash(state);
-                a.hash(state);
-                high.hash(state);
-                low.hash(state);
-            }
-            BitVecOp::Concat(args) => {
-                23.hash(state);
-                args.hash(state);
-            }
-            BitVecOp::ByteReverse(a) => {
-                24.hash(state);
-                a.hash(state);
-            }
-            BitVecOp::FpToIEEEBV(a) => {
-                25.hash(state);
-                a.hash(state);
-            }
-            BitVecOp::FpToUBV(a, size, rm) => {
-                26.hash(state);
-                a.hash(state);
-                size.hash(state);
-                rm.hash(state);
-            }
-            BitVecOp::FpToSBV(a, size, rm) => {
-                27.hash(state);
-                a.hash(state);
-                size.hash(state);
-                rm.hash(state);
-            }
-            BitVecOp::StrLen(a) => {
-                28.hash(state);
-                a.hash(state);
-            }
-            BitVecOp::StrIndexOf(a, b, c) => {
-                29.hash(state);
-                a.hash(state);
-                b.hash(state);
-                c.hash(state);
-            }
-            BitVecOp::StrToBV(a) => {
-                30.hash(state);
-                a.hash(state);
-            }
-            BitVecOp::ITE(a, b, c) => {
-                31.hash(state);
-                a.hash(state);
-                b.hash(state);
-                c.hash(state);
-            }
-            BitVecOp::Union(a, b) => {
-                34.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BitVecOp::Intersection(a, b) => {
-                35.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BitVecOp::Widen(a, b) => {
-                36.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-        }
-    }
-}
+impl_op_hash!(BitVecOp, "bv",
+    BVS(s, size) => 0,
+    BVV(bv) => 1,
+    Not(a) => 2,
+    And(a, b) => 3,
+    Or(a, b) => 4,
+    Xor(a, b) => 5,
+    Neg(a) => 6,
+    Add(a, b) => 7,
+    Sub(a, b) => 8,
+    Mul(a, b) => 9,
+    UDiv(a, b) => 10,
+    SDiv(a, b) => 11,
+    URem(a, b) => 12,
+    SRem(a, b) => 13,
+    ShL(a, b) => 15,
+    LShR(a, b) => 16,
+    AShR(a, b) => 17,
+    RotateLeft(a, b) => 18,
+    RotateRight(a, b) => 19,
+    ZeroExt(a, size) => 20,
+    SignExt(a, size) => 21,
+    Extract(a, high, low) => 22,
+    Concat(args) => 23,
+    ByteReverse(a) => 24,
+    FpToIEEEBV(a) => 25,
+    FpToUBV(a, size, rm) => 26,
+    FpToSBV(a, size, rm) => 27,
+    StrLen(a) => 28,
+    StrIndexOf(a, b, c) => 29,
+    StrToBV(a) => 30,
+    ITE(a, b, c) => 31,
+    Union(a, b) => 34,
+    Intersection(a, b) => 35,
+    Widen(a, b) => 36,
+);
 
 impl<'c> Op<'c> for BitVecOp<'c> {
     type ChildIter<'a>
@@ -376,78 +238,6 @@ impl<'c> Op<'c> for BitVecOp<'c> {
 
     fn child_iter(&self) -> Self::ChildIter<'_> {
         BitVecOp::child_iter(self)
-    }
-
-    fn get_child(&self, index: usize) -> Option<DynAst<'c>> {
-        match (self, index) {
-            // 1 child variants - index 0
-            (BitVecOp::Not(a), 0)
-            | (BitVecOp::Neg(a), 0)
-            | (BitVecOp::ByteReverse(a), 0)
-            | (BitVecOp::ZeroExt(a, _), 0)
-            | (BitVecOp::SignExt(a, _), 0)
-            | (BitVecOp::Extract(a, _, _), 0) => Some(a.into()),
-
-            (BitVecOp::StrLen(a), 0) | (BitVecOp::StrToBV(a), 0) => Some(a.into()),
-
-            (BitVecOp::FpToIEEEBV(a), 0)
-            | (BitVecOp::FpToUBV(a, _, _), 0)
-            | (BitVecOp::FpToSBV(a, _, _), 0) => Some(a.into()),
-
-            // 2 child variants - index 0 (first child)
-            (BitVecOp::And(a, _), 0)
-            | (BitVecOp::Or(a, _), 0)
-            | (BitVecOp::Xor(a, _), 0)
-            | (BitVecOp::Add(a, _), 0)
-            | (BitVecOp::Sub(a, _), 0)
-            | (BitVecOp::Mul(a, _), 0)
-            | (BitVecOp::UDiv(a, _), 0)
-            | (BitVecOp::SDiv(a, _), 0)
-            | (BitVecOp::URem(a, _), 0)
-            | (BitVecOp::SRem(a, _), 0)
-            | (BitVecOp::ShL(a, _), 0)
-            | (BitVecOp::LShR(a, _), 0)
-            | (BitVecOp::AShR(a, _), 0)
-            | (BitVecOp::RotateLeft(a, _), 0)
-            | (BitVecOp::RotateRight(a, _), 0)
-            | (BitVecOp::Union(a, _), 0)
-            | (BitVecOp::Intersection(a, _), 0)
-            | (BitVecOp::Widen(a, _), 0) => Some(a.into()),
-
-            // 2 child variants - index 1 (second child)
-            (BitVecOp::And(_, b), 1)
-            | (BitVecOp::Or(_, b), 1)
-            | (BitVecOp::Xor(_, b), 1)
-            | (BitVecOp::Add(_, b), 1)
-            | (BitVecOp::Sub(_, b), 1)
-            | (BitVecOp::Mul(_, b), 1)
-            | (BitVecOp::UDiv(_, b), 1)
-            | (BitVecOp::SDiv(_, b), 1)
-            | (BitVecOp::URem(_, b), 1)
-            | (BitVecOp::SRem(_, b), 1)
-            | (BitVecOp::ShL(_, b), 1)
-            | (BitVecOp::LShR(_, b), 1)
-            | (BitVecOp::AShR(_, b), 1)
-            | (BitVecOp::RotateLeft(_, b), 1)
-            | (BitVecOp::RotateRight(_, b), 1)
-            | (BitVecOp::Union(_, b), 1)
-            | (BitVecOp::Intersection(_, b), 1)
-            | (BitVecOp::Widen(_, b), 1) => Some(b.into()),
-
-            // 3 child variants
-            (BitVecOp::StrIndexOf(a, _, _), 0) => Some(a.into()),
-            (BitVecOp::StrIndexOf(_, b, _), 1) => Some(b.into()),
-            (BitVecOp::StrIndexOf(_, _, c), 2) => Some(c.into()),
-
-            (BitVecOp::ITE(a, _, _), 0) => Some(a.into()),
-            (BitVecOp::ITE(_, b, _), 1) => Some(b.into()),
-            (BitVecOp::ITE(_, _, c), 2) => Some(c.into()),
-
-            // N-ary Concat
-            (BitVecOp::Concat(args), i) if i < args.len() => Some(args[i].clone().into()),
-
-            _ => None,
-        }
     }
 
     fn variables(&self) -> BTreeSet<InternedString> {

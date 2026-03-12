@@ -198,171 +198,41 @@ impl<'a, 'c> ExactSizeIterator for BooleanOpChildIter<'a, 'c> {
     }
 }
 
-impl std::hash::Hash for BooleanOp<'_> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        "bool".hash(state);
-        match self {
-            BooleanOp::BoolS(s) => {
-                0.hash(state);
-                s.hash(state);
-            }
-            BooleanOp::BoolV(b) => {
-                1.hash(state);
-                b.hash(state);
-            }
-            BooleanOp::Not(a) => {
-                2.hash(state);
-                a.hash(state);
-            }
-            BooleanOp::And(args) => {
-                3.hash(state);
-                args.hash(state);
-            }
-            BooleanOp::Or(args) => {
-                4.hash(state);
-                args.hash(state);
-            }
-            BooleanOp::Xor(a, b) => {
-                5.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BooleanOp::BoolEq(a, b) => {
-                6.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BooleanOp::BoolNeq(a, b) => {
-                7.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BooleanOp::Eq(a, b) => {
-                8.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BooleanOp::Neq(a, b) => {
-                9.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BooleanOp::ULT(a, b) => {
-                10.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BooleanOp::ULE(a, b) => {
-                11.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BooleanOp::UGT(a, b) => {
-                12.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BooleanOp::UGE(a, b) => {
-                13.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BooleanOp::SLT(a, b) => {
-                14.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BooleanOp::SLE(a, b) => {
-                15.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BooleanOp::SGT(a, b) => {
-                16.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BooleanOp::SGE(a, b) => {
-                17.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BooleanOp::FpEq(a, b) => {
-                18.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BooleanOp::FpNeq(a, b) => {
-                19.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BooleanOp::FpLt(a, b) => {
-                20.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BooleanOp::FpLeq(a, b) => {
-                21.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BooleanOp::FpGt(a, b) => {
-                22.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BooleanOp::FpGeq(a, b) => {
-                23.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BooleanOp::FpIsNan(a) => {
-                24.hash(state);
-                a.hash(state);
-            }
-            BooleanOp::FpIsInf(a) => {
-                25.hash(state);
-                a.hash(state);
-            }
-            BooleanOp::StrContains(a, b) => {
-                26.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BooleanOp::StrPrefixOf(a, b) => {
-                27.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BooleanOp::StrSuffixOf(a, b) => {
-                28.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BooleanOp::StrIsDigit(a) => {
-                29.hash(state);
-                a.hash(state);
-            }
-            BooleanOp::StrEq(a, b) => {
-                30.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BooleanOp::StrNeq(a, b) => {
-                31.hash(state);
-                a.hash(state);
-                b.hash(state);
-            }
-            BooleanOp::ITE(a, b, c) => {
-                32.hash(state);
-                a.hash(state);
-                b.hash(state);
-                c.hash(state);
-            }
-        }
-    }
-}
+impl_op_hash!(BooleanOp, "bool",
+    BoolS(s) => 0,
+    BoolV(b) => 1,
+    Not(a) => 2,
+    And(args) => 3,
+    Or(args) => 4,
+    Xor(a, b) => 5,
+    BoolEq(a, b) => 6,
+    BoolNeq(a, b) => 7,
+    Eq(a, b) => 8,
+    Neq(a, b) => 9,
+    ULT(a, b) => 10,
+    ULE(a, b) => 11,
+    UGT(a, b) => 12,
+    UGE(a, b) => 13,
+    SLT(a, b) => 14,
+    SLE(a, b) => 15,
+    SGT(a, b) => 16,
+    SGE(a, b) => 17,
+    FpEq(a, b) => 18,
+    FpNeq(a, b) => 19,
+    FpLt(a, b) => 20,
+    FpLeq(a, b) => 21,
+    FpGt(a, b) => 22,
+    FpGeq(a, b) => 23,
+    FpIsNan(a) => 24,
+    FpIsInf(a) => 25,
+    StrContains(a, b) => 26,
+    StrPrefixOf(a, b) => 27,
+    StrSuffixOf(a, b) => 28,
+    StrIsDigit(a) => 29,
+    StrEq(a, b) => 30,
+    StrNeq(a, b) => 31,
+    ITE(a, b, c) => 32,
+);
 
 impl<'c> Op<'c> for BooleanOp<'c> {
     type ChildIter<'a>
@@ -372,84 +242,6 @@ impl<'c> Op<'c> for BooleanOp<'c> {
 
     fn child_iter(&self) -> Self::ChildIter<'_> {
         BooleanOp::child_iter(self)
-    }
-
-    fn get_child(&self, index: usize) -> Option<DynAst<'c>> {
-        match (self, index) {
-            // 1 child variants - index 0
-            (BooleanOp::Not(a), 0) => Some(a.into()),
-            (BooleanOp::FpIsNan(a), 0) | (BooleanOp::FpIsInf(a), 0) => Some(a.into()),
-            (BooleanOp::StrIsDigit(a), 0) => Some(a.into()),
-
-            // 2 child variants - index 0 (first child)
-            (BooleanOp::Xor(a, _), 0)
-            | (BooleanOp::BoolEq(a, _), 0)
-            | (BooleanOp::BoolNeq(a, _), 0) => Some(a.into()),
-
-            (BooleanOp::Eq(a, _), 0)
-            | (BooleanOp::Neq(a, _), 0)
-            | (BooleanOp::ULT(a, _), 0)
-            | (BooleanOp::ULE(a, _), 0)
-            | (BooleanOp::UGT(a, _), 0)
-            | (BooleanOp::UGE(a, _), 0)
-            | (BooleanOp::SLT(a, _), 0)
-            | (BooleanOp::SLE(a, _), 0)
-            | (BooleanOp::SGT(a, _), 0)
-            | (BooleanOp::SGE(a, _), 0) => Some(a.into()),
-
-            (BooleanOp::FpEq(a, _), 0)
-            | (BooleanOp::FpNeq(a, _), 0)
-            | (BooleanOp::FpLt(a, _), 0)
-            | (BooleanOp::FpLeq(a, _), 0)
-            | (BooleanOp::FpGt(a, _), 0)
-            | (BooleanOp::FpGeq(a, _), 0) => Some(a.into()),
-
-            (BooleanOp::StrContains(a, _), 0)
-            | (BooleanOp::StrPrefixOf(a, _), 0)
-            | (BooleanOp::StrSuffixOf(a, _), 0)
-            | (BooleanOp::StrEq(a, _), 0)
-            | (BooleanOp::StrNeq(a, _), 0) => Some(a.into()),
-
-            // 2 child variants - index 1 (second child)
-            (BooleanOp::Xor(_, b), 1)
-            | (BooleanOp::BoolEq(_, b), 1)
-            | (BooleanOp::BoolNeq(_, b), 1) => Some(b.into()),
-
-            (BooleanOp::Eq(_, b), 1)
-            | (BooleanOp::Neq(_, b), 1)
-            | (BooleanOp::ULT(_, b), 1)
-            | (BooleanOp::ULE(_, b), 1)
-            | (BooleanOp::UGT(_, b), 1)
-            | (BooleanOp::UGE(_, b), 1)
-            | (BooleanOp::SLT(_, b), 1)
-            | (BooleanOp::SLE(_, b), 1)
-            | (BooleanOp::SGT(_, b), 1)
-            | (BooleanOp::SGE(_, b), 1) => Some(b.into()),
-
-            (BooleanOp::FpEq(_, b), 1)
-            | (BooleanOp::FpNeq(_, b), 1)
-            | (BooleanOp::FpLt(_, b), 1)
-            | (BooleanOp::FpLeq(_, b), 1)
-            | (BooleanOp::FpGt(_, b), 1)
-            | (BooleanOp::FpGeq(_, b), 1) => Some(b.into()),
-
-            (BooleanOp::StrContains(_, b), 1)
-            | (BooleanOp::StrPrefixOf(_, b), 1)
-            | (BooleanOp::StrSuffixOf(_, b), 1)
-            | (BooleanOp::StrEq(_, b), 1)
-            | (BooleanOp::StrNeq(_, b), 1) => Some(b.into()),
-
-            // 3 child variants
-            (BooleanOp::ITE(a, _, _), 0) => Some(a.into()),
-            (BooleanOp::ITE(_, b, _), 1) => Some(b.into()),
-            (BooleanOp::ITE(_, _, c), 2) => Some(c.into()),
-
-            // N-ary variants (And/Or with Vec)
-            (BooleanOp::And(args), i) if i < args.len() => Some((&args[i]).into()),
-            (BooleanOp::Or(args), i) if i < args.len() => Some((&args[i]).into()),
-
-            _ => None,
-        }
     }
 
     fn is_true(&self) -> bool {

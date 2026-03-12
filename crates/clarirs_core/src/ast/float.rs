@@ -118,94 +118,23 @@ impl<'a, 'c> ExactSizeIterator for FloatOpChildIter<'a, 'c> {
     }
 }
 
-impl std::hash::Hash for FloatOp<'_> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        "float".hash(state);
-        match self {
-            FloatOp::FPS(s, sort) => {
-                0.hash(state);
-                s.hash(state);
-                sort.hash(state);
-            }
-            FloatOp::FPV(f) => {
-                1.hash(state);
-                f.hash(state);
-            }
-            FloatOp::FpNeg(a) => {
-                2.hash(state);
-                a.hash(state);
-            }
-            FloatOp::FpAbs(a) => {
-                3.hash(state);
-                a.hash(state);
-            }
-            FloatOp::FpAdd(a, b, rm) => {
-                4.hash(state);
-                a.hash(state);
-                b.hash(state);
-                rm.hash(state);
-            }
-            FloatOp::FpSub(a, b, rm) => {
-                5.hash(state);
-                a.hash(state);
-                b.hash(state);
-                rm.hash(state);
-            }
-            FloatOp::FpMul(a, b, rm) => {
-                6.hash(state);
-                a.hash(state);
-                b.hash(state);
-                rm.hash(state);
-            }
-            FloatOp::FpDiv(a, b, rm) => {
-                7.hash(state);
-                a.hash(state);
-                b.hash(state);
-                rm.hash(state);
-            }
-            FloatOp::FpSqrt(a, rm) => {
-                8.hash(state);
-                a.hash(state);
-                rm.hash(state);
-            }
-            FloatOp::FpToFp(a, sort, rm) => {
-                9.hash(state);
-                a.hash(state);
-                sort.hash(state);
-                rm.hash(state);
-            }
-            FloatOp::FpFP(sign, exp, sig) => {
-                10.hash(state);
-                sign.hash(state);
-                exp.hash(state);
-                sig.hash(state);
-            }
-            FloatOp::BvToFp(a, sort) => {
-                11.hash(state);
-                a.hash(state);
-                sort.hash(state);
-            }
-            FloatOp::BvToFpSigned(a, sort, rm) => {
-                12.hash(state);
-                a.hash(state);
-                sort.hash(state);
-                rm.hash(state);
-            }
-            FloatOp::BvToFpUnsigned(a, sort, rm) => {
-                13.hash(state);
-                a.hash(state);
-                sort.hash(state);
-                rm.hash(state);
-            }
-            FloatOp::ITE(a, b, c) => {
-                14.hash(state);
-                a.hash(state);
-                b.hash(state);
-                c.hash(state);
-            }
-        }
-    }
-}
+impl_op_hash!(FloatOp, "float",
+    FPS(s, sort) => 0,
+    FPV(f) => 1,
+    FpNeg(a) => 2,
+    FpAbs(a) => 3,
+    FpAdd(a, b, rm) => 4,
+    FpSub(a, b, rm) => 5,
+    FpMul(a, b, rm) => 6,
+    FpDiv(a, b, rm) => 7,
+    FpSqrt(a, rm) => 8,
+    FpToFp(a, sort, rm) => 9,
+    FpFP(sign, exp, sig) => 10,
+    BvToFp(a, sort) => 11,
+    BvToFpSigned(a, sort, rm) => 12,
+    BvToFpUnsigned(a, sort, rm) => 13,
+    ITE(a, b, c) => 14,
+);
 
 impl<'c> Op<'c> for FloatOp<'c> {
     type ChildIter<'a>
@@ -215,44 +144,6 @@ impl<'c> Op<'c> for FloatOp<'c> {
 
     fn child_iter(&self) -> Self::ChildIter<'_> {
         FloatOp::child_iter(self)
-    }
-
-    fn get_child(&self, index: usize) -> Option<DynAst<'c>> {
-        match (self, index) {
-            // 1 child variants - index 0
-            (FloatOp::FpNeg(a), 0)
-            | (FloatOp::FpAbs(a), 0)
-            | (FloatOp::FpSqrt(a, _), 0)
-            | (FloatOp::FpToFp(a, _, _), 0) => Some(a.into()),
-
-            (FloatOp::BvToFp(a, _), 0)
-            | (FloatOp::BvToFpSigned(a, _, _), 0)
-            | (FloatOp::BvToFpUnsigned(a, _, _), 0) => Some(a.into()),
-
-            // 2 child variants - index 0 (first child)
-            (FloatOp::FpAdd(a, _, _), 0)
-            | (FloatOp::FpSub(a, _, _), 0)
-            | (FloatOp::FpMul(a, _, _), 0)
-            | (FloatOp::FpDiv(a, _, _), 0) => Some(a.into()),
-
-            // 2 child variants - index 1 (second child)
-            (FloatOp::FpAdd(_, b, _), 1)
-            | (FloatOp::FpSub(_, b, _), 1)
-            | (FloatOp::FpMul(_, b, _), 1)
-            | (FloatOp::FpDiv(_, b, _), 1) => Some(b.into()),
-
-            // 3 child variants - FpFP(sign, exp, sig)
-            (FloatOp::FpFP(sign, _, _), 0) => Some(sign.into()),
-            (FloatOp::FpFP(_, exp, _), 1) => Some(exp.into()),
-            (FloatOp::FpFP(_, _, sig), 2) => Some(sig.into()),
-
-            // 3 child variants - If(cond, then, else)
-            (FloatOp::ITE(a, _, _), 0) => Some(a.into()),
-            (FloatOp::ITE(_, b, _), 1) => Some(b.into()),
-            (FloatOp::ITE(_, _, c), 2) => Some(c.into()),
-
-            _ => None,
-        }
     }
 
     fn variables(&self) -> BTreeSet<InternedString> {
