@@ -31,6 +31,7 @@ pub fn walk_post_order<'c, T>(
     struct NodeState<'c, T> {
         node: DynAst<'c>,
         children_processed: usize,
+        num_children: usize,
         child_results: Vec<T>,
     }
 
@@ -38,32 +39,34 @@ pub fn walk_post_order<'c, T>(
     let mut result_queue = VecDeque::new();
 
     // Start with the root node
+    let num_children = ast.child_iter().len();
     stack.push(NodeState {
         node: ast,
         children_processed: 0,
+        num_children,
         child_results: Vec::new(),
     });
 
     while let Some(mut state) = stack.pop() {
-        let children: Vec<_> = state.node.child_iter().collect();
-
-        if state.children_processed == children.len() {
+        if state.children_processed == state.num_children {
             // All children processed, process this node
             result_queue.push_back(cache.get_or_insert(state.node.inner_hash(), || {
                 callback(state.node.clone(), &state.child_results)
             })?);
         } else {
             // Process next child
-            let child_idx = state.children_processed;
+            let child = state.node.get_child(state.children_processed).unwrap();
             state.children_processed += 1;
 
             // Push parent back on stack
             stack.push(state);
 
             // Push child on stack
+            let num_children = child.child_iter().len();
             stack.push(NodeState {
-                node: children[child_idx].clone(),
+                node: child,
                 children_processed: 0,
+                num_children,
                 child_results: Vec::new(),
             });
         }
