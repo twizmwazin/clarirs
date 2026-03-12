@@ -22,6 +22,26 @@ fn extract_bitvec_child<'c>(
         .ok_or(ClarirsError::InvalidArguments)
 }
 
+fn extract_float_child<'c>(
+    children: &[DynAst<'c>],
+    index: usize,
+) -> Result<FloatAst<'c>, ClarirsError> {
+    children
+        .get(index)
+        .and_then(|child| child.clone().into_float())
+        .ok_or(ClarirsError::InvalidArguments)
+}
+
+fn extract_string_child<'c>(
+    children: &[DynAst<'c>],
+    index: usize,
+) -> Result<StringAst<'c>, ClarirsError> {
+    children
+        .get(index)
+        .and_then(|child| child.clone().into_string())
+        .ok_or(ClarirsError::InvalidArguments)
+}
+
 /// Trait for excavating if-then-else expressions to the top level of an AST.
 ///
 /// This transformation takes an AST containing nested ITE expressions and returns
@@ -45,8 +65,8 @@ impl<'c> ExcavateIte<'c> for DynAst<'c> {
             |node, children| match node {
                 DynAst::Boolean(ast) => bool::excavate_ite(&ast, children).map(DynAst::Boolean),
                 DynAst::BitVec(ast) => bitvec::excavate_ite(&ast, children).map(DynAst::BitVec),
-                DynAst::Float(_) => todo!("Implement ite excavation for FloatAst"),
-                DynAst::String(_) => todo!("Implement ite excavation for StringAst"),
+                DynAst::Float(ast) => float::excavate_ite(&ast, children).map(DynAst::Float),
+                DynAst::String(ast) => string::excavate_ite(&ast, children).map(DynAst::String),
             },
             &self.context().excavate_ite_cache,
         )
@@ -91,6 +111,8 @@ impl<'c> ExcavateIte<'c> for StringAst<'c> {
 
 mod bitvec;
 mod bool;
+mod float;
+mod string;
 
 #[cfg(test)]
 mod tests;

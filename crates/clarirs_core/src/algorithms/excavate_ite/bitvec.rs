@@ -1,4 +1,4 @@
-use super::{extract_bitvec_child, extract_bool_child};
+use super::{extract_bitvec_child, extract_bool_child, extract_float_child, extract_string_child};
 use crate::prelude::*;
 
 pub(crate) fn excavate_ite<'c>(
@@ -415,11 +415,93 @@ pub(crate) fn excavate_ite<'c>(
                 Ok(ctx.byte_reverse(ast)?)
             }
         }
-        BitVecOp::FpToIEEEBV(..) | BitVecOp::FpToUBV(..) | BitVecOp::FpToSBV(..) => {
-            todo!("excavate_ite for float ops")
+        BitVecOp::FpToIEEEBV(..) => {
+            let inner = extract_float_child(children, 0)?;
+
+            if let FloatOp::ITE(cond, then_, else_) = inner.op() {
+                Ok(ctx.ite(
+                    cond,
+                    ctx.fp_to_ieeebv(then_)?,
+                    ctx.fp_to_ieeebv(else_)?,
+                )?)
+            } else {
+                Ok(ctx.fp_to_ieeebv(inner)?)
+            }
         }
-        BitVecOp::StrLen(..) | BitVecOp::StrIndexOf(..) | BitVecOp::StrToBV(..) => {
-            todo!("excavate_ite for string ops")
+        BitVecOp::FpToUBV(_, width, rm) => {
+            let width = *width;
+            let rm = *rm;
+            let inner = extract_float_child(children, 0)?;
+
+            if let FloatOp::ITE(cond, then_, else_) = inner.op() {
+                Ok(ctx.ite(
+                    cond,
+                    ctx.fp_to_ubv(then_, width, rm)?,
+                    ctx.fp_to_ubv(else_, width, rm)?,
+                )?)
+            } else {
+                Ok(ctx.fp_to_ubv(inner, width, rm)?)
+            }
+        }
+        BitVecOp::FpToSBV(_, width, rm) => {
+            let width = *width;
+            let rm = *rm;
+            let inner = extract_float_child(children, 0)?;
+
+            if let FloatOp::ITE(cond, then_, else_) = inner.op() {
+                Ok(ctx.ite(
+                    cond,
+                    ctx.fp_to_sbv(then_, width, rm)?,
+                    ctx.fp_to_sbv(else_, width, rm)?,
+                )?)
+            } else {
+                Ok(ctx.fp_to_sbv(inner, width, rm)?)
+            }
+        }
+        BitVecOp::StrLen(..) => {
+            let inner = extract_string_child(children, 0)?;
+
+            if let StringOp::ITE(cond, then_, else_) = inner.op() {
+                Ok(ctx.ite(cond, ctx.str_len(then_)?, ctx.str_len(else_)?)?)
+            } else {
+                Ok(ctx.str_len(inner)?)
+            }
+        }
+        BitVecOp::StrIndexOf(..) => {
+            let base = extract_string_child(children, 0)?;
+            let substr = extract_string_child(children, 1)?;
+            let offset = extract_bitvec_child(children, 2)?;
+
+            if let StringOp::ITE(cond, then_, else_) = base.op() {
+                Ok(ctx.ite(
+                    cond,
+                    ctx.str_index_of(then_, &substr, &offset)?,
+                    ctx.str_index_of(else_, substr, offset)?,
+                )?)
+            } else if let StringOp::ITE(cond, then_, else_) = substr.op() {
+                Ok(ctx.ite(
+                    cond,
+                    ctx.str_index_of(&base, then_, &offset)?,
+                    ctx.str_index_of(base, else_, offset)?,
+                )?)
+            } else if let BitVecOp::ITE(cond, then_, else_) = offset.op() {
+                Ok(ctx.ite(
+                    cond,
+                    ctx.str_index_of(&base, &substr, then_)?,
+                    ctx.str_index_of(base, substr, else_)?,
+                )?)
+            } else {
+                Ok(ctx.str_index_of(base, substr, offset)?)
+            }
+        }
+        BitVecOp::StrToBV(..) => {
+            let inner = extract_string_child(children, 0)?;
+
+            if let StringOp::ITE(cond, then_, else_) = inner.op() {
+                Ok(ctx.ite(cond, ctx.str_to_bv(then_)?, ctx.str_to_bv(else_)?)?)
+            } else {
+                Ok(ctx.str_to_bv(inner)?)
+            }
         }
         BitVecOp::ITE(..) => {
             let cond = extract_bool_child(children, 0)?;
