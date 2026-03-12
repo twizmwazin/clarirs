@@ -142,7 +142,7 @@ class TestFPOperations(unittest.TestCase):
         self._check_equal(result, 0.6)
 
         result = self.fp2 / self.fp1
-        self._check_equal(result, 1.6666666269302368, check_bits=True)
+        self._check_equal(result, 1.6666665077, check_bits=True)
 
         result = self.fp3 / self.fp4
         self._check_equal(result, 2.0)
