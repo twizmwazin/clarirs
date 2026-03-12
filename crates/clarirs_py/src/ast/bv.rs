@@ -331,10 +331,19 @@ impl BV {
 
     #[getter]
     pub fn concrete_value(&self) -> Result<Option<BigUint>, ClaripyError> {
-        Ok(match self.inner.simplify_ext(false, false)?.op() {
-            BitVecOp::BVV(bv) => Some(bv.to_biguint()),
-            _ => None,
-        })
+        let simplified = self.inner.simplify_ext(false, true)?;
+        match simplified.op() {
+            BitVecOp::BVV(bv) => Ok(Some(bv.to_biguint())),
+            BitVecOp::UDiv(_, b) | BitVecOp::SDiv(_, b) => {
+                if let BitVecOp::BVV(v) = b.op()
+                    && v.is_zero()
+                {
+                    return Err(ClaripyError::DivisionByZero);
+                }
+                Ok(None)
+            }
+            _ => Ok(None),
+        }
     }
 
     pub fn __getitem__<'py>(

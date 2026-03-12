@@ -369,8 +369,23 @@ impl Float {
 
     pub fn sqrt(&self) -> Self {
         match self {
-            Float::F32(f) => Float::F32(f.sqrt()),
-            Float::F64(f) => Float::F64(f.sqrt()),
+            Float::F32(f) => {
+                let result = f.sqrt();
+                // Canonicalize NaN to positive quiet NaN for cross-platform consistency
+                if result.is_nan() {
+                    Float::F32(f32::NAN)
+                } else {
+                    Float::F32(result)
+                }
+            }
+            Float::F64(f) => {
+                let result = f.sqrt();
+                if result.is_nan() {
+                    Float::F64(f64::NAN)
+                } else {
+                    Float::F64(result)
+                }
+            }
         }
     }
 

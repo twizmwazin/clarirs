@@ -2962,7 +2962,6 @@ impl StridedInterval {
         }
     }
 
-    /// Zero-extend the interval to a new bit width
     /// Zero-extend the interval by `extra_bits` additional bits.
     ///
     /// This matches the semantics of `BitVecOp::ZeroExt(_, amount)` where
