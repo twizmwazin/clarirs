@@ -41,19 +41,11 @@ pub enum BitVecError {
 pub struct BitVec {
     words: SmallVec<[u64; 1]>,
     length: u32,
-    #[serde(skip)] // TODO: This needs to be recalculated when deserializing
-    final_word_mask: u64,
 }
 
 impl BitVec {
     pub fn new(mut words: SmallVec<[u64; 1]>, length: u32) -> Result<Self, BitVecError> {
-        // Calculate mask for the final word - keep all valid bits
-        let bits_in_last_word = length % 64;
-        let final_word_mask = if bits_in_last_word == 0 {
-            u64::MAX
-        } else {
-            (1u64 << bits_in_last_word) - 1
-        };
+        let final_word_mask = Self::compute_final_word_mask(length);
 
         // Calculate the expected number of words based on length
         let expected_words = length.div_ceil(64) as usize;
@@ -71,11 +63,20 @@ impl BitVec {
             }
         }
 
-        Ok(Self {
-            words,
-            length,
-            final_word_mask,
-        })
+        Ok(Self { words, length })
+    }
+
+    fn compute_final_word_mask(length: u32) -> u64 {
+        let bits_in_last_word = length % 64;
+        if bits_in_last_word == 0 {
+            u64::MAX
+        } else {
+            (1u64 << bits_in_last_word) - 1
+        }
+    }
+
+    fn final_word_mask(&self) -> u64 {
+        Self::compute_final_word_mask(self.length)
     }
 
     // From Conversions
@@ -298,7 +299,7 @@ impl BitVec {
         for (i, &word) in self.words.iter().enumerate() {
             if i == self.words.len() - 1 {
                 // For the final word, apply the final_word_mask
-                if word != self.final_word_mask {
+                if word != self.final_word_mask() {
                     return false;
                 }
             } else {
@@ -336,7 +337,7 @@ impl BitVec {
                 }
             } else if i == self.words.len() - 1 {
                 // For the last word, apply the final_word_mask
-                if word & self.final_word_mask != 0 {
+                if word & self.final_word_mask() != 0 {
                     return false;
                 }
             } else {

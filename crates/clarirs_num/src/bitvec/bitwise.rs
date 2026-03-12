@@ -12,7 +12,7 @@ impl Not for BitVec {
         if !self.length.is_multiple_of(64)
             && let Some(w) = new_bv.last_mut()
         {
-            *w &= self.final_word_mask;
+            *w &= self.final_word_mask();
         }
         BitVec::new(new_bv, self.length)
     }
