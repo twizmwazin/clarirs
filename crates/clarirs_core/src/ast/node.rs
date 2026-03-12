@@ -88,10 +88,13 @@ impl<'c, O: Op<'c> + Serialize + SupportsAnnotate<'c>> AstNode<'c, O> {
     ) -> Self {
         let variables = op.variables();
         let depth = op.depth();
-        // Symbolic propagates from: having variables, the op itself being symbolic
-        // (e.g. VSA Union/Intersection/Widen), or any child being symbolic
-        let symbolic =
-            !variables.is_empty() || op.symbolic() || op.child_iter().any(|c| c.symbolic());
+        // Symbolic propagates from: having variables, the op itself being inherently
+        // symbolic (e.g. VSA Union/Intersection/Widen), or any child being symbolic.
+        // Uses is_inherently_symbolic() instead of symbolic() to avoid redundantly
+        // recomputing variables() which was already called above.
+        let symbolic = !variables.is_empty()
+            || op.is_inherently_symbolic()
+            || op.child_iter().any(|c| c.symbolic());
 
         Self {
             op,
@@ -165,6 +168,10 @@ impl<'c, O: Op<'c>> Op<'c> for AstNode<'c, O> {
 
     fn symbolic(&self) -> bool {
         self.symbolic
+    }
+
+    fn concrete(&self) -> bool {
+        !self.symbolic
     }
 
     fn variables(&self) -> BTreeSet<InternedString> {
@@ -318,6 +325,19 @@ impl<'c> Op<'c> for DynAst<'c> {
             DynAst::Boolean(ast) => ast.is_false(),
             _ => false,
         }
+    }
+
+    fn symbolic(&self) -> bool {
+        match self {
+            DynAst::Boolean(ast) => ast.symbolic(),
+            DynAst::BitVec(ast) => ast.symbolic(),
+            DynAst::Float(ast) => ast.symbolic(),
+            DynAst::String(ast) => ast.symbolic(),
+        }
+    }
+
+    fn concrete(&self) -> bool {
+        !self.symbolic()
     }
 
     fn variables(&self) -> BTreeSet<InternedString> {
