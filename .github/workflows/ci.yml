@@ -6,7 +6,7 @@ on:
 
 jobs:
   formatting:
-    name: cargo fmt
+    name: Formatting
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,7 +22,7 @@ jobs:
         uses: actions-rust-lang/rustfmt@v1
 
   clippy:
-    name: cargo clippy
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -55,7 +55,7 @@ jobs:
           CXX: "clang++"
 
   test:
-    name: Test on ${{ matrix.os }}
+    name: Rust Tests (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -98,7 +98,7 @@ jobs:
         run: cargo test --all-features --no-fail-fast
 
   build-wheels:
-    name: Building wheel files on ${{ matrix.os }}
+    name: Python Wheel (${{ matrix.os }}, py${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
