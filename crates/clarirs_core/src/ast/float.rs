@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 
 use serde::Serialize;
 
+use crate::ast::op::impl_op_hash;
 use crate::prelude::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -119,21 +120,21 @@ impl<'a, 'c> ExactSizeIterator for FloatOpChildIter<'a, 'c> {
 }
 
 impl_op_hash!(FloatOp, "float",
-    FPS(s, sort) => 0,
-    FPV(f) => 1,
-    FpNeg(a) => 2,
-    FpAbs(a) => 3,
-    FpAdd(a, b, rm) => 4,
-    FpSub(a, b, rm) => 5,
-    FpMul(a, b, rm) => 6,
-    FpDiv(a, b, rm) => 7,
-    FpSqrt(a, rm) => 8,
-    FpToFp(a, sort, rm) => 9,
-    FpFP(sign, exp, sig) => 10,
-    BvToFp(a, sort) => 11,
-    BvToFpSigned(a, sort, rm) => 12,
-    BvToFpUnsigned(a, sort, rm) => 13,
-    ITE(a, b, c) => 14,
+    FPS(s, sort),
+    FPV(f),
+    FpNeg(a),
+    FpAbs(a),
+    FpAdd(a, b, rm),
+    FpSub(a, b, rm),
+    FpMul(a, b, rm),
+    FpDiv(a, b, rm),
+    FpSqrt(a, rm),
+    FpToFp(a, sort, rm),
+    FpFP(sign, exp, sig),
+    BvToFp(a, sort),
+    BvToFpSigned(a, sort, rm),
+    BvToFpUnsigned(a, sort, rm),
+    ITE(a, b, c),
 );
 
 impl<'c> Op<'c> for FloatOp<'c> {

@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 
 use serde::Serialize;
 
+use crate::ast::op::impl_op_hash;
 use crate::prelude::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -89,13 +90,13 @@ impl<'a, 'c> ExactSizeIterator for StringOpChildIter<'a, 'c> {
 }
 
 impl_op_hash!(StringOp, "string",
-    StringS(s) => 0,
-    StringV(s) => 1,
-    StrConcat(a, b) => 2,
-    StrSubstr(a, b, c) => 3,
-    StrReplace(a, b, c) => 4,
-    BVToStr(a) => 5,
-    ITE(a, b, c) => 6,
+    StringS(s),
+    StringV(s),
+    StrConcat(a, b),
+    StrSubstr(a, b, c),
+    StrReplace(a, b, c),
+    BVToStr(a),
+    ITE(a, b, c),
 );
 
 impl<'c> Op<'c> for StringOp<'c> {

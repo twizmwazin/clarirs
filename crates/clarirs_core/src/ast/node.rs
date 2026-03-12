@@ -205,7 +205,9 @@ pub enum DynAstChildIter<'a, 'c> {
     String(StringOpChildIter<'a, 'c>),
 }
 
-/// Dispatches a method call across all DynAst variants.
+/// Dispatches a method call across all DynAst variants. This must be a macro
+/// rather than a function because each variant has a different concrete type
+/// (BoolAst, BitVecAst, etc.), and Rust closures cannot be generic over them.
 macro_rules! dynast_dispatch {
     ($self:expr, |$ast:ident| $body:expr) => {
         match $self {
@@ -217,7 +219,8 @@ macro_rules! dynast_dispatch {
     };
 }
 
-/// Dispatches a method call across all DynAstChildIter variants.
+/// Dispatches a method call across all DynAstChildIter variants. Same reasoning
+/// as `dynast_dispatch!` for why this is a macro.
 macro_rules! dynast_iter_dispatch {
     ($self:expr, |$iter:ident| $body:expr) => {
         match $self {

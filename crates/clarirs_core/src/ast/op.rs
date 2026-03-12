@@ -7,18 +7,18 @@ use serde::Serialize;
 use crate::prelude::*;
 
 /// Generates a `Hash` impl for an Op enum. Each variant hashes a domain string,
-/// a discriminant, and all its fields.
+/// its discriminant (via `std::mem::discriminant`), and all its fields.
 ///
-/// Syntax: `impl_op_hash!(OpType, "domain", Variant1(f1, f2) => disc1, ...)`
+/// Syntax: `impl_op_hash!(OpType, "domain", Variant1(f1, f2), Variant2(f3), ...)`
 macro_rules! impl_op_hash {
-    ($op:ident, $domain:expr, $( $Variant:ident( $($field:ident),* ) => $disc:expr ),* $(,)?) => {
+    ($op:ident, $domain:expr, $( $Variant:ident( $($field:ident),* ) ),* $(,)?) => {
         impl std::hash::Hash for $op<'_> {
             fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
                 $domain.hash(state);
+                std::mem::discriminant(self).hash(state);
                 match self {
                     $(
                         $op::$Variant( $($field),* ) => {
-                            ($disc as u32).hash(state);
                             $( $field.hash(state); )*
                         }
                     )*
