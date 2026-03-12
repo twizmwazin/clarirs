@@ -1,20 +1,13 @@
 #![allow(non_snake_case)]
 
-use std::{
-    collections::{BTreeSet, HashMap},
-    sync::{
-        LazyLock,
-        atomic::{AtomicUsize, Ordering},
-    },
-};
+use std::sync::LazyLock;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
-use clarirs_core::algorithms::{canonicalize, structurally_match};
 use clarirs_core::ast::float::{FloatExt, FloatOpExt};
 use dashmap::DashMap;
-use pyo3::types::{PyFrozenSet, PyTuple, PyWeakrefReference};
+use pyo3::types::{PyTuple, PyWeakrefReference};
 
 use crate::prelude::*;
-use clarirs_core::smtlib::ToSmtLib;
 
 static FPS_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static PY_FP_CACHE: LazyLock<DashMap<u64, Py<PyWeakrefReference>>> = LazyLock::new(DashMap::new);
@@ -144,42 +137,17 @@ pub struct FP {
     pub(crate) inner: FloatAst<'static>,
 }
 
-impl FP {
-    pub fn new<'py>(
-        py: Python<'py>,
-        inner: &FloatAst<'static>,
-    ) -> Result<Bound<'py, FP>, ClaripyError> {
-        Self::new_with_name(py, inner, None)
-    }
-
-    pub fn new_with_name<'py>(
-        py: Python<'py>,
-        inner: &FloatAst<'static>,
-        name: Option<String>,
-    ) -> Result<Bound<'py, FP>, ClaripyError> {
-        let inner = &inner.simplify()?;
-        if let Some(cache_hit) = PY_FP_CACHE.get(&inner.hash()).and_then(|cache_hit| {
-            cache_hit
-                .bind(py)
-                .upgrade_as::<FP>()
-                .expect("bool cache poisoned")
-        }) {
-            Ok(cache_hit)
-        } else {
-            let this = Py::new(
-                py,
-                PyClassInitializer::from(Base::new_with_name(py, name))
-                    .add_subclass(Bits::new())
-                    .add_subclass(FP {
-                        inner: inner.clone(),
-                    }),
-            )?;
-            let weakref = PyWeakrefReference::new(this.bind(py))?;
-            PY_FP_CACHE.insert(inner.hash(), weakref.unbind());
-
-            Ok(this.into_bound(py))
-        }
-    }
+impl_py_ast_common! {
+    type: FP,
+    inner_type: FloatAst<'static>,
+    cache: PY_FP_CACHE,
+    simplify: |inner| inner.simplify()?,
+    make_annotated: make_float_annotated,
+    make_clear: make_float,
+    dynast_variant: Float,
+    dynast_into: into_float,
+    canon_name: "Float",
+    init_chain: Base => Bits => FP,
 }
 
 #[pymethods]
@@ -246,13 +214,10 @@ impl FP {
                 GLOBAL_CONTEXT.fp_sqrt(&args[0].cast_bound::<FP>(py)?.get().inner, rm)?
             }
             "fpToFP" => {
-                // Polymorphic: (RM, FP, FSort) or (BV, FSort)
                 if args.len() == 2 {
-                    // (BV, FSort) case - BV to FP conversion
                     let sort: FSort = args[1].extract::<PyFSort>(py)?.into();
                     GLOBAL_CONTEXT.bv_to_fp(&args[0].cast_bound::<BV>(py)?.get().inner, sort)?
                 } else {
-                    // (RM, FP, FSort) case - FP to FP conversion
                     let rm: FPRM = args[0].extract::<PyRM>(py)?.into();
                     let sort: FSort = args[2].extract::<PyFSort>(py)?.into();
                     GLOBAL_CONTEXT.fp_to_fp(&args[1].cast_bound::<FP>(py)?.get().inner, sort, rm)?
@@ -284,125 +249,6 @@ impl FP {
         Ok(FP::new(py, &inner_with_annotations)?.unbind())
     }
 
-    #[getter]
-    pub fn op(&self) -> String {
-        self.inner.to_opstring()
-    }
-
-    #[getter]
-    pub fn args<'py>(&self, py: Python<'py>) -> Result<Vec<Bound<'py, PyAny>>, ClaripyError> {
-        self.inner.extract_py_args(py)
-    }
-
-    #[getter]
-    pub fn variables<'py>(&self, py: Python<'py>) -> Result<Bound<'py, PyFrozenSet>, ClaripyError> {
-        Ok(PyFrozenSet::new(
-            py,
-            self.inner
-                .variables()
-                .iter()
-                .map(|v| v.as_str().into_py_any(py))
-                .collect::<Result<Vec<_>, _>>()?
-                .iter(),
-        )?)
-    }
-
-    #[getter]
-    pub fn symbolic(&self) -> bool {
-        self.inner.symbolic()
-    }
-
-    #[getter]
-    pub fn concrete(&self) -> bool {
-        !self.inner.symbolic()
-    }
-
-    #[getter]
-    pub fn annotations(&self) -> PyResult<Vec<PyAnnotation>> {
-        Ok(self
-            .inner
-            .annotations()
-            .iter()
-            .cloned()
-            .map(PyAnnotation::from)
-            .collect())
-    }
-
-    pub fn hash(&self) -> u64 {
-        self.inner.hash()
-    }
-
-    pub fn __hash__(&self) -> usize {
-        self.hash() as usize
-    }
-
-    pub fn __repr__(&self) -> String {
-        self.inner.to_smtlib()
-    }
-
-    #[allow(clippy::type_complexity)]
-    pub fn canonicalize<'py>(
-        &self,
-        py: Python<'py>,
-    ) -> Result<(HashMap<u64, Bound<'py, PyAny>>, usize, Bound<'py, FP>), ClaripyError> {
-        let (replacement_map, counter, canonical) = canonicalize(&self.inner.clone().into())?;
-        let canonical_fp = FP::new(
-            py,
-            &canonical
-                .into_float()
-                .ok_or(ClaripyError::InvalidOperation(
-                    "Canonicalization did not produce a Float".to_string(),
-                ))?,
-        )?;
-
-        let mut py_map = HashMap::new();
-        for (hash, dynast) in replacement_map {
-            let py_ast = Base::from_dynast(py, dynast)?;
-            py_map.insert(hash, py_ast.into_any());
-        }
-
-        Ok((py_map, counter, canonical_fp))
-    }
-
-    pub fn identical(&self, other: Bound<'_, Base>) -> Result<bool, ClaripyError> {
-        let other_dyn = Base::to_dynast(other)?;
-        Ok(structurally_match(
-            &DynAst::Float(self.inner.clone()),
-            &other_dyn,
-        )?)
-    }
-
-    #[getter]
-    pub fn depth(&self) -> u32 {
-        self.inner.depth()
-    }
-
-    pub fn is_leaf(&self) -> bool {
-        self.inner.depth() == 1
-    }
-
-    #[pyo3(signature = (respect_annotations=true))]
-    pub fn simplify<'py>(
-        &self,
-        py: Python<'py>,
-        respect_annotations: bool,
-    ) -> Result<Bound<'py, FP>, ClaripyError> {
-        FP::new(py, &self.inner.simplify_ext(respect_annotations, false)?)
-    }
-
-    pub fn replace<'py>(
-        &self,
-        py: Python<'py>,
-        from: Bound<'py, Base>,
-        to: Bound<'py, Base>,
-    ) -> Result<Bound<'py, FP>, ClaripyError> {
-        use clarirs_core::algorithms::Replace;
-        let from_ast = Base::to_dynast(from)?;
-        let to_ast = Base::to_dynast(to)?;
-        let replaced = self.inner.replace(&from_ast, &to_ast)?;
-        FP::new(py, &replaced)
-    }
-
     pub fn size(&self) -> usize {
         self.inner.size() as usize
     }
@@ -417,176 +263,6 @@ impl FP {
             FloatOp::FPV(value) => value.to_f64(),
             _ => None,
         })
-    }
-
-    pub fn has_annotation_type(
-        &self,
-        annotation_type: PyAnnotationType,
-    ) -> Result<bool, ClaripyError> {
-        Ok(self
-            .annotations()?
-            .iter()
-            .any(|annotation| annotation_type.matches(annotation.0.type_())))
-    }
-
-    pub fn get_annotations_by_type(
-        &self,
-        annotation_type: PyAnnotationType,
-    ) -> Result<Vec<PyAnnotation>, ClaripyError> {
-        Ok(self
-            .annotations()?
-            .into_iter()
-            .filter(|annotation| annotation_type.matches(annotation.0.type_()))
-            .collect())
-    }
-
-    pub fn get_annotation(
-        &self,
-        annotation_type: PyAnnotationType,
-    ) -> Result<Option<PyAnnotation>, ClaripyError> {
-        Ok(self
-            .annotations()?
-            .into_iter()
-            .find(|annotation| annotation_type.matches(annotation.0.type_())))
-    }
-
-    pub fn append_annotation<'py>(
-        &self,
-        py: Python<'py>,
-        annotation: PyAnnotation,
-    ) -> Result<Bound<'py, Self>, ClaripyError> {
-        let new_annotations = self
-            .inner
-            .annotations()
-            .iter()
-            .cloned()
-            .chain([annotation.0.clone()]);
-        Self::new(py, &GLOBAL_CONTEXT.annotate(&self.inner, new_annotations)?)
-    }
-
-    pub fn append_annotations<'py>(
-        &self,
-        py: Python<'py>,
-        annotations: Vec<PyAnnotation>,
-    ) -> Result<Bound<'py, Self>, ClaripyError> {
-        let new_annotations = self
-            .inner
-            .annotations()
-            .iter()
-            .cloned()
-            .chain(annotations.into_iter().map(|a| a.0));
-        Self::new(py, &GLOBAL_CONTEXT.annotate(&self.inner, new_annotations)?)
-    }
-
-    #[pyo3(signature = (*annotations, remove_annotations = None))]
-    pub fn annotate<'py>(
-        &self,
-        py: Python<'py>,
-        annotations: Vec<PyAnnotation>,
-        remove_annotations: Option<Vec<PyAnnotation>>,
-    ) -> Result<Bound<'py, Self>, ClaripyError> {
-        let new_annotations = self
-            .annotations()?
-            .iter()
-            .filter(|a| {
-                if let Some(remove_annotations) = &remove_annotations {
-                    !remove_annotations.iter().any(|ra| ra.0 == a.0)
-                } else {
-                    true
-                }
-            })
-            .map(|a| a.0.clone())
-            .chain(annotations.into_iter().map(|a| a.0))
-            .collect();
-        let inner = self
-            .inner
-            .context()
-            .make_float_annotated(self.inner.op().clone(), new_annotations)?;
-        Self::new(py, &inner)
-    }
-
-    pub fn insert_annotations<'py>(
-        &self,
-        py: Python<'py>,
-        annotations: Vec<PyAnnotation>,
-    ) -> Result<Bound<'py, Self>, ClaripyError> {
-        Self::new(
-            py,
-            &GLOBAL_CONTEXT.annotate(&self.inner, annotations.into_iter().map(|a| a.0))?,
-        )
-    }
-
-    /// This actually just removes all annotations and adds the new ones.
-    pub fn replace_annotations<'py>(
-        &self,
-        py: Python<'py>,
-        annotations: Vec<PyAnnotation>,
-    ) -> Result<Bound<'py, Self>, ClaripyError> {
-        let inner = self.inner.context().make_float_annotated(
-            self.inner.op().clone(),
-            annotations.into_iter().map(|a| a.0).collect(),
-        )?;
-        Self::new(py, &inner)
-    }
-
-    pub fn remove_annotation<'py>(
-        &self,
-        py: Python<'py>,
-        annotation: PyAnnotation,
-    ) -> Result<Bound<'py, Self>, ClaripyError> {
-        let inner = self.inner.context().make_float_annotated(
-            self.inner.op().clone(),
-            self.inner
-                .annotations()
-                .iter()
-                .filter(|a| **a != annotation.0)
-                .cloned()
-                .collect(),
-        )?;
-        Self::new(py, &inner)
-    }
-
-    pub fn remove_annotations<'py>(
-        &self,
-        py: Python<'py>,
-        annotations: Vec<PyAnnotation>,
-    ) -> Result<Bound<'py, Self>, ClaripyError> {
-        let annotations_set: BTreeSet<_> = annotations.into_iter().map(|a| a.0).collect();
-        let inner = self.inner.context().make_float_annotated(
-            self.inner.op().clone(),
-            self.inner
-                .annotations()
-                .iter()
-                .filter(|a| !annotations_set.contains(a))
-                .cloned()
-                .collect(),
-        )?;
-        Self::new(py, &inner)
-    }
-
-    pub fn clear_annotations<'py>(
-        &self,
-        py: Python<'py>,
-    ) -> Result<Bound<'py, Self>, ClaripyError> {
-        let inner = self.inner.context().make_float(self.inner.op().clone())?;
-        Self::new(py, &inner)
-    }
-
-    pub fn clear_annotation_type<'py>(
-        &self,
-        py: Python<'py>,
-        annotation_type: PyAnnotationType,
-    ) -> Result<Bound<'py, Self>, ClaripyError> {
-        let inner = self.inner.context().make_float_annotated(
-            self.inner.op().clone(),
-            self.inner
-                .annotations()
-                .iter()
-                .filter(|a| !annotation_type.matches(a.type_()))
-                .cloned()
-                .collect(),
-        )?;
-        Self::new(py, &inner)
     }
 
     pub fn raw_to_bv(self_: Bound<'_, FP>) -> Result<Bound<'_, BV>, ClaripyError> {
@@ -753,24 +429,6 @@ impl FP {
         )
     }
 
-    #[allow(clippy::type_complexity)]
-    pub fn __reduce__<'py>(
-        &self,
-        py: Python<'py>,
-    ) -> Result<
-        (
-            Bound<'py, PyAny>,
-            (String, Vec<Bound<'py, PyAny>>, Vec<PyAnnotation>),
-        ),
-        ClaripyError,
-    > {
-        let class = py.get_type::<FP>();
-        let op = self.op();
-        let args = self.args(py)?;
-        let annotations = self.annotations()?;
-        Ok((class.into_any(), (op, args, annotations)))
-    }
-
     #[getter]
     pub fn length(&self) -> usize {
         self.size()
@@ -863,15 +521,12 @@ pub fn FpToFP<'py>(
     py: Python<'py>,
     args: &Bound<'py, PyTuple>,
 ) -> Result<Bound<'py, FP>, ClaripyError> {
-    // Polymorphic: (RM, FP, FSort) or (BV, FSort)
     if args.len() == 2 {
-        // (BV, FSort) case
         let bv_item = args.get_item(0)?;
         let bv = bv_item.cast::<BV>()?;
         let sort: PyFSort = args.get_item(1)?.extract()?;
         FP::new(py, &GLOBAL_CONTEXT.bv_to_fp(&bv.get().inner, sort)?)
     } else if args.len() == 3 {
-        // (RM, FP, FSort) case
         let rm: PyRM = args.get_item(0)?.extract()?;
         let fp_item = args.get_item(1)?;
         let fp = fp_item.cast::<FP>()?;
@@ -992,9 +647,6 @@ pub fn FpSqrt<'py>(
     py: Python<'py>,
     args: Vec<Bound<'py, PyAny>>,
 ) -> Result<Bound<'py, FP>, ClaripyError> {
-    // fpSqrt can be called as:
-    // - fpSqrt(fp) - uses default rounding mode
-    // - fpSqrt(rm, fp) - uses specified rounding mode
     let (lhs, rm) = match args.len() {
         1 => (
             &args[0]
