@@ -64,7 +64,11 @@ pub(crate) fn to_z3(ast: &StringAst, children: &[RcAst]) -> Result<RcAst, Clarir
                 let c = child(children, 2)?;
                 RcAst::try_from(z3::mk_seq_replace(z3_ctx, **a, **b, **c))?
             }
-            StringOp::BVToStr(_) => todo!("BVToStr - no direct Z3 equivalent"),
+            StringOp::BVToStr(_) => {
+                let a = child(children, 0)?;
+                let int_val = mk_bv2int(a)?;
+                RcAst::try_from(z3::mk_int_to_str(z3_ctx, *int_val))?
+            }
             StringOp::ITE(cond, then, else_) => {
                 let cond = cond.to_z3()?;
                 let then = then.to_z3()?;
@@ -136,6 +140,23 @@ pub(crate) fn from_z3<'c>(
                         let len = BitVecAst::from_z3(ctx, len_simplified)?;
 
                         ctx.str_substr(a, offset, len)
+                    }
+                    z3::DeclKind::IntToStr => {
+                        // int.to.str(bv2int(bv)) -> BVToStr(bv)
+                        let arg0 = RcAst::try_from(z3::get_app_arg(z3_ctx, app, 0))?;
+                        let inner_app = z3::to_app(z3_ctx, *arg0);
+                        let inner_decl = z3::get_app_decl(z3_ctx, inner_app);
+                        let inner_kind = z3::get_decl_kind(z3_ctx, inner_decl);
+                        if inner_kind == z3::DeclKind::Bv2int {
+                            let bv_arg =
+                                RcAst::try_from(z3::get_app_arg(z3_ctx, inner_app, 0))?;
+                            let bv = BitVecAst::from_z3(ctx, bv_arg)?;
+                            ctx.bv_to_str(bv)
+                        } else {
+                            Err(ClarirsError::ConversionError(
+                                "expected bv2int inside int_to_str".to_string(),
+                            ))
+                        }
                     }
                     z3::DeclKind::SeqReplace => {
                         let arg0 = RcAst::try_from(z3::get_app_arg(z3_ctx, app, 0))?;

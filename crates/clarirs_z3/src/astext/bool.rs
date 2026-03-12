@@ -78,7 +78,22 @@ pub(crate) fn to_z3(ast: &BoolAst, children: &[RcAst]) -> Result<RcAst, ClarirsE
             BooleanOp::StrContains(..) => binop!(z3_ctx, children, mk_seq_contains),
             BooleanOp::StrPrefixOf(..) => binop!(z3_ctx, children, mk_seq_prefix),
             BooleanOp::StrSuffixOf(..) => binop!(z3_ctx, children, mk_seq_suffix),
-            BooleanOp::StrIsDigit(..) => todo!("StrIsDigit - no direct Z3 equivalent"),
+            BooleanOp::StrIsDigit(..) => {
+                let a = child(children, 0)?;
+                // str.to_int returns -1 for non-digit strings, so >= 0 means all digits
+                let int_val = z3::mk_str_to_int(z3_ctx, **a);
+                let int_sort = z3::mk_int_sort(z3_ctx);
+                let zero_cstr = std::ffi::CString::new("0").unwrap();
+                let zero = z3::mk_numeral(z3_ctx, zero_cstr.as_ptr(), int_sort);
+                let is_non_negative = z3::mk_ge(z3_ctx, int_val, zero);
+                // Also require non-empty string
+                let str_len = z3::mk_seq_length(z3_ctx, **a);
+                let zero_int_cstr = std::ffi::CString::new("0").unwrap();
+                let zero_int = z3::mk_numeral(z3_ctx, zero_int_cstr.as_ptr(), int_sort);
+                let is_non_empty = z3::mk_gt(z3_ctx, str_len, zero_int);
+                let args = [is_non_negative, is_non_empty];
+                z3::mk_and(z3_ctx, 2, args.as_ptr()).try_into()?
+            }
             BooleanOp::StrEq(..) => binop!(z3_ctx, children, mk_eq),
             BooleanOp::StrNeq(..) => {
                 let a = child(children, 0)?;

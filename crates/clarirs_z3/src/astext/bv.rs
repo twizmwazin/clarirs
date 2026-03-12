@@ -124,8 +124,20 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, Clarir
                 let str_len = RcAst::try_from(z3::mk_seq_length(z3_ctx, **a))?;
                 RcAst::try_from(z3::mk_int2bv(z3_ctx, 64, *str_len))?
             }
-            BitVecOp::StrIndexOf(..) => todo!("StrIndexOf"),
-            BitVecOp::StrToBV(..) => todo!("StrToBV"),
+            BitVecOp::StrIndexOf(..) => {
+                let haystack = child(children, 0)?;
+                let needle = child(children, 1)?;
+                let offset_bv = child(children, 2)?;
+                let offset_int = RcAst::try_from(z3::mk_bv2int(z3_ctx, **offset_bv, false))?;
+                let index_int =
+                    RcAst::try_from(z3::mk_seq_index(z3_ctx, **haystack, **needle, *offset_int))?;
+                RcAst::try_from(z3::mk_int2bv(z3_ctx, 64, *index_int))?
+            }
+            BitVecOp::StrToBV(..) => {
+                let a = child(children, 0)?;
+                let int_val = RcAst::try_from(z3::mk_str_to_int(z3_ctx, **a))?;
+                RcAst::try_from(z3::mk_int2bv(z3_ctx, 64, *int_val))?
+            }
             BitVecOp::Union(..) | BitVecOp::Intersection(..) | BitVecOp::Widen(..) => {
                 // These are not supported in Z3
                 return Err(ClarirsError::ConversionError(
@@ -320,9 +332,45 @@ pub(crate) fn from_z3<'c>(
                                             RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
                                         BitVecAst::from_z3(ctx, arg)
                                     }
-                                    _ => Err(ClarirsError::ConversionError(
-                                        "expected a Bv2int".to_string(),
-                                    )),
+                                    z3::DeclKind::SeqIndex => {
+                                        // int2bv(seq.indexof(haystack, needle, offset))
+                                        let arg0 =
+                                            RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
+                                        let arg1 =
+                                            RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
+                                        let arg2 =
+                                            RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 2))?;
+                                        let haystack = StringAst::from_z3(ctx, arg0)?;
+                                        let needle = StringAst::from_z3(ctx, arg1)?;
+                                        // offset is an int, convert to bv
+                                        let offset_bv = RcAst::try_from(z3::mk_int2bv(
+                                            *z3_ctx, 64, *arg2,
+                                        ))?;
+                                        let offset_simplified = RcAst::try_from(z3::simplify(
+                                            *z3_ctx, *offset_bv,
+                                        ))?;
+                                        let offset =
+                                            BitVecAst::from_z3(ctx, offset_simplified)?;
+                                        ctx.str_index_of(haystack, needle, offset)
+                                    }
+                                    z3::DeclKind::StrToInt => {
+                                        // int2bv(str.to_int(s))
+                                        let arg0 =
+                                            RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
+                                        let s = StringAst::from_z3(ctx, arg0)?;
+                                        ctx.str_to_bv(s)
+                                    }
+                                    z3::DeclKind::SeqLength => {
+                                        // int2bv(seq.len(s))
+                                        let arg0 =
+                                            RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
+                                        let s = StringAst::from_z3(ctx, arg0)?;
+                                        ctx.str_len(s)
+                                    }
+                                    _ => Err(ClarirsError::ConversionError(format!(
+                                        "unexpected inner decl kind in Int2bv: {:?}",
+                                        decl_kind,
+                                    ))),
                                 }
                             }
                             _ => Err(ClarirsError::ConversionError(
