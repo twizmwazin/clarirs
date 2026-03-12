@@ -38,15 +38,17 @@ impl std::borrow::Borrow<str> for InternedString {
 
 impl PartialEq for InternedString {
     fn eq(&self, other: &Self) -> bool {
-        // Fast pointer comparison first
-        Arc::ptr_eq(&self.0, &other.0)
+        // Fast pointer comparison first, fall back to content comparison
+        // to satisfy the contract that Eq and Ord must agree
+        Arc::ptr_eq(&self.0, &other.0) || *self.0 == *other.0
     }
 }
 
 impl Hash for InternedString {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        // Hash the pointer, not the contents, for fast hashing
-        Arc::as_ptr(&self.0).hash(state);
+        // Hash the contents so that Hash is consistent with Eq and Ord:
+        // two InternedStrings with the same content must have the same hash
+        self.0.hash(state);
     }
 }
 
