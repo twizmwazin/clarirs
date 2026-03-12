@@ -141,36 +141,6 @@ impl<'c> Op<'c> for StringOp<'c> {
         StringOp::child_iter(self)
     }
 
-    fn get_child(&self, index: usize) -> Option<DynAst<'c>> {
-        match (self, index) {
-            // 1 child variants - index 0
-            (StringOp::BVToStr(a), 0) => Some(a.into()),
-
-            // 2 child variants - index 0 (first child)
-            (StringOp::StrConcat(a, _), 0) => Some(a.into()),
-
-            // 2 child variants - index 1 (second child)
-            (StringOp::StrConcat(_, b), 1) => Some(b.into()),
-
-            // 3 child variants - StrSubstr(str, start, len)
-            (StringOp::StrSubstr(a, _, _), 0) => Some(a.into()),
-            (StringOp::StrSubstr(_, b, _), 1) => Some(b.into()),
-            (StringOp::StrSubstr(_, _, c), 2) => Some(c.into()),
-
-            // 3 child variants - StrReplace(str, from, to)
-            (StringOp::StrReplace(a, _, _), 0) => Some(a.into()),
-            (StringOp::StrReplace(_, b, _), 1) => Some(b.into()),
-            (StringOp::StrReplace(_, _, c), 2) => Some(c.into()),
-
-            // 3 child variants - If(cond, then, else)
-            (StringOp::ITE(a, _, _), 0) => Some(a.into()),
-            (StringOp::ITE(_, b, _), 1) => Some(b.into()),
-            (StringOp::ITE(_, _, c), 2) => Some(c.into()),
-
-            _ => None,
-        }
-    }
-
     fn variables(&self) -> BTreeSet<InternedString> {
         if let StringOp::StringS(s) = self {
             let mut set = BTreeSet::new();

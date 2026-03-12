@@ -217,44 +217,6 @@ impl<'c> Op<'c> for FloatOp<'c> {
         FloatOp::child_iter(self)
     }
 
-    fn get_child(&self, index: usize) -> Option<DynAst<'c>> {
-        match (self, index) {
-            // 1 child variants - index 0
-            (FloatOp::FpNeg(a), 0)
-            | (FloatOp::FpAbs(a), 0)
-            | (FloatOp::FpSqrt(a, _), 0)
-            | (FloatOp::FpToFp(a, _, _), 0) => Some(a.into()),
-
-            (FloatOp::BvToFp(a, _), 0)
-            | (FloatOp::BvToFpSigned(a, _, _), 0)
-            | (FloatOp::BvToFpUnsigned(a, _, _), 0) => Some(a.into()),
-
-            // 2 child variants - index 0 (first child)
-            (FloatOp::FpAdd(a, _, _), 0)
-            | (FloatOp::FpSub(a, _, _), 0)
-            | (FloatOp::FpMul(a, _, _), 0)
-            | (FloatOp::FpDiv(a, _, _), 0) => Some(a.into()),
-
-            // 2 child variants - index 1 (second child)
-            (FloatOp::FpAdd(_, b, _), 1)
-            | (FloatOp::FpSub(_, b, _), 1)
-            | (FloatOp::FpMul(_, b, _), 1)
-            | (FloatOp::FpDiv(_, b, _), 1) => Some(b.into()),
-
-            // 3 child variants - FpFP(sign, exp, sig)
-            (FloatOp::FpFP(sign, _, _), 0) => Some(sign.into()),
-            (FloatOp::FpFP(_, exp, _), 1) => Some(exp.into()),
-            (FloatOp::FpFP(_, _, sig), 2) => Some(sig.into()),
-
-            // 3 child variants - If(cond, then, else)
-            (FloatOp::ITE(a, _, _), 0) => Some(a.into()),
-            (FloatOp::ITE(_, b, _), 1) => Some(b.into()),
-            (FloatOp::ITE(_, _, c), 2) => Some(c.into()),
-
-            _ => None,
-        }
-    }
-
     fn variables(&self) -> BTreeSet<InternedString> {
         if let FloatOp::FPS(s, _) = self {
             let mut set = BTreeSet::new();
