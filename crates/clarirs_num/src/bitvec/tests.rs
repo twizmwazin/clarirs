@@ -445,3 +445,45 @@ fn test_reverse_bytes() -> Result<(), BitVecError> {
 
     Ok(())
 }
+
+#[test]
+fn test_serde_roundtrip_recomputes_final_word_mask() -> Result<(), BitVecError> {
+    // Test that final_word_mask is correctly recomputed after deserialization
+    let original = BitVec::from_prim_with_size(0xFFu8, 8)?;
+    assert!(original.is_all_ones());
+
+    let json = serde_json::to_string(&original).unwrap();
+    let deserialized: BitVec = serde_json::from_str(&json).unwrap();
+
+    // These would fail if final_word_mask were 0 after deserialization
+    assert!(deserialized.is_all_ones());
+    assert_eq!(original, deserialized);
+
+    // Test with a non-byte-aligned length (e.g., 13 bits)
+    let bv = BitVec::ones(13);
+    assert!(bv.is_all_ones());
+
+    let json = serde_json::to_string(&bv).unwrap();
+    let deserialized: BitVec = serde_json::from_str(&json).unwrap();
+    assert!(deserialized.is_all_ones());
+    assert_eq!(bv, deserialized);
+
+    // Test multi-word BitVec
+    let bv = BitVec::ones(100);
+    assert!(bv.is_all_ones());
+
+    let json = serde_json::to_string(&bv).unwrap();
+    let deserialized: BitVec = serde_json::from_str(&json).unwrap();
+    assert!(deserialized.is_all_ones());
+    assert_eq!(bv, deserialized);
+
+    // Test that arithmetic still works after deserialization
+    let a = BitVec::from_prim_with_size(42u8, 8)?;
+    let json = serde_json::to_string(&a).unwrap();
+    let a_deser: BitVec = serde_json::from_str(&json).unwrap();
+    let b = BitVec::from_prim_with_size(10u8, 8)?;
+    let sum = (a_deser + b)?;
+    assert_eq!(sum.to_u64(), Some(52));
+
+    Ok(())
+}

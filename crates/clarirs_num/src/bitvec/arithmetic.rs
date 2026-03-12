@@ -41,7 +41,7 @@ impl Add for BitVec {
 
         // Apply final word mask
         if let Some(last) = result.last_mut() {
-            *last &= self.final_word_mask;
+            *last &= self.final_word_mask();
         }
 
         BitVec::new(result, self.length)
