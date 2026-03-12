@@ -180,24 +180,20 @@ pub(crate) fn excavate_ite<'c>(
             let inner = extract_float_child(children, 0)?;
 
             if let FloatOp::ITE(cond, then_, else_) = inner.op() {
-                Ok(ctx.ite(
-                    cond,
-                    ctx.fp_sqrt(then_, rm)?,
-                    ctx.fp_sqrt(else_, rm)?,
-                )?)
+                Ok(ctx.ite(cond, ctx.fp_sqrt(then_, rm)?, ctx.fp_sqrt(else_, rm)?)?)
             } else {
                 Ok(ctx.fp_sqrt(inner, rm)?)
             }
         }
         FloatOp::FpToFp(_, sort, rm) => {
-            let sort = sort.clone();
+            let sort = *sort;
             let rm = *rm;
             let inner = extract_float_child(children, 0)?;
 
             if let FloatOp::ITE(cond, then_, else_) = inner.op() {
                 Ok(ctx.ite(
                     cond,
-                    ctx.fp_to_fp(then_, sort.clone(), rm)?,
+                    ctx.fp_to_fp(then_, sort, rm)?,
                     ctx.fp_to_fp(else_, sort, rm)?,
                 )?)
             } else {
@@ -205,13 +201,13 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         FloatOp::BvToFp(_, sort) => {
-            let sort = sort.clone();
+            let sort = *sort;
             let inner = extract_bitvec_child(children, 0)?;
 
             if let BitVecOp::ITE(cond, then_, else_) = inner.op() {
                 Ok(ctx.ite(
                     cond,
-                    ctx.bv_to_fp(then_, sort.clone())?,
+                    ctx.bv_to_fp(then_, sort)?,
                     ctx.bv_to_fp(else_, sort)?,
                 )?)
             } else {
@@ -219,14 +215,14 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         FloatOp::BvToFpSigned(_, sort, rm) => {
-            let sort = sort.clone();
+            let sort = *sort;
             let rm = *rm;
             let inner = extract_bitvec_child(children, 0)?;
 
             if let BitVecOp::ITE(cond, then_, else_) = inner.op() {
                 Ok(ctx.ite(
                     cond,
-                    ctx.bv_to_fp_signed(then_, sort.clone(), rm)?,
+                    ctx.bv_to_fp_signed(then_, sort, rm)?,
                     ctx.bv_to_fp_signed(else_, sort, rm)?,
                 )?)
             } else {
@@ -234,14 +230,14 @@ pub(crate) fn excavate_ite<'c>(
             }
         }
         FloatOp::BvToFpUnsigned(_, sort, rm) => {
-            let sort = sort.clone();
+            let sort = *sort;
             let rm = *rm;
             let inner = extract_bitvec_child(children, 0)?;
 
             if let BitVecOp::ITE(cond, then_, else_) = inner.op() {
                 Ok(ctx.ite(
                     cond,
-                    ctx.bv_to_fp_unsigned(then_, sort.clone(), rm)?,
+                    ctx.bv_to_fp_unsigned(then_, sort, rm)?,
                     ctx.bv_to_fp_unsigned(else_, sort, rm)?,
                 )?)
             } else {
