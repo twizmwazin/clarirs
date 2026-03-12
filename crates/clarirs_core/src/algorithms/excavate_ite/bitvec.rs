@@ -419,11 +419,7 @@ pub(crate) fn excavate_ite<'c>(
             let inner = extract_float_child(children, 0)?;
 
             if let FloatOp::ITE(cond, then_, else_) = inner.op() {
-                Ok(ctx.ite(
-                    cond,
-                    ctx.fp_to_ieeebv(then_)?,
-                    ctx.fp_to_ieeebv(else_)?,
-                )?)
+                Ok(ctx.ite(cond, ctx.fp_to_ieeebv(then_)?, ctx.fp_to_ieeebv(else_)?)?)
             } else {
                 Ok(ctx.fp_to_ieeebv(inner)?)
             }

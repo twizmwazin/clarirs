@@ -790,11 +790,7 @@ pub(crate) fn excavate_ite<'c>(
             let inner = extract_string_child(children, 0)?;
 
             if let StringOp::ITE(cond, then_, else_) = inner.op() {
-                Ok(ctx.ite(
-                    cond,
-                    ctx.str_is_digit(then_)?,
-                    ctx.str_is_digit(else_)?,
-                )?)
+                Ok(ctx.ite(cond, ctx.str_is_digit(then_)?, ctx.str_is_digit(else_)?)?)
             } else {
                 Ok(ctx.str_is_digit(inner)?)
             }

@@ -103,11 +103,7 @@ pub(crate) fn excavate_ite<'c>(
             let inner = extract_bitvec_child(children, 0)?;
 
             if let BitVecOp::ITE(cond, then_, else_) = inner.op() {
-                Ok(ctx.ite(
-                    cond,
-                    ctx.bv_to_str(then_)?,
-                    ctx.bv_to_str(else_)?,
-                )?)
+                Ok(ctx.ite(cond, ctx.bv_to_str(then_)?, ctx.bv_to_str(else_)?)?)
             } else {
                 Ok(ctx.bv_to_str(inner)?)
             }
