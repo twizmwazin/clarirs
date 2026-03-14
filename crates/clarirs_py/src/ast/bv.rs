@@ -35,6 +35,34 @@ impl BV {
         Self::new_with_name(py, inner, None)
     }
 
+    /// Create a new BV without simplifying (for annotated nodes where
+    /// simplification would strip annotations).
+    fn new_no_simplify<'py>(
+        py: Python<'py>,
+        inner: &BitVecAst<'static>,
+    ) -> Result<Bound<'py, BV>, ClaripyError> {
+        if let Some(cache_hit) = PY_BV_CACHE.get(&inner.hash()).and_then(|cache_hit| {
+            cache_hit
+                .bind(py)
+                .upgrade_as::<BV>()
+                .expect("bv cache poisoned")
+        }) {
+            Ok(cache_hit)
+        } else {
+            let this = Bound::new(
+                py,
+                PyClassInitializer::from(Base::new_with_name(py, None))
+                    .add_subclass(Bits::new())
+                    .add_subclass(BV {
+                        inner: inner.clone(),
+                    }),
+            )?;
+            let weakref = PyWeakrefReference::new(&this)?;
+            PY_BV_CACHE.insert(inner.hash(), weakref.unbind());
+            Ok(this)
+        }
+    }
+
     pub fn new_with_name<'py>(
         py: Python<'py>,
         inner: &BitVecAst<'static>,
@@ -488,7 +516,8 @@ impl BV {
             .inner
             .context()
             .make_bitvec_annotated(self.inner.op().clone(), new_annotations)?;
-        Self::new(py, &inner)
+        // Use new_no_simplify to avoid stripping non-relocatable annotations
+        Self::new_no_simplify(py, &inner)
     }
 
     pub fn insert_annotations<'py>(
@@ -496,7 +525,7 @@ impl BV {
         py: Python<'py>,
         annotations: Vec<PyAnnotation>,
     ) -> Result<Bound<'py, Self>, ClaripyError> {
-        Self::new(
+        Self::new_no_simplify(
             py,
             &GLOBAL_CONTEXT.annotate(&self.inner, annotations.into_iter().map(|a| a.0))?,
         )
@@ -1524,7 +1553,7 @@ pub fn VS<'py>(
     value: CoerceBV,
 ) -> Result<Bound<'py, BV>, ClaripyError> {
     let value = value.unpack(py, bits, false)?;
-    BV::new(
+    BV::new_no_simplify(
         py,
         &GLOBAL_CONTEXT.annotate(
             &value.get().inner,
