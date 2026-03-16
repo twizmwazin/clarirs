@@ -3,8 +3,8 @@ use anyhow::Result;
 use crate::{
     algorithms::Simplify,
     ast::{
-        annotation::{Annotation, AnnotationType},
         AstFactory,
+        annotation::{Annotation, AnnotationType},
     },
     context::Context,
 };
