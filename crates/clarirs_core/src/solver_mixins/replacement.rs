@@ -643,14 +643,13 @@ impl<'c, S: Solver<'c>> Solver<'c> for ReplacementMixin<'c, S> {
     ) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
         let replaced = self.replace_bool(expr)?;
         let results = self.inner.eval_bool_n(&replaced, n)?;
-        if self.unsafe_replacement && expr.symbolic() && !replaced.symbolic() {
-            if let Some(first) = results.first() {
+        if self.unsafe_replacement && expr.symbolic() && !replaced.symbolic()
+            && let Some(first) = results.first() {
                 self.add_replacement(
                     DynAst::Boolean(expr.clone()),
                     DynAst::Boolean(first.clone()),
                 );
             }
-        }
         Ok(results)
     }
 
@@ -661,14 +660,13 @@ impl<'c, S: Solver<'c>> Solver<'c> for ReplacementMixin<'c, S> {
     ) -> Result<Vec<BitVecAst<'c>>, ClarirsError> {
         let replaced = self.replace_bitvec(expr)?;
         let results = self.inner.eval_bitvec_n(&replaced, n)?;
-        if self.unsafe_replacement && expr.symbolic() && !replaced.symbolic() {
-            if let Some(first) = results.first() {
+        if self.unsafe_replacement && expr.symbolic() && !replaced.symbolic()
+            && let Some(first) = results.first() {
                 self.add_replacement(
                     DynAst::BitVec(expr.clone()),
                     DynAst::BitVec(first.clone()),
                 );
             }
-        }
         Ok(results)
     }
 
@@ -679,14 +677,13 @@ impl<'c, S: Solver<'c>> Solver<'c> for ReplacementMixin<'c, S> {
     ) -> Result<Vec<FloatAst<'c>>, ClarirsError> {
         let replaced = self.replace_float(expr)?;
         let results = self.inner.eval_float_n(&replaced, n)?;
-        if self.unsafe_replacement && expr.symbolic() && !replaced.symbolic() {
-            if let Some(first) = results.first() {
+        if self.unsafe_replacement && expr.symbolic() && !replaced.symbolic()
+            && let Some(first) = results.first() {
                 self.add_replacement(
                     DynAst::Float(expr.clone()),
                     DynAst::Float(first.clone()),
                 );
             }
-        }
         Ok(results)
     }
 
@@ -697,14 +694,13 @@ impl<'c, S: Solver<'c>> Solver<'c> for ReplacementMixin<'c, S> {
     ) -> Result<Vec<StringAst<'c>>, ClarirsError> {
         let replaced = self.replace_string(expr)?;
         let results = self.inner.eval_string_n(&replaced, n)?;
-        if self.unsafe_replacement && expr.symbolic() && !replaced.symbolic() {
-            if let Some(first) = results.first() {
+        if self.unsafe_replacement && expr.symbolic() && !replaced.symbolic()
+            && let Some(first) = results.first() {
                 self.add_replacement(
                     DynAst::String(expr.clone()),
                     DynAst::String(first.clone()),
                 );
             }
-        }
         Ok(results)
     }
 }

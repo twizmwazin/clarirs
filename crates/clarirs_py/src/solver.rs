@@ -4,7 +4,7 @@ use crate::ast::{and, or};
 use crate::{dynsolver::DynSolver, prelude::*};
 use clarirs_core::ast::bitvec::BitVecOpExt;
 use clarirs_core::solver_mixins::{
-    ConcreteEarlyResolutionMixin, ReplacementMixin, SimplificationMixin,
+    CompositeSolver, ConcreteEarlyResolutionMixin, ReplacementMixin, SimplificationMixin,
 };
 use clarirs_vsa::VSASolver;
 use clarirs_z3::Z3Solver;
@@ -83,6 +83,14 @@ impl PySolver {
                         Z3Solver::new_with_options(&GLOBAL_CONTEXT, self.timeout, self.unsat_core),
                     )))
                 }
+                DynSolver::Composite(..) => DynSolver::Composite(CompositeSolver::new(
+                    &GLOBAL_CONTEXT,
+                    wrap_solver(Z3Solver::new_with_options(
+                        &GLOBAL_CONTEXT,
+                        self.timeout,
+                        self.unsat_core,
+                    )),
+                )),
             },
             timeout: self.timeout,
             unsat_core: self.unsat_core,
@@ -138,6 +146,14 @@ impl PySolver {
                 py,
                 PySolver {
                     inner: DynSolver::Replacement(replacement_solver.clone()),
+                    timeout: self.timeout,
+                    unsat_core: self.unsat_core,
+                },
+            )?),
+            DynSolver::Composite(composite_solver) => Ok(Bound::new(
+                py,
+                PySolver {
+                    inner: DynSolver::Composite(composite_solver.clone()),
                     timeout: self.timeout,
                     unsat_core: self.unsat_core,
                 },
@@ -198,7 +214,10 @@ impl PySolver {
         };
 
         Ok((
-            matches!(self.inner, DynSolver::Z3(..) | DynSolver::Replacement(..)),
+            matches!(
+                self.inner,
+                DynSolver::Z3(..) | DynSolver::Replacement(..) | DynSolver::Composite(..)
+            ),
             merged,
         ))
     }
@@ -632,6 +651,7 @@ impl PySolver {
             DynSolver::Z3(..) => "Z3",
             DynSolver::Vsa(..) => "Vsa",
             DynSolver::Replacement(..) => "Replacement",
+            DynSolver::Composite(..) => "Composite",
         };
 
         // Get the constraints
@@ -667,6 +687,10 @@ impl PySolver {
             "Replacement" => DynSolver::Replacement(ReplacementMixin::new(wrap_solver(
                 Z3Solver::new_with_timeout(&GLOBAL_CONTEXT, self.timeout),
             ))),
+            "Composite" => DynSolver::Composite(CompositeSolver::new(
+                &GLOBAL_CONTEXT,
+                wrap_solver(Z3Solver::new_with_timeout(&GLOBAL_CONTEXT, self.timeout)),
+            )),
             _ => {
                 return Err(ClaripyError::TypeError(format!(
                     "Unknown solver type: {solver_type}"
@@ -754,12 +778,33 @@ impl PyReplacementSolver {
     }
 }
 
+#[pyclass(extends = PySolver, name = "SolverComposite", module = "claripy.solver")]
+pub struct PyCompositeSolver;
+
+#[pymethods]
+impl PyCompositeSolver {
+    #[new]
+    #[pyo3(signature = (timeout = None, track = false))]
+    fn new(timeout: Option<u32>, track: bool) -> Result<PyClassInitializer<Self>, ClaripyError> {
+        Ok(PyClassInitializer::from(PySolver {
+            inner: DynSolver::Composite(CompositeSolver::new(
+                &GLOBAL_CONTEXT,
+                wrap_solver(Z3Solver::new_with_options(&GLOBAL_CONTEXT, timeout, track)),
+            )),
+            timeout,
+            unsat_core: track,
+        })
+        .add_subclass(Self {}))
+    }
+}
+
 pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<PySolver>()?;
     m.add_class::<PyConcreteSolver>()?;
     m.add_class::<PyZ3Solver>()?;
     m.add_class::<PyVSASolver>()?;
     m.add_class::<PyReplacementSolver>()?;
+    m.add_class::<PyCompositeSolver>()?;
 
     Ok(())
 }
