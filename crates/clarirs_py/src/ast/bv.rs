@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use clarirs_core::algorithms::{canonicalize, structurally_match};
 use clarirs_core::ast::bitvec::{BitVecAstExt, BitVecOpExt};
 use clarirs_vsa::cardinality::Cardinality;
+use clarirs_vsa::reduce::Reduce;
 use dashmap::DashMap;
 use num_bigint::{BigInt, BigUint, Sign};
 use pyo3::exceptions::{PyTypeError, PyValueError};
@@ -279,10 +280,21 @@ impl BV {
     }
 
     pub fn identical(&self, other: Bound<'_, Base>) -> Result<bool, ClaripyError> {
-        Ok(structurally_match(
+        let structural = structurally_match(
             &DynAst::BitVec(self.inner.clone()),
-            &Base::to_dynast(other)?,
-        )?)
+            &Base::to_dynast(other.clone())?,
+        )?;
+        if structural {
+            return Ok(true);
+        }
+        // Fall back to VSA reduction comparison
+        if let Ok(other_bv) = other.into_any().cast::<BV>()
+            && let (Ok(a_reduced), Ok(b_reduced)) =
+                (self.inner.reduce(), other_bv.get().inner.reduce())
+        {
+            return Ok(a_reduced == b_reduced);
+        }
+        Ok(false)
     }
 
     #[getter]
