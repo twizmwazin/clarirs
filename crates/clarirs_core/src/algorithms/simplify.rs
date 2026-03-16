@@ -243,7 +243,7 @@ fn simplify<'c>(
             .expr
             .annotations()
             .iter()
-            .any(|a| a.eliminatable() && !a.relocatable());
+            .any(|a| !a.eliminatable() && !a.relocatable());
         let should_simplify = !respect_annotations || !has_blocking_annotations;
         if should_simplify {
             let inner_result = simplify_inner(&mut state, error_on_dbz);
