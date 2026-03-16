@@ -1,10 +1,9 @@
 #![allow(non_snake_case)]
 
-use clarirs_core::ast::bitvec::BitVecOpExt;
 use clarirs_vsa::StridedInterval;
 use clarirs_vsa::reduce::Reduce;
 use clarirs_vsa::strided_interval::ComparisonResult;
-use num_bigint::BigInt;
+use num_bigint::{BigInt, BigUint};
 
 use crate::prelude::*;
 
@@ -129,26 +128,11 @@ pub fn max(expr: Bound<'_, BV>, signed: bool) -> Result<BigInt, ClaripyError> {
     }
 }
 
-/// Evaluate a BV expression via VSA, returning up to `n` concrete values.
+/// Evaluate a BV expression via VSA, returning up to `n` concrete values as Python ints.
 #[pyfunction]
-pub fn eval<'py>(
-    py: Python<'py>,
-    expr: Bound<'py, BV>,
-    n: u32,
-) -> Result<Vec<Bound<'py, BV>>, ClaripyError> {
+pub fn eval<'py>(expr: Bound<'py, BV>, n: u32) -> Result<Vec<BigUint>, ClaripyError> {
     let si = expr.get().inner.simplify()?.reduce()?;
-    if si.is_empty() {
-        return Ok(vec![]);
-    }
-    si.eval(n)
-        .into_iter()
-        .map(|bv| {
-            BV::new(
-                py,
-                &GLOBAL_CONTEXT.bvv_from_biguint_with_size(&bv, expr.get().inner.size())?,
-            )
-        })
-        .collect()
+    Ok(si.eval(n))
 }
 
 /// Get the cardinality (number of possible concrete values) of a BV expression via VSA.
