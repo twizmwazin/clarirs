@@ -69,11 +69,11 @@ pub(crate) fn to_z3(ast: &StringAst, children: &[RcAst]) -> Result<RcAst, Clarir
                 let int_val = mk_bv2int(a)?;
                 RcAst::try_from(z3::mk_int_to_str(z3_ctx, *int_val))?
             }
-            StringOp::ITE(cond, then, else_) => {
-                let cond = cond.to_z3()?;
-                let then = then.to_z3()?;
-                let else_ = else_.to_z3()?;
-                RcAst::try_from(z3::mk_ite(z3_ctx, *cond, *then, *else_))?
+            StringOp::ITE(..) => {
+                let cond = child(children, 0)?;
+                let then = child(children, 1)?;
+                let else_ = child(children, 2)?;
+                RcAst::try_from(z3::mk_ite(z3_ctx, **cond, **then, **else_))?
             }
         })
         .and_then(|maybe_null| {

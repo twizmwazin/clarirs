@@ -4,7 +4,9 @@ mod solver;
 
 pub use solver::Z3Solver;
 
+use clarirs_core::cache::GenericCache;
 use clarirs_z3_sys as z3;
+use rc::RcAst;
 
 thread_local! {
     static Z3_CONTEXT: z3::Context = unsafe {
@@ -13,7 +15,9 @@ thread_local! {
         z3::set_error_handler(ctx, None);
         z3::del_config(cfg);
         ctx
-    }
+    };
+
+    static Z3_AST_CACHE: GenericCache<u64, RcAst> = GenericCache::default();
 }
 
 pub(crate) fn check_z3_error() -> Result<(), clarirs_core::error::ClarirsError> {
