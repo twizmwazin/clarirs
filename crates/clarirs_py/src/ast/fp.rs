@@ -826,7 +826,7 @@ pub fn FPS<'py>(
         name.to_string()
     } else {
         let counter = FPS_COUNTER.fetch_add(1, Ordering::Relaxed);
-        format!("FP{}_{}_{}", sort.0.size(), name, counter)
+        format!("{name}_{counter}")
     };
     FP::new_with_name(py, &GLOBAL_CONTEXT.fps(&name, sort)?, Some(name))
 }
