@@ -222,6 +222,18 @@ fn simplify_inner<'c>(
         })
 }
 
+fn has_blocking_annotation_recursive(ast: &DynAst<'_>) -> bool {
+    if ast
+        .annotations()
+        .iter()
+        .any(|a| !a.eliminatable() && !a.relocatable())
+    {
+        return true;
+    }
+    ast.child_iter()
+        .any(|child| has_blocking_annotation_recursive(&child))
+}
+
 fn simplify<'c>(
     ast: &DynAst<'c>,
     respect_annotations: bool,
@@ -244,7 +256,11 @@ fn simplify<'c>(
             .annotations()
             .iter()
             .any(|a| !a.eliminatable() && !a.relocatable());
-        let should_simplify = !respect_annotations || !has_blocking_annotations;
+        let descendant_has_blocking_annotations = state.children.iter().flatten().any(|child| {
+            has_blocking_annotation_recursive(child)
+        });
+        let should_simplify =
+            !respect_annotations || (!has_blocking_annotations && !descendant_has_blocking_annotations);
         if should_simplify {
             let inner_result = simplify_inner(&mut state, error_on_dbz);
             match inner_result {
