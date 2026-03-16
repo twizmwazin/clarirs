@@ -354,6 +354,23 @@ pub(crate) fn simplify_bool<'c>(
                     Ok(ctx.eq_(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?)
                 }
 
+                // (x - C) == 0  ==>  x == C
+                (BitVecOp::Sub(lhs_sub, rhs_sub), BitVecOp::BVV(val))
+                | (BitVecOp::BVV(val), BitVecOp::Sub(lhs_sub, rhs_sub))
+                    if val.is_zero() && matches!(rhs_sub.op(), BitVecOp::BVV(..)) =>
+                {
+                    state.rerun(ctx.eq_(lhs_sub.clone(), rhs_sub.clone())?)
+                }
+
+                // (x + C) == 0  ==>  x == -C
+                (BitVecOp::Add(lhs_add, rhs_add), BitVecOp::BVV(val))
+                | (BitVecOp::BVV(val), BitVecOp::Add(lhs_add, rhs_add))
+                    if val.is_zero() && matches!(rhs_add.op(), BitVecOp::BVV(..)) =>
+                {
+                    let neg_c = ctx.neg(rhs_add)?;
+                    state.rerun(ctx.eq_(lhs_add.clone(), neg_c)?)
+                }
+
                 _ => Ok(ctx.eq_(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
             }
         }
@@ -443,6 +460,23 @@ pub(crate) fn simplify_bool<'c>(
                         }
                     }
                     Ok(ctx.neq(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?)
+                }
+
+                // (x - C) != 0  ==>  x != C
+                (BitVecOp::Sub(lhs_sub, rhs_sub), BitVecOp::BVV(val))
+                | (BitVecOp::BVV(val), BitVecOp::Sub(lhs_sub, rhs_sub))
+                    if val.is_zero() && matches!(rhs_sub.op(), BitVecOp::BVV(..)) =>
+                {
+                    state.rerun(ctx.neq(lhs_sub.clone(), rhs_sub.clone())?)
+                }
+
+                // (x + C) != 0  ==>  x != -C
+                (BitVecOp::Add(lhs_add, rhs_add), BitVecOp::BVV(val))
+                | (BitVecOp::BVV(val), BitVecOp::Add(lhs_add, rhs_add))
+                    if val.is_zero() && matches!(rhs_add.op(), BitVecOp::BVV(..)) =>
+                {
+                    let neg_c = ctx.neg(rhs_add)?;
+                    state.rerun(ctx.neq(lhs_add.clone(), neg_c)?)
                 }
 
                 _ => Ok(ctx.neq(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
