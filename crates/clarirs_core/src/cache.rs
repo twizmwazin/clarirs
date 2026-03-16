@@ -27,8 +27,14 @@ impl<K, V> Cache<K, V> for () {
 }
 
 /// A generic cache implementation that uses a `HashMap` to store key-value pairs.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct GenericCache<K, V>(RwLock<HashMap<K, V>>);
+
+impl<K, V> Default for GenericCache<K, V> {
+    fn default() -> Self {
+        Self(RwLock::new(HashMap::default()))
+    }
+}
 
 impl<K: Hash + Eq, V: Clone> Cache<K, V> for GenericCache<K, V> {
     fn get_or_insert<E>(&self, key: K, mut value_cv: impl FnMut() -> Result<V, E>) -> Result<V, E> {

@@ -34,7 +34,7 @@ mod test_string;
 use clarirs_core::{algorithms::walk_post_order, prelude::*};
 use clarirs_z3_sys as z3;
 
-use crate::{Z3_CONTEXT, rc::RcAst};
+use crate::{Z3_AST_CACHE, Z3_CONTEXT, rc::RcAst};
 
 pub(crate) trait AstExtZ3<'c>: HasContext<'c> + Simplify<'c> + Sized {
     fn to_z3(&self) -> Result<RcAst, ClarirsError>;
@@ -91,16 +91,18 @@ impl<'c> AstExtZ3<'c> for StringAst<'c> {
 
 impl<'c> AstExtZ3<'c> for DynAst<'c> {
     fn to_z3(&self) -> Result<RcAst, ClarirsError> {
-        walk_post_order(
-            self.clone(),
-            |node, children| match node {
-                DynAst::Boolean(ast) => bool::to_z3(&ast, children),
-                DynAst::BitVec(ast) => bv::to_z3(&ast, children),
-                DynAst::Float(ast) => float::to_z3(&ast, children),
-                DynAst::String(ast) => string::to_z3(&ast, children),
-            },
-            &(),
-        )
+        Z3_AST_CACHE.with(|cache| {
+            walk_post_order(
+                self.clone(),
+                |node, children| match node {
+                    DynAst::Boolean(ast) => bool::to_z3(&ast, children),
+                    DynAst::BitVec(ast) => bv::to_z3(&ast, children),
+                    DynAst::Float(ast) => float::to_z3(&ast, children),
+                    DynAst::String(ast) => string::to_z3(&ast, children),
+                },
+                cache,
+            )
+        })
     }
 
     fn from_z3(ctx: &'c Context<'c>, ast: impl Into<RcAst>) -> Result<Self, ClarirsError> {
