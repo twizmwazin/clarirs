@@ -10,10 +10,8 @@ type WrappedConcreteSolver<'c> = ConcreteSolver<'c>;
 type WrappedZ3Solver<'c> = SimplificationMixin<'c, ConcreteEarlyResolutionMixin<'c, Z3Solver<'c>>>;
 type WrappedVSASolver<'c> =
     SimplificationMixin<'c, ConcreteEarlyResolutionMixin<'c, VSASolver<'c>>>;
-type WrappedReplacementSolver<'c> = ReplacementMixin<
-    'c,
-    SimplificationMixin<'c, ConcreteEarlyResolutionMixin<'c, Z3Solver<'c>>>,
->;
+type WrappedReplacementSolver<'c> =
+    ReplacementMixin<'c, SimplificationMixin<'c, ConcreteEarlyResolutionMixin<'c, Z3Solver<'c>>>>;
 type WrappedCompositeSolver<'c> = CompositeSolver<'c, WrappedZ3Solver<'c>>;
 
 #[derive(Clone, Debug)]

@@ -87,7 +87,8 @@ impl<'c, S: Solver<'c> + Clone> CompositeSolver<'c, S> {
         }
 
         // Per-constraint variable sets
-        let mut constraint_vars: Vec<BTreeSet<InternedString>> = Vec::with_capacity(constraints.len());
+        let mut constraint_vars: Vec<BTreeSet<InternedString>> =
+            Vec::with_capacity(constraints.len());
 
         for constraint in constraints {
             let vars: BTreeSet<InternedString> = constraint.variables().clone();
@@ -100,8 +101,10 @@ impl<'c, S: Solver<'c> + Clone> CompositeSolver<'c, S> {
         }
 
         // Group constraints by their root variable
-        let mut groups: HashMap<Option<InternedString>, (BTreeSet<InternedString>, Vec<BoolAst<'c>>)> =
-            HashMap::new();
+        let mut groups: HashMap<
+            Option<InternedString>,
+            (BTreeSet<InternedString>, Vec<BoolAst<'c>>),
+        > = HashMap::new();
 
         for (constraint, vars) in constraints.iter().zip(constraint_vars.iter()) {
             let key = if vars.is_empty() {
@@ -135,15 +138,16 @@ impl<'c, S: Solver<'c> + Clone> CompositeSolver<'c, S> {
             changed = false;
             for var in all_vars.clone() {
                 if let Some(&idx) = self.var_to_child.get(&var)
-                    && related_indices.insert(idx) {
-                        changed = true;
-                        // Add all variables from this child
-                        for (v, &i) in &self.var_to_child {
-                            if i == idx {
-                                all_vars.insert(v.clone());
-                            }
+                    && related_indices.insert(idx)
+                {
+                    changed = true;
+                    // Add all variables from this child
+                    for (v, &i) in &self.var_to_child {
+                        if i == idx {
+                            all_vars.insert(v.clone());
                         }
                     }
+                }
             }
         }
 
@@ -176,11 +180,12 @@ impl<'c, S: Solver<'c> + Clone> CompositeSolver<'c, S> {
                 for &src in sources {
                     if let Some(source_solver) = self.children[src].take()
                         && let Ok(source_constraints) = source_solver.constraints()
-                            && let Some(ref mut target_solver) = self.children[target] {
-                                for c in &source_constraints {
-                                    let _ = target_solver.add(c);
-                                }
-                            }
+                        && let Some(ref mut target_solver) = self.children[target]
+                    {
+                        for c in &source_constraints {
+                            let _ = target_solver.add(c);
+                        }
+                    }
                 }
 
                 // Remap all variables from source children to target
@@ -551,8 +556,7 @@ mod tests {
         let c1 = ctx.eq_(&a, &one).unwrap();
         let c2 = ctx.eq_(&b, &two).unwrap();
 
-        let groups =
-            CompositeSolver::<ConcreteSolver>::split_constraints(&[c1, c2]);
+        let groups = CompositeSolver::<ConcreteSolver>::split_constraints(&[c1, c2]);
         // a and b are independent → should be 2 groups
         assert_eq!(groups.len(), 2);
     }
@@ -568,8 +572,7 @@ mod tests {
         let c1 = ctx.eq_(&a, &b).unwrap();
         let c2 = ctx.eq_(&a, &one).unwrap();
 
-        let groups =
-            CompositeSolver::<ConcreteSolver>::split_constraints(&[c1, c2]);
+        let groups = CompositeSolver::<ConcreteSolver>::split_constraints(&[c1, c2]);
         // a and b are connected → should be 1 group
         assert_eq!(groups.len(), 1);
         assert_eq!(groups[0].1.len(), 2);
@@ -581,10 +584,10 @@ mod tests {
         let true_val = ctx.true_().unwrap();
         let false_val = ctx.false_().unwrap();
 
-        let groups =
-            CompositeSolver::<ConcreteSolver>::split_constraints(
-                &[true_val.clone(), false_val.clone()],
-            );
+        let groups = CompositeSolver::<ConcreteSolver>::split_constraints(&[
+            true_val.clone(),
+            false_val.clone(),
+        ]);
         // Both are concrete → 1 group with empty var set
         assert_eq!(groups.len(), 1);
         assert!(groups[0].0.is_empty());
