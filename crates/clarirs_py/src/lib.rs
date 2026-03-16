@@ -127,10 +127,7 @@ fn is_true(expr: Bound<'_, PyAny>) -> Result<bool, ClaripyError> {
     } else if let Ok(string_expr) = expr.clone().extract::<CoerceString>() {
         Ok(string_expr.0.get().inner.simplify()?.is_true())
     } else {
-        Err(ClaripyError::InvalidArgumentType(format!(
-            "Expected Bool, BV, FP, or String, got {}",
-            expr.get_type()
-        )))
+        Ok(expr.is_truthy()?)
     }
 }
 
@@ -151,10 +148,7 @@ fn is_false(expr: Bound<'_, PyAny>) -> Result<bool, ClaripyError> {
     } else if let Ok(string_expr) = expr.clone().extract::<CoerceString>() {
         Ok(string_expr.0.get().inner.simplify()?.is_false())
     } else {
-        Err(ClaripyError::InvalidArgumentType(format!(
-            "Expected Bool, BV, FP, or String, got {}",
-            expr.get_type()
-        )))
+        Ok(!expr.is_truthy()?)
     }
 }
 
