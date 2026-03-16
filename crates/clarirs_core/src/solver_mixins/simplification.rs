@@ -32,7 +32,11 @@ impl<'c, S: Solver<'c>> HasContext<'c> for SimplificationMixin<'c, S> {
 
 impl<'c, S: Solver<'c>> Solver<'c> for SimplificationMixin<'c, S> {
     fn add(&mut self, constraint: &BoolAst<'c>) -> Result<(), ClarirsError> {
-        self.inner.add(&constraint.simplify()?)
+        let simplified = constraint.simplify()?;
+        if simplified.is_true() {
+            return Ok(());
+        }
+        self.inner.add(&simplified)
     }
 
     fn clear(&mut self) -> Result<(), ClarirsError> {
