@@ -1313,7 +1313,7 @@ pub fn BVS(
         name.to_string()
     } else {
         let counter = BVS_COUNTER.fetch_add(1, Ordering::Relaxed);
-        format!("BV{size}_{name}_{counter}")
+        format!("{name}_{counter}_{size}")
     };
     BV::new_with_name(py, &GLOBAL_CONTEXT.bvs(&name, size)?, Some(name.clone()))
 }
