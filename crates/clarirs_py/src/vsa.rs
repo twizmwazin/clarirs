@@ -1,6 +1,5 @@
 #![allow(non_snake_case)]
 
-use clarirs_core::ast::bitvec::BitVecOpExt;
 use clarirs_vsa::StridedInterval;
 use clarirs_vsa::reduce::Reduce;
 use clarirs_vsa::strided_interval::ComparisonResult;
@@ -129,13 +128,13 @@ pub fn max(expr: Bound<'_, BV>, signed: bool) -> Result<BigInt, ClaripyError> {
     }
 }
 
-/// Evaluate a BV expression via VSA, returning up to `n` concrete values.
+/// Evaluate a BV expression via VSA, returning up to `n` concrete values as Python ints.
 #[pyfunction]
 pub fn eval<'py>(
     py: Python<'py>,
     expr: Bound<'py, BV>,
     n: u32,
-) -> Result<Vec<Bound<'py, BV>>, ClaripyError> {
+) -> Result<Vec<Py<PyAny>>, ClaripyError> {
     let si = expr.get().inner.simplify()?.reduce()?;
     if si.is_empty() {
         return Ok(vec![]);
@@ -143,10 +142,12 @@ pub fn eval<'py>(
     si.eval(n)
         .into_iter()
         .map(|bv| {
-            BV::new(
-                py,
-                &GLOBAL_CONTEXT.bvv_from_biguint_with_size(&bv, expr.get().inner.size())?,
-            )
+            bv.into_pyobject(py)
+                .map(|o| o.unbind().into())
+                .map_err(|e| {
+                    let py_err: PyErr = e.into();
+                    ClaripyError::from(py_err)
+                })
         })
         .collect()
 }
