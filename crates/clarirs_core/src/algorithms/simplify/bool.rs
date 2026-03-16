@@ -240,9 +240,11 @@ pub(crate) fn simplify_bool<'c>(
             let early_lhs = state.get_bool_available(0)?;
             let early_rhs = state.get_bool_available(1)?;
 
+            if early_lhs.hash() == early_rhs.hash() {
+                return Ok(ctx.true_()?);
+            }
+
             match (early_lhs.op(), early_rhs.op()) {
-                // Note: we do NOT simplify a == a -> true here because nested
-                // float operations could involve NaN, where NaN != NaN.
                 (BooleanOp::BoolV(arc), BooleanOp::BoolV(arc1)) => Ok(ctx.boolv(arc == arc1)?),
                 (BooleanOp::BoolV(true), _) => Ok(state.get_bool_simplified(1)?),
                 (_, BooleanOp::BoolV(true)) => Ok(state.get_bool_simplified(0)?),
@@ -255,9 +257,11 @@ pub(crate) fn simplify_bool<'c>(
             let early_lhs = state.get_bool_available(0)?;
             let early_rhs = state.get_bool_available(1)?;
 
+            if early_lhs.hash() == early_rhs.hash() {
+                return Ok(ctx.false_()?);
+            }
+
             match (early_lhs.op(), early_rhs.op()) {
-                // Note: we do NOT simplify a != a -> false here because nested
-                // float operations could involve NaN, where NaN != NaN.
                 (BooleanOp::BoolV(arc), BooleanOp::BoolV(arc1)) => Ok(ctx.boolv(arc != arc1)?),
                 (BooleanOp::BoolV(true), _) => Ok(ctx.not(state.get_bool_simplified(1)?)?),
                 (_, BooleanOp::BoolV(true)) => Ok(ctx.not(state.get_bool_simplified(0)?)?),
