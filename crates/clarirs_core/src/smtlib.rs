@@ -155,11 +155,7 @@ fn to_smtlib_float(ast: &FloatAst, children: &[String]) -> String {
             children[0],
             children[1]
         ),
-        FloatOp::FpSqrt(_, fprm) => format!(
-            "(fp.sqrt {} {})",
-            fprm_to_smtlib(fprm),
-            children[0]
-        ),
+        FloatOp::FpSqrt(_, fprm) => format!("(fp.sqrt {} {})", fprm_to_smtlib(fprm), children[0]),
         FloatOp::FpToFp(_, fsort, fprm) => format!(
             "((_ to_fp {} {}) {} {})",
             fsort.exponent,
