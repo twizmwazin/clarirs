@@ -322,6 +322,7 @@ pub fn claripy(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<solver::PyConcreteSolver>()?;
     m.add_class::<solver::PyVSASolver>()?;
     m.add_class::<solver::PyZ3Solver>()?;
+    m.add_class::<solver::PyCvc5Solver>()?;
 
     // Compat
 

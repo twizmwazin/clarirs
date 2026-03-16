@@ -4,6 +4,7 @@ use crate::ast::{and, or};
 use crate::{dynsolver::DynSolver, prelude::*};
 use clarirs_core::ast::bitvec::BitVecOpExt;
 use clarirs_core::solver_mixins::{ConcreteEarlyResolutionMixin, SimplificationMixin};
+use clarirs_cvc5::Cvc5Solver;
 use clarirs_vsa::VSASolver;
 use clarirs_z3::Z3Solver;
 use num_bigint::BigInt;
@@ -76,6 +77,10 @@ impl PySolver {
                     self.unsat_core,
                 ))),
                 DynSolver::Vsa(..) => DynSolver::Vsa(wrap_solver(VSASolver::new(&GLOBAL_CONTEXT))),
+                DynSolver::Cvc5(..) => DynSolver::Cvc5(wrap_solver(Cvc5Solver::new_with_timeout(
+                    &GLOBAL_CONTEXT,
+                    self.timeout,
+                ))),
             },
             timeout: self.timeout,
             unsat_core: self.unsat_core,
@@ -123,6 +128,14 @@ impl PySolver {
                 py,
                 PySolver {
                     inner: DynSolver::Vsa(vsasolver.clone()),
+                    timeout: self.timeout,
+                    unsat_core: self.unsat_core,
+                },
+            )?),
+            DynSolver::Cvc5(cvc5solver) => Ok(Bound::new(
+                py,
+                PySolver {
+                    inner: DynSolver::Cvc5(cvc5solver.clone()),
                     timeout: self.timeout,
                     unsat_core: self.unsat_core,
                 },
@@ -182,7 +195,7 @@ impl PySolver {
             merged_bound
         };
 
-        Ok((matches!(self.inner, DynSolver::Z3(..)), merged))
+        Ok((matches!(self.inner, DynSolver::Z3(..) | DynSolver::Cvc5(..)), merged))
     }
 
     #[pyo3(signature = (exprs))]
@@ -613,6 +626,7 @@ impl PySolver {
             DynSolver::Concrete(..) => "Concrete",
             DynSolver::Z3(..) => "Z3",
             DynSolver::Vsa(..) => "Vsa",
+            DynSolver::Cvc5(..) => "Cvc5",
         };
 
         // Get the constraints
@@ -645,6 +659,10 @@ impl PySolver {
                 self.timeout,
             ))),
             "Vsa" => DynSolver::Vsa(wrap_solver(VSASolver::new(&GLOBAL_CONTEXT))),
+            "Cvc5" => DynSolver::Cvc5(wrap_solver(Cvc5Solver::new_with_timeout(
+                &GLOBAL_CONTEXT,
+                self.timeout,
+            ))),
             _ => {
                 return Err(ClaripyError::TypeError(format!(
                     "Unknown solver type: {solver_type}"
@@ -713,11 +731,32 @@ impl PyVSASolver {
     }
 }
 
+#[pyclass(extends = PySolver, name = "SolverCvc5", module = "claripy.solver")]
+pub struct PyCvc5Solver;
+
+#[pymethods]
+impl PyCvc5Solver {
+    #[new]
+    #[pyo3(signature = (timeout = None))]
+    fn new(timeout: Option<u32>) -> Result<PyClassInitializer<Self>, ClaripyError> {
+        Ok(PyClassInitializer::from(PySolver {
+            inner: DynSolver::Cvc5(wrap_solver(Cvc5Solver::new_with_timeout(
+                &GLOBAL_CONTEXT,
+                timeout,
+            ))),
+            timeout,
+            unsat_core: false,
+        })
+        .add_subclass(Self {}))
+    }
+}
+
 pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<PySolver>()?;
     m.add_class::<PyConcreteSolver>()?;
     m.add_class::<PyZ3Solver>()?;
     m.add_class::<PyVSASolver>()?;
+    m.add_class::<PyCvc5Solver>()?;
 
     Ok(())
 }

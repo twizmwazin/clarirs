@@ -1,5 +1,6 @@
 use clarirs_core::prelude::*;
 use clarirs_core::solver_mixins::{ConcreteEarlyResolutionMixin, SimplificationMixin};
+use clarirs_cvc5::Cvc5Solver;
 use clarirs_vsa::VSASolver;
 use clarirs_z3::Z3Solver;
 
@@ -8,12 +9,15 @@ type WrappedConcreteSolver<'c> = ConcreteSolver<'c>;
 type WrappedZ3Solver<'c> = SimplificationMixin<'c, ConcreteEarlyResolutionMixin<'c, Z3Solver<'c>>>;
 type WrappedVSASolver<'c> =
     SimplificationMixin<'c, ConcreteEarlyResolutionMixin<'c, VSASolver<'c>>>;
+type WrappedCvc5Solver<'c> =
+    SimplificationMixin<'c, ConcreteEarlyResolutionMixin<'c, Cvc5Solver<'c>>>;
 
 #[derive(Clone, Debug)]
 pub(crate) enum DynSolver {
     Concrete(WrappedConcreteSolver<'static>),
     Z3(WrappedZ3Solver<'static>),
     Vsa(WrappedVSASolver<'static>),
+    Cvc5(WrappedCvc5Solver<'static>),
 }
 
 impl HasContext<'static> for DynSolver {
@@ -22,6 +26,7 @@ impl HasContext<'static> for DynSolver {
             DynSolver::Concrete(solver) => solver.context(),
             DynSolver::Z3(solver) => solver.context(),
             DynSolver::Vsa(solver) => solver.context(),
+            DynSolver::Cvc5(solver) => solver.context(),
         }
     }
 }
@@ -49,6 +54,7 @@ impl Solver<'static> for DynSolver {
             DynSolver::Concrete(solver) => solver.add(constraint),
             DynSolver::Z3(solver) => solver.add(constraint),
             DynSolver::Vsa(solver) => solver.add(constraint),
+            DynSolver::Cvc5(solver) => solver.add(constraint),
         }
     }
 
@@ -57,6 +63,7 @@ impl Solver<'static> for DynSolver {
             DynSolver::Concrete(solver) => solver.clear(),
             DynSolver::Z3(solver) => solver.clear(),
             DynSolver::Vsa(solver) => solver.clear(),
+            DynSolver::Cvc5(solver) => solver.clear(),
         }
     }
 
@@ -65,6 +72,7 @@ impl Solver<'static> for DynSolver {
             DynSolver::Concrete(solver) => solver.constraints(),
             DynSolver::Z3(solver) => solver.constraints(),
             DynSolver::Vsa(solver) => solver.constraints(),
+            DynSolver::Cvc5(solver) => solver.constraints(),
         }
     }
 
@@ -73,6 +81,7 @@ impl Solver<'static> for DynSolver {
             DynSolver::Concrete(solver) => solver.simplify(),
             DynSolver::Z3(solver) => solver.simplify(),
             DynSolver::Vsa(solver) => solver.simplify(),
+            DynSolver::Cvc5(solver) => solver.simplify(),
         }
     }
 
@@ -81,6 +90,7 @@ impl Solver<'static> for DynSolver {
             DynSolver::Concrete(solver) => solver.satisfiable(),
             DynSolver::Z3(solver) => solver.satisfiable(),
             DynSolver::Vsa(solver) => solver.satisfiable(),
+            DynSolver::Cvc5(solver) => solver.satisfiable(),
         }
     }
 
@@ -89,6 +99,7 @@ impl Solver<'static> for DynSolver {
             DynSolver::Concrete(solver) => solver.eval_bool(expr),
             DynSolver::Z3(solver) => solver.eval_bool(expr),
             DynSolver::Vsa(solver) => solver.eval_bool(expr),
+            DynSolver::Cvc5(solver) => solver.eval_bool(expr),
         }
     }
 
@@ -100,6 +111,7 @@ impl Solver<'static> for DynSolver {
             DynSolver::Concrete(solver) => solver.eval_bitvec(expr),
             DynSolver::Z3(solver) => solver.eval_bitvec(expr),
             DynSolver::Vsa(solver) => solver.eval_bitvec(expr),
+            DynSolver::Cvc5(solver) => solver.eval_bitvec(expr),
         }
     }
 
@@ -108,6 +120,7 @@ impl Solver<'static> for DynSolver {
             DynSolver::Concrete(solver) => solver.eval_float(expr),
             DynSolver::Z3(solver) => solver.eval_float(expr),
             DynSolver::Vsa(solver) => solver.eval_float(expr),
+            DynSolver::Cvc5(solver) => solver.eval_float(expr),
         }
     }
 
@@ -119,6 +132,7 @@ impl Solver<'static> for DynSolver {
             DynSolver::Concrete(solver) => solver.eval_string(expr),
             DynSolver::Z3(solver) => solver.eval_string(expr),
             DynSolver::Vsa(solver) => solver.eval_string(expr),
+            DynSolver::Cvc5(solver) => solver.eval_string(expr),
         }
     }
 
@@ -127,6 +141,7 @@ impl Solver<'static> for DynSolver {
             DynSolver::Concrete(solver) => solver.is_true(expr),
             DynSolver::Z3(solver) => solver.is_true(expr),
             DynSolver::Vsa(solver) => solver.is_true(expr),
+            DynSolver::Cvc5(solver) => solver.is_true(expr),
         }
     }
 
@@ -135,6 +150,7 @@ impl Solver<'static> for DynSolver {
             DynSolver::Concrete(solver) => solver.is_false(expr),
             DynSolver::Z3(solver) => solver.is_false(expr),
             DynSolver::Vsa(solver) => solver.is_false(expr),
+            DynSolver::Cvc5(solver) => solver.is_false(expr),
         }
     }
 
@@ -143,6 +159,7 @@ impl Solver<'static> for DynSolver {
             DynSolver::Concrete(solver) => solver.has_true(expr),
             DynSolver::Z3(solver) => solver.has_true(expr),
             DynSolver::Vsa(solver) => solver.has_true(expr),
+            DynSolver::Cvc5(solver) => solver.has_true(expr),
         }
     }
 
@@ -151,6 +168,7 @@ impl Solver<'static> for DynSolver {
             DynSolver::Concrete(solver) => solver.has_false(expr),
             DynSolver::Z3(solver) => solver.has_false(expr),
             DynSolver::Vsa(solver) => solver.has_false(expr),
+            DynSolver::Cvc5(solver) => solver.has_false(expr),
         }
     }
 
@@ -162,6 +180,7 @@ impl Solver<'static> for DynSolver {
             DynSolver::Concrete(solver) => solver.min_unsigned(expr),
             DynSolver::Z3(solver) => solver.min_unsigned(expr),
             DynSolver::Vsa(solver) => solver.min_unsigned(expr),
+            DynSolver::Cvc5(solver) => solver.min_unsigned(expr),
         }
     }
 
@@ -173,6 +192,7 @@ impl Solver<'static> for DynSolver {
             DynSolver::Concrete(solver) => solver.max_unsigned(expr),
             DynSolver::Z3(solver) => solver.max_unsigned(expr),
             DynSolver::Vsa(solver) => solver.max_unsigned(expr),
+            DynSolver::Cvc5(solver) => solver.max_unsigned(expr),
         }
     }
 
@@ -184,6 +204,7 @@ impl Solver<'static> for DynSolver {
             DynSolver::Concrete(solver) => solver.min_signed(expr),
             DynSolver::Z3(solver) => solver.min_signed(expr),
             DynSolver::Vsa(solver) => solver.min_signed(expr),
+            DynSolver::Cvc5(solver) => solver.min_signed(expr),
         }
     }
 
@@ -195,6 +216,7 @@ impl Solver<'static> for DynSolver {
             DynSolver::Concrete(solver) => solver.max_signed(expr),
             DynSolver::Z3(solver) => solver.max_signed(expr),
             DynSolver::Vsa(solver) => solver.max_signed(expr),
+            DynSolver::Cvc5(solver) => solver.max_signed(expr),
         }
     }
 
@@ -207,6 +229,7 @@ impl Solver<'static> for DynSolver {
             DynSolver::Concrete(solver) => solver.eval_bool_n(expr, n),
             DynSolver::Z3(solver) => solver.eval_bool_n(expr, n),
             DynSolver::Vsa(solver) => solver.eval_bool_n(expr, n),
+            DynSolver::Cvc5(solver) => solver.eval_bool_n(expr, n),
         }
     }
 
@@ -219,6 +242,7 @@ impl Solver<'static> for DynSolver {
             DynSolver::Concrete(solver) => solver.eval_bitvec_n(expr, n),
             DynSolver::Z3(solver) => solver.eval_bitvec_n(expr, n),
             DynSolver::Vsa(solver) => solver.eval_bitvec_n(expr, n),
+            DynSolver::Cvc5(solver) => solver.eval_bitvec_n(expr, n),
         }
     }
 
@@ -231,6 +255,7 @@ impl Solver<'static> for DynSolver {
             DynSolver::Concrete(solver) => solver.eval_float_n(expr, n),
             DynSolver::Z3(solver) => solver.eval_float_n(expr, n),
             DynSolver::Vsa(solver) => solver.eval_float_n(expr, n),
+            DynSolver::Cvc5(solver) => solver.eval_float_n(expr, n),
         }
     }
 
@@ -243,6 +268,7 @@ impl Solver<'static> for DynSolver {
             DynSolver::Concrete(solver) => solver.eval_string_n(expr, n),
             DynSolver::Z3(solver) => solver.eval_string_n(expr, n),
             DynSolver::Vsa(solver) => solver.eval_string_n(expr, n),
+            DynSolver::Cvc5(solver) => solver.eval_string_n(expr, n),
         }
     }
 }

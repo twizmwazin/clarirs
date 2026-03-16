@@ -1,0 +1,17 @@
+[package]
+name = "clarirs_cvc5"
+version = "0.1.0"
+edition = "2024"
+description = "cvc5 solver for clarirs"
+license = { workspace = true }
+readme = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
+repository = { workspace = true }
+
+[dependencies]
+clarirs_core = { path = "../clarirs_core" }
+cvc5-rs = "0.1"
+
+[lints]
+workspace = true
