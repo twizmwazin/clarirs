@@ -1,7 +1,18 @@
+use std::fmt;
+
 use crate::{algorithms::walk_post_order, prelude::*};
 
-/// TODO: I generated these implementations to facilitate debug printing, but
-/// have not verified them for correctness.
+/// Converts an FPRM rounding mode to its SMT-LIB 2.6 identifier.
+fn fprm_to_smtlib(fprm: &FPRM) -> &'static str {
+    match fprm {
+        FPRM::NearestTiesToEven => "RNE",
+        FPRM::NearestTiesToAway => "RNA",
+        FPRM::TowardPositive => "RTP",
+        FPRM::TowardNegative => "RTN",
+        FPRM::TowardZero => "RTZ",
+    }
+}
+
 fn to_smtlib_bool(ast: &BoolAst, children: &[String]) -> String {
     match ast.op() {
         BooleanOp::BoolS(s) => s.to_string(),
@@ -11,9 +22,13 @@ fn to_smtlib_bool(ast: &BoolAst, children: &[String]) -> String {
         BooleanOp::Or(..) => format!("(or {})", children.join(" ")),
         BooleanOp::Xor(..) => format!("(xor {} {})", children[0], children[1]),
         BooleanOp::BoolEq(..) => format!("(= {} {})", children[0], children[1]),
-        BooleanOp::BoolNeq(..) => format!("(!= {} {})", children[0], children[1]),
+        BooleanOp::BoolNeq(..) => {
+            format!("(distinct {} {})", children[0], children[1])
+        }
         BooleanOp::Eq(..) => format!("(= {} {})", children[0], children[1]),
-        BooleanOp::Neq(..) => format!("(!= {} {})", children[0], children[1]),
+        BooleanOp::Neq(..) => {
+            format!("(distinct {} {})", children[0], children[1])
+        }
         BooleanOp::ULT(..) => format!("(bvult {} {})", children[0], children[1]),
         BooleanOp::ULE(..) => format!("(bvule {} {})", children[0], children[1]),
         BooleanOp::UGT(..) => format!("(bvugt {} {})", children[0], children[1]),
@@ -59,8 +74,12 @@ fn to_smtlib_bv(ast: &BitVecAst, children: &[String]) -> String {
         BitVecOp::ShL(..) => format!("(bvshl {} {})", children[0], children[1]),
         BitVecOp::LShR(..) => format!("(bvlshr {} {})", children[0], children[1]),
         BitVecOp::AShR(..) => format!("(bvashr {} {})", children[0], children[1]),
-        BitVecOp::RotateLeft(..) => format!("(rotate_left {} {})", children[0], children[1]),
-        BitVecOp::RotateRight(..) => format!("(rotate_right {} {})", children[0], children[1]),
+        BitVecOp::RotateLeft(..) => {
+            format!("(ext_rotate_left {} {})", children[0], children[1])
+        }
+        BitVecOp::RotateRight(..) => {
+            format!("(ext_rotate_right {} {})", children[0], children[1])
+        }
         BitVecOp::ZeroExt(_, size) => format!("((_ zero_extend {}) {})", size, children[0]),
         BitVecOp::SignExt(_, size) => format!("((_ sign_extend {}) {})", size, children[0]),
         BitVecOp::Extract(_, high, low) => {
@@ -72,13 +91,13 @@ fn to_smtlib_bv(ast: &BitVecAst, children: &[String]) -> String {
         BitVecOp::FpToUBV(_, size, fprm) => format!(
             "((_ fp.to_ubv {}) {} {})",
             size,
-            format!("{fprm:?}").to_lowercase(),
+            fprm_to_smtlib(fprm),
             children[0]
         ),
         BitVecOp::FpToSBV(_, size, fprm) => format!(
             "((_ fp.to_sbv {}) {} {})",
             size,
-            format!("{fprm:?}").to_lowercase(),
+            fprm_to_smtlib(fprm),
             children[0]
         ),
         BitVecOp::StrLen(..) => format!("(str.len {})", children[0]),
@@ -91,7 +110,9 @@ fn to_smtlib_bv(ast: &BitVecAst, children: &[String]) -> String {
         BitVecOp::StrToBV(..) => format!("(str.to_bv {})", children[0]),
         BitVecOp::ITE(..) => format!("(ite {} {} {})", children[0], children[1], children[2]),
         BitVecOp::Union(..) => format!("(vsaunion {} {})", children[0], children[1]),
-        BitVecOp::Intersection(..) => format!("(vsaintersection {} {})", children[0], children[1]),
+        BitVecOp::Intersection(..) => {
+            format!("(vsaintersection {} {})", children[0], children[1])
+        }
         BitVecOp::Widen(..) => format!("(vsawiden {} {})", children[0], children[1]),
     }
 }
@@ -100,48 +121,50 @@ fn to_smtlib_float(ast: &FloatAst, children: &[String]) -> String {
     match ast.op() {
         FloatOp::FPS(s, _) => s.to_string(),
         FloatOp::FPV(float) => {
-            let sign = if float.sign() { "1" } else { "0" };
-            let exp = float.exponent().to_biguint().to_string();
-            let sig = float.mantissa().to_biguint().to_string();
-            format!("(fp #{sign} #{exp} #{sig})")
+            let sign = if float.sign() { "#b1" } else { "#b0" };
+            let exp = float.exponent();
+            let sig = float.mantissa();
+            let exp_str = format!("{:0>width$b}", exp.to_biguint(), width = exp.len() as usize);
+            let sig_str = format!("{:0>width$b}", sig.to_biguint(), width = sig.len() as usize);
+            format!("(fp {sign} #b{exp_str} #b{sig_str})")
         }
         FloatOp::FpFP(..) => format!("(fp {} {} {})", children[0], children[1], children[2]),
         FloatOp::FpNeg(..) => format!("(fp.neg {})", children[0]),
         FloatOp::FpAbs(..) => format!("(fp.abs {})", children[0]),
         FloatOp::FpAdd(_, _, fprm) => format!(
             "(fp.add {} {} {})",
-            format!("{fprm:?}").to_lowercase(),
+            fprm_to_smtlib(fprm),
             children[0],
             children[1]
         ),
         FloatOp::FpSub(_, _, fprm) => format!(
             "(fp.sub {} {} {})",
-            format!("{fprm:?}").to_lowercase(),
+            fprm_to_smtlib(fprm),
             children[0],
             children[1]
         ),
         FloatOp::FpMul(_, _, fprm) => format!(
             "(fp.mul {} {} {})",
-            format!("{fprm:?}").to_lowercase(),
+            fprm_to_smtlib(fprm),
             children[0],
             children[1]
         ),
         FloatOp::FpDiv(_, _, fprm) => format!(
             "(fp.div {} {} {})",
-            format!("{fprm:?}").to_lowercase(),
+            fprm_to_smtlib(fprm),
             children[0],
             children[1]
         ),
         FloatOp::FpSqrt(_, fprm) => format!(
             "(fp.sqrt {} {})",
-            format!("{fprm:?}").to_lowercase(),
+            fprm_to_smtlib(fprm),
             children[0]
         ),
         FloatOp::FpToFp(_, fsort, fprm) => format!(
             "((_ to_fp {} {}) {} {})",
             fsort.exponent,
             fsort.mantissa,
-            format!("{fprm:?}").to_lowercase(),
+            fprm_to_smtlib(fprm),
             children[0]
         ),
         FloatOp::BvToFp(_, fsort) => format!(
@@ -152,14 +175,14 @@ fn to_smtlib_float(ast: &FloatAst, children: &[String]) -> String {
             "((_ to_fp {} {}) {} {})",
             fsort.exponent,
             fsort.mantissa,
-            format!("{fprm:?}").to_lowercase(),
+            fprm_to_smtlib(fprm),
             children[0]
         ),
         FloatOp::BvToFpUnsigned(_, fsort, fprm) => format!(
             "((_ to_fp_unsigned {} {}) {} {})",
             fsort.exponent,
             fsort.mantissa,
-            format!("{fprm:?}").to_lowercase(),
+            fprm_to_smtlib(fprm),
             children[0]
         ),
         FloatOp::ITE(..) => {
@@ -171,7 +194,7 @@ fn to_smtlib_float(ast: &FloatAst, children: &[String]) -> String {
 fn to_smtlib_string(ast: &StringAst, children: &[String]) -> String {
     match ast.op() {
         StringOp::StringS(s) => s.to_string(),
-        StringOp::StringV(s) => format!("\"{}\"", s.replace("\"", "\\\"")),
+        StringOp::StringV(s) => format!("\"{}\"", s.replace('"', "\\\"")),
         StringOp::StrConcat(..) => format!("(str.++ {} {})", children[0], children[1]),
         StringOp::StrSubstr(..) => format!(
             "(str.substr {} {} {})",
@@ -186,7 +209,7 @@ fn to_smtlib_string(ast: &StringAst, children: &[String]) -> String {
     }
 }
 
-/// Trait for converting an AST to a SMT-LIB string.
+/// Trait for converting an AST to an SMT-LIB 2.6 string representation.
 pub trait ToSmtLib {
     fn to_smtlib(&self) -> String;
 }
@@ -228,5 +251,146 @@ impl ToSmtLib for FloatAst<'_> {
 impl ToSmtLib for StringAst<'_> {
     fn to_smtlib(&self) -> String {
         DynAst::from(self).to_smtlib()
+    }
+}
+
+/// Blanket `Display` implementation for any type implementing `ToSmtLib`.
+impl<T: ToSmtLib> fmt::Display for SmtLibDisplay<'_, T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0.to_smtlib())
+    }
+}
+
+/// Wrapper to display any `ToSmtLib` type via `fmt::Display`.
+///
+/// # Example
+/// ```ignore
+/// use clarirs_core::smtlib::{SmtLibDisplay, ToSmtLib};
+/// let ast = ctx.bvs("x", 64).unwrap();
+/// println!("{}", SmtLibDisplay(&ast));
+/// ```
+pub struct SmtLibDisplay<'a, T: ToSmtLib>(pub &'a T);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_bool_value() {
+        let ctx = Context::new();
+        let t = ctx.true_().unwrap();
+        let f = ctx.false_().unwrap();
+        assert_eq!(t.to_smtlib(), "true");
+        assert_eq!(f.to_smtlib(), "false");
+    }
+
+    #[test]
+    fn test_bool_ops() {
+        let ctx = Context::new();
+        let a = ctx.bools("a").unwrap();
+        let b = ctx.bools("b").unwrap();
+
+        let not_a = ctx.not(&a).unwrap();
+        assert_eq!(not_a.to_smtlib(), "(not a)");
+
+        let and = ctx.and([a.clone(), b.clone()]).unwrap();
+        assert_eq!(and.to_smtlib(), "(and a b)");
+
+        let or = ctx.or([a.clone(), b.clone()]).unwrap();
+        assert_eq!(or.to_smtlib(), "(or a b)");
+    }
+
+    #[test]
+    fn test_bv_symbol_and_value() {
+        let ctx = Context::new();
+        let x = ctx.bvs("x", 32).unwrap();
+        assert_eq!(x.to_smtlib(), "x");
+
+        let v = ctx.bvv_prim(42u64).unwrap();
+        assert_eq!(v.to_smtlib(), "(_ bv42 64)");
+    }
+
+    #[test]
+    fn test_bv_arithmetic() {
+        let ctx = Context::new();
+        let x = ctx.bvs("x", 64).unwrap();
+        let y = ctx.bvs("y", 64).unwrap();
+
+        let add = ctx.add(&x, &y).unwrap();
+        assert_eq!(add.to_smtlib(), "(bvadd x y)");
+
+        let sub = ctx.sub(&x, &y).unwrap();
+        assert_eq!(sub.to_smtlib(), "(bvsub x y)");
+    }
+
+    #[test]
+    fn test_bv_comparisons() {
+        let ctx = Context::new();
+        let x = ctx.bvs("x", 64).unwrap();
+        let y = ctx.bvs("y", 64).unwrap();
+
+        let ult = ctx.ult(&x, &y).unwrap();
+        assert_eq!(ult.to_smtlib(), "(bvult x y)");
+
+        let sge = ctx.sge(&x, &y).unwrap();
+        assert_eq!(sge.to_smtlib(), "(bvsge x y)");
+    }
+
+    #[test]
+    fn test_neq_uses_distinct() {
+        let ctx = Context::new();
+        let x = ctx.bvs("x", 64).unwrap();
+        let y = ctx.bvs("y", 64).unwrap();
+
+        let neq = ctx.neq(&x, &y).unwrap();
+        assert_eq!(neq.to_smtlib(), "(distinct x y)");
+    }
+
+    #[test]
+    fn test_extract_and_extend() {
+        let ctx = Context::new();
+        let x = ctx.bvs("x", 32).unwrap();
+
+        let ext = ctx.extract(&x, 15, 8).unwrap();
+        assert_eq!(ext.to_smtlib(), "((_ extract 15 8) x)");
+
+        let zext = ctx.zero_ext(&x, 32).unwrap();
+        assert_eq!(zext.to_smtlib(), "((_ zero_extend 32) x)");
+
+        let sext = ctx.sign_ext(&x, 32).unwrap();
+        assert_eq!(sext.to_smtlib(), "((_ sign_extend 32) x)");
+    }
+
+    #[test]
+    fn test_ite() {
+        let ctx = Context::new();
+        let cond = ctx.bools("c").unwrap();
+        let x = ctx.bvs("x", 64).unwrap();
+        let y = ctx.bvs("y", 64).unwrap();
+
+        let ite = ctx.ite(&cond, &x, &y).unwrap();
+        assert_eq!(ite.to_smtlib(), "(ite c x y)");
+    }
+
+    #[test]
+    fn test_string_value() {
+        let ctx = Context::new();
+        let s = ctx.stringv("hello").unwrap();
+        assert_eq!(s.to_smtlib(), "\"hello\"");
+    }
+
+    #[test]
+    fn test_string_value_with_quotes() {
+        let ctx = Context::new();
+        let s = ctx.stringv("say \"hi\"").unwrap();
+        assert_eq!(s.to_smtlib(), "\"say \\\"hi\\\"\"");
+    }
+
+    #[test]
+    fn test_smtlib_display_wrapper() {
+        let ctx = Context::new();
+        let x = ctx.bvs("x", 64).unwrap();
+        let displayed = format!("{}", SmtLibDisplay(&x));
+        assert_eq!(displayed, "x");
     }
 }
