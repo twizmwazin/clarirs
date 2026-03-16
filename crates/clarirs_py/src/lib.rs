@@ -126,8 +126,13 @@ fn is_true(expr: Bound<'_, PyAny>) -> Result<bool, ClaripyError> {
         }
     } else if let Ok(string_expr) = expr.clone().extract::<CoerceString>() {
         Ok(string_expr.0.get().inner.simplify()?.is_true())
+    } else if expr.is_none() {
+        Ok(false)
+    } else if let Ok(b) = expr.extract::<bool>() {
+        Ok(b)
     } else {
-        Ok(expr.is_truthy()?)
+        // Unknown types are not semantically "always true"
+        Ok(false)
     }
 }
 
@@ -147,8 +152,13 @@ fn is_false(expr: Bound<'_, PyAny>) -> Result<bool, ClaripyError> {
         }
     } else if let Ok(string_expr) = expr.clone().extract::<CoerceString>() {
         Ok(string_expr.0.get().inner.simplify()?.is_false())
+    } else if expr.is_none() {
+        Ok(false)
+    } else if let Ok(b) = expr.extract::<bool>() {
+        Ok(!b)
     } else {
-        Ok(!expr.is_truthy()?)
+        // Unknown types are not semantically "always false"
+        Ok(false)
     }
 }
 
