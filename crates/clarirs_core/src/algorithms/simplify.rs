@@ -249,21 +249,13 @@ fn simplify<'c>(
             let inner_result = simplify_inner(&mut state, error_on_dbz);
             match inner_result {
                 Ok(result) => {
-                    let mut relocatable_annotations: Vec<Annotation> = state
+                    let relocatable_annotations: Vec<Annotation> = state
                         .expr
                         .annotations()
                         .iter()
                         .filter(|a| a.relocatable())
                         .cloned()
                         .collect();
-                    // Also collect relocatable annotations from simplified children
-                    for child in state.children.iter().flatten() {
-                        for a in child.annotations().iter() {
-                            if a.relocatable() {
-                                relocatable_annotations.push(a.clone());
-                            }
-                        }
-                    }
                     let annotated = state
                         .expr
                         .context()
