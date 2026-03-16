@@ -110,7 +110,7 @@ mod to_z3 {
         let ctx = Context::new();
         let x = ctx.bvs("x", 8).unwrap();
         let y = ctx.bvs("y", 8).unwrap();
-        let ast = ctx.xor(x, y).unwrap();
+        let ast = ctx.bv_xor(x, y).unwrap();
         let z3_ast = ast.to_z3().unwrap();
 
         assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Bxor);
@@ -862,7 +862,7 @@ mod roundtrip {
         let ctx = Context::new();
         let x = ctx.bvs("x", 8).unwrap();
         let y = ctx.bvs("y", 8).unwrap();
-        let ast = ctx.xor(x, y).unwrap();
+        let ast = ctx.bv_xor(x, y).unwrap();
         assert_eq!(ast, round_trip(&ctx, &ast).unwrap());
     }
 

@@ -86,12 +86,15 @@ impl ExtractPyArgs for BitVecAst<'static> {
             BitVecOp::Not(expr) | BitVecOp::Neg(expr) => {
                 vec![BV::new(py, expr)?.into_any()]
             }
-            BitVecOp::And(lhs, rhs)
-            | BitVecOp::Or(lhs, rhs)
-            | BitVecOp::Xor(lhs, rhs)
-            | BitVecOp::Add(lhs, rhs)
-            | BitVecOp::Sub(lhs, rhs)
-            | BitVecOp::Mul(lhs, rhs)
+            BitVecOp::And(args)
+            | BitVecOp::Or(args)
+            | BitVecOp::Xor(args)
+            | BitVecOp::Add(args)
+            | BitVecOp::Mul(args) => args
+                .iter()
+                .map(|arg| BV::new(py, arg).map(|b| b.into_any()))
+                .collect::<Result<Vec<_>, _>>()?,
+            BitVecOp::Sub(lhs, rhs)
             | BitVecOp::UDiv(lhs, rhs)
             | BitVecOp::SDiv(lhs, rhs)
             | BitVecOp::URem(lhs, rhs)

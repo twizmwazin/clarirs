@@ -11,13 +11,13 @@ pub enum BitVecOp<'c> {
     BVS(InternedString, u32),
     BVV(BitVec),
     Not(BitVecAst<'c>),
-    And(BitVecAst<'c>, BitVecAst<'c>),
-    Or(BitVecAst<'c>, BitVecAst<'c>),
-    Xor(BitVecAst<'c>, BitVecAst<'c>),
+    And(Vec<BitVecAst<'c>>),
+    Or(Vec<BitVecAst<'c>>),
+    Xor(Vec<BitVecAst<'c>>),
     Neg(BitVecAst<'c>),
-    Add(BitVecAst<'c>, BitVecAst<'c>),
+    Add(Vec<BitVecAst<'c>>),
     Sub(BitVecAst<'c>, BitVecAst<'c>),
-    Mul(BitVecAst<'c>, BitVecAst<'c>),
+    Mul(Vec<BitVecAst<'c>>),
     UDiv(BitVecAst<'c>, BitVecAst<'c>),
     SDiv(BitVecAst<'c>, BitVecAst<'c>),
     URem(BitVecAst<'c>, BitVecAst<'c>),
@@ -81,13 +81,15 @@ impl<'a, 'c> Iterator for BitVecOpChildIter<'a, 'c> {
             | (BitVecOp::FpToUBV(a, _, _), 0)
             | (BitVecOp::FpToSBV(a, _, _), 0) => Some(a.into()),
 
+            // N-ary variants - variable children
+            (BitVecOp::And(args), i)
+            | (BitVecOp::Or(args), i)
+            | (BitVecOp::Xor(args), i)
+            | (BitVecOp::Add(args), i)
+            | (BitVecOp::Mul(args), i) if i < args.len() => Some(args[i].clone().into()),
+
             // 2 child variants - index 0 (first child)
-            (BitVecOp::And(a, _), 0)
-            | (BitVecOp::Or(a, _), 0)
-            | (BitVecOp::Xor(a, _), 0)
-            | (BitVecOp::Add(a, _), 0)
-            | (BitVecOp::Sub(a, _), 0)
-            | (BitVecOp::Mul(a, _), 0)
+            (BitVecOp::Sub(a, _), 0)
             | (BitVecOp::UDiv(a, _), 0)
             | (BitVecOp::SDiv(a, _), 0)
             | (BitVecOp::URem(a, _), 0)
@@ -102,12 +104,7 @@ impl<'a, 'c> Iterator for BitVecOpChildIter<'a, 'c> {
             | (BitVecOp::Widen(a, _), 0) => Some(a.into()),
 
             // 2 child variants - index 1 (second child)
-            (BitVecOp::And(_, b), 1)
-            | (BitVecOp::Or(_, b), 1)
-            | (BitVecOp::Xor(_, b), 1)
-            | (BitVecOp::Add(_, b), 1)
-            | (BitVecOp::Sub(_, b), 1)
-            | (BitVecOp::Mul(_, b), 1)
+            (BitVecOp::Sub(_, b), 1)
             | (BitVecOp::UDiv(_, b), 1)
             | (BitVecOp::SDiv(_, b), 1)
             | (BitVecOp::URem(_, b), 1)
@@ -130,7 +127,7 @@ impl<'a, 'c> Iterator for BitVecOpChildIter<'a, 'c> {
             (BitVecOp::ITE(_, b, _), 1) => Some(b.into()),
             (BitVecOp::ITE(_, _, c), 2) => Some(c.into()),
 
-            // N-ary Concat - variable children
+            // N-ary Concat
             (BitVecOp::Concat(args), i) if i < args.len() => Some(args[i].clone().into()),
 
             _ => None,
@@ -166,12 +163,13 @@ impl<'a, 'c> ExactSizeIterator for BitVecOpChildIter<'a, 'c> {
             | BitVecOp::FpToUBV(..)
             | BitVecOp::FpToSBV(..) => 1,
 
-            BitVecOp::And(..)
-            | BitVecOp::Or(..)
-            | BitVecOp::Xor(..)
-            | BitVecOp::Add(..)
-            | BitVecOp::Sub(..)
-            | BitVecOp::Mul(..)
+            BitVecOp::And(args)
+            | BitVecOp::Or(args)
+            | BitVecOp::Xor(args)
+            | BitVecOp::Add(args)
+            | BitVecOp::Mul(args) => args.len(),
+
+            BitVecOp::Sub(..)
             | BitVecOp::UDiv(..)
             | BitVecOp::SDiv(..)
             | BitVecOp::URem(..)
@@ -210,39 +208,34 @@ impl std::hash::Hash for BitVecOp<'_> {
                 2.hash(state);
                 a.hash(state);
             }
-            BitVecOp::And(a, b) => {
+            BitVecOp::And(args) => {
                 3.hash(state);
-                a.hash(state);
-                b.hash(state);
+                args.hash(state);
             }
-            BitVecOp::Or(a, b) => {
+            BitVecOp::Or(args) => {
                 4.hash(state);
-                a.hash(state);
-                b.hash(state);
+                args.hash(state);
             }
-            BitVecOp::Xor(a, b) => {
+            BitVecOp::Xor(args) => {
                 5.hash(state);
-                a.hash(state);
-                b.hash(state);
+                args.hash(state);
             }
             BitVecOp::Neg(a) => {
                 6.hash(state);
                 a.hash(state);
             }
-            BitVecOp::Add(a, b) => {
+            BitVecOp::Add(args) => {
                 7.hash(state);
-                a.hash(state);
-                b.hash(state);
+                args.hash(state);
             }
             BitVecOp::Sub(a, b) => {
                 8.hash(state);
                 a.hash(state);
                 b.hash(state);
             }
-            BitVecOp::Mul(a, b) => {
+            BitVecOp::Mul(args) => {
                 9.hash(state);
-                a.hash(state);
-                b.hash(state);
+                args.hash(state);
             }
             BitVecOp::UDiv(a, b) => {
                 10.hash(state);
@@ -422,12 +415,12 @@ impl<'c> BitVecOpExt<'c> for BitVecOp<'c> {
             | BitVecOp::Neg(a)
             | BitVecOp::ByteReverse(a)
             | BitVecOp::ITE(_, a, _) => a.size(),
-            BitVecOp::And(a, _)
-            | BitVecOp::Or(a, _)
-            | BitVecOp::Xor(a, _)
-            | BitVecOp::Add(a, _)
-            | BitVecOp::Sub(a, _)
-            | BitVecOp::Mul(a, _)
+            BitVecOp::And(args)
+            | BitVecOp::Or(args)
+            | BitVecOp::Xor(args)
+            | BitVecOp::Add(args)
+            | BitVecOp::Mul(args) => args[0].size(),
+            BitVecOp::Sub(a, _)
             | BitVecOp::UDiv(a, _)
             | BitVecOp::SDiv(a, _)
             | BitVecOp::URem(a, _)

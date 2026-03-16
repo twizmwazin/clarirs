@@ -21,12 +21,12 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, Clarir
             }
             BitVecOp::Not(..) => unop!(z3_ctx, children, mk_bvnot),
             BitVecOp::Neg(..) => unop!(z3_ctx, children, mk_bvneg),
-            BitVecOp::And(..) => binop!(z3_ctx, children, mk_bvand),
-            BitVecOp::Or(..) => binop!(z3_ctx, children, mk_bvor),
-            BitVecOp::Xor(..) => binop!(z3_ctx, children, mk_bvxor),
-            BitVecOp::Add(..) => binop!(z3_ctx, children, mk_bvadd),
+            BitVecOp::And(..) => naryop!(z3_ctx, children, mk_bvand),
+            BitVecOp::Or(..) => naryop!(z3_ctx, children, mk_bvor),
+            BitVecOp::Xor(..) => naryop!(z3_ctx, children, mk_bvxor),
+            BitVecOp::Add(..) => naryop!(z3_ctx, children, mk_bvadd),
             BitVecOp::Sub(..) => binop!(z3_ctx, children, mk_bvsub),
-            BitVecOp::Mul(..) => binop!(z3_ctx, children, mk_bvmul),
+            BitVecOp::Mul(..) => naryop!(z3_ctx, children, mk_bvmul),
             BitVecOp::UDiv(..) => binop!(z3_ctx, children, mk_bvudiv),
             BitVecOp::SDiv(..) => binop!(z3_ctx, children, mk_bvsdiv),
             BitVecOp::URem(..) => binop!(z3_ctx, children, mk_bvurem),
@@ -196,8 +196,30 @@ pub(crate) fn from_z3<'c>(
                     | z3::DeclKind::Bor
                     | z3::DeclKind::Bxor
                     | z3::DeclKind::Badd
-                    | z3::DeclKind::Bsub
-                    | z3::DeclKind::Bmul
+                    | z3::DeclKind::Bmul => {
+                        // N-ary ops: collect all args into a Vec
+                        let num_args = z3::get_app_num_args(*z3_ctx, app);
+                        if num_args < 2 {
+                            return Err(ClarirsError::ConversionError(format!(
+                                "Expected n-ary operation to have at least 2 arguments, got {}",
+                                num_args
+                            )));
+                        }
+                        let mut args = Vec::with_capacity(num_args as usize);
+                        for i in 0..num_args {
+                            let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, i))?;
+                            args.push(BitVecAst::from_z3(ctx, arg)?);
+                        }
+                        match decl_kind {
+                            z3::DeclKind::Band => ctx.bv_and_many(args),
+                            z3::DeclKind::Bor => ctx.bv_or_many(args),
+                            z3::DeclKind::Bxor => ctx.bv_xor_many(args),
+                            z3::DeclKind::Badd => ctx.add_many(args),
+                            z3::DeclKind::Bmul => ctx.mul_many(args),
+                            _ => unreachable!(),
+                        }
+                    }
+                    z3::DeclKind::Bsub
                     | z3::DeclKind::Budiv
                     | z3::DeclKind::Bsdiv
                     | z3::DeclKind::Burem
@@ -205,60 +227,21 @@ pub(crate) fn from_z3<'c>(
                     | z3::DeclKind::Bshl
                     | z3::DeclKind::Blshr
                     | z3::DeclKind::Bashr => {
-                        let num_args = z3::get_app_num_args(*z3_ctx, app);
-                        if num_args < 2 {
-                            return Err(ClarirsError::ConversionError(format!(
-                                "Expected binary operation to have at least 2 arguments, got {}",
-                                num_args
-                            )));
-                        }
-
-                        // Helper to apply the binary op
-                        let apply_op =
-                            |ctx: &'c Context<'c>,
-                             a: BitVecAst<'c>,
-                             b: BitVecAst<'c>|
-                             -> Result<BitVecAst<'c>, ClarirsError> {
-                                // Size adjustment: Z3 sometimes returns bitvectors of different sizes
-                                let max_size = a.size().max(b.size());
-                                let a = if a.size() < max_size {
-                                    ctx.zero_ext(&a, max_size - a.size())?
-                                } else {
-                                    a
-                                };
-                                let b = if b.size() < max_size {
-                                    ctx.zero_ext(&b, max_size - b.size())?
-                                } else {
-                                    b
-                                };
-
-                                match decl_kind {
-                                    z3::DeclKind::Band => ctx.bv_and(a, b),
-                                    z3::DeclKind::Bor => ctx.bv_or(a, b),
-                                    z3::DeclKind::Bxor => ctx.xor(a, b),
-                                    z3::DeclKind::Badd => ctx.add(a, b),
-                                    z3::DeclKind::Bsub => ctx.sub(a, b),
-                                    z3::DeclKind::Bmul => ctx.mul(a, b),
-                                    z3::DeclKind::Budiv => ctx.udiv(a, b),
-                                    z3::DeclKind::Bsdiv => ctx.sdiv(a, b),
-                                    z3::DeclKind::Burem => ctx.urem(a, b),
-                                    z3::DeclKind::Bsrem => ctx.srem(a, b),
-                                    z3::DeclKind::Bshl => ctx.shl(a, b),
-                                    z3::DeclKind::Blshr => ctx.lshr(a, b),
-                                    z3::DeclKind::Bashr => ctx.ashr(a, b),
-                                    _ => unreachable!(),
-                                }
-                            };
-
-                        // Fold n-ary operations into binary chains (left-to-right)
                         let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
-                        let mut result = BitVecAst::from_z3(ctx, arg0)?;
-                        for i in 1..num_args {
-                            let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, i))?;
-                            let b = BitVecAst::from_z3(ctx, arg)?;
-                            result = apply_op(ctx, result, b)?;
+                        let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
+                        let a = BitVecAst::from_z3(ctx, arg0)?;
+                        let b = BitVecAst::from_z3(ctx, arg1)?;
+                        match decl_kind {
+                            z3::DeclKind::Bsub => ctx.sub(a, b),
+                            z3::DeclKind::Budiv => ctx.udiv(a, b),
+                            z3::DeclKind::Bsdiv => ctx.sdiv(a, b),
+                            z3::DeclKind::Burem => ctx.urem(a, b),
+                            z3::DeclKind::Bsrem => ctx.srem(a, b),
+                            z3::DeclKind::Bshl => ctx.shl(a, b),
+                            z3::DeclKind::Blshr => ctx.lshr(a, b),
+                            z3::DeclKind::Bashr => ctx.ashr(a, b),
+                            _ => unreachable!(),
                         }
-                        Ok(result)
                     }
                     z3::DeclKind::ExtRotateLeft | z3::DeclKind::ExtRotateRight => {
                         let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;

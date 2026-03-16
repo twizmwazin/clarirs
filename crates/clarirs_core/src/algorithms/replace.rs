@@ -147,24 +147,39 @@ impl<'c, T: Clone + Into<DynAst<'c>>> Replace<'c, T> for DynAst<'c> {
                 DynAst::BitVec(bv_ast) => match bv_ast.op() {
                     BitVecOp::BVS(..) | BitVecOp::BVV(..) => Ok(bv_ast.clone()),
                     BitVecOp::Not(..) => ctx.not(bitvec_child(children, 0)?),
-                    BitVecOp::And(..) => {
-                        ctx.bv_and(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                    BitVecOp::And(args) => {
+                        let new_args: Vec<_> = (0..args.len())
+                            .map(|i| bitvec_child(children, i))
+                            .collect::<Result<_, _>>()?;
+                        ctx.bv_and_many(new_args)
                     }
-                    BitVecOp::Or(..) => {
-                        ctx.bv_or(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                    BitVecOp::Or(args) => {
+                        let new_args: Vec<_> = (0..args.len())
+                            .map(|i| bitvec_child(children, i))
+                            .collect::<Result<_, _>>()?;
+                        ctx.bv_or_many(new_args)
                     }
-                    BitVecOp::Xor(..) => {
-                        ctx.xor(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                    BitVecOp::Xor(args) => {
+                        let new_args: Vec<_> = (0..args.len())
+                            .map(|i| bitvec_child(children, i))
+                            .collect::<Result<_, _>>()?;
+                        ctx.bv_xor_many(new_args)
                     }
                     BitVecOp::Neg(..) => ctx.neg(bitvec_child(children, 0)?),
-                    BitVecOp::Add(..) => {
-                        ctx.add(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                    BitVecOp::Add(args) => {
+                        let new_args: Vec<_> = (0..args.len())
+                            .map(|i| bitvec_child(children, i))
+                            .collect::<Result<_, _>>()?;
+                        ctx.add_many(new_args)
                     }
                     BitVecOp::Sub(..) => {
                         ctx.sub(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
                     }
-                    BitVecOp::Mul(..) => {
-                        ctx.mul(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
+                    BitVecOp::Mul(args) => {
+                        let new_args: Vec<_> = (0..args.len())
+                            .map(|i| bitvec_child(children, i))
+                            .collect::<Result<_, _>>()?;
+                        ctx.mul_many(new_args)
                     }
                     BitVecOp::UDiv(..) => {
                         ctx.udiv(bitvec_child(children, 0)?, bitvec_child(children, 1)?)

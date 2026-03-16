@@ -159,7 +159,20 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BitVecAst<'c>>,
         rhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::And(lhs.into_owned(), rhs.into_owned()))
+        self.make_bitvec(BitVecOp::And(vec![lhs.into_owned(), rhs.into_owned()]))
+    }
+
+    fn bv_and_many(
+        &'c self,
+        args: impl IntoIterator<Item = BitVecAst<'c>>,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        let args: Vec<BitVecAst<'c>> = args.into_iter().collect();
+        if args.len() < 2 {
+            return Err(ClarirsError::InvalidArgumentsWithMessage(
+                "And requires at least two arguments".to_string(),
+            ));
+        }
+        self.make_bitvec(BitVecOp::And(args))
     }
 
     fn bv_or(
@@ -167,7 +180,41 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BitVecAst<'c>>,
         rhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::Or(lhs.into_owned(), rhs.into_owned()))
+        self.make_bitvec(BitVecOp::Or(vec![lhs.into_owned(), rhs.into_owned()]))
+    }
+
+    fn bv_or_many(
+        &'c self,
+        args: impl IntoIterator<Item = BitVecAst<'c>>,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        let args: Vec<BitVecAst<'c>> = args.into_iter().collect();
+        if args.len() < 2 {
+            return Err(ClarirsError::InvalidArgumentsWithMessage(
+                "Or requires at least two arguments".to_string(),
+            ));
+        }
+        self.make_bitvec(BitVecOp::Or(args))
+    }
+
+    fn bv_xor(
+        &'c self,
+        lhs: impl IntoOwned<BitVecAst<'c>>,
+        rhs: impl IntoOwned<BitVecAst<'c>>,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::Xor(vec![lhs.into_owned(), rhs.into_owned()]))
+    }
+
+    fn bv_xor_many(
+        &'c self,
+        args: impl IntoIterator<Item = BitVecAst<'c>>,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        let args: Vec<BitVecAst<'c>> = args.into_iter().collect();
+        if args.len() < 2 {
+            return Err(ClarirsError::InvalidArgumentsWithMessage(
+                "Xor requires at least two arguments".to_string(),
+            ));
+        }
+        self.make_bitvec(BitVecOp::Xor(args))
     }
 
     fn add(
@@ -175,7 +222,41 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BitVecAst<'c>>,
         rhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::Add(lhs.into_owned(), rhs.into_owned()))
+        self.make_bitvec(BitVecOp::Add(vec![lhs.into_owned(), rhs.into_owned()]))
+    }
+
+    fn add_many(
+        &'c self,
+        args: impl IntoIterator<Item = BitVecAst<'c>>,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        let args: Vec<BitVecAst<'c>> = args.into_iter().collect();
+        if args.len() < 2 {
+            return Err(ClarirsError::InvalidArgumentsWithMessage(
+                "Add requires at least two arguments".to_string(),
+            ));
+        }
+        self.make_bitvec(BitVecOp::Add(args))
+    }
+
+    fn mul(
+        &'c self,
+        lhs: impl IntoOwned<BitVecAst<'c>>,
+        rhs: impl IntoOwned<BitVecAst<'c>>,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::Mul(vec![lhs.into_owned(), rhs.into_owned()]))
+    }
+
+    fn mul_many(
+        &'c self,
+        args: impl IntoIterator<Item = BitVecAst<'c>>,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        let args: Vec<BitVecAst<'c>> = args.into_iter().collect();
+        if args.len() < 2 {
+            return Err(ClarirsError::InvalidArgumentsWithMessage(
+                "Mul requires at least two arguments".to_string(),
+            ));
+        }
+        self.make_bitvec(BitVecOp::Mul(args))
     }
 
     fn sub(
@@ -184,14 +265,6 @@ pub trait AstFactory<'c>: Sized {
         rhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
         self.make_bitvec(BitVecOp::Sub(lhs.into_owned(), rhs.into_owned()))
-    }
-
-    fn mul(
-        &'c self,
-        lhs: impl IntoOwned<BitVecAst<'c>>,
-        rhs: impl IntoOwned<BitVecAst<'c>>,
-    ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::Mul(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn udiv(

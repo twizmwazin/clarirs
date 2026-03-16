@@ -17,6 +17,17 @@ macro_rules! binop {
     }};
 }
 
+macro_rules! naryop {
+    ($z3:ident, $children:ident, $op:ident) => {{
+        let mut result = crate::astext::child($children, 0)?.clone();
+        for i in 1..$children.len() {
+            let b = crate::astext::child($children, i)?;
+            result = RcAst::try_from(z3::$op($z3, *result, **b))?;
+        }
+        result
+    }};
+}
+
 mod bool;
 mod bv;
 mod float;
