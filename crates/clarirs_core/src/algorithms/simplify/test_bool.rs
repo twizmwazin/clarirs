@@ -1,6 +1,13 @@
 use anyhow::Result;
 
-use crate::{algorithms::Simplify, ast::AstFactory, context::Context};
+use crate::{
+    algorithms::Simplify,
+    ast::{
+        annotation::{Annotation, AnnotationType},
+        AstFactory,
+    },
+    context::Context,
+};
 
 #[test]
 fn test_prim() -> Result<()> {
@@ -495,5 +502,85 @@ fn test_booleq_no_identity_simplification() -> Result<()> {
         "BoolEq(x, x) should NOT simplify to true due to potential NaN, got: {:?}",
         simplified.op()
     );
+    Ok(())
+}
+
+#[test]
+fn test_relocatable_annotations_preserved_through_simplification() -> Result<()> {
+    let ctx = Context::new();
+
+    let annotation = Annotation::new(AnnotationType::Uninitialized, true, true);
+
+    // Create an expression that will be simplified: true && x => x
+    let x = ctx.bools("x")?;
+    let true_ast = ctx.true_()?;
+
+    // Annotate x with a relocatable+eliminatable annotation
+    let annotated_x = ctx.annotate(&x, vec![annotation.clone()])?;
+    let expr = ctx.and2(&true_ast, &annotated_x)?;
+
+    let simplified = expr.simplify()?;
+
+    // The annotation should be preserved on the simplified result
+    assert!(
+        simplified.annotations().contains(&annotation),
+        "Relocatable annotation should be preserved through simplification, got annotations: {:?}",
+        simplified.annotations()
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_non_eliminatable_non_relocatable_blocks_simplification() -> Result<()> {
+    let ctx = Context::new();
+
+    // SimplificationAvoidance is !eliminatable && !relocatable
+    let annotation = Annotation::new(AnnotationType::SimplificationAvoidance, false, false);
+
+    // Create an expression that would normally simplify: true && x => x
+    let x = ctx.bools("x")?;
+    let true_ast = ctx.true_()?;
+    let expr = ctx.and2(&true_ast, &x)?;
+
+    // Annotate the expression with a blocking annotation
+    let annotated = ctx.annotate(&expr, vec![annotation])?;
+
+    // Simplification should be blocked — the expression should remain unchanged
+    let simplified = annotated.simplify()?;
+    assert_eq!(
+        simplified, annotated,
+        "Non-eliminatable, non-relocatable annotation should block simplification"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_eliminatable_non_relocatable_does_not_block_simplification() -> Result<()> {
+    let ctx = Context::new();
+
+    // An eliminatable, non-relocatable annotation should NOT block simplification
+    let annotation = Annotation::new(AnnotationType::Uninitialized, true, false);
+
+    // Create an expression that would normally simplify: true && x => x
+    let x = ctx.bools("x")?;
+    let true_ast = ctx.true_()?;
+    let expr = ctx.and2(&true_ast, &x)?;
+
+    // Annotate the expression
+    let annotated = ctx.annotate(&expr, vec![annotation])?;
+
+    // Simplification should proceed since the annotation is eliminatable
+    let simplified = annotated.simplify()?;
+
+    // The result should be simplified (x, not the original and-expression)
+    // The non-relocatable annotation is dropped since it can't move to the new expression
+    assert_eq!(
+        simplified.annotations().len(),
+        0,
+        "Non-relocatable annotation should be dropped after simplification"
+    );
+
     Ok(())
 }
