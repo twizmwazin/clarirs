@@ -170,60 +170,60 @@ pub trait AstFactory<'c>: Sized {
         self.make_bitvec(BitVecOp::Or(lhs.into_owned(), rhs.into_owned()))
     }
 
-    fn add<Op: SupportsAdd<'c>>(
+    fn add(
         &'c self,
-        lhs: impl IntoOwned<AstRef<'c, Op>>,
-        rhs: impl IntoOwned<AstRef<'c, Op>>,
-    ) -> Result<AstRef<'c, Op>, ClarirsError> {
-        Op::add(self, lhs, rhs)
+        lhs: impl IntoOwned<BitVecAst<'c>>,
+        rhs: impl IntoOwned<BitVecAst<'c>>,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::Add(lhs.into_owned(), rhs.into_owned()))
     }
 
-    fn sub<Op: SupportsSub<'c>>(
+    fn sub(
         &'c self,
-        lhs: impl IntoOwned<AstRef<'c, Op>>,
-        rhs: impl IntoOwned<AstRef<'c, Op>>,
-    ) -> Result<AstRef<'c, Op>, ClarirsError> {
-        Op::sub(self, lhs, rhs)
+        lhs: impl IntoOwned<BitVecAst<'c>>,
+        rhs: impl IntoOwned<BitVecAst<'c>>,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::Sub(lhs.into_owned(), rhs.into_owned()))
     }
 
-    fn mul<Op: SupportsMul<'c>>(
+    fn mul(
         &'c self,
-        lhs: impl IntoOwned<AstRef<'c, Op>>,
-        rhs: impl IntoOwned<AstRef<'c, Op>>,
-    ) -> Result<AstRef<'c, Op>, ClarirsError> {
-        Op::mul(self, lhs, rhs)
+        lhs: impl IntoOwned<BitVecAst<'c>>,
+        rhs: impl IntoOwned<BitVecAst<'c>>,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::Mul(lhs.into_owned(), rhs.into_owned()))
     }
 
-    fn udiv<Op: SupportsUDiv<'c>>(
+    fn udiv(
         &'c self,
-        lhs: impl IntoOwned<AstRef<'c, Op>>,
-        rhs: impl IntoOwned<AstRef<'c, Op>>,
-    ) -> Result<AstRef<'c, Op>, ClarirsError> {
-        Op::udiv(self, lhs, rhs)
+        lhs: impl IntoOwned<BitVecAst<'c>>,
+        rhs: impl IntoOwned<BitVecAst<'c>>,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::UDiv(lhs.into_owned(), rhs.into_owned()))
     }
 
-    fn sdiv<Op: SupportsSDiv<'c>>(
+    fn sdiv(
         &'c self,
-        lhs: impl IntoOwned<AstRef<'c, Op>>,
-        rhs: impl IntoOwned<AstRef<'c, Op>>,
-    ) -> Result<AstRef<'c, Op>, ClarirsError> {
-        Op::sdiv(self, lhs, rhs)
+        lhs: impl IntoOwned<BitVecAst<'c>>,
+        rhs: impl IntoOwned<BitVecAst<'c>>,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::SDiv(lhs.into_owned(), rhs.into_owned()))
     }
 
-    fn urem<Op: SupportsURem<'c>>(
+    fn urem(
         &'c self,
-        lhs: impl IntoOwned<AstRef<'c, Op>>,
-        rhs: impl IntoOwned<AstRef<'c, Op>>,
-    ) -> Result<AstRef<'c, Op>, ClarirsError> {
-        Op::urem(self, lhs, rhs)
+        lhs: impl IntoOwned<BitVecAst<'c>>,
+        rhs: impl IntoOwned<BitVecAst<'c>>,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::URem(lhs.into_owned(), rhs.into_owned()))
     }
 
-    fn srem<Op: SupportsSRem<'c>>(
+    fn srem(
         &'c self,
-        lhs: impl IntoOwned<AstRef<'c, Op>>,
-        rhs: impl IntoOwned<AstRef<'c, Op>>,
-    ) -> Result<AstRef<'c, Op>, ClarirsError> {
-        Op::srem(self, lhs, rhs)
+        lhs: impl IntoOwned<BitVecAst<'c>>,
+        rhs: impl IntoOwned<BitVecAst<'c>>,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec(BitVecOp::SRem(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn shl(
