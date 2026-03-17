@@ -126,12 +126,12 @@ pub trait AstFactory<'c>: Sized {
         self.make_bool(BooleanOp::Or(vec![lhs.into_owned(), rhs.into_owned()]))
     }
 
-    fn xor<Op: SupportsXor<'c>>(
+    fn xor(
         &'c self,
-        lhs: impl IntoOwned<AstRef<'c, Op>>,
-        rhs: impl IntoOwned<AstRef<'c, Op>>,
-    ) -> Result<AstRef<'c, Op>, ClarirsError> {
-        Op::xor(self, lhs, rhs)
+        lhs: impl IntoOwned<BoolAst<'c>>,
+        rhs: impl IntoOwned<BoolAst<'c>>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool(BooleanOp::Xor(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn eq_<Op: SupportsEq<'c>>(
