@@ -148,6 +148,6 @@ Requires: CMake, Ninja, Clang (for faster builds). On CI, sccache caches compila
 ## Edition & Toolchain
 
 - **Rust Edition**: 2024 (stable)
-- **Toolchain**: Rust 1.88 (see `rust-toolchain.toml`)
-- **Python**: 3.10+ (PyO3 0.27+)
+- **Toolchain**: Rust 1.92 (see `rust-toolchain.toml`)
+- **Python**: 3.10+ (PyO3 0.28+)
 - **Package Manager**: uv for Python dependencies
