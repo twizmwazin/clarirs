@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use clarirs_core::prelude::*;
 use clarirs_core::solver_mixins::{
     CompositeSolver, ConcreteEarlyResolutionMixin, ReplacementMixin, SimplificationMixin,
@@ -36,6 +38,33 @@ impl HasContext<'static> for DynSolver {
 }
 
 impl DynSolver {
+    /// Add a replacement to the solver (only supported for Replacement solver)
+    pub(crate) fn add_replacement(
+        &mut self,
+        old: DynAst<'static>,
+        new: DynAst<'static>,
+    ) -> Result<(), ClarirsError> {
+        match self {
+            DynSolver::Replacement(solver) => {
+                solver.add_replacement(old, new);
+                Ok(())
+            }
+            _ => Err(ClarirsError::UnsupportedOperation(
+                "add_replacement is only supported for Replacement solver".to_string(),
+            )),
+        }
+    }
+
+    /// Get the current replacements (only supported for Replacement solver)
+    pub(crate) fn get_replacements(&self) -> Result<HashMap<u64, DynAst<'static>>, ClarirsError> {
+        match self {
+            DynSolver::Replacement(solver) => Ok(solver.replacements().clone()),
+            _ => Err(ClarirsError::UnsupportedOperation(
+                "get_replacements is only supported for Replacement solver".to_string(),
+            )),
+        }
+    }
+
     /// Get unsat core (only supported for Z3 solver)
     pub(crate) fn unsat_core(&mut self) -> Result<Vec<usize>, ClarirsError> {
         match self {

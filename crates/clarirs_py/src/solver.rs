@@ -776,6 +776,34 @@ impl PyReplacementSolver {
         })
         .add_subclass(Self {}))
     }
+
+    /// Register a replacement: future solver operations will substitute `old` with `new`.
+    fn add_replacement(
+        self_: &Bound<'_, Self>,
+        old: Bound<'_, Base>,
+        new: Bound<'_, Base>,
+    ) -> Result<(), ClaripyError> {
+        let old_dyn = Base::to_dynast(old)?;
+        let new_dyn = Base::to_dynast(new)?;
+        let mut parent: PyRefMut<'_, PySolver> = self_.borrow_mut().into_super();
+        parent.inner.add_replacement(old_dyn, new_dyn)?;
+        Ok(())
+    }
+
+    /// Return a list of (hash, replacement_ast) tuples for all current replacements.
+    fn get_replacements<'py>(
+        self_: PyRef<'py, Self>,
+        py: Python<'py>,
+    ) -> Result<Vec<(u64, Bound<'py, Base>)>, ClaripyError> {
+        let replacements = self_.into_super().inner.get_replacements()?;
+        replacements
+            .into_iter()
+            .map(|(hash, dynast)| {
+                let replacement = Base::from_dynast(py, dynast)?;
+                Ok((hash, replacement))
+            })
+            .collect()
+    }
 }
 
 #[pyclass(extends = PySolver, name = "SolverComposite", module = "claripy.solver")]
