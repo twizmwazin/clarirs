@@ -199,12 +199,6 @@ pub(crate) fn from_z3<'c>(
                     | z3::DeclKind::Bmul => {
                         // N-ary ops: collect all args into a Vec
                         let num_args = z3::get_app_num_args(*z3_ctx, app);
-                        if num_args < 2 {
-                            return Err(ClarirsError::ConversionError(format!(
-                                "Expected n-ary operation to have at least 2 arguments, got {}",
-                                num_args
-                            )));
-                        }
                         let mut args = Vec::with_capacity(num_args as usize);
                         for i in 0..num_args {
                             let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, i))?;

@@ -167,11 +167,6 @@ pub trait AstFactory<'c>: Sized {
         args: impl IntoIterator<Item = BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
         let args: Vec<BitVecAst<'c>> = args.into_iter().collect();
-        if args.len() < 2 {
-            return Err(ClarirsError::InvalidArgumentsWithMessage(
-                "And requires at least two arguments".to_string(),
-            ));
-        }
         self.make_bitvec(BitVecOp::And(args))
     }
 
@@ -188,11 +183,6 @@ pub trait AstFactory<'c>: Sized {
         args: impl IntoIterator<Item = BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
         let args: Vec<BitVecAst<'c>> = args.into_iter().collect();
-        if args.len() < 2 {
-            return Err(ClarirsError::InvalidArgumentsWithMessage(
-                "Or requires at least two arguments".to_string(),
-            ));
-        }
         self.make_bitvec(BitVecOp::Or(args))
     }
 
@@ -209,11 +199,6 @@ pub trait AstFactory<'c>: Sized {
         args: impl IntoIterator<Item = BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
         let args: Vec<BitVecAst<'c>> = args.into_iter().collect();
-        if args.len() < 2 {
-            return Err(ClarirsError::InvalidArgumentsWithMessage(
-                "Xor requires at least two arguments".to_string(),
-            ));
-        }
         self.make_bitvec(BitVecOp::Xor(args))
     }
 
@@ -230,11 +215,6 @@ pub trait AstFactory<'c>: Sized {
         args: impl IntoIterator<Item = BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
         let args: Vec<BitVecAst<'c>> = args.into_iter().collect();
-        if args.len() < 2 {
-            return Err(ClarirsError::InvalidArgumentsWithMessage(
-                "Add requires at least two arguments".to_string(),
-            ));
-        }
         self.make_bitvec(BitVecOp::Add(args))
     }
 
@@ -251,11 +231,6 @@ pub trait AstFactory<'c>: Sized {
         args: impl IntoIterator<Item = BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
         let args: Vec<BitVecAst<'c>> = args.into_iter().collect();
-        if args.len() < 2 {
-            return Err(ClarirsError::InvalidArgumentsWithMessage(
-                "Mul requires at least two arguments".to_string(),
-            ));
-        }
         self.make_bitvec(BitVecOp::Mul(args))
     }
 
