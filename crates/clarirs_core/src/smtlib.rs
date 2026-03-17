@@ -60,33 +60,28 @@ fn to_smtlib_bv(ast: &BitVecAst, children: &[String]) -> String {
         BitVecOp::BVS(s, _) => s.to_string(),
         BitVecOp::BVV(bit_vec) => format!("(_ bv{} {})", bit_vec.to_biguint(), bit_vec.len()),
         BitVecOp::Not(..) => format!("(bvnot {})", children[0]),
-        BitVecOp::And(..) => children
-            .iter()
-            .cloned()
-            .reduce(|acc, c| format!("(bvand {} {})", acc, c))
-            .unwrap_or_else(|| "(bvand)".to_string()),
-        BitVecOp::Or(..) => children
-            .iter()
-            .cloned()
-            .reduce(|acc, c| format!("(bvor {} {})", acc, c))
-            .unwrap_or_else(|| "(bvor)".to_string()),
-        BitVecOp::Xor(..) => children
-            .iter()
-            .cloned()
-            .reduce(|acc, c| format!("(bvxor {} {})", acc, c))
-            .unwrap_or_else(|| "(bvxor)".to_string()),
+        BitVecOp::And(..) => format!(
+            "(bvand{})",
+            children.iter().fold(String::new(), |acc, c| format!("{} {}", acc, c))
+        ),
+        BitVecOp::Or(..) => format!(
+            "(bvor{})",
+            children.iter().fold(String::new(), |acc, c| format!("{} {}", acc, c))
+        ),
+        BitVecOp::Xor(..) => format!(
+            "(bvxor{})",
+            children.iter().fold(String::new(), |acc, c| format!("{} {}", acc, c))
+        ),
         BitVecOp::Neg(..) => format!("(bvneg {})", children[0]),
-        BitVecOp::Add(..) => children
-            .iter()
-            .cloned()
-            .reduce(|acc, c| format!("(bvadd {} {})", acc, c))
-            .unwrap_or_else(|| "(bvadd)".to_string()),
+        BitVecOp::Add(..) => format!(
+            "(bvadd{})",
+            children.iter().fold(String::new(), |acc, c| format!("{} {}", acc, c))
+        ),
         BitVecOp::Sub(..) => format!("(bvsub {} {})", children[0], children[1]),
-        BitVecOp::Mul(..) => children
-            .iter()
-            .cloned()
-            .reduce(|acc, c| format!("(bvmul {} {})", acc, c))
-            .unwrap_or_else(|| "(bvmul)".to_string()),
+        BitVecOp::Mul(..) => format!(
+            "(bvmul{})",
+            children.iter().fold(String::new(), |acc, c| format!("{} {}", acc, c))
+        ),
         BitVecOp::UDiv(..) => format!("(bvudiv {} {})", children[0], children[1]),
         BitVecOp::SDiv(..) => format!("(bvsdiv {} {})", children[0], children[1]),
         BitVecOp::URem(..) => format!("(bvurem {} {})", children[0], children[1]),
