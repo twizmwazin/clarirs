@@ -5,7 +5,7 @@ use crate::prelude::*;
 /// A composite solver that splits constraints into independent groups based on
 /// variable connectivity and delegates each group to a separate child solver.
 ///
-/// Inspired by claripy's `CompositeFrontend`, this solver:
+/// This solver:
 /// - Tracks which variables belong to which child solver
 /// - Automatically merges child solvers when a new constraint bridges
 ///   previously independent variable groups
