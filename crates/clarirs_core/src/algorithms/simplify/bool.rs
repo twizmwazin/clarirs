@@ -277,16 +277,26 @@ pub(crate) fn simplify_bool<'c>(
                 // If on one side there is an AND where one of the operands is a mask, and on the
                 // other side, there is a BVV which matches the masked part of the AND, we can
                 // extract the AND operand directly, and extract the other side and rerun
-                (BitVecOp::And(lhs_and, mask), BitVecOp::BVV(bvv))
-                | (BitVecOp::And(mask, lhs_and), BitVecOp::BVV(bvv))
-                    if {
-                        if let BitVecOp::BVV(mask_val) = mask.op() {
-                            mask_val.is_mask().is_some()
-                        } else {
-                            false
-                        }
+                (BitVecOp::And(and_args), BitVecOp::BVV(bvv))
+                    if and_args.len() == 2 && {
+                        // Check if either operand is a mask
+                        let check = |idx: usize| {
+                            if let BitVecOp::BVV(mask_val) = and_args[idx].op() {
+                                mask_val.is_mask().is_some()
+                            } else {
+                                false
+                            }
+                        };
+                        check(0) || check(1)
                     } =>
                 {
+                    let (mask_idx, lhs_idx) = if matches!(and_args[0].op(), BitVecOp::BVV(v) if v.is_mask().is_some())
+                    {
+                        (0, 1)
+                    } else {
+                        (1, 0)
+                    };
+                    let (mask, lhs_and) = (&and_args[mask_idx], &and_args[lhs_idx]);
                     let (mask_high, mask_low) = if let BitVecOp::BVV(mask_val) = mask.op() {
                         mask_val.is_mask()
                     } else {
@@ -363,10 +373,13 @@ pub(crate) fn simplify_bool<'c>(
                 }
 
                 // (x + C) == 0  ==>  x == -C
-                (BitVecOp::Add(lhs_add, rhs_add), BitVecOp::BVV(val))
-                | (BitVecOp::BVV(val), BitVecOp::Add(lhs_add, rhs_add))
-                    if val.is_zero() && matches!(rhs_add.op(), BitVecOp::BVV(..)) =>
+                (BitVecOp::Add(add_args), BitVecOp::BVV(val))
+                | (BitVecOp::BVV(val), BitVecOp::Add(add_args))
+                    if val.is_zero()
+                        && add_args.len() == 2
+                        && matches!(add_args[1].op(), BitVecOp::BVV(..)) =>
                 {
+                    let (lhs_add, rhs_add) = (&add_args[0], &add_args[1]);
                     let neg_c = ctx.neg(rhs_add)?;
                     state.rerun(ctx.eq_(lhs_add.clone(), neg_c)?)
                 }
@@ -385,16 +398,25 @@ pub(crate) fn simplify_bool<'c>(
                 // If on one side there is an AND where one of the operands is a mask, and on the
                 // other side, there is a BVV which matches the masked part of the AND, we can
                 // extract the AND operand directly, and extract the other side and rerun
-                (BitVecOp::And(lhs_and, mask), BitVecOp::BVV(bvv))
-                | (BitVecOp::And(mask, lhs_and), BitVecOp::BVV(bvv))
-                    if {
-                        if let BitVecOp::BVV(mask_val) = mask.op() {
-                            mask_val.is_mask().is_some()
-                        } else {
-                            false
-                        }
+                (BitVecOp::And(and_args), BitVecOp::BVV(bvv))
+                    if and_args.len() == 2 && {
+                        let check = |idx: usize| {
+                            if let BitVecOp::BVV(mask_val) = and_args[idx].op() {
+                                mask_val.is_mask().is_some()
+                            } else {
+                                false
+                            }
+                        };
+                        check(0) || check(1)
                     } =>
                 {
+                    let (mask_idx, lhs_idx) = if matches!(and_args[0].op(), BitVecOp::BVV(v) if v.is_mask().is_some())
+                    {
+                        (0, 1)
+                    } else {
+                        (1, 0)
+                    };
+                    let (mask, lhs_and) = (&and_args[mask_idx], &and_args[lhs_idx]);
                     let (mask_high, mask_low) = if let BitVecOp::BVV(mask_val) = mask.op() {
                         mask_val.is_mask()
                     } else {
@@ -471,10 +493,13 @@ pub(crate) fn simplify_bool<'c>(
                 }
 
                 // (x + C) != 0  ==>  x != -C
-                (BitVecOp::Add(lhs_add, rhs_add), BitVecOp::BVV(val))
-                | (BitVecOp::BVV(val), BitVecOp::Add(lhs_add, rhs_add))
-                    if val.is_zero() && matches!(rhs_add.op(), BitVecOp::BVV(..)) =>
+                (BitVecOp::Add(add_args), BitVecOp::BVV(val))
+                | (BitVecOp::BVV(val), BitVecOp::Add(add_args))
+                    if val.is_zero()
+                        && add_args.len() == 2
+                        && matches!(add_args[1].op(), BitVecOp::BVV(..)) =>
                 {
+                    let (lhs_add, rhs_add) = (&add_args[0], &add_args[1]);
                     let neg_c = ctx.neg(rhs_add)?;
                     state.rerun(ctx.neq(lhs_add.clone(), neg_c)?)
                 }
@@ -491,16 +516,25 @@ pub(crate) fn simplify_bool<'c>(
                 // If on one side there is an AND where one of the operands is a mask, and on the
                 // other side, there is a BVV which matches the masked part of the AND, we can
                 // extract the AND operand directly, and extract the other side and rerun
-                (BitVecOp::And(lhs_and, mask), BitVecOp::BVV(bvv))
-                | (BitVecOp::And(mask, lhs_and), BitVecOp::BVV(bvv))
-                    if {
-                        if let BitVecOp::BVV(mask_val) = mask.op() {
-                            mask_val.is_mask().is_some()
-                        } else {
-                            false
-                        }
+                (BitVecOp::And(and_args), BitVecOp::BVV(bvv))
+                    if and_args.len() == 2 && {
+                        let check = |idx: usize| {
+                            if let BitVecOp::BVV(mask_val) = and_args[idx].op() {
+                                mask_val.is_mask().is_some()
+                            } else {
+                                false
+                            }
+                        };
+                        check(0) || check(1)
                     } =>
                 {
+                    let (mask_idx, lhs_idx) = if matches!(and_args[0].op(), BitVecOp::BVV(v) if v.is_mask().is_some())
+                    {
+                        (0, 1)
+                    } else {
+                        (1, 0)
+                    };
+                    let (mask, lhs_and) = (&and_args[mask_idx], &and_args[lhs_idx]);
                     let (mask_high, mask_low) = if let BitVecOp::BVV(mask_val) = mask.op() {
                         mask_val.is_mask()
                     } else {
@@ -512,16 +546,25 @@ pub(crate) fn simplify_bool<'c>(
                         ctx.bvv(bvv.extract(mask_low, mask_high)?)?,
                     )?)
                 }
-                (BitVecOp::BVV(bvv), BitVecOp::And(lhs_and, mask))
-                | (BitVecOp::BVV(bvv), BitVecOp::And(mask, lhs_and))
-                    if {
-                        if let BitVecOp::BVV(mask_val) = mask.op() {
-                            mask_val.is_mask().is_some()
-                        } else {
-                            false
-                        }
+                (BitVecOp::BVV(bvv), BitVecOp::And(and_args))
+                    if and_args.len() == 2 && {
+                        let check = |idx: usize| {
+                            if let BitVecOp::BVV(mask_val) = and_args[idx].op() {
+                                mask_val.is_mask().is_some()
+                            } else {
+                                false
+                            }
+                        };
+                        check(0) || check(1)
                     } =>
                 {
+                    let (mask_idx, lhs_idx) = if matches!(and_args[0].op(), BitVecOp::BVV(v) if v.is_mask().is_some())
+                    {
+                        (0, 1)
+                    } else {
+                        (1, 0)
+                    };
+                    let (mask, lhs_and) = (&and_args[mask_idx], &and_args[lhs_idx]);
                     let (mask_high, mask_low) = if let BitVecOp::BVV(mask_val) = mask.op() {
                         mask_val.is_mask()
                     } else {
@@ -635,11 +678,13 @@ pub(crate) fn simplify_bool<'c>(
                 }
 
                 // ULT(BVV(b), Add(ZeroExt(n, inner), BVV(c))) where c and b fit in inner's size
-                (BitVecOp::BVV(bound), BitVecOp::Add(lhs_add, rhs_add))
-                    if matches!(lhs_add.op(), BitVecOp::ZeroExt(_, ext_size)
+                (BitVecOp::BVV(bound), BitVecOp::Add(add_args))
+                    if add_args.len() == 2
+                        && matches!(add_args[0].op(), BitVecOp::ZeroExt(_, ext_size)
                         if bound.leading_zeros() as u32 >= *ext_size
-                        && matches!(rhs_add.op(), BitVecOp::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
+                        && matches!(add_args[1].op(), BitVecOp::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
                 {
+                    let (lhs_add, rhs_add) = (&add_args[0], &add_args[1]);
                     if let BitVecOp::ZeroExt(inner, _) = lhs_add.op() {
                         let inner_size = inner.size();
                         state.rerun(ctx.ult(
@@ -663,16 +708,25 @@ pub(crate) fn simplify_bool<'c>(
                 // If on one side there is an AND where one of the operands is a mask, and on the
                 // other side, there is a BVV which matches the masked part of the AND, we can
                 // extract the AND operand directly, and extract the other side and rerun
-                (BitVecOp::And(lhs_and, mask), BitVecOp::BVV(bvv))
-                | (BitVecOp::And(mask, lhs_and), BitVecOp::BVV(bvv))
-                    if {
-                        if let BitVecOp::BVV(mask_val) = mask.op() {
-                            mask_val.is_mask().is_some()
-                        } else {
-                            false
-                        }
+                (BitVecOp::And(and_args), BitVecOp::BVV(bvv))
+                    if and_args.len() == 2 && {
+                        let check = |idx: usize| {
+                            if let BitVecOp::BVV(mask_val) = and_args[idx].op() {
+                                mask_val.is_mask().is_some()
+                            } else {
+                                false
+                            }
+                        };
+                        check(0) || check(1)
                     } =>
                 {
+                    let (mask_idx, lhs_idx) = if matches!(and_args[0].op(), BitVecOp::BVV(v) if v.is_mask().is_some())
+                    {
+                        (0, 1)
+                    } else {
+                        (1, 0)
+                    };
+                    let (mask, lhs_and) = (&and_args[mask_idx], &and_args[lhs_idx]);
                     let (mask_high, mask_low) = if let BitVecOp::BVV(mask_val) = mask.op() {
                         mask_val.is_mask()
                     } else {
@@ -684,16 +738,25 @@ pub(crate) fn simplify_bool<'c>(
                         ctx.bvv(bvv.extract(mask_low, mask_high)?)?,
                     )?)
                 }
-                (BitVecOp::BVV(bvv), BitVecOp::And(lhs_and, mask))
-                | (BitVecOp::BVV(bvv), BitVecOp::And(mask, lhs_and))
-                    if {
-                        if let BitVecOp::BVV(mask_val) = mask.op() {
-                            mask_val.is_mask().is_some()
-                        } else {
-                            false
-                        }
+                (BitVecOp::BVV(bvv), BitVecOp::And(and_args))
+                    if and_args.len() == 2 && {
+                        let check = |idx: usize| {
+                            if let BitVecOp::BVV(mask_val) = and_args[idx].op() {
+                                mask_val.is_mask().is_some()
+                            } else {
+                                false
+                            }
+                        };
+                        check(0) || check(1)
                     } =>
                 {
+                    let (mask_idx, lhs_idx) = if matches!(and_args[0].op(), BitVecOp::BVV(v) if v.is_mask().is_some())
+                    {
+                        (0, 1)
+                    } else {
+                        (1, 0)
+                    };
+                    let (mask, lhs_and) = (&and_args[mask_idx], &and_args[lhs_idx]);
                     let (mask_high, mask_low) = if let BitVecOp::BVV(mask_val) = mask.op() {
                         mask_val.is_mask()
                     } else {
@@ -762,11 +825,13 @@ pub(crate) fn simplify_bool<'c>(
                 }
 
                 // ULE(Add(ZeroExt(n, inner), BVV(c)), BVV(b)) where c and b fit in inner's size
-                (BitVecOp::Add(lhs_add, rhs_add), BitVecOp::BVV(bound))
-                    if matches!(lhs_add.op(), BitVecOp::ZeroExt(_, ext_size)
+                (BitVecOp::Add(add_args), BitVecOp::BVV(bound))
+                    if add_args.len() == 2
+                        && matches!(add_args[0].op(), BitVecOp::ZeroExt(_, ext_size)
                         if bound.leading_zeros() as u32 >= *ext_size
-                        && matches!(rhs_add.op(), BitVecOp::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
+                        && matches!(add_args[1].op(), BitVecOp::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
                 {
+                    let (lhs_add, rhs_add) = (&add_args[0], &add_args[1]);
                     if let BitVecOp::ZeroExt(inner, _) = lhs_add.op() {
                         let inner_size = inner.size();
                         state.rerun(ctx.ule(
@@ -833,16 +898,25 @@ pub(crate) fn simplify_bool<'c>(
                 // If on one side there is an AND where one of the operands is a mask, and on the
                 // other side, there is a BVV which matches the masked part of the AND, we can
                 // extract the AND operand directly, and extract the other side and rerun
-                (BitVecOp::And(lhs_and, mask), BitVecOp::BVV(bvv))
-                | (BitVecOp::And(mask, lhs_and), BitVecOp::BVV(bvv))
-                    if {
-                        if let BitVecOp::BVV(mask_val) = mask.op() {
-                            mask_val.is_mask().is_some()
-                        } else {
-                            false
-                        }
+                (BitVecOp::And(and_args), BitVecOp::BVV(bvv))
+                    if and_args.len() == 2 && {
+                        let check = |idx: usize| {
+                            if let BitVecOp::BVV(mask_val) = and_args[idx].op() {
+                                mask_val.is_mask().is_some()
+                            } else {
+                                false
+                            }
+                        };
+                        check(0) || check(1)
                     } =>
                 {
+                    let (mask_idx, lhs_idx) = if matches!(and_args[0].op(), BitVecOp::BVV(v) if v.is_mask().is_some())
+                    {
+                        (0, 1)
+                    } else {
+                        (1, 0)
+                    };
+                    let (mask, lhs_and) = (&and_args[mask_idx], &and_args[lhs_idx]);
                     let (mask_high, mask_low) = if let BitVecOp::BVV(mask_val) = mask.op() {
                         mask_val.is_mask()
                     } else {
@@ -854,16 +928,25 @@ pub(crate) fn simplify_bool<'c>(
                         ctx.bvv(bvv.extract(mask_low, mask_high)?)?,
                     )?)
                 }
-                (BitVecOp::BVV(bvv), BitVecOp::And(lhs_and, mask))
-                | (BitVecOp::BVV(bvv), BitVecOp::And(mask, lhs_and))
-                    if {
-                        if let BitVecOp::BVV(mask_val) = mask.op() {
-                            mask_val.is_mask().is_some()
-                        } else {
-                            false
-                        }
+                (BitVecOp::BVV(bvv), BitVecOp::And(and_args))
+                    if and_args.len() == 2 && {
+                        let check = |idx: usize| {
+                            if let BitVecOp::BVV(mask_val) = and_args[idx].op() {
+                                mask_val.is_mask().is_some()
+                            } else {
+                                false
+                            }
+                        };
+                        check(0) || check(1)
                     } =>
                 {
+                    let (mask_idx, lhs_idx) = if matches!(and_args[0].op(), BitVecOp::BVV(v) if v.is_mask().is_some())
+                    {
+                        (0, 1)
+                    } else {
+                        (1, 0)
+                    };
+                    let (mask, lhs_and) = (&and_args[mask_idx], &and_args[lhs_idx]);
                     let (mask_high, mask_low) = if let BitVecOp::BVV(mask_val) = mask.op() {
                         mask_val.is_mask()
                     } else {
@@ -931,11 +1014,13 @@ pub(crate) fn simplify_bool<'c>(
                 }
 
                 // UGT(Add(ZeroExt(n, inner), BVV(c)), BVV(b)) where c and b fit in inner's size
-                (BitVecOp::Add(lhs_add, rhs_add), BitVecOp::BVV(bound))
-                    if matches!(lhs_add.op(), BitVecOp::ZeroExt(_, ext_size)
+                (BitVecOp::Add(add_args), BitVecOp::BVV(bound))
+                    if add_args.len() == 2
+                        && matches!(add_args[0].op(), BitVecOp::ZeroExt(_, ext_size)
                         if bound.leading_zeros() as u32 >= *ext_size
-                        && matches!(rhs_add.op(), BitVecOp::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
+                        && matches!(add_args[1].op(), BitVecOp::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
                 {
+                    let (lhs_add, rhs_add) = (&add_args[0], &add_args[1]);
                     if let BitVecOp::ZeroExt(inner, _) = lhs_add.op() {
                         let inner_size = inner.size();
                         state.rerun(ctx.ugt(
@@ -999,16 +1084,25 @@ pub(crate) fn simplify_bool<'c>(
                 // If on one side there is an AND where one of the operands is a mask, and on the
                 // other side, there is a BVV which matches the masked part of the AND, we can
                 // extract the AND operand directly, and extract the other side and rerun
-                (BitVecOp::And(lhs_and, mask), BitVecOp::BVV(bvv))
-                | (BitVecOp::And(mask, lhs_and), BitVecOp::BVV(bvv))
-                    if {
-                        if let BitVecOp::BVV(mask_val) = mask.op() {
-                            mask_val.is_mask().is_some()
-                        } else {
-                            false
-                        }
+                (BitVecOp::And(and_args), BitVecOp::BVV(bvv))
+                    if and_args.len() == 2 && {
+                        let check = |idx: usize| {
+                            if let BitVecOp::BVV(mask_val) = and_args[idx].op() {
+                                mask_val.is_mask().is_some()
+                            } else {
+                                false
+                            }
+                        };
+                        check(0) || check(1)
                     } =>
                 {
+                    let (mask_idx, lhs_idx) = if matches!(and_args[0].op(), BitVecOp::BVV(v) if v.is_mask().is_some())
+                    {
+                        (0, 1)
+                    } else {
+                        (1, 0)
+                    };
+                    let (mask, lhs_and) = (&and_args[mask_idx], &and_args[lhs_idx]);
                     let (mask_high, mask_low) = if let BitVecOp::BVV(mask_val) = mask.op() {
                         mask_val.is_mask()
                     } else {
@@ -1020,16 +1114,25 @@ pub(crate) fn simplify_bool<'c>(
                         ctx.bvv(bvv.extract(mask_low, mask_high)?)?,
                     )?)
                 }
-                (BitVecOp::BVV(bvv), BitVecOp::And(lhs_and, mask))
-                | (BitVecOp::BVV(bvv), BitVecOp::And(mask, lhs_and))
-                    if {
-                        if let BitVecOp::BVV(mask_val) = mask.op() {
-                            mask_val.is_mask().is_some()
-                        } else {
-                            false
-                        }
+                (BitVecOp::BVV(bvv), BitVecOp::And(and_args))
+                    if and_args.len() == 2 && {
+                        let check = |idx: usize| {
+                            if let BitVecOp::BVV(mask_val) = and_args[idx].op() {
+                                mask_val.is_mask().is_some()
+                            } else {
+                                false
+                            }
+                        };
+                        check(0) || check(1)
                     } =>
                 {
+                    let (mask_idx, lhs_idx) = if matches!(and_args[0].op(), BitVecOp::BVV(v) if v.is_mask().is_some())
+                    {
+                        (0, 1)
+                    } else {
+                        (1, 0)
+                    };
+                    let (mask, lhs_and) = (&and_args[mask_idx], &and_args[lhs_idx]);
                     let (mask_high, mask_low) = if let BitVecOp::BVV(mask_val) = mask.op() {
                         mask_val.is_mask()
                     } else {
@@ -1143,11 +1246,13 @@ pub(crate) fn simplify_bool<'c>(
                 }
 
                 // UGE(BVV(b), Add(ZeroExt(n, inner), BVV(c))) where c and b fit in inner's size
-                (BitVecOp::BVV(bound), BitVecOp::Add(lhs_add, rhs_add))
-                    if matches!(lhs_add.op(), BitVecOp::ZeroExt(_, ext_size)
+                (BitVecOp::BVV(bound), BitVecOp::Add(add_args))
+                    if add_args.len() == 2
+                        && matches!(add_args[0].op(), BitVecOp::ZeroExt(_, ext_size)
                         if bound.leading_zeros() as u32 >= *ext_size
-                        && matches!(rhs_add.op(), BitVecOp::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
+                        && matches!(add_args[1].op(), BitVecOp::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
                 {
+                    let (lhs_add, rhs_add) = (&add_args[0], &add_args[1]);
                     if let BitVecOp::ZeroExt(inner, _) = lhs_add.op() {
                         let inner_size = inner.size();
                         state.rerun(ctx.uge(

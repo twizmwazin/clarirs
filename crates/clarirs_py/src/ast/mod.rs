@@ -109,7 +109,7 @@ pub fn xor<'py>(
             let (a_bv, b_bv) = CoerceBV::unpack_pair(py, &a_bv, &b_bv)?;
             return BV::new(
                 py,
-                &GLOBAL_CONTEXT.xor(&a_bv.get().inner, &b_bv.get().inner)?,
+                &GLOBAL_CONTEXT.bv_xor(&a_bv.get().inner, &b_bv.get().inner)?,
             )
             .map(|b| b.into_any().cast::<Base>().unwrap().clone());
         } else {

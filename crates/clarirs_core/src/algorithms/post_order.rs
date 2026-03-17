@@ -144,7 +144,7 @@ mod tests {
             |node, children| {
                 let node_type = match node.as_bitvec().unwrap().op() {
                     BitVecOp::BVS(s, _) => format!("var({s})"),
-                    BitVecOp::Add(_, _) => "add".to_string(),
+                    BitVecOp::Add(_) => "add".to_string(),
                     op => format!("other({op:?})"),
                 };
                 let info = format!("{} with {} children", node_type, children.len());

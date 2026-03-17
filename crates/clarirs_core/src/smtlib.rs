@@ -60,13 +60,38 @@ fn to_smtlib_bv(ast: &BitVecAst, children: &[String]) -> String {
         BitVecOp::BVS(s, _) => s.to_string(),
         BitVecOp::BVV(bit_vec) => format!("(_ bv{} {})", bit_vec.to_biguint(), bit_vec.len()),
         BitVecOp::Not(..) => format!("(bvnot {})", children[0]),
-        BitVecOp::And(..) => format!("(bvand {} {})", children[0], children[1]),
-        BitVecOp::Or(..) => format!("(bvor {} {})", children[0], children[1]),
-        BitVecOp::Xor(..) => format!("(bvxor {} {})", children[0], children[1]),
+        BitVecOp::And(..) => format!(
+            "(bvand{})",
+            children
+                .iter()
+                .fold(String::new(), |acc, c| format!("{} {}", acc, c))
+        ),
+        BitVecOp::Or(..) => format!(
+            "(bvor{})",
+            children
+                .iter()
+                .fold(String::new(), |acc, c| format!("{} {}", acc, c))
+        ),
+        BitVecOp::Xor(..) => format!(
+            "(bvxor{})",
+            children
+                .iter()
+                .fold(String::new(), |acc, c| format!("{} {}", acc, c))
+        ),
         BitVecOp::Neg(..) => format!("(bvneg {})", children[0]),
-        BitVecOp::Add(..) => format!("(bvadd {} {})", children[0], children[1]),
+        BitVecOp::Add(..) => format!(
+            "(bvadd{})",
+            children
+                .iter()
+                .fold(String::new(), |acc, c| format!("{} {}", acc, c))
+        ),
         BitVecOp::Sub(..) => format!("(bvsub {} {})", children[0], children[1]),
-        BitVecOp::Mul(..) => format!("(bvmul {} {})", children[0], children[1]),
+        BitVecOp::Mul(..) => format!(
+            "(bvmul{})",
+            children
+                .iter()
+                .fold(String::new(), |acc, c| format!("{} {}", acc, c))
+        ),
         BitVecOp::UDiv(..) => format!("(bvudiv {} {})", children[0], children[1]),
         BitVecOp::SDiv(..) => format!("(bvsdiv {} {})", children[0], children[1]),
         BitVecOp::URem(..) => format!("(bvurem {} {})", children[0], children[1]),

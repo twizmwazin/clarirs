@@ -65,12 +65,17 @@ pub(crate) fn simplify_bv<'c>(
                 }
 
                 // If one operand is a BVV and the other is an AND with a BVV, flatten it
-                (BitVecOp::BVV(v), BitVecOp::And(inner_bvv, inner_sym))
-                | (BitVecOp::BVV(v), BitVecOp::And(inner_sym, inner_bvv))
-                | (BitVecOp::And(inner_bvv, inner_sym), BitVecOp::BVV(v))
-                | (BitVecOp::And(inner_sym, inner_bvv), BitVecOp::BVV(v))
-                    if matches!(inner_bvv.op(), BitVecOp::BVV(_)) =>
+                (BitVecOp::BVV(v), BitVecOp::And(and_args))
+                | (BitVecOp::And(and_args), BitVecOp::BVV(v))
+                    if and_args.len() == 2
+                        && (matches!(and_args[0].op(), BitVecOp::BVV(_))
+                            || matches!(and_args[1].op(), BitVecOp::BVV(_))) =>
                 {
+                    let (inner_bvv, inner_sym) = if matches!(and_args[0].op(), BitVecOp::BVV(_)) {
+                        (&and_args[0], &and_args[1])
+                    } else {
+                        (&and_args[1], &and_args[0])
+                    };
                     if let BitVecOp::BVV(inner_value) = inner_bvv.op() {
                         let combined_value = (v.clone() & inner_value.clone())?;
                         let combined_bvv = ctx.bvv(combined_value)?;
@@ -93,8 +98,11 @@ pub(crate) fn simplify_bv<'c>(
                 // When the mask after unrotation covers only the lower half,
                 // simplify to (A & unrotated_mask) << a | (A & unrotated_mask) >> (N-a)
                 // which effectively drops unconstrained upper bits.
-                (BitVecOp::Or(or_lhs, or_rhs), BitVecOp::BVV(mask_val))
-                | (BitVecOp::BVV(mask_val), BitVecOp::Or(or_lhs, or_rhs)) => {
+                (BitVecOp::Or(or_args), BitVecOp::BVV(mask_val))
+                | (BitVecOp::BVV(mask_val), BitVecOp::Or(or_args))
+                    if or_args.len() == 2 =>
+                {
+                    let (or_lhs, or_rhs) = (&or_args[0], &or_args[1]);
                     match (or_lhs.op(), or_rhs.op()) {
                         (
                             BitVecOp::ShL(shl_inner, shl_amt),
@@ -185,12 +193,17 @@ pub(crate) fn simplify_bv<'c>(
                 }
 
                 // If one operand is a BVV and the other is an OR with a BVV, flatten it
-                (BitVecOp::BVV(v), BitVecOp::Or(inner_bvv, inner_sym))
-                | (BitVecOp::BVV(v), BitVecOp::Or(inner_sym, inner_bvv))
-                | (BitVecOp::Or(inner_bvv, inner_sym), BitVecOp::BVV(v))
-                | (BitVecOp::Or(inner_sym, inner_bvv), BitVecOp::BVV(v))
-                    if matches!(inner_bvv.op(), BitVecOp::BVV(_)) =>
+                (BitVecOp::BVV(v), BitVecOp::Or(or_args))
+                | (BitVecOp::Or(or_args), BitVecOp::BVV(v))
+                    if or_args.len() == 2
+                        && (matches!(or_args[0].op(), BitVecOp::BVV(_))
+                            || matches!(or_args[1].op(), BitVecOp::BVV(_))) =>
                 {
+                    let (inner_bvv, inner_sym) = if matches!(or_args[0].op(), BitVecOp::BVV(_)) {
+                        (&or_args[0], &or_args[1])
+                    } else {
+                        (&or_args[1], &or_args[0])
+                    };
                     if let BitVecOp::BVV(inner_value) = inner_bvv.op() {
                         let combined_value = (v.clone() | inner_value.clone())?;
                         let combined_bvv = ctx.bvv(combined_value)?;
@@ -229,7 +242,7 @@ pub(crate) fn simplify_bv<'c>(
                 (_, BitVecOp::BVV(v)) if v.is_all_ones() => Ok(ctx.not(arc)?),
 
                 // ¬a ^ ¬b = a ^ b
-                (BitVecOp::Not(lhs), BitVecOp::Not(rhs)) => state.rerun(ctx.xor(lhs, rhs)?),
+                (BitVecOp::Not(lhs), BitVecOp::Not(rhs)) => state.rerun(ctx.bv_xor(lhs, rhs)?),
 
                 // Distribute XOR over CONCAT when one operand is constant
                 // (const ^ concat(a, b, ...)) = concat(const_parts ^ a, const_parts ^ b, ...)
@@ -241,14 +254,14 @@ pub(crate) fn simplify_bv<'c>(
                     for arg in concat_args.iter().rev() {
                         let arg_size = arg.size();
                         let const_part = const_val.extract(offset, offset + arg_size - 1)?;
-                        parts.push(ctx.xor(&ctx.bvv(const_part)?, arg)?);
+                        parts.push(ctx.bv_xor(&ctx.bvv(const_part)?, arg)?);
                         offset += arg_size;
                     }
                     parts.reverse();
                     state.rerun(ctx.concat(parts)?)
                 }
 
-                _ => Ok(ctx.xor(arc, arc1)?),
+                _ => Ok(ctx.bv_xor(arc, arc1)?),
             }
         }
         BitVecOp::Neg(..) => {
@@ -270,8 +283,11 @@ pub(crate) fn simplify_bv<'c>(
                 (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
 
                 // If one operand is a bvv, and the other is an add with a bvv, combine them
-                (BitVecOp::BVV(v), BitVecOp::Add(inner_lhs, inner_rhs))
-                | (BitVecOp::Add(inner_lhs, inner_rhs), BitVecOp::BVV(v)) => {
+                (BitVecOp::BVV(v), BitVecOp::Add(add_args))
+                | (BitVecOp::Add(add_args), BitVecOp::BVV(v))
+                    if add_args.len() == 2 =>
+                {
+                    let (inner_lhs, inner_rhs) = (&add_args[0], &add_args[1]);
                     if let BitVecOp::BVV(inner_bvv) = inner_rhs.op() {
                         let combined_value = (v.clone() + inner_bvv.clone())?;
                         let combined_bvv = ctx.bvv(combined_value)?;
@@ -338,10 +354,16 @@ pub(crate) fn simplify_bv<'c>(
                         unreachable!()
                     }
                 }
-                (BitVecOp::Add(bvv, other), BitVecOp::BVV(v))
-                | (BitVecOp::Add(other, bvv), BitVecOp::BVV(v))
-                    if matches!(bvv.op(), BitVecOp::BVV(_)) =>
+                (BitVecOp::Add(add_args), BitVecOp::BVV(v))
+                    if add_args.len() == 2
+                        && (matches!(add_args[0].op(), BitVecOp::BVV(_))
+                            || matches!(add_args[1].op(), BitVecOp::BVV(_))) =>
                 {
+                    let (bvv, other) = if matches!(add_args[0].op(), BitVecOp::BVV(_)) {
+                        (&add_args[0], &add_args[1])
+                    } else {
+                        (&add_args[1], &add_args[0])
+                    };
                     // (a + b) - c => a + (b - c)
                     if let BitVecOp::BVV(b_val) = bvv.op() {
                         let combined_value = (b_val.clone() - v.clone())?;
@@ -756,9 +778,9 @@ pub(crate) fn simplify_bv<'c>(
                 // Propagate extract(n, 0, ...) through add/sub
                 // extract(n, 0, a + b) = extract(n, 0, a) + extract(n, 0, b)
                 // This is valid because the low bits of add/sub only depend on the low bits of the operands
-                BitVecOp::Add(lhs, rhs) if *low == 0 => {
-                    let lhs_extracted = ctx.extract(lhs, *high, 0)?;
-                    let rhs_extracted = ctx.extract(rhs, *high, 0)?;
+                BitVecOp::Add(add_args) if *low == 0 && add_args.len() == 2 => {
+                    let lhs_extracted = ctx.extract(&add_args[0], *high, 0)?;
+                    let rhs_extracted = ctx.extract(&add_args[1], *high, 0)?;
                     state.rerun(ctx.add(&lhs_extracted, &rhs_extracted)?)
                 }
                 BitVecOp::Sub(lhs, rhs) if *low == 0 => {
@@ -769,22 +791,25 @@ pub(crate) fn simplify_bv<'c>(
 
                 // Propagate extract through bitwise operations
                 // extract(n, m, a & b) = extract(n, m, a) & extract(n, m, b)
-                BitVecOp::And(lhs, rhs) => {
+                BitVecOp::And(and_args) if and_args.len() == 2 => {
+                    let (lhs, rhs) = (&and_args[0], &and_args[1]);
                     let lhs_extracted = ctx.extract(lhs, *high, *low)?;
                     let rhs_extracted = ctx.extract(rhs, *high, *low)?;
                     state.rerun(ctx.bv_and(&lhs_extracted, &rhs_extracted)?)
                 }
                 // extract(n, m, a | b) = extract(n, m, a) | extract(n, m, b)
-                BitVecOp::Or(lhs, rhs) => {
+                BitVecOp::Or(or_args) if or_args.len() == 2 => {
+                    let (lhs, rhs) = (&or_args[0], &or_args[1]);
                     let lhs_extracted = ctx.extract(lhs, *high, *low)?;
                     let rhs_extracted = ctx.extract(rhs, *high, *low)?;
                     state.rerun(ctx.bv_or(&lhs_extracted, &rhs_extracted)?)
                 }
                 // extract(n, m, a ^ b) = extract(n, m, a) ^ extract(n, m, b)
-                BitVecOp::Xor(lhs, rhs) => {
+                BitVecOp::Xor(xor_args) if xor_args.len() == 2 => {
+                    let (lhs, rhs) = (&xor_args[0], &xor_args[1]);
                     let lhs_extracted = ctx.extract(lhs, *high, *low)?;
                     let rhs_extracted = ctx.extract(rhs, *high, *low)?;
-                    state.rerun(ctx.xor(&lhs_extracted, &rhs_extracted)?)
+                    state.rerun(ctx.bv_xor(&lhs_extracted, &rhs_extracted)?)
                 }
                 // extract(n, m, ~a) = ~extract(n, m, a)
                 BitVecOp::Not(inner) => {

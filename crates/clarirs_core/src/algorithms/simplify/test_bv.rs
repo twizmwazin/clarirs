@@ -455,7 +455,7 @@ fn test_xor() -> Result<()> {
         let b = ctx.bvv_prim(b).unwrap();
         let expected = ctx.bvv_prim(expected).unwrap();
 
-        let result = ctx.xor(&a, &b)?.simplify()?;
+        let result = ctx.bv_xor(&a, &b)?.simplify()?;
         assert_eq!(result, expected);
     }
 
@@ -968,17 +968,17 @@ fn test_identity_simplifications() -> anyhow::Result<()> {
     assert_eq!(simplified, all_ones);
 
     // XOR identities
-    let simplified = ctx.xor(&x, &zero)?.simplify()?;
+    let simplified = ctx.bv_xor(&x, &zero)?.simplify()?;
     assert_eq!(simplified, x);
 
-    let simplified = ctx.xor(&zero, &x)?.simplify()?;
+    let simplified = ctx.bv_xor(&zero, &x)?.simplify()?;
     assert_eq!(simplified, x);
 
-    let simplified = ctx.xor(&x, &all_ones)?.simplify()?;
+    let simplified = ctx.bv_xor(&x, &all_ones)?.simplify()?;
     let not_x = ctx.not(&x)?.simplify()?;
     assert_eq!(simplified, not_x);
 
-    let simplified = ctx.xor(&all_ones, &x)?.simplify()?;
+    let simplified = ctx.bv_xor(&all_ones, &x)?.simplify()?;
     assert_eq!(simplified, not_x);
 
     // ADD identities

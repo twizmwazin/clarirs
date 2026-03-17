@@ -22,28 +22,6 @@ macro_rules! uniop_support_trait {
 
 uniop_support_trait!(Not, BooleanOp<'c>, make_bool, BitVecOp<'c>, make_bitvec);
 
-macro_rules! binop_support_trait {
-    ($name:ident, $($impler:ty, $factory_func:ident),*) => {
-        paste::paste! {
-            pub trait [<Supports $name>]<'c>: Op<'c> + Sized {
-                fn [< $name:lower >](factory: &'c impl AstFactory<'c>, lhs: impl IntoOwned<AstRef<'c, Self>>, rhs: impl IntoOwned<AstRef<'c, Self>>) -> Result<AstRef<'c, Self>, ClarirsError>;
-            }
-        }
-
-        $(
-            paste::paste! {
-                impl<'c> [<Supports $name>]<'c> for $impler {
-                    fn [< $name:lower >](factory: &'c impl AstFactory<'c>, lhs: impl IntoOwned<AstRef<'c, Self>>, rhs: impl IntoOwned<AstRef<'c, Self>>) -> Result<AstRef<'c, Self>, ClarirsError> {
-                        factory.$factory_func(<$impler>::[< $name >](lhs.into_owned(), rhs.into_owned()))
-                    }
-                }
-            }
-        )*
-    };
-}
-
-binop_support_trait!(Xor, BooleanOp<'c>, make_bool, BitVecOp<'c>, make_bitvec);
-
 pub trait SupportsIf<'c>: Op<'c> + Sized {
     fn ite(
         factory: &'c impl AstFactory<'c>,
