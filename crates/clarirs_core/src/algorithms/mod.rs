@@ -12,5 +12,5 @@ pub use canonicalize::{canonicalize, structurally_match};
 pub use excavate_ite::ExcavateIte;
 pub use join::Join;
 pub use post_order::walk_post_order;
-pub use replace::Replace;
+pub use replace::{replace_all, Replace};
 pub use simplify::Simplify;
