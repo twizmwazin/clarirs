@@ -1,6 +1,6 @@
 use ahash::AHasher;
 use std::{
-    collections::{BTreeSet, HashMap},
+    collections::BTreeSet,
     fmt::Debug,
     hash::{Hash, Hasher},
     sync::{Arc, RwLock},
@@ -85,7 +85,7 @@ pub struct Context<'c> {
     pub(crate) ast_cache: AstCache<'c>,
     pub(crate) simplification_cache: AstCache<'c>,
     pub(crate) excavate_ite_cache: AstCache<'c>,
-    string_interner: RwLock<HashMap<Arc<str>, Arc<str>>>,
+    string_interner: RwLock<ahash::HashMap<Arc<str>, Arc<str>>>,
 }
 
 impl PartialEq for Context<'_> {
