@@ -62,25 +62,35 @@ fn to_smtlib_bv(ast: &BitVecAst, children: &[String]) -> String {
         BitVecOp::Not(..) => format!("(bvnot {})", children[0]),
         BitVecOp::And(..) => format!(
             "(bvand{})",
-            children.iter().fold(String::new(), |acc, c| format!("{} {}", acc, c))
+            children
+                .iter()
+                .fold(String::new(), |acc, c| format!("{} {}", acc, c))
         ),
         BitVecOp::Or(..) => format!(
             "(bvor{})",
-            children.iter().fold(String::new(), |acc, c| format!("{} {}", acc, c))
+            children
+                .iter()
+                .fold(String::new(), |acc, c| format!("{} {}", acc, c))
         ),
         BitVecOp::Xor(..) => format!(
             "(bvxor{})",
-            children.iter().fold(String::new(), |acc, c| format!("{} {}", acc, c))
+            children
+                .iter()
+                .fold(String::new(), |acc, c| format!("{} {}", acc, c))
         ),
         BitVecOp::Neg(..) => format!("(bvneg {})", children[0]),
         BitVecOp::Add(..) => format!(
             "(bvadd{})",
-            children.iter().fold(String::new(), |acc, c| format!("{} {}", acc, c))
+            children
+                .iter()
+                .fold(String::new(), |acc, c| format!("{} {}", acc, c))
         ),
         BitVecOp::Sub(..) => format!("(bvsub {} {})", children[0], children[1]),
         BitVecOp::Mul(..) => format!(
             "(bvmul{})",
-            children.iter().fold(String::new(), |acc, c| format!("{} {}", acc, c))
+            children
+                .iter()
+                .fold(String::new(), |acc, c| format!("{} {}", acc, c))
         ),
         BitVecOp::UDiv(..) => format!("(bvudiv {} {})", children[0], children[1]),
         BitVecOp::SDiv(..) => format!("(bvsdiv {} {})", children[0], children[1]),
