@@ -68,6 +68,11 @@ impl Mul for BitVec {
     type Output = Result<Self, BitVecError>;
 
     fn mul(self, rhs: Self) -> Result<Self, BitVecError> {
+        // Fast path: single-word values can use native u128 multiplication
+        if self.words.len() == 1 && rhs.words.len() == 1 {
+            let result = (self.words[0] as u128).wrapping_mul(rhs.words[0] as u128) as u64;
+            return BitVec::from_prim_with_size(result, self.length);
+        }
         Ok(BitVec::from_biguint_trunc(
             &(BigUint::from(&self) * BigUint::from(&rhs)),
             self.length,
@@ -82,6 +87,11 @@ impl Div for BitVec {
         if rhs.is_zero() {
             return Err(BitVecError::DivisionByZero);
         }
+        // Fast path: single-word values can use native division
+        if self.words.len() == 1 && rhs.words.len() == 1 {
+            let result = self.words[0] / rhs.words[0];
+            return BitVec::from_prim_with_size(result, self.length);
+        }
         Ok(BitVec::from_biguint_trunc(
             &(BigUint::from(&self) / BigUint::from(&rhs)),
             self.length,
@@ -93,6 +103,14 @@ impl Rem for BitVec {
     type Output = Result<Self, BitVecError>;
 
     fn rem(self, rhs: Self) -> Self::Output {
+        // Fast path: single-word values can use native remainder
+        if self.words.len() == 1 && rhs.words.len() == 1 {
+            if rhs.words[0] == 0 {
+                return Ok(self);
+            }
+            let result = self.words[0] % rhs.words[0];
+            return BitVec::from_prim_with_size(result, self.length);
+        }
         Ok(BitVec::from_biguint_trunc(
             &(BigUint::from(&self) % BigUint::from(&rhs)),
             self.length,
@@ -104,6 +122,11 @@ impl BitVec {
     pub fn urem(&self, other: &Self) -> Self {
         if other.is_zero() {
             return self.clone();
+        }
+        // Fast path: single-word values
+        if self.words.len() == 1 && other.words.len() == 1 {
+            let result = self.words[0] % other.words[0];
+            return BitVec::from_prim_with_size(result, self.len()).unwrap();
         }
         let bitwidth = self.len();
         let remainder = self.to_biguint() % other.to_biguint();

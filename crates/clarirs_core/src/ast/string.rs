@@ -147,9 +147,11 @@ impl<'c> Op<'c> for StringOp<'c> {
             set.insert(s.clone());
             set
         } else {
-            self.child_iter()
-                .map(|x| x.variables())
-                .fold(BTreeSet::new(), |acc, x| acc.union(&x).cloned().collect())
+            let mut result = BTreeSet::new();
+            for child in self.child_iter() {
+                result.extend(child.variables());
+            }
+            result
         }
     }
 
