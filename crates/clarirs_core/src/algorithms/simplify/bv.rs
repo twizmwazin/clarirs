@@ -71,12 +71,11 @@ pub(crate) fn simplify_bv<'c>(
                         && (matches!(and_args[0].op(), BitVecOp::BVV(_))
                             || matches!(and_args[1].op(), BitVecOp::BVV(_))) =>
                 {
-                    let (inner_bvv, inner_sym) =
-                        if matches!(and_args[0].op(), BitVecOp::BVV(_)) {
-                            (&and_args[0], &and_args[1])
-                        } else {
-                            (&and_args[1], &and_args[0])
-                        };
+                    let (inner_bvv, inner_sym) = if matches!(and_args[0].op(), BitVecOp::BVV(_)) {
+                        (&and_args[0], &and_args[1])
+                    } else {
+                        (&and_args[1], &and_args[0])
+                    };
                     if let BitVecOp::BVV(inner_value) = inner_bvv.op() {
                         let combined_value = (v.clone() & inner_value.clone())?;
                         let combined_bvv = ctx.bvv(combined_value)?;
@@ -200,12 +199,11 @@ pub(crate) fn simplify_bv<'c>(
                         && (matches!(or_args[0].op(), BitVecOp::BVV(_))
                             || matches!(or_args[1].op(), BitVecOp::BVV(_))) =>
                 {
-                    let (inner_bvv, inner_sym) =
-                        if matches!(or_args[0].op(), BitVecOp::BVV(_)) {
-                            (&or_args[0], &or_args[1])
-                        } else {
-                            (&or_args[1], &or_args[0])
-                        };
+                    let (inner_bvv, inner_sym) = if matches!(or_args[0].op(), BitVecOp::BVV(_)) {
+                        (&or_args[0], &or_args[1])
+                    } else {
+                        (&or_args[1], &or_args[0])
+                    };
                     if let BitVecOp::BVV(inner_value) = inner_bvv.op() {
                         let combined_value = (v.clone() | inner_value.clone())?;
                         let combined_bvv = ctx.bvv(combined_value)?;

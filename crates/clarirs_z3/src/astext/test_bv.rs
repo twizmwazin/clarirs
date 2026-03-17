@@ -500,7 +500,7 @@ mod from_z3 {
 
             let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
             let expected = ctx
-                .xor(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
+                .bv_xor(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
                 .unwrap();
             assert_eq!(result, expected);
         });

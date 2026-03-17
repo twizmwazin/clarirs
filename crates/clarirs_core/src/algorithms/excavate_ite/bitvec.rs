@@ -78,7 +78,11 @@ pub(crate) fn excavate_ite<'c>(
                 // Handle case where both sides are If expressions
                 if let BitVecOp::ITE(_, rhs_then, rhs_else) = rhs.op() {
                     // Prioritize left condition as outer if
-                    Ok(ctx.ite(cond, ctx.bv_xor(then_, rhs_then)?, ctx.bv_xor(then_, rhs_else)?)?)
+                    Ok(ctx.ite(
+                        cond,
+                        ctx.bv_xor(then_, rhs_then)?,
+                        ctx.bv_xor(then_, rhs_else)?,
+                    )?)
                 } else {
                     Ok(ctx.ite(cond, ctx.bv_xor(then_, &rhs)?, ctx.bv_xor(else_, rhs)?)?)
                 }

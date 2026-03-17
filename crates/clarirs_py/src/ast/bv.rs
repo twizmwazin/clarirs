@@ -88,7 +88,7 @@ impl BV {
                 &args[0].cast_bound::<BV>(py)?.get().inner,
                 &args[1].cast_bound::<BV>(py)?.get().inner,
             )?,
-            "__xor__" => GLOBAL_CONTEXT.xor(
+            "__xor__" => GLOBAL_CONTEXT.bv_xor(
                 &args[0].cast_bound::<BV>(py)?.get().inner,
                 &args[1].cast_bound::<BV>(py)?.get().inner,
             )?,
@@ -831,7 +831,7 @@ impl BV {
     ) -> Result<Bound<'py, BV>, ClaripyError> {
         BV::new(
             py,
-            &GLOBAL_CONTEXT.xor(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.bv_xor(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 

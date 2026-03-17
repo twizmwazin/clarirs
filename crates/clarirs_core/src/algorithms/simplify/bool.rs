@@ -290,7 +290,8 @@ pub(crate) fn simplify_bool<'c>(
                         check(0) || check(1)
                     } =>
                 {
-                    let (mask_idx, lhs_idx) = if matches!(and_args[0].op(), BitVecOp::BVV(v) if v.is_mask().is_some()) {
+                    let (mask_idx, lhs_idx) = if matches!(and_args[0].op(), BitVecOp::BVV(v) if v.is_mask().is_some())
+                    {
                         (0, 1)
                     } else {
                         (1, 0)
@@ -374,7 +375,9 @@ pub(crate) fn simplify_bool<'c>(
                 // (x + C) == 0  ==>  x == -C
                 (BitVecOp::Add(add_args), BitVecOp::BVV(val))
                 | (BitVecOp::BVV(val), BitVecOp::Add(add_args))
-                    if val.is_zero() && add_args.len() == 2 && matches!(add_args[1].op(), BitVecOp::BVV(..)) =>
+                    if val.is_zero()
+                        && add_args.len() == 2
+                        && matches!(add_args[1].op(), BitVecOp::BVV(..)) =>
                 {
                     let (lhs_add, rhs_add) = (&add_args[0], &add_args[1]);
                     let neg_c = ctx.neg(rhs_add)?;
@@ -407,7 +410,8 @@ pub(crate) fn simplify_bool<'c>(
                         check(0) || check(1)
                     } =>
                 {
-                    let (mask_idx, lhs_idx) = if matches!(and_args[0].op(), BitVecOp::BVV(v) if v.is_mask().is_some()) {
+                    let (mask_idx, lhs_idx) = if matches!(and_args[0].op(), BitVecOp::BVV(v) if v.is_mask().is_some())
+                    {
                         (0, 1)
                     } else {
                         (1, 0)
@@ -491,7 +495,9 @@ pub(crate) fn simplify_bool<'c>(
                 // (x + C) != 0  ==>  x != -C
                 (BitVecOp::Add(add_args), BitVecOp::BVV(val))
                 | (BitVecOp::BVV(val), BitVecOp::Add(add_args))
-                    if val.is_zero() && add_args.len() == 2 && matches!(add_args[1].op(), BitVecOp::BVV(..)) =>
+                    if val.is_zero()
+                        && add_args.len() == 2
+                        && matches!(add_args[1].op(), BitVecOp::BVV(..)) =>
                 {
                     let (lhs_add, rhs_add) = (&add_args[0], &add_args[1]);
                     let neg_c = ctx.neg(rhs_add)?;
@@ -522,7 +528,8 @@ pub(crate) fn simplify_bool<'c>(
                         check(0) || check(1)
                     } =>
                 {
-                    let (mask_idx, lhs_idx) = if matches!(and_args[0].op(), BitVecOp::BVV(v) if v.is_mask().is_some()) {
+                    let (mask_idx, lhs_idx) = if matches!(and_args[0].op(), BitVecOp::BVV(v) if v.is_mask().is_some())
+                    {
                         (0, 1)
                     } else {
                         (1, 0)
@@ -551,7 +558,8 @@ pub(crate) fn simplify_bool<'c>(
                         check(0) || check(1)
                     } =>
                 {
-                    let (mask_idx, lhs_idx) = if matches!(and_args[0].op(), BitVecOp::BVV(v) if v.is_mask().is_some()) {
+                    let (mask_idx, lhs_idx) = if matches!(and_args[0].op(), BitVecOp::BVV(v) if v.is_mask().is_some())
+                    {
                         (0, 1)
                     } else {
                         (1, 0)
@@ -671,7 +679,8 @@ pub(crate) fn simplify_bool<'c>(
 
                 // ULT(BVV(b), Add(ZeroExt(n, inner), BVV(c))) where c and b fit in inner's size
                 (BitVecOp::BVV(bound), BitVecOp::Add(add_args))
-                    if add_args.len() == 2 && matches!(add_args[0].op(), BitVecOp::ZeroExt(_, ext_size)
+                    if add_args.len() == 2
+                        && matches!(add_args[0].op(), BitVecOp::ZeroExt(_, ext_size)
                         if bound.leading_zeros() as u32 >= *ext_size
                         && matches!(add_args[1].op(), BitVecOp::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
                 {
@@ -711,7 +720,8 @@ pub(crate) fn simplify_bool<'c>(
                         check(0) || check(1)
                     } =>
                 {
-                    let (mask_idx, lhs_idx) = if matches!(and_args[0].op(), BitVecOp::BVV(v) if v.is_mask().is_some()) {
+                    let (mask_idx, lhs_idx) = if matches!(and_args[0].op(), BitVecOp::BVV(v) if v.is_mask().is_some())
+                    {
                         (0, 1)
                     } else {
                         (1, 0)
@@ -740,7 +750,8 @@ pub(crate) fn simplify_bool<'c>(
                         check(0) || check(1)
                     } =>
                 {
-                    let (mask_idx, lhs_idx) = if matches!(and_args[0].op(), BitVecOp::BVV(v) if v.is_mask().is_some()) {
+                    let (mask_idx, lhs_idx) = if matches!(and_args[0].op(), BitVecOp::BVV(v) if v.is_mask().is_some())
+                    {
                         (0, 1)
                     } else {
                         (1, 0)
@@ -815,7 +826,8 @@ pub(crate) fn simplify_bool<'c>(
 
                 // ULE(Add(ZeroExt(n, inner), BVV(c)), BVV(b)) where c and b fit in inner's size
                 (BitVecOp::Add(add_args), BitVecOp::BVV(bound))
-                    if add_args.len() == 2 && matches!(add_args[0].op(), BitVecOp::ZeroExt(_, ext_size)
+                    if add_args.len() == 2
+                        && matches!(add_args[0].op(), BitVecOp::ZeroExt(_, ext_size)
                         if bound.leading_zeros() as u32 >= *ext_size
                         && matches!(add_args[1].op(), BitVecOp::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
                 {
@@ -898,7 +910,8 @@ pub(crate) fn simplify_bool<'c>(
                         check(0) || check(1)
                     } =>
                 {
-                    let (mask_idx, lhs_idx) = if matches!(and_args[0].op(), BitVecOp::BVV(v) if v.is_mask().is_some()) {
+                    let (mask_idx, lhs_idx) = if matches!(and_args[0].op(), BitVecOp::BVV(v) if v.is_mask().is_some())
+                    {
                         (0, 1)
                     } else {
                         (1, 0)
@@ -927,7 +940,8 @@ pub(crate) fn simplify_bool<'c>(
                         check(0) || check(1)
                     } =>
                 {
-                    let (mask_idx, lhs_idx) = if matches!(and_args[0].op(), BitVecOp::BVV(v) if v.is_mask().is_some()) {
+                    let (mask_idx, lhs_idx) = if matches!(and_args[0].op(), BitVecOp::BVV(v) if v.is_mask().is_some())
+                    {
                         (0, 1)
                     } else {
                         (1, 0)
@@ -1001,7 +1015,8 @@ pub(crate) fn simplify_bool<'c>(
 
                 // UGT(Add(ZeroExt(n, inner), BVV(c)), BVV(b)) where c and b fit in inner's size
                 (BitVecOp::Add(add_args), BitVecOp::BVV(bound))
-                    if add_args.len() == 2 && matches!(add_args[0].op(), BitVecOp::ZeroExt(_, ext_size)
+                    if add_args.len() == 2
+                        && matches!(add_args[0].op(), BitVecOp::ZeroExt(_, ext_size)
                         if bound.leading_zeros() as u32 >= *ext_size
                         && matches!(add_args[1].op(), BitVecOp::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
                 {
@@ -1081,7 +1096,8 @@ pub(crate) fn simplify_bool<'c>(
                         check(0) || check(1)
                     } =>
                 {
-                    let (mask_idx, lhs_idx) = if matches!(and_args[0].op(), BitVecOp::BVV(v) if v.is_mask().is_some()) {
+                    let (mask_idx, lhs_idx) = if matches!(and_args[0].op(), BitVecOp::BVV(v) if v.is_mask().is_some())
+                    {
                         (0, 1)
                     } else {
                         (1, 0)
@@ -1110,7 +1126,8 @@ pub(crate) fn simplify_bool<'c>(
                         check(0) || check(1)
                     } =>
                 {
-                    let (mask_idx, lhs_idx) = if matches!(and_args[0].op(), BitVecOp::BVV(v) if v.is_mask().is_some()) {
+                    let (mask_idx, lhs_idx) = if matches!(and_args[0].op(), BitVecOp::BVV(v) if v.is_mask().is_some())
+                    {
                         (0, 1)
                     } else {
                         (1, 0)
@@ -1230,7 +1247,8 @@ pub(crate) fn simplify_bool<'c>(
 
                 // UGE(BVV(b), Add(ZeroExt(n, inner), BVV(c))) where c and b fit in inner's size
                 (BitVecOp::BVV(bound), BitVecOp::Add(add_args))
-                    if add_args.len() == 2 && matches!(add_args[0].op(), BitVecOp::ZeroExt(_, ext_size)
+                    if add_args.len() == 2
+                        && matches!(add_args[0].op(), BitVecOp::ZeroExt(_, ext_size)
                         if bound.leading_zeros() as u32 >= *ext_size
                         && matches!(add_args[1].op(), BitVecOp::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
                 {

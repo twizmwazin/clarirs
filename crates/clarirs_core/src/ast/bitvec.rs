@@ -86,7 +86,11 @@ impl<'a, 'c> Iterator for BitVecOpChildIter<'a, 'c> {
             | (BitVecOp::Or(args), i)
             | (BitVecOp::Xor(args), i)
             | (BitVecOp::Add(args), i)
-            | (BitVecOp::Mul(args), i) if i < args.len() => Some(args[i].clone().into()),
+            | (BitVecOp::Mul(args), i)
+                if i < args.len() =>
+            {
+                Some(args[i].clone().into())
+            }
 
             // 2 child variants - index 0 (first child)
             (BitVecOp::Sub(a, _), 0)
