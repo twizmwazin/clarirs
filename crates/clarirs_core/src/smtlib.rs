@@ -64,29 +64,29 @@ fn to_smtlib_bv(ast: &BitVecAst, children: &[String]) -> String {
             .iter()
             .cloned()
             .reduce(|acc, c| format!("(bvand {} {})", acc, c))
-            .unwrap(),
+            .unwrap_or_default(),
         BitVecOp::Or(..) => children
             .iter()
             .cloned()
             .reduce(|acc, c| format!("(bvor {} {})", acc, c))
-            .unwrap(),
+            .unwrap_or_default(),
         BitVecOp::Xor(..) => children
             .iter()
             .cloned()
             .reduce(|acc, c| format!("(bvxor {} {})", acc, c))
-            .unwrap(),
+            .unwrap_or_default(),
         BitVecOp::Neg(..) => format!("(bvneg {})", children[0]),
         BitVecOp::Add(..) => children
             .iter()
             .cloned()
             .reduce(|acc, c| format!("(bvadd {} {})", acc, c))
-            .unwrap(),
+            .unwrap_or_default(),
         BitVecOp::Sub(..) => format!("(bvsub {} {})", children[0], children[1]),
         BitVecOp::Mul(..) => children
             .iter()
             .cloned()
             .reduce(|acc, c| format!("(bvmul {} {})", acc, c))
-            .unwrap(),
+            .unwrap_or_default(),
         BitVecOp::UDiv(..) => format!("(bvudiv {} {})", children[0], children[1]),
         BitVecOp::SDiv(..) => format!("(bvsdiv {} {})", children[0], children[1]),
         BitVecOp::URem(..) => format!("(bvurem {} {})", children[0], children[1]),
