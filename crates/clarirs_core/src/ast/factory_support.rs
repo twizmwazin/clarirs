@@ -43,11 +43,6 @@ macro_rules! binop_support_trait {
 }
 
 binop_support_trait!(Xor, BooleanOp<'c>, make_bool);
-binop_support_trait!(Sub, BitVecOp<'c>, make_bitvec);
-binop_support_trait!(UDiv, BitVecOp<'c>, make_bitvec);
-binop_support_trait!(SDiv, BitVecOp<'c>, make_bitvec);
-binop_support_trait!(URem, BitVecOp<'c>, make_bitvec);
-binop_support_trait!(SRem, BitVecOp<'c>, make_bitvec);
 
 pub trait SupportsIf<'c>: Op<'c> + Sized {
     fn ite(
