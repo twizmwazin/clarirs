@@ -7,13 +7,13 @@ use crate::{
     prelude::*,
 };
 
-pub trait Replace<'c, T>: Sized {
-    fn replace(&self, from: &T, to: &T) -> Result<Self, ClarirsError>;
+pub trait Replace<'c>: Sized {
+    fn replace<T: Clone + Into<DynAst<'c>>>(&self, from: &T, to: &T) -> Result<Self, ClarirsError>;
     fn replace_many(&self, replacements: &HashMap<u64, DynAst<'c>>) -> Result<Self, ClarirsError>;
 }
 
-impl<'c, T: Clone + Into<DynAst<'c>>> Replace<'c, T> for DynAst<'c> {
-    fn replace(&self, from: &T, to: &T) -> Result<Self, ClarirsError> {
+impl<'c> Replace<'c> for DynAst<'c> {
+    fn replace<T: Clone + Into<DynAst<'c>>>(&self, from: &T, to: &T) -> Result<Self, ClarirsError> {
         let from = from.clone().into();
         let to = to.clone().into();
 
@@ -54,38 +54,33 @@ impl<'c, T: Clone + Into<DynAst<'c>>> Replace<'c, T> for DynAst<'c> {
     }
 
     fn replace_many(&self, replacements: &HashMap<u64, DynAst<'c>>) -> Result<Self, ClarirsError> {
-        replace_many_dynast(self, replacements)
-    }
-}
+        if replacements.is_empty() {
+            return Ok(self.clone());
+        }
 
-/// Shared implementation for `replace_many` that doesn't depend on the generic
-/// type parameter `T`, avoiding type inference issues in macro-generated impls.
-fn replace_many_dynast<'c>(
-    ast: &DynAst<'c>,
-    replacements: &HashMap<u64, DynAst<'c>>,
-) -> Result<DynAst<'c>, ClarirsError> {
-    if replacements.is_empty() {
-        return Ok(ast.clone());
+        let ctx = self.context();
+        walk_pre_order(
+            self.clone(),
+            |node| {
+                if let Some(replacement) = replacements.get(&node.inner_hash()) {
+                    Ok(Some(replacement.clone()))
+                } else {
+                    Ok(None)
+                }
+            },
+            |node, children| reconstruct_node(ctx, &node, children),
+        )
     }
-
-    let ctx = ast.context();
-    walk_pre_order(
-        ast.clone(),
-        |node| {
-            if let Some(replacement) = replacements.get(&node.inner_hash()) {
-                Ok(Some(replacement.clone()))
-            } else {
-                Ok(None)
-            }
-        },
-        |node, children| reconstruct_node(ctx, &node, children),
-    )
 }
 
 macro_rules! impl_replace_for_ast {
     ($ast_type:ident, $variant:ident, $into_method:ident, $label:expr) => {
-        impl<'c, T: Clone + Into<DynAst<'c>>> Replace<'c, T> for $ast_type<'c> {
-            fn replace(&self, from: &T, to: &T) -> Result<Self, ClarirsError> {
+        impl<'c> Replace<'c> for $ast_type<'c> {
+            fn replace<T: Clone + Into<DynAst<'c>>>(
+                &self,
+                from: &T,
+                to: &T,
+            ) -> Result<Self, ClarirsError> {
                 DynAst::$variant(self.clone())
                     .replace(from, to)
                     .and_then(|replaced| {
@@ -99,13 +94,13 @@ macro_rules! impl_replace_for_ast {
                 &self,
                 replacements: &HashMap<u64, DynAst<'c>>,
             ) -> Result<Self, ClarirsError> {
-                replace_many_dynast(&DynAst::$variant(self.clone()), replacements).and_then(
-                    |replaced| {
+                DynAst::$variant(self.clone())
+                    .replace_many(replacements)
+                    .and_then(|replaced| {
                         replaced.$into_method().ok_or(ClarirsError::TypeError(
                             concat!("Expected ", $label, " after replacement").to_string(),
                         ))
-                    },
-                )
+                    })
             }
         }
     };

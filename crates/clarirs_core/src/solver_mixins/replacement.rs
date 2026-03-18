@@ -83,22 +83,22 @@ impl<'c, S: Solver<'c>> ReplacementSolver<'c, S> {
 
     /// Apply known replacements to a BoolAst.
     fn replace_bool(&self, ast: &BoolAst<'c>) -> Result<BoolAst<'c>, ClarirsError> {
-        Replace::<DynAst<'c>>::replace_many(ast, &self.replacement_cache)
+        ast.replace_many(&self.replacement_cache)
     }
 
     /// Apply known replacements to a BitVecAst.
     fn replace_bitvec(&self, ast: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        Replace::<DynAst<'c>>::replace_many(ast, &self.replacement_cache)
+        ast.replace_many(&self.replacement_cache)
     }
 
     /// Apply known replacements to a FloatAst.
     fn replace_float(&self, ast: &FloatAst<'c>) -> Result<FloatAst<'c>, ClarirsError> {
-        Replace::<DynAst<'c>>::replace_many(ast, &self.replacement_cache)
+        ast.replace_many(&self.replacement_cache)
     }
 
     /// Apply known replacements to a StringAst.
     fn replace_string(&self, ast: &StringAst<'c>) -> Result<StringAst<'c>, ClarirsError> {
-        Replace::<DynAst<'c>>::replace_many(ast, &self.replacement_cache)
+        ast.replace_many(&self.replacement_cache)
     }
 
     /// Try to extract a replacement from an equality constraint like `sym == concrete`.
