@@ -99,6 +99,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "clarirs-hybrid"
+version = "0.1.0"
+dependencies = [
+ "clarirs_core",
+]
+
+[[package]]
 name = "clarirs-vsa"
 version = "0.1.0"
 dependencies = [

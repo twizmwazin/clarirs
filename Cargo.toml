@@ -6,6 +6,7 @@ members = [
     "crates/clarirs_z3",
     "crates/clarirs-z3-sys",
     "crates/clarirs-vsa",
+    "crates/clarirs-hybrid",
 ]
 resolver = "2"
 
