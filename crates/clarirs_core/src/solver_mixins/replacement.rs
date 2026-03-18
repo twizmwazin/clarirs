@@ -1,9 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{
-    algorithms::{replace_dict_bitvec, replace_dict_bool, replace_dict_float, replace_dict_string},
-    prelude::*,
-};
+use crate::{algorithms::Replace, prelude::*};
 
 /// A solver mixin that applies expression replacements before delegating to
 /// the inner solver. This mirrors claripy's `ReplacementFrontend`.
@@ -85,35 +82,23 @@ impl<'c, S: Solver<'c>> ReplacementSolver<'c, S> {
     }
 
     /// Apply known replacements to a BoolAst.
-    fn replace_bool(&mut self, ast: &BoolAst<'c>) -> Result<BoolAst<'c>, ClarirsError> {
-        if self.replacement_cache.is_empty() {
-            return Ok(ast.clone());
-        }
-        replace_dict_bool(ast, &self.replacement_cache)
+    fn replace_bool(&self, ast: &BoolAst<'c>) -> Result<BoolAst<'c>, ClarirsError> {
+        Replace::<DynAst<'c>>::replace_many(ast, &self.replacement_cache)
     }
 
     /// Apply known replacements to a BitVecAst.
-    fn replace_bitvec(&mut self, ast: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        if self.replacement_cache.is_empty() {
-            return Ok(ast.clone());
-        }
-        replace_dict_bitvec(ast, &self.replacement_cache)
+    fn replace_bitvec(&self, ast: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        Replace::<DynAst<'c>>::replace_many(ast, &self.replacement_cache)
     }
 
     /// Apply known replacements to a FloatAst.
-    fn replace_float(&mut self, ast: &FloatAst<'c>) -> Result<FloatAst<'c>, ClarirsError> {
-        if self.replacement_cache.is_empty() {
-            return Ok(ast.clone());
-        }
-        replace_dict_float(ast, &self.replacement_cache)
+    fn replace_float(&self, ast: &FloatAst<'c>) -> Result<FloatAst<'c>, ClarirsError> {
+        Replace::<DynAst<'c>>::replace_many(ast, &self.replacement_cache)
     }
 
     /// Apply known replacements to a StringAst.
-    fn replace_string(&mut self, ast: &StringAst<'c>) -> Result<StringAst<'c>, ClarirsError> {
-        if self.replacement_cache.is_empty() {
-            return Ok(ast.clone());
-        }
-        replace_dict_string(ast, &self.replacement_cache)
+    fn replace_string(&self, ast: &StringAst<'c>) -> Result<StringAst<'c>, ClarirsError> {
+        Replace::<DynAst<'c>>::replace_many(ast, &self.replacement_cache)
     }
 
     /// Try to extract a replacement from an equality constraint like `sym == concrete`.

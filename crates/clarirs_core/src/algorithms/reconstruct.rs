@@ -1,5 +1,5 @@
 //! Shared helper for reconstructing a DynAst node from its transformed children.
-//! Used by both `replace` and `replace_dict` algorithms.
+//! Used by the `replace` algorithm.
 
 use crate::{
     algorithms::post_order::{bitvec_child, bool_child, float_child, string_child},

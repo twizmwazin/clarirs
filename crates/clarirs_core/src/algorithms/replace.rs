@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::mem::discriminant;
 
 use crate::{
@@ -8,6 +9,7 @@ use crate::{
 
 pub trait Replace<'c, T>: Sized {
     fn replace(&self, from: &T, to: &T) -> Result<Self, ClarirsError>;
+    fn replace_many(&self, replacements: &HashMap<u64, DynAst<'c>>) -> Result<Self, ClarirsError>;
 }
 
 impl<'c, T: Clone + Into<DynAst<'c>>> Replace<'c, T> for DynAst<'c> {
@@ -40,7 +42,6 @@ impl<'c, T: Clone + Into<DynAst<'c>>> Replace<'c, T> for DynAst<'c> {
         let ctx = self.context();
         walk_pre_order(
             self.clone(),
-            // pre_visit: short-circuit when a node matches `from`
             |ast| {
                 if *ast == from {
                     Ok(Some(to.clone()))
@@ -48,56 +49,69 @@ impl<'c, T: Clone + Into<DynAst<'c>>> Replace<'c, T> for DynAst<'c> {
                     Ok(None)
                 }
             },
-            // post_visit: rebuild the node from transformed children
             |ast, children| reconstruct_node(ctx, &ast, children),
         )
     }
-}
 
-impl<'c, T: Clone + Into<DynAst<'c>>> Replace<'c, T> for BoolAst<'c> {
-    fn replace(&self, from: &T, to: &T) -> Result<Self, ClarirsError> {
-        DynAst::Boolean(self.clone())
-            .replace(from, to)
-            .and_then(|replaced| {
-                replaced.into_bool().ok_or(ClarirsError::TypeError(
-                    "Expected Boolean after replacement".to_string(),
-                ))
-            })
+    fn replace_many(&self, replacements: &HashMap<u64, DynAst<'c>>) -> Result<Self, ClarirsError> {
+        replace_many_dynast(self, replacements)
     }
 }
 
-impl<'c, T: Clone + Into<DynAst<'c>>> Replace<'c, T> for BitVecAst<'c> {
-    fn replace(&self, from: &T, to: &T) -> Result<Self, ClarirsError> {
-        DynAst::BitVec(self.clone())
-            .replace(from, to)
-            .and_then(|replaced| {
-                replaced.into_bitvec().ok_or(ClarirsError::TypeError(
-                    "Expected BitVec after replacement".to_string(),
-                ))
-            })
+/// Shared implementation for `replace_many` that doesn't depend on the generic
+/// type parameter `T`, avoiding type inference issues in macro-generated impls.
+fn replace_many_dynast<'c>(
+    ast: &DynAst<'c>,
+    replacements: &HashMap<u64, DynAst<'c>>,
+) -> Result<DynAst<'c>, ClarirsError> {
+    if replacements.is_empty() {
+        return Ok(ast.clone());
     }
+
+    let ctx = ast.context();
+    walk_pre_order(
+        ast.clone(),
+        |node| {
+            if let Some(replacement) = replacements.get(&node.inner_hash()) {
+                Ok(Some(replacement.clone()))
+            } else {
+                Ok(None)
+            }
+        },
+        |node, children| reconstruct_node(ctx, &node, children),
+    )
 }
 
-impl<'c, T: Clone + Into<DynAst<'c>>> Replace<'c, T> for FloatAst<'c> {
-    fn replace(&self, from: &T, to: &T) -> Result<Self, ClarirsError> {
-        DynAst::Float(self.clone())
-            .replace(from, to)
-            .and_then(|replaced| {
-                replaced.into_float().ok_or(ClarirsError::TypeError(
-                    "Expected Float after replacement".to_string(),
-                ))
-            })
-    }
+macro_rules! impl_replace_for_ast {
+    ($ast_type:ident, $variant:ident, $into_method:ident, $label:expr) => {
+        impl<'c, T: Clone + Into<DynAst<'c>>> Replace<'c, T> for $ast_type<'c> {
+            fn replace(&self, from: &T, to: &T) -> Result<Self, ClarirsError> {
+                DynAst::$variant(self.clone())
+                    .replace(from, to)
+                    .and_then(|replaced| {
+                        replaced.$into_method().ok_or(ClarirsError::TypeError(
+                            concat!("Expected ", $label, " after replacement").to_string(),
+                        ))
+                    })
+            }
+
+            fn replace_many(
+                &self,
+                replacements: &HashMap<u64, DynAst<'c>>,
+            ) -> Result<Self, ClarirsError> {
+                replace_many_dynast(&DynAst::$variant(self.clone()), replacements).and_then(
+                    |replaced| {
+                        replaced.$into_method().ok_or(ClarirsError::TypeError(
+                            concat!("Expected ", $label, " after replacement").to_string(),
+                        ))
+                    },
+                )
+            }
+        }
+    };
 }
 
-impl<'c, T: Clone + Into<DynAst<'c>>> Replace<'c, T> for StringAst<'c> {
-    fn replace(&self, from: &T, to: &T) -> Result<Self, ClarirsError> {
-        DynAst::String(self.clone())
-            .replace(from, to)
-            .and_then(|replaced| {
-                replaced.into_string().ok_or(ClarirsError::TypeError(
-                    "Expected String after replacement".to_string(),
-                ))
-            })
-    }
-}
+impl_replace_for_ast!(BoolAst, Boolean, into_bool, "Boolean");
+impl_replace_for_ast!(BitVecAst, BitVec, into_bitvec, "BitVec");
+impl_replace_for_ast!(FloatAst, Float, into_float, "Float");
+impl_replace_for_ast!(StringAst, String, into_string, "String");
