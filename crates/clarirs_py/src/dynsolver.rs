@@ -14,6 +14,7 @@ type WrappedHybridSolver<'c> = SimplificationMixin<
 >;
 type WrappedReplacementSolver<'c> =
     ReplacementSolver<'c, SimplificationMixin<'c, ConcreteEarlyResolutionMixin<'c, Z3Solver<'c>>>>;
+type WrappedCompositeSolver<'c> = CompositeSolver<'c, WrappedZ3Solver<'c>>;
 
 #[derive(Clone, Debug)]
 pub(crate) enum DynSolver {
@@ -22,6 +23,7 @@ pub(crate) enum DynSolver {
     Vsa(WrappedVSASolver<'static>),
     Hybrid(WrappedHybridSolver<'static>),
     Replacement(WrappedReplacementSolver<'static>),
+    Composite(WrappedCompositeSolver<'static>),
 }
 
 impl HasContext<'static> for DynSolver {
@@ -32,6 +34,7 @@ impl HasContext<'static> for DynSolver {
             DynSolver::Vsa(solver) => solver.context(),
             DynSolver::Hybrid(solver) => solver.context(),
             DynSolver::Replacement(solver) => solver.context(),
+            DynSolver::Composite(solver) => solver.context(),
         }
     }
 }
@@ -97,6 +100,7 @@ macro_rules! dispatch {
             DynSolver::Vsa(solver) => solver.$method($($arg),*),
             DynSolver::Hybrid(solver) => solver.$method($($arg),*),
             DynSolver::Replacement(solver) => solver.$method($($arg),*),
+            DynSolver::Composite(solver) => solver.$method($($arg),*),
         }
     };
 }

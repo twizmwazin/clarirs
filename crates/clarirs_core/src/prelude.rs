@@ -8,6 +8,7 @@ pub use crate::ast::string::{StringAst, StringOp};
 pub use crate::ast::{Annotation, AnnotationType, AstFactory, AstNode, AstRef};
 pub use crate::context::{Context, HasContext, InternedString};
 pub use crate::error::ClarirsError;
+pub use crate::composite_solver::CompositeSolver;
 pub use crate::solver::{ConcreteSolver, HybridSolver, Solver};
 pub use crate::solver_mixins::ReplacementSolver;
 pub use clarirs_num::{BitVec, FPRM, FSort, Float};
