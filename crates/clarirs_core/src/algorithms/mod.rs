@@ -6,6 +6,7 @@ pub mod find_variable;
 pub mod join;
 pub mod post_order;
 pub mod pre_order;
+pub mod reconstruct;
 pub mod replace;
 pub mod simplify;
 
