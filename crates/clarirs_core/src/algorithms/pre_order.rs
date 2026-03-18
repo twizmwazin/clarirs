@@ -109,11 +109,7 @@ mod tests {
         let ctx = Context::new();
         let x = ctx.bvs("x", 64)?;
 
-        let result = walk_pre_order(
-            DynAst::from(&x),
-            |_| Ok(None),
-            |node, _children| Ok(node),
-        )?;
+        let result = walk_pre_order(DynAst::from(&x), |_| Ok(None), |node, _children| Ok(node))?;
 
         assert_eq!(result, DynAst::from(&x));
         Ok(())
