@@ -108,6 +108,11 @@ impl PySolver {
                         self.unsat_core,
                     )),
                 ))),
+                DynSolver::Replacement(..) => {
+                    DynSolver::Replacement(ReplacementSolver::new(wrap_solver(
+                        Z3Solver::new_with_options(&GLOBAL_CONTEXT, self.timeout, self.unsat_core),
+                    )))
+                }
             },
             timeout: self.timeout,
             unsat_core: self.unsat_core,
@@ -163,6 +168,14 @@ impl PySolver {
                 py,
                 PySolver {
                     inner: DynSolver::Hybrid(hybrid_solver.clone()),
+                    timeout: self.timeout,
+                    unsat_core: self.unsat_core,
+                },
+            )?),
+            DynSolver::Replacement(replacement_solver) => Ok(Bound::new(
+                py,
+                PySolver {
+                    inner: DynSolver::Replacement(replacement_solver.clone()),
                     timeout: self.timeout,
                     unsat_core: self.unsat_core,
                 },
@@ -651,6 +664,26 @@ impl PySolver {
         })
     }
 
+    /// Add an explicit replacement mapping. The solver will replace occurrences
+    /// of `old` with `new` in all future queries. Only supported for
+    /// SolverReplacement.
+    fn add_replacement<'py>(
+        &mut self,
+        old: Bound<'py, Base>,
+        new: Bound<'py, Base>,
+    ) -> Result<(), ClaripyError> {
+        let old_dyn = Base::to_dynast(old)?;
+        let new_dyn = Base::to_dynast(new)?;
+        self.inner.add_replacement(old_dyn, new_dyn)?;
+        Ok(())
+    }
+
+    /// Clear all replacements. Only supported for SolverReplacement.
+    fn clear_replacements(&mut self) -> Result<(), ClaripyError> {
+        self.inner.clear_replacements()?;
+        Ok(())
+    }
+
     fn __getstate__<'py>(&self, py: Python<'py>) -> Result<Bound<'py, PyTuple>, ClaripyError> {
         // Get the solver type
         let solver_type = match &self.inner {
@@ -658,6 +691,7 @@ impl PySolver {
             DynSolver::Z3(..) => "Z3",
             DynSolver::Vsa(..) => "Vsa",
             DynSolver::Hybrid(..) => "Hybrid",
+            DynSolver::Replacement(..) => "Replacement",
         };
 
         // Get the constraints
@@ -694,6 +728,9 @@ impl PySolver {
                 &GLOBAL_CONTEXT,
                 wrap_solver(VSASolver::new(&GLOBAL_CONTEXT)),
                 wrap_solver(Z3Solver::new_with_timeout(&GLOBAL_CONTEXT, self.timeout)),
+            ))),
+            "Replacement" => DynSolver::Replacement(ReplacementSolver::new(wrap_solver(
+                Z3Solver::new_with_timeout(&GLOBAL_CONTEXT, self.timeout),
             ))),
             _ => {
                 return Err(ClaripyError::TypeError(format!(
@@ -784,12 +821,31 @@ impl PyHybridSolver {
     }
 }
 
+#[pyclass(extends = PySolver, name = "SolverReplacement", module = "claripy.solver")]
+pub struct PyReplacementSolver;
+
+#[pymethods]
+impl PyReplacementSolver {
+    #[new]
+    fn new() -> Result<PyClassInitializer<Self>, ClaripyError> {
+        Ok(PyClassInitializer::from(PySolver {
+            inner: DynSolver::Replacement(ReplacementSolver::new(wrap_solver(
+                Z3Solver::new_with_options(&GLOBAL_CONTEXT, None, false),
+            ))),
+            timeout: None,
+            unsat_core: false,
+        })
+        .add_subclass(Self {}))
+    }
+}
+
 pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<PySolver>()?;
     m.add_class::<PyConcreteSolver>()?;
     m.add_class::<PyZ3Solver>()?;
     m.add_class::<PyVSASolver>()?;
     m.add_class::<PyHybridSolver>()?;
+    m.add_class::<PyReplacementSolver>()?;
 
     Ok(())
 }

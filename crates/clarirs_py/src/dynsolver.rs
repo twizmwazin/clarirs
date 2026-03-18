@@ -12,6 +12,8 @@ type WrappedHybridSolver<'c> = SimplificationMixin<
     'c,
     ConcreteEarlyResolutionMixin<'c, HybridSolver<'c, WrappedVSASolver<'c>, WrappedZ3Solver<'c>>>,
 >;
+type WrappedReplacementSolver<'c> =
+    ReplacementSolver<'c, SimplificationMixin<'c, ConcreteEarlyResolutionMixin<'c, Z3Solver<'c>>>>;
 
 #[derive(Clone, Debug)]
 pub(crate) enum DynSolver {
@@ -19,6 +21,7 @@ pub(crate) enum DynSolver {
     Z3(WrappedZ3Solver<'static>),
     Vsa(WrappedVSASolver<'static>),
     Hybrid(WrappedHybridSolver<'static>),
+    Replacement(WrappedReplacementSolver<'static>),
 }
 
 impl HasContext<'static> for DynSolver {
@@ -28,6 +31,7 @@ impl HasContext<'static> for DynSolver {
             DynSolver::Z3(solver) => solver.context(),
             DynSolver::Vsa(solver) => solver.context(),
             DynSolver::Hybrid(solver) => solver.context(),
+            DynSolver::Replacement(solver) => solver.context(),
         }
     }
 }
@@ -53,6 +57,36 @@ impl DynSolver {
             )),
         }
     }
+
+    /// Add a replacement (only supported for Replacement solver)
+    pub(crate) fn add_replacement(
+        &mut self,
+        old: DynAst<'static>,
+        new: DynAst<'static>,
+    ) -> Result<(), ClarirsError> {
+        match self {
+            DynSolver::Replacement(solver) => {
+                solver.add_replacement(old, new);
+                Ok(())
+            }
+            _ => Err(ClarirsError::UnsupportedOperation(
+                "add_replacement is only supported for Replacement solver".to_string(),
+            )),
+        }
+    }
+
+    /// Clear all replacements (only supported for Replacement solver)
+    pub(crate) fn clear_replacements(&mut self) -> Result<(), ClarirsError> {
+        match self {
+            DynSolver::Replacement(solver) => {
+                solver.clear_replacements();
+                Ok(())
+            }
+            _ => Err(ClarirsError::UnsupportedOperation(
+                "clear_replacements is only supported for Replacement solver".to_string(),
+            )),
+        }
+    }
 }
 
 macro_rules! dispatch {
@@ -62,6 +96,7 @@ macro_rules! dispatch {
             DynSolver::Z3(solver) => solver.$method($($arg),*),
             DynSolver::Vsa(solver) => solver.$method($($arg),*),
             DynSolver::Hybrid(solver) => solver.$method($($arg),*),
+            DynSolver::Replacement(solver) => solver.$method($($arg),*),
         }
     };
 }
