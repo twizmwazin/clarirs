@@ -8,12 +8,17 @@ type WrappedConcreteSolver<'c> = ConcreteSolver<'c>;
 type WrappedZ3Solver<'c> = SimplificationMixin<'c, ConcreteEarlyResolutionMixin<'c, Z3Solver<'c>>>;
 type WrappedVSASolver<'c> =
     SimplificationMixin<'c, ConcreteEarlyResolutionMixin<'c, VSASolver<'c>>>;
+type WrappedHybridSolver<'c> = SimplificationMixin<
+    'c,
+    ConcreteEarlyResolutionMixin<'c, HybridSolver<'c, WrappedVSASolver<'c>, WrappedZ3Solver<'c>>>,
+>;
 
 #[derive(Clone, Debug)]
 pub(crate) enum DynSolver {
     Concrete(WrappedConcreteSolver<'static>),
     Z3(WrappedZ3Solver<'static>),
     Vsa(WrappedVSASolver<'static>),
+    Hybrid(WrappedHybridSolver<'static>),
 }
 
 impl HasContext<'static> for DynSolver {
@@ -22,6 +27,7 @@ impl HasContext<'static> for DynSolver {
             DynSolver::Concrete(solver) => solver.context(),
             DynSolver::Z3(solver) => solver.context(),
             DynSolver::Vsa(solver) => solver.context(),
+            DynSolver::Hybrid(solver) => solver.context(),
         }
     }
 }
@@ -36,166 +42,115 @@ impl DynSolver {
                 let z3_solver = wrapped_solver.inner_mut().inner_mut();
                 z3_solver.unsat_core()
             }
+            DynSolver::Hybrid(wrapped_solver) => {
+                // Access through mixin layers to the HybridSolver, then to its exact (Z3) solver
+                let hybrid = wrapped_solver.inner_mut().inner_mut();
+                let z3_solver = hybrid.exact_mut().inner_mut().inner_mut();
+                z3_solver.unsat_core()
+            }
             _ => Err(ClarirsError::UnsupportedOperation(
-                "unsat_core is only supported for Z3 solver".to_string(),
+                "unsat_core is only supported for Z3 and Hybrid solvers".to_string(),
             )),
         }
     }
 }
 
+macro_rules! dispatch {
+    ($self:expr, $method:ident $(, $arg:expr)*) => {
+        match $self {
+            DynSolver::Concrete(solver) => solver.$method($($arg),*),
+            DynSolver::Z3(solver) => solver.$method($($arg),*),
+            DynSolver::Vsa(solver) => solver.$method($($arg),*),
+            DynSolver::Hybrid(solver) => solver.$method($($arg),*),
+        }
+    };
+}
+
 impl Solver<'static> for DynSolver {
     fn add(&mut self, constraint: &BoolAst<'static>) -> Result<(), ClarirsError> {
-        match self {
-            DynSolver::Concrete(solver) => solver.add(constraint),
-            DynSolver::Z3(solver) => solver.add(constraint),
-            DynSolver::Vsa(solver) => solver.add(constraint),
-        }
+        dispatch!(self, add, constraint)
     }
 
     fn clear(&mut self) -> Result<(), ClarirsError> {
-        match self {
-            DynSolver::Concrete(solver) => solver.clear(),
-            DynSolver::Z3(solver) => solver.clear(),
-            DynSolver::Vsa(solver) => solver.clear(),
-        }
+        dispatch!(self, clear)
     }
 
     fn constraints(&self) -> Result<Vec<BoolAst<'static>>, ClarirsError> {
-        match self {
-            DynSolver::Concrete(solver) => solver.constraints(),
-            DynSolver::Z3(solver) => solver.constraints(),
-            DynSolver::Vsa(solver) => solver.constraints(),
-        }
+        dispatch!(self, constraints)
     }
 
     fn simplify(&mut self) -> Result<(), ClarirsError> {
-        match self {
-            DynSolver::Concrete(solver) => solver.simplify(),
-            DynSolver::Z3(solver) => solver.simplify(),
-            DynSolver::Vsa(solver) => solver.simplify(),
-        }
+        dispatch!(self, simplify)
     }
 
     fn satisfiable(&mut self) -> Result<bool, ClarirsError> {
-        match self {
-            DynSolver::Concrete(solver) => solver.satisfiable(),
-            DynSolver::Z3(solver) => solver.satisfiable(),
-            DynSolver::Vsa(solver) => solver.satisfiable(),
-        }
+        dispatch!(self, satisfiable)
     }
 
     fn eval_bool(&mut self, expr: &BoolAst<'static>) -> Result<BoolAst<'static>, ClarirsError> {
-        match self {
-            DynSolver::Concrete(solver) => solver.eval_bool(expr),
-            DynSolver::Z3(solver) => solver.eval_bool(expr),
-            DynSolver::Vsa(solver) => solver.eval_bool(expr),
-        }
+        dispatch!(self, eval_bool, expr)
     }
 
     fn eval_bitvec(
         &mut self,
         expr: &BitVecAst<'static>,
     ) -> Result<BitVecAst<'static>, ClarirsError> {
-        match self {
-            DynSolver::Concrete(solver) => solver.eval_bitvec(expr),
-            DynSolver::Z3(solver) => solver.eval_bitvec(expr),
-            DynSolver::Vsa(solver) => solver.eval_bitvec(expr),
-        }
+        dispatch!(self, eval_bitvec, expr)
     }
 
     fn eval_float(&mut self, expr: &FloatAst<'static>) -> Result<FloatAst<'static>, ClarirsError> {
-        match self {
-            DynSolver::Concrete(solver) => solver.eval_float(expr),
-            DynSolver::Z3(solver) => solver.eval_float(expr),
-            DynSolver::Vsa(solver) => solver.eval_float(expr),
-        }
+        dispatch!(self, eval_float, expr)
     }
 
     fn eval_string(
         &mut self,
         expr: &StringAst<'static>,
     ) -> Result<StringAst<'static>, ClarirsError> {
-        match self {
-            DynSolver::Concrete(solver) => solver.eval_string(expr),
-            DynSolver::Z3(solver) => solver.eval_string(expr),
-            DynSolver::Vsa(solver) => solver.eval_string(expr),
-        }
+        dispatch!(self, eval_string, expr)
     }
 
     fn is_true(&mut self, expr: &BoolAst<'static>) -> Result<bool, ClarirsError> {
-        match self {
-            DynSolver::Concrete(solver) => solver.is_true(expr),
-            DynSolver::Z3(solver) => solver.is_true(expr),
-            DynSolver::Vsa(solver) => solver.is_true(expr),
-        }
+        dispatch!(self, is_true, expr)
     }
 
     fn is_false(&mut self, expr: &BoolAst<'static>) -> Result<bool, ClarirsError> {
-        match self {
-            DynSolver::Concrete(solver) => solver.is_false(expr),
-            DynSolver::Z3(solver) => solver.is_false(expr),
-            DynSolver::Vsa(solver) => solver.is_false(expr),
-        }
+        dispatch!(self, is_false, expr)
     }
 
     fn has_true(&mut self, expr: &BoolAst<'static>) -> Result<bool, ClarirsError> {
-        match self {
-            DynSolver::Concrete(solver) => solver.has_true(expr),
-            DynSolver::Z3(solver) => solver.has_true(expr),
-            DynSolver::Vsa(solver) => solver.has_true(expr),
-        }
+        dispatch!(self, has_true, expr)
     }
 
     fn has_false(&mut self, expr: &BoolAst<'static>) -> Result<bool, ClarirsError> {
-        match self {
-            DynSolver::Concrete(solver) => solver.has_false(expr),
-            DynSolver::Z3(solver) => solver.has_false(expr),
-            DynSolver::Vsa(solver) => solver.has_false(expr),
-        }
+        dispatch!(self, has_false, expr)
     }
 
     fn min_unsigned(
         &mut self,
         expr: &BitVecAst<'static>,
     ) -> Result<BitVecAst<'static>, ClarirsError> {
-        match self {
-            DynSolver::Concrete(solver) => solver.min_unsigned(expr),
-            DynSolver::Z3(solver) => solver.min_unsigned(expr),
-            DynSolver::Vsa(solver) => solver.min_unsigned(expr),
-        }
+        dispatch!(self, min_unsigned, expr)
     }
 
     fn max_unsigned(
         &mut self,
         expr: &BitVecAst<'static>,
     ) -> Result<BitVecAst<'static>, ClarirsError> {
-        match self {
-            DynSolver::Concrete(solver) => solver.max_unsigned(expr),
-            DynSolver::Z3(solver) => solver.max_unsigned(expr),
-            DynSolver::Vsa(solver) => solver.max_unsigned(expr),
-        }
+        dispatch!(self, max_unsigned, expr)
     }
 
     fn min_signed(
         &mut self,
         expr: &BitVecAst<'static>,
     ) -> Result<BitVecAst<'static>, ClarirsError> {
-        match self {
-            DynSolver::Concrete(solver) => solver.min_signed(expr),
-            DynSolver::Z3(solver) => solver.min_signed(expr),
-            DynSolver::Vsa(solver) => solver.min_signed(expr),
-        }
+        dispatch!(self, min_signed, expr)
     }
 
     fn max_signed(
         &mut self,
         expr: &BitVecAst<'static>,
     ) -> Result<BitVecAst<'static>, ClarirsError> {
-        match self {
-            DynSolver::Concrete(solver) => solver.max_signed(expr),
-            DynSolver::Z3(solver) => solver.max_signed(expr),
-            DynSolver::Vsa(solver) => solver.max_signed(expr),
-        }
+        dispatch!(self, max_signed, expr)
     }
 
     fn eval_bool_n(
@@ -203,11 +158,7 @@ impl Solver<'static> for DynSolver {
         expr: &BoolAst<'static>,
         n: u32,
     ) -> Result<Vec<BoolAst<'static>>, ClarirsError> {
-        match self {
-            DynSolver::Concrete(solver) => solver.eval_bool_n(expr, n),
-            DynSolver::Z3(solver) => solver.eval_bool_n(expr, n),
-            DynSolver::Vsa(solver) => solver.eval_bool_n(expr, n),
-        }
+        dispatch!(self, eval_bool_n, expr, n)
     }
 
     fn eval_bitvec_n(
@@ -215,11 +166,7 @@ impl Solver<'static> for DynSolver {
         expr: &BitVecAst<'static>,
         n: u32,
     ) -> Result<Vec<BitVecAst<'static>>, ClarirsError> {
-        match self {
-            DynSolver::Concrete(solver) => solver.eval_bitvec_n(expr, n),
-            DynSolver::Z3(solver) => solver.eval_bitvec_n(expr, n),
-            DynSolver::Vsa(solver) => solver.eval_bitvec_n(expr, n),
-        }
+        dispatch!(self, eval_bitvec_n, expr, n)
     }
 
     fn eval_float_n(
@@ -227,11 +174,7 @@ impl Solver<'static> for DynSolver {
         expr: &FloatAst<'static>,
         n: u32,
     ) -> Result<Vec<FloatAst<'static>>, ClarirsError> {
-        match self {
-            DynSolver::Concrete(solver) => solver.eval_float_n(expr, n),
-            DynSolver::Z3(solver) => solver.eval_float_n(expr, n),
-            DynSolver::Vsa(solver) => solver.eval_float_n(expr, n),
-        }
+        dispatch!(self, eval_float_n, expr, n)
     }
 
     fn eval_string_n(
@@ -239,10 +182,6 @@ impl Solver<'static> for DynSolver {
         expr: &StringAst<'static>,
         n: u32,
     ) -> Result<Vec<StringAst<'static>>, ClarirsError> {
-        match self {
-            DynSolver::Concrete(solver) => solver.eval_string_n(expr, n),
-            DynSolver::Z3(solver) => solver.eval_string_n(expr, n),
-            DynSolver::Vsa(solver) => solver.eval_string_n(expr, n),
-        }
+        dispatch!(self, eval_string_n, expr, n)
     }
 }
