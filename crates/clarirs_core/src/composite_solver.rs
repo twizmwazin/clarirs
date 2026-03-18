@@ -136,10 +136,7 @@ impl<'c, S: Solver<'c>> Solver<'c> for CompositeSolver<'c, S> {
             _ => self.merge_children(&ids)?,
         };
 
-        self.children
-            .get_mut(&target_id)
-            .unwrap()
-            .add(constraint)?;
+        self.children.get_mut(&target_id).unwrap().add(constraint)?;
 
         // Map all variables in this constraint to the target child.
         for v in vars {
