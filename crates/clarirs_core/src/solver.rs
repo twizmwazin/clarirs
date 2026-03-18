@@ -473,10 +473,10 @@ impl<'c, A: Solver<'c>, E: Solver<'c>> Solver<'c> for HybridSolver<'c, A, E> {
         if n == 0 {
             return Ok(Vec::new());
         }
-        if !expr.symbolic() {
-            if let Ok(result) = self.approximate.eval_float_n(expr, n) {
-                return Ok(result);
-            }
+        if !expr.symbolic()
+            && let Ok(result) = self.approximate.eval_float_n(expr, n)
+        {
+            return Ok(result);
         }
         self.exact.eval_float_n(expr, n)
     }
@@ -489,10 +489,10 @@ impl<'c, A: Solver<'c>, E: Solver<'c>> Solver<'c> for HybridSolver<'c, A, E> {
         if n == 0 {
             return Ok(Vec::new());
         }
-        if !expr.symbolic() {
-            if let Ok(result) = self.approximate.eval_string_n(expr, n) {
-                return Ok(result);
-            }
+        if !expr.symbolic()
+            && let Ok(result) = self.approximate.eval_string_n(expr, n)
+        {
+            return Ok(result);
         }
         self.exact.eval_string_n(expr, n)
     }
