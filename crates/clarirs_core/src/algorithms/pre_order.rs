@@ -12,22 +12,26 @@ use crate::prelude::*;
 ///   Receives the original node and the transformed children. Only called when
 ///   `pre_visit` returned `None`.
 ///
+/// The return type `T` is generic, allowing transformations to produce any
+/// result type (e.g., `DynAst` for AST rewrites, or a foreign AST type for
+/// cross-representation conversions).
+///
 /// Shared subtrees (same `inner_hash`) are only processed once; subsequent
 /// encounters reuse the cached result.
-pub fn walk_pre_order<'c>(
+pub fn walk_pre_order<'c, T: Clone>(
     ast: DynAst<'c>,
-    mut pre_visit: impl FnMut(&DynAst<'c>) -> Result<Option<DynAst<'c>>, ClarirsError>,
-    mut post_visit: impl FnMut(DynAst<'c>, &[DynAst<'c>]) -> Result<DynAst<'c>, ClarirsError>,
-) -> Result<DynAst<'c>, ClarirsError> {
-    struct NodeState<'c> {
+    mut pre_visit: impl FnMut(&DynAst<'c>) -> Result<Option<T>, ClarirsError>,
+    mut post_visit: impl FnMut(DynAst<'c>, &[T]) -> Result<T, ClarirsError>,
+) -> Result<T, ClarirsError> {
+    struct NodeState<'c, T> {
         node: DynAst<'c>,
         num_children: usize,
-        child_results: Vec<DynAst<'c>>,
+        child_results: Vec<T>,
     }
 
-    let mut cache: HashMap<u64, DynAst<'c>> = HashMap::default();
-    let mut stack: Vec<NodeState<'c>> = Vec::new();
-    let mut last_result: Option<DynAst<'c>> = None;
+    let mut cache: HashMap<u64, T> = HashMap::default();
+    let mut stack: Vec<NodeState<'c, T>> = Vec::new();
+    let mut last_result: Option<T> = None;
 
     let num_children = ast.child_iter().len();
     stack.push(NodeState {

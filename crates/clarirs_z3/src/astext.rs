@@ -42,7 +42,7 @@ mod test_float;
 #[cfg(test)]
 mod test_string;
 
-use clarirs_core::{algorithms::walk_post_order, prelude::*};
+use clarirs_core::{algorithms::walk_pre_order, cache::Cache, prelude::*};
 use clarirs_z3_sys as z3;
 
 use crate::{Z3_AST_CACHE, Z3_CONTEXT, rc::RcAst};
@@ -103,15 +103,29 @@ impl<'c> AstExtZ3<'c> for StringAst<'c> {
 impl<'c> AstExtZ3<'c> for DynAst<'c> {
     fn to_z3(&self) -> Result<RcAst, ClarirsError> {
         Z3_AST_CACHE.with(|cache| {
-            walk_post_order(
+            walk_pre_order(
                 self.clone(),
-                |node, children| match node {
-                    DynAst::Boolean(ast) => bool::to_z3(&ast, children),
-                    DynAst::BitVec(ast) => bv::to_z3(&ast, children),
-                    DynAst::Float(ast) => float::to_z3(&ast, children),
-                    DynAst::String(ast) => string::to_z3(&ast, children),
+                // pre_visit: check the cross-call cache for previously converted subtrees
+                |node| {
+                    let result: Result<RcAst, ClarirsError> =
+                        cache.get_or_insert(node.inner_hash(), || {
+                            Err(ClarirsError::InvalidArguments) // sentinel: not cached
+                        });
+                    match result {
+                        Ok(cached) => Ok(Some(cached)),
+                        Err(_) => Ok(None),
+                    }
                 },
-                cache,
+                // post_visit: convert the node using already-converted children, then cache
+                |node, children| {
+                    let result = match node {
+                        DynAst::Boolean(ast) => bool::to_z3(&ast, children),
+                        DynAst::BitVec(ast) => bv::to_z3(&ast, children),
+                        DynAst::Float(ast) => float::to_z3(&ast, children),
+                        DynAst::String(ast) => string::to_z3(&ast, children),
+                    }?;
+                    cache.get_or_insert(node.inner_hash(), || Ok(result))
+                },
             )
         })
     }
