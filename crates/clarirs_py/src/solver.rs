@@ -77,17 +77,15 @@ impl PySolver {
                     self.unsat_core,
                 ))),
                 DynSolver::Vsa(..) => DynSolver::Vsa(wrap_solver(VSASolver::new(&GLOBAL_CONTEXT))),
-                DynSolver::Hybrid(..) => {
-                    DynSolver::Hybrid(wrap_solver(HybridSolver::new(
+                DynSolver::Hybrid(..) => DynSolver::Hybrid(wrap_solver(HybridSolver::new(
+                    &GLOBAL_CONTEXT,
+                    wrap_solver(VSASolver::new(&GLOBAL_CONTEXT)),
+                    wrap_solver(Z3Solver::new_with_options(
                         &GLOBAL_CONTEXT,
-                        wrap_solver(VSASolver::new(&GLOBAL_CONTEXT)),
-                        wrap_solver(Z3Solver::new_with_options(
-                            &GLOBAL_CONTEXT,
-                            self.timeout,
-                            self.unsat_core,
-                        )),
-                    )))
-                }
+                        self.timeout,
+                        self.unsat_core,
+                    )),
+                ))),
             },
             timeout: self.timeout,
             unsat_core: self.unsat_core,
