@@ -28,23 +28,45 @@ fn wrap_solver<'c, S: Solver<'c>>(
 }
 
 impl PySolver {
+    /// Extract the `exact` Python kwarg into an `Option<bool>`.
+    fn extract_exact(exact: Option<Bound<PyAny>>) -> Option<bool> {
+        exact.and_then(|e| e.extract::<bool>().ok())
+    }
+
     /// Calls `f` with a mutable reference to a solver that includes the given
     /// extra constraints. When no extra constraints are provided, `f` receives
     /// `&mut self.inner` directly, avoiding a clone.
+    ///
+    /// When `exact` is `Some(true)` and this is a Hybrid solver, the closure
+    /// receives only the exact (Z3) backend. When `Some(false)`, only the
+    /// approximate (VSA) backend. Otherwise the full hybrid dispatch is used.
     fn with_extra_constraints<T>(
         &mut self,
         extra_constraints: Option<Vec<CoerceBool<'_>>>,
+        exact: Option<bool>,
         f: impl FnOnce(&mut DynSolver) -> Result<T, ClaripyError>,
     ) -> Result<T, ClaripyError> {
-        match extra_constraints {
-            Some(ec) if !ec.is_empty() => {
-                let mut solver = self.inner.clone();
+        let has_extra = matches!(&extra_constraints, Some(ec) if !ec.is_empty());
+        let needs_sub_solver = exact.is_some() && matches!(&self.inner, DynSolver::Hybrid(_));
+
+        if has_extra || needs_sub_solver {
+            let mut solver = match (exact, &self.inner) {
+                (Some(true), DynSolver::Hybrid(h)) => {
+                    DynSolver::Z3(h.inner().inner().exact().clone())
+                }
+                (Some(false), DynSolver::Hybrid(h)) => {
+                    DynSolver::Vsa(h.inner().inner().approximate().clone())
+                }
+                _ => self.inner.clone(),
+            };
+            if let Some(ec) = extra_constraints {
                 for constraint in ec {
                     solver.add(&constraint.0.get().inner)?;
                 }
-                f(&mut solver)
             }
-            _ => f(&mut self.inner),
+            f(&mut solver)
+        } else {
+            f(&mut self.inner)
         }
     }
 }
@@ -253,8 +275,8 @@ impl PySolver {
         extra_constraints: Option<Vec<CoerceBool<'py>>>,
         exact: Option<Bound<'py, PyAny>>,
     ) -> Result<bool, ClaripyError> {
-        let _ = exact; // TODO: Implement approximate solutions
-        self.with_extra_constraints(extra_constraints, |solver| Ok(solver.satisfiable()?))
+        let exact = Self::extract_exact(exact);
+        self.with_extra_constraints(extra_constraints, exact, |solver| Ok(solver.satisfiable()?))
     }
 
     #[pyo3(signature = (extra_constraints = None))]
@@ -262,7 +284,7 @@ impl PySolver {
         &mut self,
         extra_constraints: Option<Vec<CoerceBool<'py>>>,
     ) -> Result<Vec<usize>, ClaripyError> {
-        self.with_extra_constraints(extra_constraints, |solver| Ok(solver.unsat_core()?))
+        self.with_extra_constraints(extra_constraints, None, |solver| Ok(solver.unsat_core()?))
     }
 
     #[pyo3(signature = (expr, n, extra_constraints = None, exact = None))]
@@ -274,8 +296,8 @@ impl PySolver {
         extra_constraints: Option<Vec<CoerceBool<'py>>>,
         exact: Option<Bound<'py, PyAny>>,
     ) -> Result<Vec<Bound<'py, Base>>, ClaripyError> {
-        let _ = exact; // TODO: Implement approximate solutions
-        self.with_extra_constraints(extra_constraints, |solver| {
+        let exact = Self::extract_exact(exact);
+        self.with_extra_constraints(extra_constraints, exact, |solver| {
             // Get multiple solutions based on expression type
             if let Ok(bv_value) = expr.clone().into_any().cast::<BV>() {
                 let solutions = solver.eval_bitvec_n(&bv_value.get().inner, n)?;
@@ -401,11 +423,12 @@ impl PySolver {
         extra_constraints: Option<Vec<Bound<Bool>>>,
         exact: Option<Bound<PyAny>>,
     ) -> Result<bool, ClaripyError> {
-        _ = exact; // TODO: Implement approximate solutions
+        let exact = Self::extract_exact(exact);
         let expr = expr.0;
 
         self.with_extra_constraints(
             extra_constraints.map(|v| v.into_iter().map(CoerceBool).collect()),
+            exact,
             |solver| {
                 if let Ok(bool_ast) = expr.cast::<Bool>() {
                     if let Ok(value) = value.extract::<CoerceBool>() {
@@ -473,7 +496,7 @@ impl PySolver {
         extra_constraints: Option<Vec<CoerceBool<'py>>>,
         exact: Option<Bound<'py, PyAny>>,
     ) -> Result<bool, ClaripyError> {
-        _ = exact; // TODO: Implement approximate solutions
+        let exact = Self::extract_exact(exact);
 
         // Check for Python primitive types first
         if let Ok(py_bool) = expr.extract::<bool>() {
@@ -482,7 +505,7 @@ impl PySolver {
             return Ok(py_int != 0);
         }
 
-        self.with_extra_constraints(extra_constraints, |solver| {
+        self.with_extra_constraints(extra_constraints, exact, |solver| {
             // Handle different expression types
             if let Ok(bool_expr) = expr.cast::<Bool>() {
                 match bool_expr.get().inner.op() {
@@ -517,7 +540,7 @@ impl PySolver {
         extra_constraints: Option<Vec<CoerceBool<'py>>>,
         exact: Option<Bound<'py, PyAny>>,
     ) -> Result<bool, ClaripyError> {
-        _ = exact; // TODO: Implement approximate solutions
+        let exact = Self::extract_exact(exact);
 
         // Check for Python primitive types first
         if let Ok(py_bool) = expr.extract::<bool>() {
@@ -526,7 +549,7 @@ impl PySolver {
             return Ok(py_int == 0);
         }
 
-        self.with_extra_constraints(extra_constraints, |solver| {
+        self.with_extra_constraints(extra_constraints, exact, |solver| {
             // Handle different expression types
             if let Ok(bool_expr) = expr.cast::<Bool>() {
                 Ok(solver.is_false(&bool_expr.get().inner)?)
@@ -557,8 +580,8 @@ impl PySolver {
         extra_constraints: Option<Vec<CoerceBool<'py>>>,
         exact: Option<Bound<'py, PyAny>>,
     ) -> Result<bool, ClaripyError> {
-        _ = exact; // TODO: Implement approximate solutions
-        self.with_extra_constraints(extra_constraints, |solver| {
+        let exact = Self::extract_exact(exact);
+        self.with_extra_constraints(extra_constraints, exact, |solver| {
             Ok(solver.has_true(&expr.get().inner)?)
         })
     }
@@ -570,8 +593,8 @@ impl PySolver {
         extra_constraints: Option<Vec<CoerceBool<'py>>>,
         exact: Option<Bound<'py, PyAny>>,
     ) -> Result<bool, ClaripyError> {
-        _ = exact; // TODO: Implement approximate solutions
-        self.with_extra_constraints(extra_constraints, |solver| {
+        let exact = Self::extract_exact(exact);
+        self.with_extra_constraints(extra_constraints, exact, |solver| {
             Ok(solver.has_false(&expr.get().inner)?)
         })
     }
@@ -584,8 +607,8 @@ impl PySolver {
         exact: Option<Bound<'py, PyAny>>,
         signed: bool,
     ) -> Result<BigInt, ClaripyError> {
-        let _ = exact; // TODO: Implement approximate solutions
-        self.with_extra_constraints(extra_constraints, |solver| {
+        let exact = Self::extract_exact(exact);
+        self.with_extra_constraints(extra_constraints, exact, |solver| {
             let result = if signed {
                 solver.min_signed(&expr.get().inner)?
             } else {
@@ -610,8 +633,8 @@ impl PySolver {
         exact: Option<Bound<'py, PyAny>>,
         signed: bool,
     ) -> Result<BigInt, ClaripyError> {
-        let _ = exact; // TODO: Implement approximate solutions
-        self.with_extra_constraints(extra_constraints, |solver| {
+        let exact = Self::extract_exact(exact);
+        self.with_extra_constraints(extra_constraints, exact, |solver| {
             let result = if signed {
                 solver.max_signed(&expr.get().inner)?
             } else {
