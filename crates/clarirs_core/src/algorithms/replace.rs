@@ -3,7 +3,7 @@ use std::mem::discriminant;
 use crate::{
     algorithms::{
         post_order::{bitvec_child, bool_child, float_child, string_child},
-        walk_post_order,
+        pre_order::walk_pre_order,
     },
     ast::{bitvec::BitVecOpExt, float::FloatOpExt},
     prelude::*,
@@ -41,10 +41,18 @@ impl<'c, T: Clone + Into<DynAst<'c>>> Replace<'c, T> for DynAst<'c> {
         }
 
         let ctx = self.context();
-        walk_post_order(
+        walk_pre_order(
             self.clone(),
+            // pre_visit: short-circuit when a node matches `from`
+            |ast| {
+                if *ast == from {
+                    Ok(Some(to.clone()))
+                } else {
+                    Ok(None)
+                }
+            },
+            // post_visit: rebuild the node from transformed children
             |ast, children| match &ast {
-                _ if ast == from => Ok(to.clone()),
                 DynAst::Boolean(bool_ast) => {
                     match bool_ast.op() {
                         BooleanOp::BoolS(..) | BooleanOp::BoolV(..) => Ok(bool_ast.clone()),
@@ -313,7 +321,6 @@ impl<'c, T: Clone + Into<DynAst<'c>>> Replace<'c, T> for DynAst<'c> {
                 }
                 .map(DynAst::String),
             },
-            &(),
         )
     }
 }
