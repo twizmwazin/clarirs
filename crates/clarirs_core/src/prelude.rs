@@ -6,6 +6,7 @@ pub use crate::ast::node::{DynAst, IntoOwned};
 pub use crate::ast::op::Op;
 pub use crate::ast::string::{StringAst, StringOp};
 pub use crate::ast::{Annotation, AnnotationType, AstFactory, AstNode, AstRef};
+pub use crate::composite_solver::CompositeSolver;
 pub use crate::context::{Context, HasContext, InternedString};
 pub use crate::error::ClarirsError;
 pub use crate::solver::{ConcreteSolver, HybridSolver, Solver};
