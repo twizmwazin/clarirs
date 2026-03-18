@@ -3,6 +3,7 @@ use std::collections::BTreeSet;
 use crate::ast::{and, or};
 use crate::{dynsolver::DynSolver, prelude::*};
 use clarirs_core::ast::bitvec::BitVecOpExt;
+use clarirs_core::solver::HybridSolver;
 use clarirs_core::solver_mixins::{ConcreteEarlyResolutionMixin, SimplificationMixin};
 use clarirs_vsa::VSASolver;
 use clarirs_z3::Z3Solver;
@@ -76,6 +77,17 @@ impl PySolver {
                     self.unsat_core,
                 ))),
                 DynSolver::Vsa(..) => DynSolver::Vsa(wrap_solver(VSASolver::new(&GLOBAL_CONTEXT))),
+                DynSolver::Hybrid(..) => {
+                    DynSolver::Hybrid(wrap_solver(HybridSolver::new(
+                        &GLOBAL_CONTEXT,
+                        wrap_solver(VSASolver::new(&GLOBAL_CONTEXT)),
+                        wrap_solver(Z3Solver::new_with_options(
+                            &GLOBAL_CONTEXT,
+                            self.timeout,
+                            self.unsat_core,
+                        )),
+                    )))
+                }
             },
             timeout: self.timeout,
             unsat_core: self.unsat_core,
@@ -123,6 +135,14 @@ impl PySolver {
                 py,
                 PySolver {
                     inner: DynSolver::Vsa(vsasolver.clone()),
+                    timeout: self.timeout,
+                    unsat_core: self.unsat_core,
+                },
+            )?),
+            DynSolver::Hybrid(hybrid_solver) => Ok(Bound::new(
+                py,
+                PySolver {
+                    inner: DynSolver::Hybrid(hybrid_solver.clone()),
                     timeout: self.timeout,
                     unsat_core: self.unsat_core,
                 },
@@ -182,7 +202,10 @@ impl PySolver {
             merged_bound
         };
 
-        Ok((matches!(self.inner, DynSolver::Z3(..)), merged))
+        Ok((
+            matches!(self.inner, DynSolver::Z3(..) | DynSolver::Hybrid(..)),
+            merged,
+        ))
     }
 
     #[pyo3(signature = (exprs))]
@@ -613,6 +636,7 @@ impl PySolver {
             DynSolver::Concrete(..) => "Concrete",
             DynSolver::Z3(..) => "Z3",
             DynSolver::Vsa(..) => "Vsa",
+            DynSolver::Hybrid(..) => "Hybrid",
         };
 
         // Get the constraints
@@ -645,6 +669,11 @@ impl PySolver {
                 self.timeout,
             ))),
             "Vsa" => DynSolver::Vsa(wrap_solver(VSASolver::new(&GLOBAL_CONTEXT))),
+            "Hybrid" => DynSolver::Hybrid(wrap_solver(HybridSolver::new(
+                &GLOBAL_CONTEXT,
+                wrap_solver(VSASolver::new(&GLOBAL_CONTEXT)),
+                wrap_solver(Z3Solver::new_with_timeout(&GLOBAL_CONTEXT, self.timeout)),
+            ))),
             _ => {
                 return Err(ClaripyError::TypeError(format!(
                     "Unknown solver type: {solver_type}"
@@ -713,11 +742,33 @@ impl PyVSASolver {
     }
 }
 
+#[pyclass(extends = PySolver, name = "SolverHybrid", module = "claripy.solver")]
+pub struct PyHybridSolver;
+
+#[pymethods]
+impl PyHybridSolver {
+    #[new]
+    #[pyo3(signature = (timeout = None, track = false))]
+    fn new(timeout: Option<u32>, track: bool) -> Result<PyClassInitializer<Self>, ClaripyError> {
+        Ok(PyClassInitializer::from(PySolver {
+            inner: DynSolver::Hybrid(wrap_solver(HybridSolver::new(
+                &GLOBAL_CONTEXT,
+                wrap_solver(VSASolver::new(&GLOBAL_CONTEXT)),
+                wrap_solver(Z3Solver::new_with_options(&GLOBAL_CONTEXT, timeout, track)),
+            ))),
+            timeout,
+            unsat_core: track,
+        })
+        .add_subclass(Self {}))
+    }
+}
+
 pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<PySolver>()?;
     m.add_class::<PyConcreteSolver>()?;
     m.add_class::<PyZ3Solver>()?;
     m.add_class::<PyVSASolver>()?;
+    m.add_class::<PyHybridSolver>()?;
 
     Ok(())
 }
