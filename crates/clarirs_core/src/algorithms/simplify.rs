@@ -8,7 +8,7 @@ mod test_bool;
 #[cfg(test)]
 mod test_bv;
 
-use crate::{cache::Cache, prelude::*};
+use crate::{algorithms::post_order::walk_post_order, cache::Cache, prelude::*};
 
 pub trait Simplify<'c>: Sized {
     fn simplify(&self) -> Result<Self, ClarirsError> {
@@ -115,10 +115,10 @@ struct SimplifyState<'c> {
 }
 
 impl<'c> SimplifyState<'c> {
-    fn new(expr: DynAst<'c>) -> Self {
+    fn from_children(expr: DynAst<'c>, children: &[DynAst<'c>]) -> Self {
         Self {
-            expr: expr.clone(),
-            children: vec![None; expr.child_iter().count()],
+            expr,
+            children: children.iter().map(|c| Some(c.clone())).collect(),
             last_missed_child: None,
         }
     }
@@ -222,72 +222,58 @@ fn simplify_inner<'c>(
         })
 }
 
+fn simplify_node<'c>(
+    node: &DynAst<'c>,
+    children: &[DynAst<'c>],
+    respect_annotations: bool,
+    error_on_dbz: bool,
+) -> Result<DynAst<'c>, ClarirsError> {
+    let has_blocking_annotations = node
+        .annotations()
+        .iter()
+        .any(|a| !a.eliminatable() && !a.relocatable());
+    if respect_annotations && has_blocking_annotations {
+        return Ok(node.clone());
+    }
+
+    let mut state = SimplifyState::from_children(node.clone(), children);
+    match simplify_inner(&mut state, error_on_dbz) {
+        Ok(result) => {
+            let relocatable_annotations: Vec<Annotation> = node
+                .annotations()
+                .iter()
+                .filter(|a| a.relocatable())
+                .cloned()
+                .collect();
+            node.context()
+                .annotate_dyn(&result, relocatable_annotations)
+        }
+        Err(SimplifyError::MissingChild(_)) => {
+            unreachable!("All children are pre-computed in post-order traversal");
+        }
+        Err(SimplifyError::ReRun(new_ast)) => {
+            let simplified = simplify(&new_ast, respect_annotations, error_on_dbz)?;
+            let relocatable_annotations: Vec<Annotation> = node
+                .annotations()
+                .iter()
+                .filter(|a| a.relocatable())
+                .cloned()
+                .collect();
+            node.context()
+                .annotate_dyn(&simplified, relocatable_annotations)
+        }
+        Err(SimplifyError::Error(e)) => Err(e),
+    }
+}
+
 fn simplify<'c>(
     ast: &DynAst<'c>,
     respect_annotations: bool,
     error_on_dbz: bool,
 ) -> Result<DynAst<'c>, ClarirsError> {
-    let mut work_stack: Vec<SimplifyState<'c>> = Vec::new();
-    let mut last_result: Option<DynAst<'c>> = None;
-
-    work_stack.push(SimplifyState::new(ast.clone()));
-
-    while let Some(mut state) = work_stack.pop() {
-        if let Some(missed_index) = state.last_missed_child {
-            // We missed a child last time, so we need to get the last result and set it as the child
-            state.children[missed_index as usize] = Some(last_result.take().unwrap());
-            state.last_missed_child = None;
-        }
-
-        let has_blocking_annotations = state
-            .expr
-            .annotations()
-            .iter()
-            .any(|a| !a.eliminatable() && !a.relocatable());
-        let should_simplify = !respect_annotations || !has_blocking_annotations;
-        if should_simplify {
-            let inner_result = simplify_inner(&mut state, error_on_dbz);
-            match inner_result {
-                Ok(result) => {
-                    let relocatable_annotations: Vec<Annotation> = state
-                        .expr
-                        .annotations()
-                        .iter()
-                        .filter(|a| a.relocatable())
-                        .cloned()
-                        .collect();
-                    let annotated = state
-                        .expr
-                        .context()
-                        .annotate_dyn(&result, relocatable_annotations)?;
-                    last_result = Some(annotated)
-                }
-                Err(SimplifyError::MissingChild(index)) => {
-                    let child_state = SimplifyState::new(state.expr.get_child(index).unwrap());
-
-                    // Push the current state back onto the stack
-                    work_stack.push(state);
-                    // Push the missing child onto the stack
-                    work_stack.push(child_state);
-                }
-                Err(SimplifyError::ReRun(new_ast)) => {
-                    // Push a new state with the new_ast onto the stack
-                    work_stack.push(SimplifyState::new(new_ast));
-                }
-                Err(SimplifyError::Error(e)) => {
-                    return Err(e);
-                }
-            }
-        } else {
-            last_result = Some(state.expr.clone());
-        }
-    }
-
-    if last_result.is_none() {
-        return Err(ClarirsError::InvalidArgumentsWithMessage(
-            "No result produced".to_string(),
-        ));
-    }
-
-    Ok(last_result.unwrap())
+    walk_post_order(
+        ast.clone(),
+        |node, children| simplify_node(&node, children, respect_annotations, error_on_dbz),
+        &(),
+    )
 }
