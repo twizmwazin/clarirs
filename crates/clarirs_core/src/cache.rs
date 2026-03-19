@@ -38,7 +38,7 @@ impl<K, V> Default for GenericCache<K, V> {
 
 impl<K: Hash + Eq, V: Clone> Cache<K, V> for GenericCache<K, V> {
     fn get_or_insert<E>(&self, key: K, mut value_cv: impl FnMut() -> Result<V, E>) -> Result<V, E> {
-        let mut locked = self.0.write().unwrap();
+        let mut locked = self.0.write().expect("cache lock poisoned");
         match locked.get(&key) {
             Some(value) => Ok(value.clone()),
             None => {
@@ -50,7 +50,7 @@ impl<K: Hash + Eq, V: Clone> Cache<K, V> for GenericCache<K, V> {
     }
 
     fn drop(&self, key: K) {
-        let mut locked = self.0.write().unwrap();
+        let mut locked = self.0.write().expect("cache lock poisoned");
         locked.remove(&key);
     }
 }
@@ -79,7 +79,7 @@ impl<'c> Cache<u64, DynAst<'c>> for AstCache<'c> {
             // Normal mode: Try to get from cache first, compute only if needed
             // Step 1: Try to get a read lock and check if the value is already in the cache
             {
-                let inner = self.0.read().unwrap();
+                let inner = self.0.read().expect("cache lock poisoned");
                 if let Some(value) = inner.get(&hash)
                     && let Some(arc) = match value {
                         AstCacheValue::Boolean(weak) => weak.upgrade().map(DynAst::Boolean),
@@ -97,7 +97,7 @@ impl<'c> Cache<u64, DynAst<'c>> for AstCache<'c> {
             let arc = f()?; // This may call `simplify()` and recurse
 
             // Step 3: Acquire a write lock to insert the new value
-            let mut inner = self.0.write().unwrap();
+            let mut inner = self.0.write().expect("cache lock poisoned");
 
             match &arc {
                 DynAst::Boolean(ast) => {
@@ -124,7 +124,7 @@ impl<'c> Cache<u64, DynAst<'c>> for AstCache<'c> {
             let arc = f()?; // This may call `simplify()` and recurse
 
             // Step 2: Acquire a write lock to check for collisions and insert
-            let mut inner = self.0.write().unwrap();
+            let mut inner = self.0.write().expect("cache lock poisoned");
 
             // Check for hash collision
             if let Some(existing_value) = inner.get(&hash)
@@ -162,7 +162,7 @@ impl<'c> Cache<u64, DynAst<'c>> for AstCache<'c> {
     }
 
     fn drop(&self, key: u64) {
-        let mut locked = self.0.write().unwrap();
+        let mut locked = self.0.write().expect("cache lock poisoned");
         locked.remove(&key);
     }
 }

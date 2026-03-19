@@ -111,14 +111,14 @@ impl Context<'_> {
 
         // Fast path: check if already interned with read lock
         {
-            let interner = self.string_interner.read().unwrap();
+            let interner = self.string_interner.read().expect("string interner lock poisoned");
             if let Some(existing) = interner.get(s) {
                 return InternedString(Arc::clone(existing));
             }
         }
 
         // Slow path: intern the string with write lock
-        let mut interner = self.string_interner.write().unwrap();
+        let mut interner = self.string_interner.write().expect("string interner lock poisoned");
         // Double-check after acquiring write lock (another thread might have inserted it)
         if let Some(existing) = interner.get(s) {
             return InternedString(Arc::clone(existing));
