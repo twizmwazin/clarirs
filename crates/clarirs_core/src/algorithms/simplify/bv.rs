@@ -65,24 +65,17 @@ pub(crate) fn simplify_bv<'c>(
             }
 
             // Deduplicate (And is idempotent: x & x = x)
-            let mut deduped: Vec<BitVecAst<'c>> = Vec::with_capacity(sym_args.len());
-            for arg in sym_args {
-                if !deduped.iter().any(|existing| existing.hash() == arg.hash()) {
-                    deduped.push(arg);
-                }
+            {
+                let mut seen = ahash::AHashSet::with_capacity(sym_args.len());
+                sym_args.retain(|arg| seen.insert(arg.hash()));
             }
-            sym_args = deduped;
 
-            // Check for x & ¬x = 0
-            for i in 0..sym_args.len() {
-                for j in (i + 1)..sym_args.len() {
-                    if let BitVecOp::Not(inner) = sym_args[i].op()
-                        && inner.op() == sym_args[j].op()
-                    {
-                        return Ok(ctx.bvv(BitVec::zeros(size))?);
-                    }
-                    if let BitVecOp::Not(inner) = sym_args[j].op()
-                        && inner.op() == sym_args[i].op()
+            // Check for x & ¬x = 0 using a hash set for O(n) lookup
+            {
+                let hashes: ahash::AHashSet<u64> = sym_args.iter().map(|a| a.hash()).collect();
+                for arg in &sym_args {
+                    if let BitVecOp::Not(inner) = arg.op()
+                        && hashes.contains(&inner.hash())
                     {
                         return Ok(ctx.bvv(BitVec::zeros(size))?);
                     }
@@ -282,24 +275,17 @@ pub(crate) fn simplify_bv<'c>(
             }
 
             // Deduplicate (Or is idempotent: x | x = x)
-            let mut deduped: Vec<BitVecAst<'c>> = Vec::with_capacity(sym_args.len());
-            for arg in sym_args {
-                if !deduped.iter().any(|existing| existing.hash() == arg.hash()) {
-                    deduped.push(arg);
-                }
+            {
+                let mut seen = ahash::AHashSet::with_capacity(sym_args.len());
+                sym_args.retain(|arg| seen.insert(arg.hash()));
             }
-            sym_args = deduped;
 
-            // Check for x | ¬x = all-ones
-            for i in 0..sym_args.len() {
-                for j in (i + 1)..sym_args.len() {
-                    if let BitVecOp::Not(inner) = sym_args[i].op()
-                        && inner.op() == sym_args[j].op()
-                    {
-                        return Ok(ctx.bvv(all_ones)?);
-                    }
-                    if let BitVecOp::Not(inner) = sym_args[j].op()
-                        && inner.op() == sym_args[i].op()
+            // Check for x | ¬x = all-ones using a hash set for O(n) lookup
+            {
+                let hashes: ahash::AHashSet<u64> = sym_args.iter().map(|a| a.hash()).collect();
+                for arg in &sym_args {
+                    if let BitVecOp::Not(inner) = arg.op()
+                        && hashes.contains(&inner.hash())
                     {
                         return Ok(ctx.bvv(all_ones)?);
                     }
@@ -401,18 +387,25 @@ pub(crate) fn simplify_bv<'c>(
             }
 
             // Cancel pairs: x ^ x = 0
-            let mut cancelled: Vec<BitVecAst<'c>> = Vec::with_capacity(sym_args.len());
-            for arg in sym_args {
-                if let Some(pos) = cancelled
-                    .iter()
-                    .position(|existing| existing.hash() == arg.hash())
-                {
-                    cancelled.remove(pos);
-                } else {
-                    cancelled.push(arg);
+            // Count occurrences by hash; odd count means the term survives
+            {
+                let mut counts: ahash::AHashMap<u64, usize> =
+                    ahash::AHashMap::with_capacity(sym_args.len());
+                for arg in &sym_args {
+                    *counts.entry(arg.hash()).or_insert(0) += 1;
                 }
+                let mut seen = ahash::AHashSet::with_capacity(sym_args.len());
+                sym_args.retain(|arg| {
+                    let h = arg.hash();
+                    let count = counts.get(&h).copied().unwrap_or(0);
+                    // Keep only one copy if odd count, none if even
+                    if count % 2 == 1 {
+                        seen.insert(h) // true on first insert, false on duplicates
+                    } else {
+                        false
+                    }
+                });
             }
-            sym_args = cancelled;
 
             // Check folded BVV
             if let Some(ref bvv) = bvv_acc
