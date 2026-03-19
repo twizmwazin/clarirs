@@ -40,11 +40,7 @@ pub(crate) fn excavate_ite<'c>(
                 let mut else_args = excavated_args;
                 else_args[idx] = else_;
 
-                Ok(ctx.ite(
-                    &cond,
-                    ctx.bv_and_many(then_args)?,
-                    ctx.bv_and_many(else_args)?,
-                )?)
+                Ok(ctx.ite(&cond, ctx.bv_and_many(then_args)?, ctx.bv_and_many(else_args)?)?)
             } else {
                 ctx.bv_and_many(excavated_args)
             }
@@ -71,11 +67,7 @@ pub(crate) fn excavate_ite<'c>(
                 let mut else_args = excavated_args;
                 else_args[idx] = else_;
 
-                Ok(ctx.ite(
-                    &cond,
-                    ctx.bv_or_many(then_args)?,
-                    ctx.bv_or_many(else_args)?,
-                )?)
+                Ok(ctx.ite(&cond, ctx.bv_or_many(then_args)?, ctx.bv_or_many(else_args)?)?)
             } else {
                 ctx.bv_or_many(excavated_args)
             }
@@ -102,11 +94,7 @@ pub(crate) fn excavate_ite<'c>(
                 let mut else_args = excavated_args;
                 else_args[idx] = else_;
 
-                Ok(ctx.ite(
-                    &cond,
-                    ctx.bv_xor_many(then_args)?,
-                    ctx.bv_xor_many(else_args)?,
-                )?)
+                Ok(ctx.ite(&cond, ctx.bv_xor_many(then_args)?, ctx.bv_xor_many(else_args)?)?)
             } else {
                 ctx.bv_xor_many(excavated_args)
             }
