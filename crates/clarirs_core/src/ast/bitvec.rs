@@ -198,166 +198,133 @@ impl<'a, 'c> ExactSizeIterator for BitVecOpChildIter<'a, 'c> {
 impl std::hash::Hash for BitVecOp<'_> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         "bv".hash(state);
+        std::mem::discriminant(self).hash(state);
         match self {
             BitVecOp::BVS(s, size) => {
-                0.hash(state);
                 s.hash(state);
                 size.hash(state);
             }
             BitVecOp::BVV(bv) => {
-                1.hash(state);
                 bv.hash(state);
             }
             BitVecOp::Not(a) => {
-                2.hash(state);
                 a.hash(state);
             }
             BitVecOp::And(args) => {
-                3.hash(state);
                 args.hash(state);
             }
             BitVecOp::Or(args) => {
-                4.hash(state);
                 args.hash(state);
             }
             BitVecOp::Xor(args) => {
-                5.hash(state);
                 args.hash(state);
             }
             BitVecOp::Neg(a) => {
-                6.hash(state);
                 a.hash(state);
             }
             BitVecOp::Add(args) => {
-                7.hash(state);
                 args.hash(state);
             }
             BitVecOp::Sub(a, b) => {
-                8.hash(state);
                 a.hash(state);
                 b.hash(state);
             }
             BitVecOp::Mul(args) => {
-                9.hash(state);
                 args.hash(state);
             }
             BitVecOp::UDiv(a, b) => {
-                10.hash(state);
                 a.hash(state);
                 b.hash(state);
             }
             BitVecOp::SDiv(a, b) => {
-                11.hash(state);
                 a.hash(state);
                 b.hash(state);
             }
             BitVecOp::URem(a, b) => {
-                12.hash(state);
                 a.hash(state);
                 b.hash(state);
             }
             BitVecOp::SRem(a, b) => {
-                13.hash(state);
                 a.hash(state);
                 b.hash(state);
             }
             BitVecOp::ShL(a, b) => {
-                15.hash(state);
                 a.hash(state);
                 b.hash(state);
             }
             BitVecOp::LShR(a, b) => {
-                16.hash(state);
                 a.hash(state);
                 b.hash(state);
             }
             BitVecOp::AShR(a, b) => {
-                17.hash(state);
                 a.hash(state);
                 b.hash(state);
             }
             BitVecOp::RotateLeft(a, b) => {
-                18.hash(state);
                 a.hash(state);
                 b.hash(state);
             }
             BitVecOp::RotateRight(a, b) => {
-                19.hash(state);
                 a.hash(state);
                 b.hash(state);
             }
             BitVecOp::ZeroExt(a, size) => {
-                20.hash(state);
                 a.hash(state);
                 size.hash(state);
             }
             BitVecOp::SignExt(a, size) => {
-                21.hash(state);
                 a.hash(state);
                 size.hash(state);
             }
             BitVecOp::Extract(a, high, low) => {
-                22.hash(state);
                 a.hash(state);
                 high.hash(state);
                 low.hash(state);
             }
             BitVecOp::Concat(args) => {
-                23.hash(state);
                 args.hash(state);
             }
             BitVecOp::ByteReverse(a) => {
-                24.hash(state);
                 a.hash(state);
             }
             BitVecOp::FpToIEEEBV(a) => {
-                25.hash(state);
                 a.hash(state);
             }
             BitVecOp::FpToUBV(a, size, rm) => {
-                26.hash(state);
                 a.hash(state);
                 size.hash(state);
                 rm.hash(state);
             }
             BitVecOp::FpToSBV(a, size, rm) => {
-                27.hash(state);
                 a.hash(state);
                 size.hash(state);
                 rm.hash(state);
             }
             BitVecOp::StrLen(a) => {
-                28.hash(state);
                 a.hash(state);
             }
             BitVecOp::StrIndexOf(a, b, c) => {
-                29.hash(state);
                 a.hash(state);
                 b.hash(state);
                 c.hash(state);
             }
             BitVecOp::StrToBV(a) => {
-                30.hash(state);
                 a.hash(state);
             }
             BitVecOp::ITE(a, b, c) => {
-                31.hash(state);
                 a.hash(state);
                 b.hash(state);
                 c.hash(state);
             }
             BitVecOp::Union(a, b) => {
-                34.hash(state);
                 a.hash(state);
                 b.hash(state);
             }
             BitVecOp::Intersection(a, b) => {
-                35.hash(state);
                 a.hash(state);
                 b.hash(state);
             }
             BitVecOp::Widen(a, b) => {
-                36.hash(state);
                 a.hash(state);
                 b.hash(state);
             }

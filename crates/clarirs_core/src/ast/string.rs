@@ -91,38 +91,32 @@ impl<'a, 'c> ExactSizeIterator for StringOpChildIter<'a, 'c> {
 impl std::hash::Hash for StringOp<'_> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         "string".hash(state);
+        std::mem::discriminant(self).hash(state);
         match self {
             StringOp::StringS(s) => {
-                0.hash(state);
                 s.hash(state);
             }
             StringOp::StringV(s) => {
-                1.hash(state);
                 s.hash(state);
             }
             StringOp::StrConcat(a, b) => {
-                2.hash(state);
                 a.hash(state);
                 b.hash(state);
             }
             StringOp::StrSubstr(a, b, c) => {
-                3.hash(state);
                 a.hash(state);
                 b.hash(state);
                 c.hash(state);
             }
             StringOp::StrReplace(a, b, c) => {
-                4.hash(state);
                 a.hash(state);
                 b.hash(state);
                 c.hash(state);
             }
             StringOp::BVToStr(a) => {
-                5.hash(state);
                 a.hash(state);
             }
             StringOp::ITE(a, b, c) => {
-                6.hash(state);
                 a.hash(state);
                 b.hash(state);
                 c.hash(state);

@@ -121,84 +121,70 @@ impl<'a, 'c> ExactSizeIterator for FloatOpChildIter<'a, 'c> {
 impl std::hash::Hash for FloatOp<'_> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         "float".hash(state);
+        std::mem::discriminant(self).hash(state);
         match self {
             FloatOp::FPS(s, sort) => {
-                0.hash(state);
                 s.hash(state);
                 sort.hash(state);
             }
             FloatOp::FPV(f) => {
-                1.hash(state);
                 f.hash(state);
             }
             FloatOp::FpNeg(a) => {
-                2.hash(state);
                 a.hash(state);
             }
             FloatOp::FpAbs(a) => {
-                3.hash(state);
                 a.hash(state);
             }
             FloatOp::FpAdd(a, b, rm) => {
-                4.hash(state);
                 a.hash(state);
                 b.hash(state);
                 rm.hash(state);
             }
             FloatOp::FpSub(a, b, rm) => {
-                5.hash(state);
                 a.hash(state);
                 b.hash(state);
                 rm.hash(state);
             }
             FloatOp::FpMul(a, b, rm) => {
-                6.hash(state);
                 a.hash(state);
                 b.hash(state);
                 rm.hash(state);
             }
             FloatOp::FpDiv(a, b, rm) => {
-                7.hash(state);
                 a.hash(state);
                 b.hash(state);
                 rm.hash(state);
             }
             FloatOp::FpSqrt(a, rm) => {
-                8.hash(state);
                 a.hash(state);
                 rm.hash(state);
             }
             FloatOp::FpToFp(a, sort, rm) => {
-                9.hash(state);
                 a.hash(state);
                 sort.hash(state);
                 rm.hash(state);
             }
             FloatOp::FpFP(sign, exp, sig) => {
-                10.hash(state);
                 sign.hash(state);
                 exp.hash(state);
                 sig.hash(state);
             }
             FloatOp::BvToFp(a, sort) => {
-                11.hash(state);
                 a.hash(state);
                 sort.hash(state);
             }
             FloatOp::BvToFpSigned(a, sort, rm) => {
-                12.hash(state);
                 a.hash(state);
                 sort.hash(state);
                 rm.hash(state);
             }
             FloatOp::BvToFpUnsigned(a, sort, rm) => {
-                13.hash(state);
                 a.hash(state);
                 sort.hash(state);
                 rm.hash(state);
             }
             FloatOp::ITE(a, b, c) => {
-                14.hash(state);
                 a.hash(state);
                 b.hash(state);
                 c.hash(state);
