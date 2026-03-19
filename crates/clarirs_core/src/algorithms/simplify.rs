@@ -284,7 +284,7 @@ fn simplify<'c>(
     }
 
     if last_result.is_none() {
-        return Err(ClarirsError::InvalidArgumentsWithMessage(
+        return Err(ClarirsError::InvalidArguments(
             "No result produced".to_string(),
         ));
     }

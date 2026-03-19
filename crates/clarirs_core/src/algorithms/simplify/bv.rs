@@ -1292,7 +1292,7 @@ pub(crate) fn simplify_bv<'c>(
             // Handle result based on merged length
             match merged.len() {
                 0 => Err(SimplifyError::Error(
-                    ClarirsError::InvalidArgumentsWithMessage(
+                    ClarirsError::InvalidArguments(
                         "Concat resulted in zero arguments".to_string(),
                     ),
                 )),

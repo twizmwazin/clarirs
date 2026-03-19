@@ -47,7 +47,7 @@ impl<'c> Reduce<'c> for BoolAst<'c> {
         if let ReduceResult::Bool(result) = DynAst::Boolean(self.clone()).reduce()? {
             Ok(result)
         } else {
-            Err(ClarirsError::InvalidArgumentsWithMessage(
+            Err(ClarirsError::InvalidArguments(
                 "Expected Bool result".to_string(),
             ))
         }
@@ -61,7 +61,7 @@ impl<'c> Reduce<'c> for BitVecAst<'c> {
         if let ReduceResult::BitVec(result) = DynAst::BitVec(self.clone()).reduce()? {
             Ok(result)
         } else {
-            Err(ClarirsError::InvalidArgumentsWithMessage(
+            Err(ClarirsError::InvalidArguments(
                 "Expected BitVec result".to_string(),
             ))
         }

@@ -12,7 +12,7 @@ impl<'c> ChildVecExt<'c> for &[DynAst<'c>] {
     fn child_bool(&self, index: usize) -> Result<BoolAst<'c>, ClarirsError> {
         self.get(index)
             .and_then(|child| child.clone().into_bool())
-            .ok_or(ClarirsError::InvalidArgumentsWithMessage(format!(
+            .ok_or(ClarirsError::InvalidArguments(format!(
                 "ChildVecExt: Invalid index {index} for child bool"
             )))
     }
@@ -20,7 +20,7 @@ impl<'c> ChildVecExt<'c> for &[DynAst<'c>] {
     fn child_bitvec(&self, index: usize) -> Result<BitVecAst<'c>, ClarirsError> {
         self.get(index)
             .and_then(|child| child.clone().into_bitvec())
-            .ok_or(ClarirsError::InvalidArgumentsWithMessage(format!(
+            .ok_or(ClarirsError::InvalidArguments(format!(
                 "ChildVecExt: Invalid index {index} for child bitvec"
             )))
     }
@@ -28,7 +28,7 @@ impl<'c> ChildVecExt<'c> for &[DynAst<'c>] {
     fn child_float(&self, index: usize) -> Result<FloatAst<'c>, ClarirsError> {
         self.get(index)
             .and_then(|child| child.clone().into_float())
-            .ok_or(ClarirsError::InvalidArgumentsWithMessage(format!(
+            .ok_or(ClarirsError::InvalidArguments(format!(
                 "ChildVecExt: Invalid index {index} for child float"
             )))
     }
@@ -36,7 +36,7 @@ impl<'c> ChildVecExt<'c> for &[DynAst<'c>] {
     fn child_string(&self, index: usize) -> Result<StringAst<'c>, ClarirsError> {
         self.get(index)
             .and_then(|child| child.clone().into_string())
-            .ok_or(ClarirsError::InvalidArgumentsWithMessage(format!(
+            .ok_or(ClarirsError::InvalidArguments(format!(
                 "ChildVecExt: Invalid index {index} for child string"
             )))
     }
@@ -44,7 +44,7 @@ impl<'c> ChildVecExt<'c> for &[DynAst<'c>] {
     fn child_dyn(&self, index: usize) -> Result<DynAst<'c>, ClarirsError> {
         self.get(index)
             .cloned()
-            .ok_or(ClarirsError::InvalidArgumentsWithMessage(format!(
+            .ok_or(ClarirsError::InvalidArguments(format!(
                 "ChildVecExt: Invalid index {index} for child dyn"
             )))
     }

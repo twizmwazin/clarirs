@@ -345,7 +345,7 @@ pub trait AstFactory<'c>: Sized {
     ) -> Result<BitVecAst<'c>, ClarirsError> {
         let args: Vec<BitVecAst<'c>> = args.into_iter().collect();
         if args.is_empty() {
-            return Err(ClarirsError::InvalidArgumentsWithMessage(
+            return Err(ClarirsError::InvalidArguments(
                 "Concat requires at least one argument".to_string(),
             ));
         }
