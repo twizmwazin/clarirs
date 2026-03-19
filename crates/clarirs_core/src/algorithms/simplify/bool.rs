@@ -241,13 +241,17 @@ pub(crate) fn simplify_bool<'c>(
             let early_rhs = state.get_bool_available(1)?;
 
             match (early_lhs.op(), early_rhs.op()) {
-                // Note: we do NOT simplify a == a -> true here because nested
-                // float operations could involve NaN, where NaN != NaN.
                 (BooleanOp::BoolV(arc), BooleanOp::BoolV(arc1)) => Ok(ctx.boolv(arc == arc1)?),
                 (BooleanOp::BoolV(true), _) => Ok(state.get_bool_simplified(1)?),
                 (_, BooleanOp::BoolV(true)) => Ok(state.get_bool_simplified(0)?),
                 (BooleanOp::BoolV(false), _) => Ok(ctx.not(state.get_bool_simplified(1)?)?),
                 (_, BooleanOp::BoolV(false)) => Ok(ctx.not(state.get_bool_simplified(0)?)?),
+                // a == a -> true, but only when no floats are involved (NaN != NaN)
+                _ if early_lhs == early_rhs
+                    && !early_lhs.theories().contains(Theories::FLOAT) =>
+                {
+                    Ok(ctx.true_()?)
+                }
                 _ => Ok(ctx.eq_(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
             }
         }
@@ -256,13 +260,17 @@ pub(crate) fn simplify_bool<'c>(
             let early_rhs = state.get_bool_available(1)?;
 
             match (early_lhs.op(), early_rhs.op()) {
-                // Note: we do NOT simplify a != a -> false here because nested
-                // float operations could involve NaN, where NaN != NaN.
                 (BooleanOp::BoolV(arc), BooleanOp::BoolV(arc1)) => Ok(ctx.boolv(arc != arc1)?),
                 (BooleanOp::BoolV(true), _) => Ok(ctx.not(state.get_bool_simplified(1)?)?),
                 (_, BooleanOp::BoolV(true)) => Ok(ctx.not(state.get_bool_simplified(0)?)?),
                 (BooleanOp::BoolV(false), _) => Ok(state.get_bool_simplified(1)?),
                 (_, BooleanOp::BoolV(false)) => Ok(state.get_bool_simplified(0)?),
+                // a != a -> false, but only when no floats are involved (NaN != NaN)
+                _ if early_lhs == early_rhs
+                    && !early_lhs.theories().contains(Theories::FLOAT) =>
+                {
+                    Ok(ctx.false_()?)
+                }
                 _ => Ok(ctx.neq(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
             }
         }

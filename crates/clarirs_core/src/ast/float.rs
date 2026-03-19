@@ -234,6 +234,10 @@ impl<'c> Op<'c> for FloatOp<'c> {
     fn check_same_sort(&self, other: &Self) -> bool {
         self.size() == other.size()
     }
+
+    fn base_theories(&self) -> Theories {
+        Theories::FLOAT
+    }
 }
 
 pub trait FloatExt<'c> {
