@@ -31,6 +31,8 @@ pub struct AstNode<'c, O: Op<'c>> {
     pub(crate) size: u32,
     #[serde(skip)]
     symbolic: bool,
+    #[serde(skip)]
+    theories: Theories,
 }
 
 impl<'c, O> Drop for AstNode<'c, O>
@@ -95,6 +97,9 @@ impl<'c, O: Op<'c> + Serialize + SupportsAnnotate<'c>> AstNode<'c, O> {
         let symbolic = !variables.is_empty()
             || op.is_inherently_symbolic()
             || op.child_iter().any(|c| c.symbolic());
+        let theories = op
+            .child_iter()
+            .fold(op.base_theories(), |acc, c| acc | c.theories());
 
         Self {
             op,
@@ -105,6 +110,7 @@ impl<'c, O: Op<'c> + Serialize + SupportsAnnotate<'c>> AstNode<'c, O> {
             size,
             annotations,
             symbolic,
+            theories,
         }
     }
 
@@ -137,6 +143,10 @@ impl<'c, O: Op<'c> + Serialize + SupportsAnnotate<'c>> AstNode<'c, O> {
 
     pub fn size(&self) -> u32 {
         self.size
+    }
+
+    pub fn theories(&self) -> Theories {
+        self.theories
     }
 }
 
@@ -180,6 +190,10 @@ impl<'c, O: Op<'c>> Op<'c> for AstNode<'c, O> {
 
     fn check_same_sort(&self, other: &Self) -> bool {
         self.op.check_same_sort(&other.op)
+    }
+
+    fn base_theories(&self) -> Theories {
+        self.theories
     }
 }
 
@@ -265,6 +279,15 @@ impl DynAst<'_> {
             DynAst::BitVec(ast) => ast.symbolic(),
             DynAst::Float(ast) => ast.symbolic(),
             DynAst::String(ast) => ast.symbolic(),
+        }
+    }
+
+    pub fn theories(&self) -> Theories {
+        match self {
+            DynAst::Boolean(ast) => ast.theories(),
+            DynAst::BitVec(ast) => ast.theories(),
+            DynAst::Float(ast) => ast.theories(),
+            DynAst::String(ast) => ast.theories(),
         }
     }
 }
@@ -357,6 +380,15 @@ impl<'c> Op<'c> for DynAst<'c> {
             (DynAst::Float(a), DynAst::Float(b)) => a.check_same_sort(b),
             (DynAst::String(a), DynAst::String(b)) => a.check_same_sort(b),
             _ => false,
+        }
+    }
+
+    fn base_theories(&self) -> Theories {
+        match self {
+            DynAst::Boolean(ast) => ast.theories(),
+            DynAst::BitVec(ast) => ast.theories(),
+            DynAst::Float(ast) => ast.theories(),
+            DynAst::String(ast) => ast.theories(),
         }
     }
 }

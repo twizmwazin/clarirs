@@ -52,4 +52,9 @@ pub trait Op<'c>: Debug + Hash + Serialize + PartialEq {
     }
 
     fn check_same_sort(&self, other: &Self) -> bool;
+
+    /// Returns the base theory of this operation, not including children.
+    /// The full theories of an expression are computed as the union of
+    /// the base theory and all child theories.
+    fn base_theories(&self) -> Theories;
 }

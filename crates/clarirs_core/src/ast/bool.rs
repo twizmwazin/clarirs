@@ -399,4 +399,8 @@ impl<'c> Op<'c> for BooleanOp<'c> {
     fn check_same_sort(&self, _: &Self) -> bool {
         true
     }
+
+    fn base_theories(&self) -> Theories {
+        Theories::BOOLEAN
+    }
 }
