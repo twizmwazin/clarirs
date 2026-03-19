@@ -48,9 +48,7 @@ pub(crate) fn reduce_bool(
                 if let ReduceResult::Bool(b) = c {
                     result = result & b.clone();
                 } else {
-                    return Err(ClarirsError::InvalidArguments(
-                        "Expected Bool".to_string(),
-                    ));
+                    return Err(ClarirsError::InvalidArguments("Expected Bool".to_string()));
                 }
             }
             result
@@ -61,9 +59,7 @@ pub(crate) fn reduce_bool(
                 if let ReduceResult::Bool(b) = c {
                     result = result | b.clone();
                 } else {
-                    return Err(ClarirsError::InvalidArguments(
-                        "Expected Bool".to_string(),
-                    ));
+                    return Err(ClarirsError::InvalidArguments("Expected Bool".to_string()));
                 }
             }
             result

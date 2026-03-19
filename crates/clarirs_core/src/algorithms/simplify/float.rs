@@ -98,7 +98,13 @@ pub(crate) fn simplify_float<'c>(
 
                     // Ensure the bitvector size matches the float sort
                     if total_bits != fsort.size() {
-                        return Err(SimplifyError::Error(ClarirsError::InvalidArguments(format!("bitvector size {} does not match float sort size {}", total_bits, fsort.size()))));
+                        return Err(SimplifyError::Error(ClarirsError::InvalidArguments(
+                            format!(
+                                "bitvector size {} does not match float sort size {}",
+                                total_bits,
+                                fsort.size()
+                            ),
+                        )));
                     }
 
                     // Extract components: sign (1 bit) | exponent (exp_bits) | mantissa (man_bits)

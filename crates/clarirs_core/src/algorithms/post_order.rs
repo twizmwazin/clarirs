@@ -91,7 +91,9 @@ pub fn bool_child<'c>(children: &[DynAst<'c>], index: usize) -> Result<BoolAst<'
     children
         .get(index)
         .and_then(|child| child.clone().into_bool())
-        .ok_or(ClarirsError::InvalidArguments(format!("missing or invalid bool child at index {index}")))
+        .ok_or(ClarirsError::InvalidArguments(format!(
+            "missing or invalid bool child at index {index}"
+        )))
 }
 
 pub fn bitvec_child<'c>(
@@ -101,7 +103,9 @@ pub fn bitvec_child<'c>(
     children
         .get(index)
         .and_then(|child| child.clone().into_bitvec())
-        .ok_or(ClarirsError::InvalidArguments(format!("missing or invalid bitvec child at index {index}")))
+        .ok_or(ClarirsError::InvalidArguments(format!(
+            "missing or invalid bitvec child at index {index}"
+        )))
 }
 
 pub fn float_child<'c>(
@@ -111,7 +115,9 @@ pub fn float_child<'c>(
     children
         .get(index)
         .and_then(|child| child.clone().into_float())
-        .ok_or(ClarirsError::InvalidArguments(format!("missing or invalid float child at index {index}")))
+        .ok_or(ClarirsError::InvalidArguments(format!(
+            "missing or invalid float child at index {index}"
+        )))
 }
 
 pub fn string_child<'c>(
@@ -121,7 +127,9 @@ pub fn string_child<'c>(
     children
         .get(index)
         .and_then(|child| child.clone().into_string())
-        .ok_or(ClarirsError::InvalidArguments(format!("missing or invalid string child at index {index}")))
+        .ok_or(ClarirsError::InvalidArguments(format!(
+            "missing or invalid string child at index {index}"
+        )))
 }
 
 #[cfg(test)]
