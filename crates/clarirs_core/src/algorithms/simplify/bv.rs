@@ -72,13 +72,12 @@ pub(crate) fn simplify_bv<'c>(
 
             // Check for x & ¬x = 0 using a hash set for O(n) lookup
             {
-                let hashes: ahash::AHashSet<u64> =
-                    sym_args.iter().map(|a| a.hash()).collect();
+                let hashes: ahash::AHashSet<u64> = sym_args.iter().map(|a| a.hash()).collect();
                 for arg in &sym_args {
-                    if let BitVecOp::Not(inner) = arg.op() {
-                        if hashes.contains(&inner.hash()) {
-                            return Ok(ctx.bvv(BitVec::zeros(size))?);
-                        }
+                    if let BitVecOp::Not(inner) = arg.op()
+                        && hashes.contains(&inner.hash())
+                    {
+                        return Ok(ctx.bvv(BitVec::zeros(size))?);
                     }
                 }
             }
@@ -283,13 +282,12 @@ pub(crate) fn simplify_bv<'c>(
 
             // Check for x | ¬x = all-ones using a hash set for O(n) lookup
             {
-                let hashes: ahash::AHashSet<u64> =
-                    sym_args.iter().map(|a| a.hash()).collect();
+                let hashes: ahash::AHashSet<u64> = sym_args.iter().map(|a| a.hash()).collect();
                 for arg in &sym_args {
-                    if let BitVecOp::Not(inner) = arg.op() {
-                        if hashes.contains(&inner.hash()) {
-                            return Ok(ctx.bvv(all_ones)?);
-                        }
+                    if let BitVecOp::Not(inner) = arg.op()
+                        && hashes.contains(&inner.hash())
+                    {
+                        return Ok(ctx.bvv(all_ones)?);
                     }
                 }
             }
