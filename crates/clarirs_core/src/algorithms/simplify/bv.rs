@@ -67,8 +67,7 @@ pub(crate) fn simplify_bv<'c>(
             // Deduplicate (And is idempotent: x & x = x)
             let mut deduped: Vec<BitVecAst<'c>> = Vec::with_capacity(sym_args.len());
             for arg in sym_args {
-                if !deduped.iter().any(|existing| existing.hash() == arg.hash())
-                {
+                if !deduped.iter().any(|existing| existing.hash() == arg.hash()) {
                     deduped.push(arg);
                 }
             }
@@ -77,15 +76,15 @@ pub(crate) fn simplify_bv<'c>(
             // Check for x & ¬x = 0
             for i in 0..sym_args.len() {
                 for j in (i + 1)..sym_args.len() {
-                    if let BitVecOp::Not(inner) = sym_args[i].op() {
-                        if inner.op() == sym_args[j].op() {
-                            return Ok(ctx.bvv(BitVec::zeros(size))?);
-                        }
+                    if let BitVecOp::Not(inner) = sym_args[i].op()
+                        && inner.op() == sym_args[j].op()
+                    {
+                        return Ok(ctx.bvv(BitVec::zeros(size))?);
                     }
-                    if let BitVecOp::Not(inner) = sym_args[j].op() {
-                        if inner.op() == sym_args[i].op() {
-                            return Ok(ctx.bvv(BitVec::zeros(size))?);
-                        }
+                    if let BitVecOp::Not(inner) = sym_args[j].op()
+                        && inner.op() == sym_args[i].op()
+                    {
+                        return Ok(ctx.bvv(BitVec::zeros(size))?);
                     }
                 }
             }
@@ -183,8 +182,8 @@ pub(crate) fn simplify_bv<'c>(
                                                         &unrotated,
                                                         bitwidth as u32,
                                                     ))?;
-                                                let masked_a = ctx
-                                                    .bv_and(shl_inner.clone(), unrotated_bvv)?;
+                                                let masked_a =
+                                                    ctx.bv_and(shl_inner.clone(), unrotated_bvv)?;
                                                 let new_shl =
                                                     ctx.shl(&masked_a, shl_amt.clone())?;
                                                 let new_lshr =
@@ -285,8 +284,7 @@ pub(crate) fn simplify_bv<'c>(
             // Deduplicate (Or is idempotent: x | x = x)
             let mut deduped: Vec<BitVecAst<'c>> = Vec::with_capacity(sym_args.len());
             for arg in sym_args {
-                if !deduped.iter().any(|existing| existing.hash() == arg.hash())
-                {
+                if !deduped.iter().any(|existing| existing.hash() == arg.hash()) {
                     deduped.push(arg);
                 }
             }
@@ -295,15 +293,15 @@ pub(crate) fn simplify_bv<'c>(
             // Check for x | ¬x = all-ones
             for i in 0..sym_args.len() {
                 for j in (i + 1)..sym_args.len() {
-                    if let BitVecOp::Not(inner) = sym_args[i].op() {
-                        if inner.op() == sym_args[j].op() {
-                            return Ok(ctx.bvv(all_ones)?);
-                        }
+                    if let BitVecOp::Not(inner) = sym_args[i].op()
+                        && inner.op() == sym_args[j].op()
+                    {
+                        return Ok(ctx.bvv(all_ones)?);
                     }
-                    if let BitVecOp::Not(inner) = sym_args[j].op() {
-                        if inner.op() == sym_args[i].op() {
-                            return Ok(ctx.bvv(all_ones)?);
-                        }
+                    if let BitVecOp::Not(inner) = sym_args[j].op()
+                        && inner.op() == sym_args[i].op()
+                    {
+                        return Ok(ctx.bvv(all_ones)?);
                     }
                 }
             }
@@ -405,7 +403,10 @@ pub(crate) fn simplify_bv<'c>(
             // Cancel pairs: x ^ x = 0
             let mut cancelled: Vec<BitVecAst<'c>> = Vec::with_capacity(sym_args.len());
             for arg in sym_args {
-                if let Some(pos) = cancelled.iter().position(|existing| existing.hash() == arg.hash()) {
+                if let Some(pos) = cancelled
+                    .iter()
+                    .position(|existing| existing.hash() == arg.hash())
+                {
                     cancelled.remove(pos);
                 } else {
                     cancelled.push(arg);
@@ -414,10 +415,10 @@ pub(crate) fn simplify_bv<'c>(
             sym_args = cancelled;
 
             // Check folded BVV
-            if let Some(ref bvv) = bvv_acc {
-                if !bvv.is_zero() {
-                    sym_args.push(ctx.bvv(bvv.clone())?);
-                }
+            if let Some(ref bvv) = bvv_acc
+                && !bvv.is_zero()
+            {
+                sym_args.push(ctx.bvv(bvv.clone())?);
             }
 
             let changed = sym_args.len() != simplified.len()
@@ -527,10 +528,10 @@ pub(crate) fn simplify_bv<'c>(
             }
 
             // Check folded BVV
-            if let Some(ref bvv) = bvv_acc {
-                if !bvv.is_zero() {
-                    sym_args.push(ctx.bvv(bvv.clone())?);
-                }
+            if let Some(ref bvv) = bvv_acc
+                && !bvv.is_zero()
+            {
+                sym_args.push(ctx.bvv(bvv.clone())?);
             }
 
             let changed = sym_args.len() != simplified.len()
@@ -609,12 +610,16 @@ pub(crate) fn simplify_bv<'c>(
                 }
                 (BitVecOp::Add(add_args), BitVecOp::BVV(v)) => {
                     // Find a BVV among the Add args to combine with
-                    if let Some(bvv_idx) = add_args.iter().position(|a| matches!(a.op(), BitVecOp::BVV(_))) {
+                    if let Some(bvv_idx) = add_args
+                        .iter()
+                        .position(|a| matches!(a.op(), BitVecOp::BVV(_)))
+                    {
                         if let BitVecOp::BVV(b_val) = add_args[bvv_idx].op() {
                             // (sum + b) - c => sum + (b - c)
                             let combined_value = (b_val.clone() - v.clone())?;
                             let combined_bvv = ctx.bvv(combined_value)?;
-                            let mut new_args: Vec<BitVecAst<'c>> = add_args.iter()
+                            let mut new_args: Vec<BitVecAst<'c>> = add_args
+                                .iter()
                                 .enumerate()
                                 .filter(|(i, _)| *i != bvv_idx)
                                 .map(|(_, a)| a.clone())
