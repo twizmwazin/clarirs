@@ -376,11 +376,11 @@ pub(crate) fn simplify_bv<'c>(
                     let mut others: Vec<BitVecAst<'c>> = Vec::new();
                     let mut found_bvv: Option<BitVec> = None;
                     for arg in add_args {
-                        if found_bvv.is_none() {
-                            if let BitVecOp::BVV(b_val) = arg.op() {
-                                found_bvv = Some(b_val.clone());
-                                continue;
-                            }
+                        if found_bvv.is_none()
+                            && let BitVecOp::BVV(b_val) = arg.op()
+                        {
+                            found_bvv = Some(b_val.clone());
+                            continue;
                         }
                         others.push(arg.clone());
                     }
