@@ -430,7 +430,7 @@ impl<'c> DynAst<'c> {
 
 impl<'c> From<BoolAst<'c>> for DynAst<'c> {
     fn from(ast: BoolAst<'c>) -> Self {
-        DynAst::Boolean(ast.clone())
+        DynAst::Boolean(ast)
     }
 }
 
@@ -442,7 +442,7 @@ impl<'c> From<&BoolAst<'c>> for DynAst<'c> {
 
 impl<'c> From<BitVecAst<'c>> for DynAst<'c> {
     fn from(ast: BitVecAst<'c>) -> Self {
-        DynAst::BitVec(ast.clone())
+        DynAst::BitVec(ast)
     }
 }
 
@@ -454,7 +454,7 @@ impl<'c> From<&BitVecAst<'c>> for DynAst<'c> {
 
 impl<'c> From<FloatAst<'c>> for DynAst<'c> {
     fn from(ast: FloatAst<'c>) -> Self {
-        DynAst::Float(ast.clone())
+        DynAst::Float(ast)
     }
 }
 
@@ -466,7 +466,7 @@ impl<'c> From<&FloatAst<'c>> for DynAst<'c> {
 
 impl<'c> From<StringAst<'c>> for DynAst<'c> {
     fn from(ast: StringAst<'c>) -> Self {
-        DynAst::String(ast.clone())
+        DynAst::String(ast)
     }
 }
 
