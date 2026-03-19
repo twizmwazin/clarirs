@@ -38,15 +38,22 @@ impl<K, V> Default for GenericCache<K, V> {
 
 impl<K: Hash + Eq, V: Clone> Cache<K, V> for GenericCache<K, V> {
     fn get_or_insert<E>(&self, key: K, mut value_cv: impl FnMut() -> Result<V, E>) -> Result<V, E> {
-        let mut locked = self.0.write().unwrap();
-        match locked.get(&key) {
-            Some(value) => Ok(value.clone()),
-            None => {
-                let value = value_cv()?;
-                locked.insert(key, value.clone());
-                Ok(value)
+        // Fast path: check with read lock
+        {
+            let locked = self.0.read().unwrap();
+            if let Some(value) = locked.get(&key) {
+                return Ok(value.clone());
             }
         }
+        // Slow path: compute and insert with write lock
+        let mut locked = self.0.write().unwrap();
+        // Double-check after acquiring write lock
+        if let Some(value) = locked.get(&key) {
+            return Ok(value.clone());
+        }
+        let value = value_cv()?;
+        locked.insert(key, value.clone());
+        Ok(value)
     }
 
     fn drop(&self, key: K) {
