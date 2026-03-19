@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::BTreeSet,
     fmt::Debug,
     hash::{Hash, Hasher},
@@ -86,7 +87,7 @@ impl<'c, O: Op<'c> + Serialize + SupportsAnnotate<'c>> AstNode<'c, O> {
         hash: u64,
         size: u32,
     ) -> Self {
-        let variables = op.variables();
+        let variables = op.variables().into_owned();
         let depth = op.depth();
         // Symbolic propagates from: having variables, the op itself being inherently
         // symbolic (e.g. VSA Union/Intersection/Widen), or any child being symbolic.
@@ -174,8 +175,8 @@ impl<'c, O: Op<'c>> Op<'c> for AstNode<'c, O> {
         !self.symbolic
     }
 
-    fn variables(&self) -> BTreeSet<InternedString> {
-        self.variables.clone()
+    fn variables(&self) -> Cow<'_, BTreeSet<InternedString>> {
+        Cow::Borrowed(&self.variables)
     }
 
     fn check_same_sort(&self, other: &Self) -> bool {
@@ -340,14 +341,13 @@ impl<'c> Op<'c> for DynAst<'c> {
         !self.symbolic()
     }
 
-    fn variables(&self) -> BTreeSet<InternedString> {
+    fn variables(&self) -> Cow<'_, BTreeSet<InternedString>> {
         match self {
-            DynAst::Boolean(ast) => ast.variables(),
-            DynAst::BitVec(ast) => ast.variables(),
-            DynAst::Float(ast) => ast.variables(),
-            DynAst::String(ast) => ast.variables(),
+            DynAst::Boolean(ast) => Cow::Borrowed(ast.variables()),
+            DynAst::BitVec(ast) => Cow::Borrowed(ast.variables()),
+            DynAst::Float(ast) => Cow::Borrowed(ast.variables()),
+            DynAst::String(ast) => Cow::Borrowed(ast.variables()),
         }
-        .clone()
     }
 
     fn check_same_sort(&self, other: &Self) -> bool {

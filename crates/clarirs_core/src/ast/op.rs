@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::BTreeSet;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -33,7 +34,7 @@ pub trait Op<'c>: Debug + Hash + Serialize + PartialEq {
         false
     }
 
-    fn variables(&self) -> BTreeSet<InternedString>;
+    fn variables(&self) -> Cow<'_, BTreeSet<InternedString>>;
 
     /// Returns true if the op is inherently symbolic regardless of whether it
     /// has variables. For example, VSA operations (Union, Intersection, Widen)

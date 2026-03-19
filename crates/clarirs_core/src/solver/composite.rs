@@ -118,7 +118,7 @@ impl<'c, S: Solver<'c>> CompositeSolver<'c, S> {
 
 impl<'c, S: Solver<'c>> Solver<'c> for CompositeSolver<'c, S> {
     fn add(&mut self, constraint: &BoolAst<'c>) -> Result<(), ClarirsError> {
-        let vars: BTreeSet<InternedString> = constraint.variables().clone();
+        let vars: BTreeSet<InternedString> = constraint.variables().into_owned();
 
         if vars.is_empty() {
             // Concrete constraint — reject immediately if false.
@@ -177,42 +177,42 @@ impl<'c, S: Solver<'c>> Solver<'c> for CompositeSolver<'c, S> {
     }
 
     fn is_true(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
-        let vars = expr.variables().clone();
+        let vars = expr.variables().into_owned();
         self.with_solver_for(&vars, |s| s.is_true(expr))
     }
 
     fn is_false(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
-        let vars = expr.variables().clone();
+        let vars = expr.variables().into_owned();
         self.with_solver_for(&vars, |s| s.is_false(expr))
     }
 
     fn has_true(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
-        let vars = expr.variables().clone();
+        let vars = expr.variables().into_owned();
         self.with_solver_for(&vars, |s| s.has_true(expr))
     }
 
     fn has_false(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
-        let vars = expr.variables().clone();
+        let vars = expr.variables().into_owned();
         self.with_solver_for(&vars, |s| s.has_false(expr))
     }
 
     fn min_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        let vars = expr.variables().clone();
+        let vars = expr.variables().into_owned();
         self.with_solver_for(&vars, |s| s.min_unsigned(expr))
     }
 
     fn max_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        let vars = expr.variables().clone();
+        let vars = expr.variables().into_owned();
         self.with_solver_for(&vars, |s| s.max_unsigned(expr))
     }
 
     fn min_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        let vars = expr.variables().clone();
+        let vars = expr.variables().into_owned();
         self.with_solver_for(&vars, |s| s.min_signed(expr))
     }
 
     fn max_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        let vars = expr.variables().clone();
+        let vars = expr.variables().into_owned();
         self.with_solver_for(&vars, |s| s.max_signed(expr))
     }
 
@@ -221,7 +221,7 @@ impl<'c, S: Solver<'c>> Solver<'c> for CompositeSolver<'c, S> {
         expr: &BoolAst<'c>,
         n: u32,
     ) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
-        let vars = expr.variables().clone();
+        let vars = expr.variables().into_owned();
         self.with_solver_for(&vars, |s| s.eval_bool_n(expr, n))
     }
 
@@ -230,7 +230,7 @@ impl<'c, S: Solver<'c>> Solver<'c> for CompositeSolver<'c, S> {
         expr: &BitVecAst<'c>,
         n: u32,
     ) -> Result<Vec<BitVecAst<'c>>, ClarirsError> {
-        let vars = expr.variables().clone();
+        let vars = expr.variables().into_owned();
         self.with_solver_for(&vars, |s| s.eval_bitvec_n(expr, n))
     }
 
@@ -239,7 +239,7 @@ impl<'c, S: Solver<'c>> Solver<'c> for CompositeSolver<'c, S> {
         expr: &FloatAst<'c>,
         n: u32,
     ) -> Result<Vec<FloatAst<'c>>, ClarirsError> {
-        let vars = expr.variables().clone();
+        let vars = expr.variables().into_owned();
         self.with_solver_for(&vars, |s| s.eval_float_n(expr, n))
     }
 
@@ -248,7 +248,7 @@ impl<'c, S: Solver<'c>> Solver<'c> for CompositeSolver<'c, S> {
         expr: &StringAst<'c>,
         n: u32,
     ) -> Result<Vec<StringAst<'c>>, ClarirsError> {
-        let vars = expr.variables().clone();
+        let vars = expr.variables().into_owned();
         self.with_solver_for(&vars, |s| s.eval_string_n(expr, n))
     }
 }

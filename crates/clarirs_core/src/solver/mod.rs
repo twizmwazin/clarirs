@@ -26,8 +26,7 @@ pub trait Solver<'c>: Clone + HasContext<'c> {
         Ok(self
             .constraints()?
             .iter()
-            .flat_map(|c| c.variables())
-            .cloned()
+            .flat_map(|c| c.variables().clone())
             .collect())
     }
 

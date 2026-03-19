@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::BTreeSet;
 
 use serde::Serialize;
@@ -382,17 +383,17 @@ impl<'c> Op<'c> for BooleanOp<'c> {
         matches!(self, BooleanOp::BoolV(false))
     }
 
-    fn variables(&self) -> BTreeSet<InternedString> {
+    fn variables(&self) -> Cow<'_, BTreeSet<InternedString>> {
         if let BooleanOp::BoolS(s) = self {
             let mut set = BTreeSet::new();
             set.insert(s.clone());
-            set
+            Cow::Owned(set)
         } else {
             let mut set = BTreeSet::new();
             for child in self.child_iter() {
-                set.extend(child.variables().into_iter());
+                set.extend(child.variables().iter().cloned());
             }
-            set
+            Cow::Owned(set)
         }
     }
 

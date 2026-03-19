@@ -7,7 +7,7 @@ use super::dfs::{DfsResult, walk_dfs};
 #[allow(clippy::mutable_key_type)]
 pub fn collect_vars<'c>(ast: &DynAst<'c>) -> Result<HashSet<DynAst<'c>>, ClarirsError> {
     let mut vars: HashSet<DynAst<'c>> = HashSet::new();
-    let mut interesting: BTreeSet<InternedString> = ast.variables();
+    let mut interesting: BTreeSet<InternedString> = ast.variables().into_owned();
 
     walk_dfs(ast, |node| {
         if interesting.is_empty() {
