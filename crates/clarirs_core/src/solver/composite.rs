@@ -255,8 +255,8 @@ impl<'c, S: Solver<'c>> Solver<'c> for CompositeSolver<'c, S> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::ast::AstFactory;
+    use crate::prelude::*;
 
     #[test]
     fn test_composite_solver_independent_constraints() -> Result<(), ClarirsError> {
