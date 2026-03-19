@@ -111,7 +111,7 @@ where
 struct SimplifyState<'c> {
     expr: DynAst<'c>,
     children: Vec<Option<DynAst<'c>>>,
-    last_missed_child: Option<u8>,
+    last_missed_child: Option<usize>,
 }
 
 impl<'c> SimplifyState<'c> {
@@ -128,7 +128,7 @@ impl<'c> SimplifyState<'c> {
         if let Some(child) = &self.children[index] {
             Ok(child.clone())
         } else {
-            self.last_missed_child = Some(index as u8);
+            self.last_missed_child = Some(index);
             Err(SimplifyError::MissingChild(index))
         }
     }
@@ -235,7 +235,7 @@ fn simplify<'c>(
     while let Some(mut state) = work_stack.pop() {
         if let Some(missed_index) = state.last_missed_child {
             // We missed a child last time, so we need to get the last result and set it as the child
-            state.children[missed_index as usize] = Some(last_result.take().unwrap());
+            state.children[missed_index] = Some(last_result.take().unwrap());
             state.last_missed_child = None;
         }
 
