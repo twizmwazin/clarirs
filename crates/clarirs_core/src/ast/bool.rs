@@ -131,12 +131,8 @@ impl<'a, 'c> Iterator for BooleanOpChildIter<'a, 'c> {
             (BooleanOp::ITE(_, _, c), 2) => Some(c.into()),
 
             // N-ary variants (And/Or with Vec)
-            (BooleanOp::And(args), i) if i < args.len() => {
-                Some((&args[i]).into())
-            }
-            (BooleanOp::Or(args), i) if i < args.len() => {
-                Some((&args[i]).into())
-            }
+            (BooleanOp::And(args), i) if i < args.len() => Some((&args[i]).into()),
+            (BooleanOp::Or(args), i) if i < args.len() => Some((&args[i]).into()),
 
             _ => None,
         };
