@@ -268,10 +268,9 @@ fn simplify<'c>(
                         let ctx = state.expr.context();
                         let hash = state.expr.inner_hash();
                         let annotated_ref = annotated.clone();
-                        let _ = ctx.simplification_cache.get_or_insert::<SimplifyError<'c>>(
-                            hash,
-                            || Ok(annotated_ref.clone()),
-                        );
+                        let _ = ctx
+                            .simplification_cache
+                            .get_or_insert::<SimplifyError<'c>>(hash, || Ok(annotated_ref.clone()));
                     }
 
                     last_result = Some(annotated)
