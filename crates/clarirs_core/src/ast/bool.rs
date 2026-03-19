@@ -45,7 +45,7 @@ pub type BoolAst<'c> = AstRef<'c, BooleanOp<'c>>;
 
 pub struct BooleanOpChildIter<'a, 'c> {
     op: &'a BooleanOp<'c>,
-    index: u8,
+    index: usize,
 }
 
 impl<'c> BooleanOp<'c> {
@@ -131,11 +131,11 @@ impl<'a, 'c> Iterator for BooleanOpChildIter<'a, 'c> {
             (BooleanOp::ITE(_, _, c), 2) => Some(c.into()),
 
             // N-ary variants (And/Or with Vec)
-            (BooleanOp::And(args), i) if (i as usize) < args.len() => {
-                Some((&args[i as usize]).into())
+            (BooleanOp::And(args), i) if i < args.len() => {
+                Some((&args[i]).into())
             }
-            (BooleanOp::Or(args), i) if (i as usize) < args.len() => {
-                Some((&args[i as usize]).into())
+            (BooleanOp::Or(args), i) if i < args.len() => {
+                Some((&args[i]).into())
             }
 
             _ => None,
@@ -194,7 +194,7 @@ impl<'a, 'c> ExactSizeIterator for BooleanOpChildIter<'a, 'c> {
             BooleanOp::And(args) => args.len(),
             BooleanOp::Or(args) => args.len(),
         };
-        total.saturating_sub(self.index as usize)
+        total.saturating_sub(self.index)
     }
 }
 

@@ -19,7 +19,7 @@ pub type StringAst<'c> = AstRef<'c, StringOp<'c>>;
 
 pub struct StringOpChildIter<'a, 'c> {
     op: &'a StringOp<'c>,
-    index: u8,
+    index: usize,
 }
 
 impl<'c> StringOp<'c> {
@@ -84,7 +84,7 @@ impl<'a, 'c> ExactSizeIterator for StringOpChildIter<'a, 'c> {
             StringOp::StrConcat(..) => 2,
             StringOp::StrSubstr(..) | StringOp::StrReplace(..) | StringOp::ITE(..) => 3,
         };
-        total.saturating_sub(self.index as usize)
+        total.saturating_sub(self.index)
     }
 }
 
