@@ -274,65 +274,80 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         BitVecOp::Add(..) => {
-            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
-            match (arc.op(), arc1.op()) {
-                (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
-                    Ok(ctx.bvv((value1.clone() + value2.clone())?)?)
-                }
-                (BitVecOp::BVV(v), _) if v.is_zero() => Ok(arc1.clone()),
-                (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
+            // Collect all simplified children
+            let child_count = state.expr.child_iter().count();
+            let mut children = Vec::with_capacity(child_count);
+            for i in 0..child_count {
+                children.push(state.get_bv_simplified(i)?);
+            }
 
-                // If one operand is a bvv, and the other is an add with a bvv, combine them
-                (BitVecOp::BVV(v), BitVecOp::Add(add_args))
-                | (BitVecOp::Add(add_args), BitVecOp::BVV(v))
-                    if add_args.len() == 2 =>
-                {
-                    let (inner_lhs, inner_rhs) = (&add_args[0], &add_args[1]);
-                    if let BitVecOp::BVV(inner_bvv) = inner_rhs.op() {
-                        let combined_value = (v.clone() + inner_bvv.clone())?;
-                        let combined_bvv = ctx.bvv(combined_value)?;
-                        let new_add = ctx.add(inner_lhs.clone(), combined_bvv)?;
-                        state.rerun(new_add)
-                    } else if let BitVecOp::BVV(inner_bvv) = inner_lhs.op() {
-                        let combined_value = (v.clone() + inner_bvv.clone())?;
-                        let combined_bvv = ctx.bvv(combined_value)?;
-                        let new_add = ctx.add(inner_rhs.clone(), combined_bvv)?;
-                        state.rerun(new_add)
-                    } else {
-                        // Neither side of the inner add is a BVV, fall through
-                        Ok(ctx.add(arc, arc1)?)
+            // Flatten one level of nested Adds and separate constants from symbolic terms.
+            // Children are already simplified, so their nested Adds are already flat —
+            // we only need to pull out their immediate args.
+            let mut symbolic = Vec::new();
+            let mut const_acc: Option<BitVec> = None;
+            let mut changed = false;
+
+            for child in &children {
+                match child.op() {
+                    BitVecOp::Add(inner_args) => {
+                        changed = true;
+                        for arg in inner_args {
+                            if let BitVecOp::BVV(v) = arg.op() {
+                                const_acc = Some(match const_acc.take() {
+                                    Some(acc) => (acc + v.clone())?,
+                                    None => v.clone(),
+                                });
+                            } else {
+                                symbolic.push(arg.clone());
+                            }
+                        }
+                    }
+                    BitVecOp::BVV(v) => {
+                        const_acc = Some(match const_acc.take() {
+                            Some(acc) => (acc + v.clone())?,
+                            None => v.clone(),
+                        });
+                    }
+                    _ => {
+                        symbolic.push(child.clone());
                     }
                 }
+            }
 
-                // If one operand is a bvv, and the other is a sub with a bvv, combine them
-                (BitVecOp::BVV(v), BitVecOp::Sub(bvv, other))
-                | (BitVecOp::Sub(bvv, other), BitVecOp::BVV(v))
-                    if matches!(bvv.op(), BitVecOp::BVV(_)) =>
-                {
-                    if let BitVecOp::BVV(bvv_value) = bvv.op() {
-                        let combined_value = (v.clone() + bvv_value.clone())?;
-                        let combined_bvv = ctx.bvv(combined_value)?;
-                        let new_add = ctx.sub(other.clone(), combined_bvv)?;
-                        state.rerun(new_add)
-                    } else {
-                        unreachable!()
-                    }
-                }
-                (BitVecOp::BVV(v), BitVecOp::Sub(other, bvv))
-                | (BitVecOp::Sub(other, bvv), BitVecOp::BVV(v))
-                    if matches!(bvv.op(), BitVecOp::BVV(_)) =>
-                {
-                    if let BitVecOp::BVV(bvv_value) = bvv.op() {
-                        let combined_value = (v.clone() - bvv_value.clone())?;
-                        let combined_bvv = ctx.bvv(combined_value)?;
-                        let new_add = ctx.add(other.clone(), combined_bvv)?;
-                        state.rerun(new_add)
-                    } else {
-                        unreachable!()
-                    }
-                }
+            // Check if there are multiple constants being combined
+            let orig_const_count = children
+                .iter()
+                .filter(|c| matches!(c.op(), BitVecOp::BVV(_)))
+                .count();
+            if orig_const_count > 1 {
+                changed = true;
+            }
 
-                _ => Ok(ctx.add(arc, arc1)?),
+            if symbolic.is_empty() {
+                // All constants
+                return Ok(ctx.bvv(const_acc.unwrap())?);
+            }
+
+            // If constant is zero, drop it
+            if const_acc.as_ref().is_some_and(|v| v.is_zero()) {
+                const_acc = None;
+                changed = true;
+            }
+
+            // Append the combined constant (if any) at the end
+            if let Some(v) = const_acc {
+                symbolic.push(ctx.bvv(v)?);
+            }
+
+            if symbolic.len() == 1 {
+                return Ok(symbolic.pop().unwrap());
+            }
+
+            if !changed {
+                Ok(ctx.make_bitvec(BitVecOp::Add(children))?)
+            } else {
+                state.rerun(ctx.make_bitvec(BitVecOp::Add(symbolic))?)
             }
         }
         BitVecOp::Sub(..) => {
@@ -355,24 +370,23 @@ pub(crate) fn simplify_bv<'c>(
                     }
                 }
                 (BitVecOp::Add(add_args), BitVecOp::BVV(v))
-                    if add_args.len() == 2
-                        && (matches!(add_args[0].op(), BitVecOp::BVV(_))
-                            || matches!(add_args[1].op(), BitVecOp::BVV(_))) =>
+                    if add_args.iter().any(|a| matches!(a.op(), BitVecOp::BVV(_))) =>
                 {
-                    let (bvv, other) = if matches!(add_args[0].op(), BitVecOp::BVV(_)) {
-                        (&add_args[0], &add_args[1])
-                    } else {
-                        (&add_args[1], &add_args[0])
-                    };
-                    // (a + b) - c => a + (b - c)
-                    if let BitVecOp::BVV(b_val) = bvv.op() {
-                        let combined_value = (b_val.clone() - v.clone())?;
-                        let combined_bvv = ctx.bvv(combined_value)?;
-                        let new_add = ctx.add(other.clone(), combined_bvv)?;
-                        state.rerun(new_add)
-                    } else {
-                        unreachable!()
+                    // (... + b + ...) - c => (... + ...) + (b - c)
+                    let mut others: Vec<BitVecAst<'c>> = Vec::new();
+                    let mut found_bvv: Option<BitVec> = None;
+                    for arg in add_args {
+                        if found_bvv.is_none() {
+                            if let BitVecOp::BVV(b_val) = arg.op() {
+                                found_bvv = Some(b_val.clone());
+                                continue;
+                            }
+                        }
+                        others.push(arg.clone());
                     }
+                    let combined_value = (found_bvv.unwrap() - v.clone())?;
+                    others.push(ctx.bvv(combined_value)?);
+                    state.rerun(ctx.make_bitvec(BitVecOp::Add(others))?)
                 }
                 (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
                 (lhs_op, rhs_op) if lhs_op == rhs_op => Ok(ctx.bvv(BitVec::zeros(arc.size()))?),
@@ -778,10 +792,12 @@ pub(crate) fn simplify_bv<'c>(
                 // Propagate extract(n, 0, ...) through add/sub
                 // extract(n, 0, a + b) = extract(n, 0, a) + extract(n, 0, b)
                 // This is valid because the low bits of add/sub only depend on the low bits of the operands
-                BitVecOp::Add(add_args) if *low == 0 && add_args.len() == 2 => {
-                    let lhs_extracted = ctx.extract(&add_args[0], *high, 0)?;
-                    let rhs_extracted = ctx.extract(&add_args[1], *high, 0)?;
-                    state.rerun(ctx.add(&lhs_extracted, &rhs_extracted)?)
+                BitVecOp::Add(add_args) if *low == 0 => {
+                    let extracted: Vec<BitVecAst<'c>> = add_args
+                        .iter()
+                        .map(|arg| ctx.extract(arg, *high, 0))
+                        .collect::<Result<_, _>>()?;
+                    state.rerun(ctx.add_many(extracted)?)
                 }
                 BitVecOp::Sub(lhs, rhs) if *low == 0 => {
                     let lhs_extracted = ctx.extract(lhs, *high, 0)?;
