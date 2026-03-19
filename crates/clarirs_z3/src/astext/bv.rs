@@ -64,7 +64,7 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, Clarir
             BitVecOp::Concat(args) => {
                 // Z3's concat constructor is binary, so we chain them
                 if args.is_empty() {
-                    return Err(ClarirsError::InvalidArgumentsWithMessage(
+                    return Err(ClarirsError::InvalidArguments(
                         "Concat requires at least one argument".to_string(),
                     ));
                 }

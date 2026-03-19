@@ -9,7 +9,9 @@ fn extract_bool_child<'c>(
     children
         .get(index)
         .and_then(|child| child.clone().into_bool())
-        .ok_or(ClarirsError::InvalidArguments)
+        .ok_or(ClarirsError::InvalidArguments(format!(
+            "missing or invalid bool child at index {index}"
+        )))
 }
 
 fn extract_bitvec_child<'c>(
@@ -19,7 +21,9 @@ fn extract_bitvec_child<'c>(
     children
         .get(index)
         .and_then(|child| child.clone().into_bitvec())
-        .ok_or(ClarirsError::InvalidArguments)
+        .ok_or(ClarirsError::InvalidArguments(format!(
+            "missing or invalid bitvec child at index {index}"
+        )))
 }
 
 fn extract_float_child<'c>(
@@ -29,7 +33,9 @@ fn extract_float_child<'c>(
     children
         .get(index)
         .and_then(|child| child.clone().into_float())
-        .ok_or(ClarirsError::InvalidArguments)
+        .ok_or(ClarirsError::InvalidArguments(format!(
+            "missing or invalid float child at index {index}"
+        )))
 }
 
 fn extract_string_child<'c>(
@@ -39,7 +45,9 @@ fn extract_string_child<'c>(
     children
         .get(index)
         .and_then(|child| child.clone().into_string())
-        .ok_or(ClarirsError::InvalidArguments)
+        .ok_or(ClarirsError::InvalidArguments(format!(
+            "missing or invalid string child at index {index}"
+        )))
 }
 
 /// Trait for excavating if-then-else expressions to the top level of an AST.

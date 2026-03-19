@@ -1,5 +1,9 @@
 fn child(children: &[RcAst], index: usize) -> Result<&RcAst, ClarirsError> {
-    children.get(index).ok_or(ClarirsError::InvalidArguments)
+    children
+        .get(index)
+        .ok_or(ClarirsError::InvalidArguments(format!(
+            "missing child at index {index}"
+        )))
 }
 
 macro_rules! unop {

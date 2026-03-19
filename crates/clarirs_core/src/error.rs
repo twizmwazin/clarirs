@@ -9,10 +9,8 @@ pub enum ClarirsError {
     CacheLockPoisoned,
     #[error("Unsupported operation: {0}")]
     UnsupportedOperation(String),
-    #[error("Invalid arguments")]
-    InvalidArguments,
     #[error("Invalid arguments: {0}")]
-    InvalidArgumentsWithMessage(String),
+    InvalidArguments(String),
     #[error("Division by zero error")]
     DivisionByZero,
     #[error("Invalid extract bounds: upper: {upper}, lower: {lower}, length: {length}")]
@@ -21,7 +19,7 @@ pub enum ClarirsError {
     InvalidChopSize { size: u32, bits: u32 },
     #[error("Type error: {:?}", .0)]
     TypeError(String),
-    #[error("BitVector not bite-sized: {length:?} is not a multiple of 8")]
+    #[error("BitVector not byte-sized: {length:?} is not a multiple of 8")]
     BitVectorNotByteSized { length: u32 },
     #[error("Conversion error: {:?}", .0)]
     ConversionError(String),
@@ -60,7 +58,9 @@ impl From<BitVecError> for ClarirsError {
                 ClarirsError::InvalidChopSize { size, bits }
             }
             BitVecError::DivisionByZero => ClarirsError::DivisionByZero,
-            BitVecError::ConversionError => ClarirsError::ConversionError("".to_string()),
+            BitVecError::ConversionError => {
+                ClarirsError::ConversionError("BitVec conversion error".to_string())
+            }
         }
     }
 }

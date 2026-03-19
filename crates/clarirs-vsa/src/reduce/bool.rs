@@ -8,7 +8,7 @@ fn child(children: &[ReduceResult], index: usize) -> Result<ComparisonResult, Cl
     if let Some(ReduceResult::Bool(result)) = children.get(index) {
         Ok(result.clone())
     } else {
-        Err(ClarirsError::InvalidArgumentsWithMessage(format!(
+        Err(ClarirsError::InvalidArguments(format!(
             "Expected Bool at index {}, found {:?}",
             index,
             children.get(index)
@@ -20,7 +20,7 @@ fn child_si(children: &[ReduceResult], index: usize) -> Result<StridedInterval, 
     if let Some(ReduceResult::BitVec(result)) = children.get(index) {
         Ok(result.clone())
     } else {
-        Err(ClarirsError::InvalidArgumentsWithMessage(format!(
+        Err(ClarirsError::InvalidArguments(format!(
             "Expected BitVec at index {}, found {:?}",
             index,
             children.get(index)
@@ -48,9 +48,7 @@ pub(crate) fn reduce_bool(
                 if let ReduceResult::Bool(b) = c {
                     result = result & b.clone();
                 } else {
-                    return Err(ClarirsError::InvalidArgumentsWithMessage(
-                        "Expected Bool".to_string(),
-                    ));
+                    return Err(ClarirsError::InvalidArguments("Expected Bool".to_string()));
                 }
             }
             result
@@ -61,9 +59,7 @@ pub(crate) fn reduce_bool(
                 if let ReduceResult::Bool(b) = c {
                     result = result | b.clone();
                 } else {
-                    return Err(ClarirsError::InvalidArgumentsWithMessage(
-                        "Expected Bool".to_string(),
-                    ));
+                    return Err(ClarirsError::InvalidArguments("Expected Bool".to_string()));
                 }
             }
             result
