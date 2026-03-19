@@ -1024,11 +1024,13 @@ impl StridedInterval {
                     });
                 }
 
-                // Cousot-Cousot widening for unsigned intervals:
-                // If lower decreased, extrapolate to unsigned minimum (0)
+                // Cousot-Cousot widening:
+                // If lower decreased, extrapolate to signed minimum (2^(bits-1))
                 // If upper increased, extrapolate to unsigned maximum (max_int)
+                // Using signed minimum matches claripy's behavior where bounds
+                // are extrapolated to signed boundaries, producing wrapping SIs.
                 let new_lower = if lb2 < lb1 {
-                    BigUint::zero()
+                    BigUint::one() << (bits1 - 1)
                 } else {
                     lb1.clone()
                 };
