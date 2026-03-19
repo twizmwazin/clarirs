@@ -32,7 +32,7 @@ pub type FloatAst<'c> = AstRef<'c, FloatOp<'c>>;
 
 pub struct FloatOpChildIter<'a, 'c> {
     op: &'a FloatOp<'c>,
-    index: u8,
+    index: usize,
 }
 
 impl<'c> FloatOp<'c> {
@@ -114,7 +114,7 @@ impl<'a, 'c> ExactSizeIterator for FloatOpChildIter<'a, 'c> {
 
             FloatOp::FpFP(..) | FloatOp::ITE(..) => 3,
         };
-        total.saturating_sub(self.index as usize)
+        total.saturating_sub(self.index)
     }
 }
 
