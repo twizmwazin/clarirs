@@ -18,78 +18,85 @@ pub(crate) fn excavate_ite<'c>(
                 Ok(ctx.not(ast)?)
             }
         }
-        BitVecOp::And(..) => {
-            let lhs = extract_bitvec_child(children, 0)?;
-            let rhs = extract_bitvec_child(children, 1)?;
+        BitVecOp::And(args) => {
+            let excavated_args: Vec<BitVecAst<'c>> = (0..args.len())
+                .map(|i| extract_bitvec_child(children, i))
+                .collect::<Result<_, _>>()?;
 
-            if let BitVecOp::ITE(cond, then_, else_) = lhs.op() {
-                // Handle case where both sides are If expressions
-                if let BitVecOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
-                    // Prioritize left condition as outer if
-                    Ok(ctx.ite(
-                        cond,
-                        ctx.ite(
-                            rhs_cond,
-                            ctx.bv_and(then_, rhs_then)?,
-                            ctx.bv_and(then_, rhs_else)?,
-                        )?,
-                        ctx.ite(
-                            rhs_cond,
-                            ctx.bv_and(else_, rhs_then)?,
-                            ctx.bv_and(else_, rhs_else)?,
-                        )?,
-                    )?)
+            let ite_idx = excavated_args
+                .iter()
+                .position(|arg| matches!(arg.op(), BitVecOp::ITE(..)));
+
+            if let Some(idx) = ite_idx {
+                let (cond, then_, else_) = if let BitVecOp::ITE(c, t, e) = excavated_args[idx].op()
+                {
+                    (c.clone(), t.clone(), e.clone())
                 } else {
-                    Ok(ctx.ite(cond, ctx.bv_and(then_, &rhs)?, ctx.bv_and(else_, rhs)?)?)
-                }
-            } else if let BitVecOp::ITE(cond, then_, else_) = rhs.op() {
-                Ok(ctx.ite(cond, ctx.bv_and(&lhs, then_)?, ctx.bv_and(lhs, else_)?)?)
+                    unreachable!()
+                };
+
+                let mut then_args = excavated_args.clone();
+                then_args[idx] = then_;
+                let mut else_args = excavated_args;
+                else_args[idx] = else_;
+
+                Ok(ctx.ite(&cond, ctx.bv_and_many(then_args)?, ctx.bv_and_many(else_args)?)?)
             } else {
-                Ok(ctx.bv_and(lhs, rhs)?)
+                ctx.bv_and_many(excavated_args)
             }
         }
-        BitVecOp::Or(..) => {
-            let lhs = extract_bitvec_child(children, 0)?;
-            let rhs = extract_bitvec_child(children, 1)?;
+        BitVecOp::Or(args) => {
+            let excavated_args: Vec<BitVecAst<'c>> = (0..args.len())
+                .map(|i| extract_bitvec_child(children, i))
+                .collect::<Result<_, _>>()?;
 
-            if let BitVecOp::ITE(cond, then_, else_) = lhs.op() {
-                // Handle case where both sides are If expressions
-                if let BitVecOp::ITE(_, rhs_then, rhs_else) = rhs.op() {
-                    // Prioritize left condition as outer if
-                    Ok(ctx.ite(
-                        cond,
-                        ctx.bv_or(then_, rhs_then)?,
-                        ctx.bv_or(then_, rhs_else)?,
-                    )?)
+            let ite_idx = excavated_args
+                .iter()
+                .position(|arg| matches!(arg.op(), BitVecOp::ITE(..)));
+
+            if let Some(idx) = ite_idx {
+                let (cond, then_, else_) = if let BitVecOp::ITE(c, t, e) = excavated_args[idx].op()
+                {
+                    (c.clone(), t.clone(), e.clone())
                 } else {
-                    Ok(ctx.ite(cond, ctx.bv_or(then_, &rhs)?, ctx.bv_or(else_, rhs)?)?)
-                }
-            } else if let BitVecOp::ITE(cond, then_, else_) = rhs.op() {
-                Ok(ctx.ite(cond, ctx.bv_or(&lhs, then_)?, ctx.bv_or(lhs, else_)?)?)
+                    unreachable!()
+                };
+
+                let mut then_args = excavated_args.clone();
+                then_args[idx] = then_;
+                let mut else_args = excavated_args;
+                else_args[idx] = else_;
+
+                Ok(ctx.ite(&cond, ctx.bv_or_many(then_args)?, ctx.bv_or_many(else_args)?)?)
             } else {
-                Ok(ctx.bv_or(lhs, rhs)?)
+                ctx.bv_or_many(excavated_args)
             }
         }
-        BitVecOp::Xor(..) => {
-            let lhs = extract_bitvec_child(children, 0)?;
-            let rhs = extract_bitvec_child(children, 1)?;
+        BitVecOp::Xor(args) => {
+            let excavated_args: Vec<BitVecAst<'c>> = (0..args.len())
+                .map(|i| extract_bitvec_child(children, i))
+                .collect::<Result<_, _>>()?;
 
-            if let BitVecOp::ITE(cond, then_, else_) = lhs.op() {
-                // Handle case where both sides are If expressions
-                if let BitVecOp::ITE(_, rhs_then, rhs_else) = rhs.op() {
-                    // Prioritize left condition as outer if
-                    Ok(ctx.ite(
-                        cond,
-                        ctx.bv_xor(then_, rhs_then)?,
-                        ctx.bv_xor(then_, rhs_else)?,
-                    )?)
+            let ite_idx = excavated_args
+                .iter()
+                .position(|arg| matches!(arg.op(), BitVecOp::ITE(..)));
+
+            if let Some(idx) = ite_idx {
+                let (cond, then_, else_) = if let BitVecOp::ITE(c, t, e) = excavated_args[idx].op()
+                {
+                    (c.clone(), t.clone(), e.clone())
                 } else {
-                    Ok(ctx.ite(cond, ctx.bv_xor(then_, &rhs)?, ctx.bv_xor(else_, rhs)?)?)
-                }
-            } else if let BitVecOp::ITE(cond, then_, else_) = rhs.op() {
-                Ok(ctx.ite(cond, ctx.bv_xor(&lhs, then_)?, ctx.bv_xor(lhs, else_)?)?)
+                    unreachable!()
+                };
+
+                let mut then_args = excavated_args.clone();
+                then_args[idx] = then_;
+                let mut else_args = excavated_args;
+                else_args[idx] = else_;
+
+                Ok(ctx.ite(&cond, ctx.bv_xor_many(then_args)?, ctx.bv_xor_many(else_args)?)?)
             } else {
-                Ok(ctx.bv_xor(lhs, rhs)?)
+                ctx.bv_xor_many(excavated_args)
             }
         }
         BitVecOp::Neg(..) => {
@@ -101,22 +108,31 @@ pub(crate) fn excavate_ite<'c>(
                 Ok(ctx.neg(ast)?)
             }
         }
-        BitVecOp::Add(..) => {
-            let lhs = extract_bitvec_child(children, 0)?;
-            let rhs = extract_bitvec_child(children, 1)?;
+        BitVecOp::Add(args) => {
+            let excavated_args: Vec<BitVecAst<'c>> = (0..args.len())
+                .map(|i| extract_bitvec_child(children, i))
+                .collect::<Result<_, _>>()?;
 
-            if let BitVecOp::ITE(cond, then_, else_) = lhs.op() {
-                // Handle case where both sides are If expressions
-                if let BitVecOp::ITE(_, rhs_then, rhs_else) = rhs.op() {
-                    // Prioritize left condition as outer if
-                    Ok(ctx.ite(cond, ctx.add(then_, rhs_then)?, ctx.add(then_, rhs_else)?)?)
+            let ite_idx = excavated_args
+                .iter()
+                .position(|arg| matches!(arg.op(), BitVecOp::ITE(..)));
+
+            if let Some(idx) = ite_idx {
+                let (cond, then_, else_) = if let BitVecOp::ITE(c, t, e) = excavated_args[idx].op()
+                {
+                    (c.clone(), t.clone(), e.clone())
                 } else {
-                    Ok(ctx.ite(cond, ctx.add(then_, &rhs)?, ctx.add(else_, rhs)?)?)
-                }
-            } else if let BitVecOp::ITE(cond, then_, else_) = rhs.op() {
-                Ok(ctx.ite(cond, ctx.add(&lhs, then_)?, ctx.add(lhs, else_)?)?)
+                    unreachable!()
+                };
+
+                let mut then_args = excavated_args.clone();
+                then_args[idx] = then_;
+                let mut else_args = excavated_args;
+                else_args[idx] = else_;
+
+                Ok(ctx.ite(&cond, ctx.add_many(then_args)?, ctx.add_many(else_args)?)?)
             } else {
-                Ok(ctx.add(lhs, rhs)?)
+                ctx.add_many(excavated_args)
             }
         }
         BitVecOp::Sub(..) => {
@@ -137,22 +153,31 @@ pub(crate) fn excavate_ite<'c>(
                 Ok(ctx.sub(lhs, rhs)?)
             }
         }
-        BitVecOp::Mul(..) => {
-            let lhs = extract_bitvec_child(children, 0)?;
-            let rhs = extract_bitvec_child(children, 1)?;
+        BitVecOp::Mul(args) => {
+            let excavated_args: Vec<BitVecAst<'c>> = (0..args.len())
+                .map(|i| extract_bitvec_child(children, i))
+                .collect::<Result<_, _>>()?;
 
-            if let BitVecOp::ITE(cond, then_, else_) = lhs.op() {
-                // Handle case where both sides are If expressions
-                if let BitVecOp::ITE(_, rhs_then, rhs_else) = rhs.op() {
-                    // Prioritize left condition as outer if
-                    Ok(ctx.ite(cond, ctx.mul(then_, rhs_then)?, ctx.mul(then_, rhs_else)?)?)
+            let ite_idx = excavated_args
+                .iter()
+                .position(|arg| matches!(arg.op(), BitVecOp::ITE(..)));
+
+            if let Some(idx) = ite_idx {
+                let (cond, then_, else_) = if let BitVecOp::ITE(c, t, e) = excavated_args[idx].op()
+                {
+                    (c.clone(), t.clone(), e.clone())
                 } else {
-                    Ok(ctx.ite(cond, ctx.mul(then_, &rhs)?, ctx.mul(else_, &rhs)?)?)
-                }
-            } else if let BitVecOp::ITE(cond, then_, else_) = rhs.op() {
-                Ok(ctx.ite(cond, ctx.mul(&lhs, then_)?, ctx.mul(lhs, else_)?)?)
+                    unreachable!()
+                };
+
+                let mut then_args = excavated_args.clone();
+                then_args[idx] = then_;
+                let mut else_args = excavated_args;
+                else_args[idx] = else_;
+
+                Ok(ctx.ite(&cond, ctx.mul_many(then_args)?, ctx.mul_many(else_args)?)?)
             } else {
-                Ok(ctx.mul(lhs, rhs)?)
+                ctx.mul_many(excavated_args)
             }
         }
         BitVecOp::UDiv(..) => {
