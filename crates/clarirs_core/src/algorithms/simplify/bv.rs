@@ -19,249 +19,464 @@ pub(crate) fn simplify_bv<'c>(
                 _ => Ok(ctx.not(arc)?),
             }
         }
-        BitVecOp::And(..) => {
-            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
-            match (arc.op(), arc1.op()) {
-                (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
-                    Ok(ctx.bvv((value1.clone() & value2.clone())?)?)
-                }
-                (BitVecOp::BVV(v), _) if v.is_zero() => Ok(ctx.bvv(v.clone())?),
-                (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(ctx.bvv(v.clone())?),
-                (BitVecOp::BVV(v), _) if v.is_all_ones() => Ok(arc1.clone()),
-                (_, BitVecOp::BVV(v)) if v.is_all_ones() => Ok(arc.clone()),
+        BitVecOp::And(args) => {
+            // Simplify all children
+            let simplified: Vec<BitVecAst<'c>> = (0..args.len())
+                .map(|i| state.get_bv_simplified(i))
+                .collect::<Result<_, _>>()?;
 
-                // x & x -> x (idempotent)
-                _ if arc.hash() == arc1.hash() => Ok(arc.clone()),
+            let size = simplified[0].size();
 
-                // Distribute AND over CONCAT when one operand is constant
-                // (const & concat(a, b, ...)) = concat(const_parts & a, const_parts & b, ...)
-                (BitVecOp::BVV(const_val), BitVecOp::Concat(concat_args))
-                | (BitVecOp::Concat(concat_args), BitVecOp::BVV(const_val)) => {
-                    // Split constant into parts matching concat operands and AND each
-                    let mut parts = Vec::with_capacity(concat_args.len());
-                    let mut offset = 0u32;
-                    for arg in concat_args.iter().rev() {
-                        let arg_size = arg.size();
-                        let const_part = const_val.extract(offset, offset + arg_size - 1)?;
-                        parts.push(ctx.bv_and(&ctx.bvv(const_part)?, arg)?);
-                        offset += arg_size;
-                    }
-                    parts.reverse();
-                    state.rerun(ctx.concat(parts)?)
-                }
+            // Flatten nested Ands, fold constants, remove identities, detect absorber
+            let mut bvv_acc: Option<BitVec> = None;
+            let mut sym_args: Vec<BitVecAst<'c>> = Vec::new();
 
-                // Distribute AND over zero-extend when one operand is constant
-                // (bvand ((_ zero_extend 56) BV8_instrumented_load_36) (_ bv255 64))
-                //   -> ((_ zero_extend 56) (bvand BV8_instrumented_load_36 (_ bv255 8)))
-                (BitVecOp::BVV(const_val), BitVecOp::ZeroExt(inner, ext_size))
-                | (BitVecOp::ZeroExt(inner, ext_size), BitVecOp::BVV(const_val)) => {
-                    let inner_size = inner.size();
-                    let const_inner = const_val.extract(0, inner_size - 1)?;
-
-                    let inner_and = ctx.bv_and(&ctx.bvv(const_inner)?, inner)?;
-                    let zero_extended = ctx.zero_ext(&inner_and, *ext_size)?;
-
-                    state.rerun(zero_extended)
-                }
-
-                // If one operand is a BVV and the other is an AND with a BVV, flatten it
-                (BitVecOp::BVV(v), BitVecOp::And(and_args))
-                | (BitVecOp::And(and_args), BitVecOp::BVV(v))
-                    if and_args.len() == 2
-                        && (matches!(and_args[0].op(), BitVecOp::BVV(_))
-                            || matches!(and_args[1].op(), BitVecOp::BVV(_))) =>
-                {
-                    let (inner_bvv, inner_sym) = if matches!(and_args[0].op(), BitVecOp::BVV(_)) {
-                        (&and_args[0], &and_args[1])
-                    } else {
-                        (&and_args[1], &and_args[0])
-                    };
-                    if let BitVecOp::BVV(inner_value) = inner_bvv.op() {
-                        let combined_value = (v.clone() & inner_value.clone())?;
-                        let combined_bvv = ctx.bvv(combined_value)?;
-                        let new_and = ctx.bv_and(inner_sym.clone(), combined_bvv)?;
-                        state.rerun(new_and)
-                    } else {
-                        unreachable!()
-                    }
-                }
-
-                // x & ¬x = 0
-                (BitVecOp::Not(lhs), rhs) if lhs.op() == rhs => {
-                    Ok(ctx.bvv(BitVec::zeros(arc.size()))?)
-                }
-                (lhs, BitVecOp::Not(rhs)) if lhs == rhs.op() => {
-                    Ok(ctx.bvv(BitVec::zeros(arc.size()))?)
-                }
-
-                // rotate_shift_mask: ((A << a) | (A >> (N - a))) & mask
-                // When the mask after unrotation covers only the lower half,
-                // simplify to (A & unrotated_mask) << a | (A & unrotated_mask) >> (N-a)
-                // which effectively drops unconstrained upper bits.
-                (BitVecOp::Or(or_args), BitVecOp::BVV(mask_val))
-                | (BitVecOp::BVV(mask_val), BitVecOp::Or(or_args))
-                    if or_args.len() == 2 =>
-                {
-                    let (or_lhs, or_rhs) = (&or_args[0], &or_args[1]);
-                    match (or_lhs.op(), or_rhs.op()) {
-                        (
-                            BitVecOp::ShL(shl_inner, shl_amt),
-                            BitVecOp::LShR(lshr_inner, lshr_amt),
-                        )
-                        | (
-                            BitVecOp::LShR(lshr_inner, lshr_amt),
-                            BitVecOp::ShL(shl_inner, shl_amt),
-                        ) if shl_inner.hash() == lshr_inner.hash() => {
-                            if let (BitVecOp::BVV(shl_val), BitVecOp::BVV(lshr_val)) =
-                                (shl_amt.op(), lshr_amt.op())
-                            {
-                                if let (Some(lshift), Some(rshift)) =
-                                    (shl_val.to_u64(), lshr_val.to_u64())
-                                {
-                                    let bitwidth = arc.size() as u64;
-                                    if lshift + rshift == bitwidth
-                                        && (bitwidth == 32 || bitwidth == 64)
-                                    {
-                                        // Unrotate the mask: mask_unrotated = (mask >> lshift) | (mask << rshift)
-                                        let mask_big = mask_val.to_biguint();
-                                        let full_mask = if bitwidth == 64 {
-                                            BigUint::from(u64::MAX)
-                                        } else {
-                                            BigUint::from(u32::MAX)
-                                        };
-                                        let unrotated = ((&mask_big >> lshift as usize)
-                                            | ((&mask_big << rshift as usize) & &full_mask))
-                                            & &full_mask;
-
-                                        // Apply the unrotated mask to A, then rotate the result
-                                        let unrotated_bvv = ctx.bvv(BitVec::from_biguint_trunc(
-                                            &unrotated,
-                                            bitwidth as u32,
-                                        ))?;
-                                        let masked_a =
-                                            ctx.bv_and(shl_inner.clone(), unrotated_bvv)?;
-                                        let new_shl = ctx.shl(&masked_a, shl_amt.clone())?;
-                                        let new_lshr = ctx.lshr(&masked_a, lshr_amt.clone())?;
-                                        let result = ctx.bv_or(new_shl, new_lshr)?;
-                                        state.rerun(result)
-                                    } else {
-                                        Ok(ctx.bv_and(arc, arc1)?)
-                                    }
-                                } else {
-                                    Ok(ctx.bv_and(arc, arc1)?)
+            for arg in &simplified {
+                match arg.op() {
+                    BitVecOp::And(inner_args) => {
+                        for inner in inner_args {
+                            match inner.op() {
+                                BitVecOp::BVV(v) if v.is_zero() => {
+                                    return Ok(ctx.bvv(BitVec::zeros(size))?);
                                 }
-                            } else {
-                                Ok(ctx.bv_and(arc, arc1)?)
+                                BitVecOp::BVV(v) if v.is_all_ones() => {}
+                                BitVecOp::BVV(v) => {
+                                    bvv_acc = Some(match bvv_acc {
+                                        Some(acc) => (acc & v.clone())?,
+                                        None => v.clone(),
+                                    });
+                                }
+                                _ => sym_args.push(inner.clone()),
                             }
                         }
-                        _ => Ok(ctx.bv_and(arc, arc1)?),
+                    }
+                    BitVecOp::BVV(v) if v.is_zero() => {
+                        return Ok(ctx.bvv(BitVec::zeros(size))?);
+                    }
+                    BitVecOp::BVV(v) if v.is_all_ones() => {}
+                    BitVecOp::BVV(v) => {
+                        bvv_acc = Some(match bvv_acc {
+                            Some(acc) => (acc & v.clone())?,
+                            None => v.clone(),
+                        });
+                    }
+                    _ => sym_args.push(arg.clone()),
+                }
+            }
+
+            // Deduplicate (And is idempotent: x & x = x)
+            let mut deduped: Vec<BitVecAst<'c>> = Vec::with_capacity(sym_args.len());
+            for arg in sym_args {
+                if !deduped.iter().any(|existing| existing.hash() == arg.hash()) {
+                    deduped.push(arg);
+                }
+            }
+            sym_args = deduped;
+
+            // Check for x & ¬x = 0
+            for i in 0..sym_args.len() {
+                for j in (i + 1)..sym_args.len() {
+                    if let BitVecOp::Not(inner) = sym_args[i].op()
+                        && inner.op() == sym_args[j].op()
+                    {
+                        return Ok(ctx.bvv(BitVec::zeros(size))?);
+                    }
+                    if let BitVecOp::Not(inner) = sym_args[j].op()
+                        && inner.op() == sym_args[i].op()
+                    {
+                        return Ok(ctx.bvv(BitVec::zeros(size))?);
                     }
                 }
+            }
 
-                _ => Ok(ctx.bv_and(arc, arc1)?),
+            // Check folded BVV for absorber/identity
+            if let Some(ref bvv) = bvv_acc {
+                if bvv.is_zero() {
+                    return Ok(ctx.bvv(BitVec::zeros(size))?);
+                }
+                if !bvv.is_all_ones() {
+                    sym_args.push(ctx.bvv(bvv.clone())?);
+                }
+            }
+
+            // Check if anything changed
+            let changed = sym_args.len() != simplified.len()
+                || sym_args
+                    .iter()
+                    .zip(simplified.iter())
+                    .any(|(a, b)| a.hash() != b.hash());
+
+            match sym_args.len() {
+                0 => Ok(ctx.bvv(BitVec::from_biguint_trunc(
+                    &((BigUint::one() << size) - BigUint::one()),
+                    size,
+                ))?),
+                1 => Ok(sym_args.into_iter().next().unwrap()),
+                2 => {
+                    let (a, b) = (&sym_args[0], &sym_args[1]);
+                    match (a.op(), b.op()) {
+                        // Distribute AND over CONCAT when one operand is constant
+                        (BitVecOp::BVV(const_val), BitVecOp::Concat(concat_args))
+                        | (BitVecOp::Concat(concat_args), BitVecOp::BVV(const_val)) => {
+                            let mut parts = Vec::with_capacity(concat_args.len());
+                            let mut offset = 0u32;
+                            for arg in concat_args.iter().rev() {
+                                let arg_size = arg.size();
+                                let const_part =
+                                    const_val.extract(offset, offset + arg_size - 1)?;
+                                parts.push(ctx.bv_and(&ctx.bvv(const_part)?, arg)?);
+                                offset += arg_size;
+                            }
+                            parts.reverse();
+                            state.rerun(ctx.concat(parts)?)
+                        }
+
+                        // Distribute AND over zero-extend when one operand is constant
+                        (BitVecOp::BVV(const_val), BitVecOp::ZeroExt(inner, ext_size))
+                        | (BitVecOp::ZeroExt(inner, ext_size), BitVecOp::BVV(const_val)) => {
+                            let inner_size = inner.size();
+                            let const_inner = const_val.extract(0, inner_size - 1)?;
+                            let inner_and = ctx.bv_and(&ctx.bvv(const_inner)?, inner)?;
+                            let zero_extended = ctx.zero_ext(&inner_and, *ext_size)?;
+                            state.rerun(zero_extended)
+                        }
+
+                        // rotate_shift_mask: ((A << a) | (A >> (N - a))) & mask
+                        (BitVecOp::Or(or_args), BitVecOp::BVV(mask_val))
+                        | (BitVecOp::BVV(mask_val), BitVecOp::Or(or_args))
+                            if or_args.len() == 2 =>
+                        {
+                            let (or_lhs, or_rhs) = (&or_args[0], &or_args[1]);
+                            match (or_lhs.op(), or_rhs.op()) {
+                                (
+                                    BitVecOp::ShL(shl_inner, shl_amt),
+                                    BitVecOp::LShR(lshr_inner, lshr_amt),
+                                )
+                                | (
+                                    BitVecOp::LShR(lshr_inner, lshr_amt),
+                                    BitVecOp::ShL(shl_inner, shl_amt),
+                                ) if shl_inner.hash() == lshr_inner.hash() => {
+                                    if let (BitVecOp::BVV(shl_val), BitVecOp::BVV(lshr_val)) =
+                                        (shl_amt.op(), lshr_amt.op())
+                                    {
+                                        if let (Some(lshift), Some(rshift)) =
+                                            (shl_val.to_u64(), lshr_val.to_u64())
+                                        {
+                                            let bitwidth = a.size() as u64;
+                                            if lshift + rshift == bitwidth
+                                                && (bitwidth == 32 || bitwidth == 64)
+                                            {
+                                                let mask_big = mask_val.to_biguint();
+                                                let full_mask = if bitwidth == 64 {
+                                                    BigUint::from(u64::MAX)
+                                                } else {
+                                                    BigUint::from(u32::MAX)
+                                                };
+                                                let unrotated = ((&mask_big >> lshift as usize)
+                                                    | ((&mask_big << rshift as usize)
+                                                        & &full_mask))
+                                                    & &full_mask;
+
+                                                let unrotated_bvv =
+                                                    ctx.bvv(BitVec::from_biguint_trunc(
+                                                        &unrotated,
+                                                        bitwidth as u32,
+                                                    ))?;
+                                                let masked_a =
+                                                    ctx.bv_and(shl_inner.clone(), unrotated_bvv)?;
+                                                let new_shl =
+                                                    ctx.shl(&masked_a, shl_amt.clone())?;
+                                                let new_lshr =
+                                                    ctx.lshr(&masked_a, lshr_amt.clone())?;
+                                                let result = ctx.bv_or(new_shl, new_lshr)?;
+                                                state.rerun(result)
+                                            } else if changed {
+                                                state.rerun(ctx.bv_and_many(sym_args)?)
+                                            } else {
+                                                Ok(ctx.bv_and_many(sym_args)?)
+                                            }
+                                        } else if changed {
+                                            state.rerun(ctx.bv_and_many(sym_args)?)
+                                        } else {
+                                            Ok(ctx.bv_and_many(sym_args)?)
+                                        }
+                                    } else if changed {
+                                        state.rerun(ctx.bv_and_many(sym_args)?)
+                                    } else {
+                                        Ok(ctx.bv_and_many(sym_args)?)
+                                    }
+                                }
+                                _ => {
+                                    if changed {
+                                        state.rerun(ctx.bv_and_many(sym_args)?)
+                                    } else {
+                                        Ok(ctx.bv_and_many(sym_args)?)
+                                    }
+                                }
+                            }
+                        }
+
+                        _ => {
+                            if changed {
+                                state.rerun(ctx.bv_and_many(sym_args)?)
+                            } else {
+                                Ok(ctx.bv_and_many(sym_args)?)
+                            }
+                        }
+                    }
+                }
+                _ => {
+                    if changed {
+                        state.rerun(ctx.bv_and_many(sym_args)?)
+                    } else {
+                        Ok(ctx.bv_and_many(sym_args)?)
+                    }
+                }
             }
         }
-        BitVecOp::Or(..) => {
-            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
-            match (arc.op(), arc1.op()) {
-                (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
-                    Ok(ctx.bvv((value1.clone() | value2.clone())?)?)
-                }
-                (BitVecOp::BVV(v), _) if v.is_zero() => Ok(arc1.clone()),
-                (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
-                (BitVecOp::BVV(v), _) if v.is_all_ones() => Ok(ctx.bvv(v.clone())?),
-                (_, BitVecOp::BVV(v)) if v.is_all_ones() => Ok(ctx.bvv(v.clone())?),
+        BitVecOp::Or(args) => {
+            // Simplify all children
+            let simplified: Vec<BitVecAst<'c>> = (0..args.len())
+                .map(|i| state.get_bv_simplified(i))
+                .collect::<Result<_, _>>()?;
 
-                // x | x -> x (idempotent)
-                _ if arc.hash() == arc1.hash() => Ok(arc.clone()),
+            let size = simplified[0].size();
+            let all_ones =
+                BitVec::from_biguint_trunc(&((BigUint::one() << size) - BigUint::one()), size);
 
-                // Distribute OR over CONCAT when one operand is constant
-                // (const | concat(a, b, ...)) = concat(const_parts | a, const_parts | b, ...)
-                (BitVecOp::BVV(const_val), BitVecOp::Concat(concat_args))
-                | (BitVecOp::Concat(concat_args), BitVecOp::BVV(const_val)) => {
-                    // Split constant into parts matching concat operands and OR each
-                    let mut parts = Vec::with_capacity(concat_args.len());
-                    let mut offset = 0u32;
-                    for arg in concat_args.iter().rev() {
-                        let arg_size = arg.size();
-                        let const_part = const_val.extract(offset, offset + arg_size - 1)?;
-                        parts.push(ctx.bv_or(&ctx.bvv(const_part)?, arg)?);
-                        offset += arg_size;
+            // Flatten nested Ors, fold constants, remove identities, detect absorber
+            let mut bvv_acc: Option<BitVec> = None;
+            let mut sym_args: Vec<BitVecAst<'c>> = Vec::new();
+
+            for arg in &simplified {
+                match arg.op() {
+                    BitVecOp::Or(inner_args) => {
+                        for inner in inner_args {
+                            match inner.op() {
+                                BitVecOp::BVV(v) if v.is_all_ones() => {
+                                    return Ok(ctx.bvv(all_ones)?);
+                                }
+                                BitVecOp::BVV(v) if v.is_zero() => {}
+                                BitVecOp::BVV(v) => {
+                                    bvv_acc = Some(match bvv_acc {
+                                        Some(acc) => (acc | v.clone())?,
+                                        None => v.clone(),
+                                    });
+                                }
+                                _ => sym_args.push(inner.clone()),
+                            }
+                        }
                     }
-                    parts.reverse();
-                    state.rerun(ctx.concat(parts)?)
+                    BitVecOp::BVV(v) if v.is_all_ones() => {
+                        return Ok(ctx.bvv(all_ones)?);
+                    }
+                    BitVecOp::BVV(v) if v.is_zero() => {}
+                    BitVecOp::BVV(v) => {
+                        bvv_acc = Some(match bvv_acc {
+                            Some(acc) => (acc | v.clone())?,
+                            None => v.clone(),
+                        });
+                    }
+                    _ => sym_args.push(arg.clone()),
                 }
+            }
 
-                // If one operand is a BVV and the other is an OR with a BVV, flatten it
-                (BitVecOp::BVV(v), BitVecOp::Or(or_args))
-                | (BitVecOp::Or(or_args), BitVecOp::BVV(v))
-                    if or_args.len() == 2
-                        && (matches!(or_args[0].op(), BitVecOp::BVV(_))
-                            || matches!(or_args[1].op(), BitVecOp::BVV(_))) =>
+            // Deduplicate (Or is idempotent: x | x = x)
+            let mut deduped: Vec<BitVecAst<'c>> = Vec::with_capacity(sym_args.len());
+            for arg in sym_args {
+                if !deduped.iter().any(|existing| existing.hash() == arg.hash()) {
+                    deduped.push(arg);
+                }
+            }
+            sym_args = deduped;
+
+            // Check for x | ¬x = all-ones
+            for i in 0..sym_args.len() {
+                for j in (i + 1)..sym_args.len() {
+                    if let BitVecOp::Not(inner) = sym_args[i].op()
+                        && inner.op() == sym_args[j].op()
+                    {
+                        return Ok(ctx.bvv(all_ones)?);
+                    }
+                    if let BitVecOp::Not(inner) = sym_args[j].op()
+                        && inner.op() == sym_args[i].op()
+                    {
+                        return Ok(ctx.bvv(all_ones)?);
+                    }
+                }
+            }
+
+            // Check folded BVV for absorber/identity
+            if let Some(ref bvv) = bvv_acc {
+                if bvv.is_all_ones() {
+                    return Ok(ctx.bvv(all_ones)?);
+                }
+                if !bvv.is_zero() {
+                    sym_args.push(ctx.bvv(bvv.clone())?);
+                }
+            }
+
+            let changed = sym_args.len() != simplified.len()
+                || sym_args
+                    .iter()
+                    .zip(simplified.iter())
+                    .any(|(a, b)| a.hash() != b.hash());
+
+            match sym_args.len() {
+                0 => Ok(ctx.bvv(BitVec::zeros(size))?),
+                1 => Ok(sym_args.into_iter().next().unwrap()),
+                2 => {
+                    let (a, b) = (&sym_args[0], &sym_args[1]);
+                    match (a.op(), b.op()) {
+                        // Distribute OR over CONCAT when one operand is constant
+                        (BitVecOp::BVV(const_val), BitVecOp::Concat(concat_args))
+                        | (BitVecOp::Concat(concat_args), BitVecOp::BVV(const_val)) => {
+                            let mut parts = Vec::with_capacity(concat_args.len());
+                            let mut offset = 0u32;
+                            for arg in concat_args.iter().rev() {
+                                let arg_size = arg.size();
+                                let const_part =
+                                    const_val.extract(offset, offset + arg_size - 1)?;
+                                parts.push(ctx.bv_or(&ctx.bvv(const_part)?, arg)?);
+                                offset += arg_size;
+                            }
+                            parts.reverse();
+                            state.rerun(ctx.concat(parts)?)
+                        }
+                        _ => {
+                            if changed {
+                                state.rerun(ctx.bv_or_many(sym_args)?)
+                            } else {
+                                Ok(ctx.bv_or_many(sym_args)?)
+                            }
+                        }
+                    }
+                }
+                _ => {
+                    if changed {
+                        state.rerun(ctx.bv_or_many(sym_args)?)
+                    } else {
+                        Ok(ctx.bv_or_many(sym_args)?)
+                    }
+                }
+            }
+        }
+        BitVecOp::Xor(args) => {
+            // Simplify all children
+            let simplified: Vec<BitVecAst<'c>> = (0..args.len())
+                .map(|i| state.get_bv_simplified(i))
+                .collect::<Result<_, _>>()?;
+
+            let size = simplified[0].size();
+
+            // Flatten nested Xors, fold constants, remove identities
+            let mut bvv_acc: Option<BitVec> = None;
+            let mut sym_args: Vec<BitVecAst<'c>> = Vec::new();
+
+            for arg in &simplified {
+                match arg.op() {
+                    BitVecOp::Xor(inner_args) => {
+                        for inner in inner_args {
+                            match inner.op() {
+                                BitVecOp::BVV(v) if v.is_zero() => {}
+                                BitVecOp::BVV(v) => {
+                                    bvv_acc = Some(match bvv_acc {
+                                        Some(acc) => (acc ^ v.clone())?,
+                                        None => v.clone(),
+                                    });
+                                }
+                                _ => sym_args.push(inner.clone()),
+                            }
+                        }
+                    }
+                    BitVecOp::BVV(v) if v.is_zero() => {}
+                    BitVecOp::BVV(v) => {
+                        bvv_acc = Some(match bvv_acc {
+                            Some(acc) => (acc ^ v.clone())?,
+                            None => v.clone(),
+                        });
+                    }
+                    _ => sym_args.push(arg.clone()),
+                }
+            }
+
+            // Cancel pairs: x ^ x = 0
+            let mut cancelled: Vec<BitVecAst<'c>> = Vec::with_capacity(sym_args.len());
+            for arg in sym_args {
+                if let Some(pos) = cancelled
+                    .iter()
+                    .position(|existing| existing.hash() == arg.hash())
                 {
-                    let (inner_bvv, inner_sym) = if matches!(or_args[0].op(), BitVecOp::BVV(_)) {
-                        (&or_args[0], &or_args[1])
-                    } else {
-                        (&or_args[1], &or_args[0])
-                    };
-                    if let BitVecOp::BVV(inner_value) = inner_bvv.op() {
-                        let combined_value = (v.clone() | inner_value.clone())?;
-                        let combined_bvv = ctx.bvv(combined_value)?;
-                        let new_or = ctx.bv_or(inner_sym.clone(), combined_bvv)?;
-                        state.rerun(new_or)
-                    } else {
-                        unreachable!()
-                    }
+                    cancelled.remove(pos);
+                } else {
+                    cancelled.push(arg);
                 }
-
-                // x | ¬x = -1 (all ones)
-                (BitVecOp::Not(lhs), rhs) if lhs.op() == rhs => {
-                    Ok(ctx.bvv(BitVec::from_biguint_trunc(
-                        &((BigUint::one() << arc.size()) - BigUint::one()),
-                        arc.size(),
-                    ))?)
-                }
-                (lhs, BitVecOp::Not(rhs)) if lhs == rhs.op() => {
-                    Ok(ctx.bvv(BitVec::from_biguint_trunc(
-                        &((BigUint::one() << arc.size()) - BigUint::one()),
-                        arc.size(),
-                    ))?)
-                }
-                _ => Ok(ctx.bv_or(arc, arc1)?),
             }
-        }
-        BitVecOp::Xor(..) => {
-            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
-            match (arc.op(), arc1.op()) {
-                (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
-                    Ok(ctx.bvv((value1.clone() ^ value2.clone())?)?)
-                }
-                (BitVecOp::BVV(v), _) if v.is_zero() => Ok(arc1.clone()),
-                (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
-                (BitVecOp::BVV(v), _) if v.is_all_ones() => Ok(ctx.not(arc1)?),
-                (_, BitVecOp::BVV(v)) if v.is_all_ones() => Ok(ctx.not(arc)?),
+            sym_args = cancelled;
 
-                // ¬a ^ ¬b = a ^ b
-                (BitVecOp::Not(lhs), BitVecOp::Not(rhs)) => state.rerun(ctx.bv_xor(lhs, rhs)?),
+            // Check folded BVV
+            if let Some(ref bvv) = bvv_acc
+                && !bvv.is_zero()
+            {
+                sym_args.push(ctx.bvv(bvv.clone())?);
+            }
 
-                // Distribute XOR over CONCAT when one operand is constant
-                // (const ^ concat(a, b, ...)) = concat(const_parts ^ a, const_parts ^ b, ...)
-                (BitVecOp::BVV(const_val), BitVecOp::Concat(concat_args))
-                | (BitVecOp::Concat(concat_args), BitVecOp::BVV(const_val)) => {
-                    // Split constant into parts matching concat operands and XOR each
-                    let mut parts = Vec::with_capacity(concat_args.len());
-                    let mut offset = 0u32;
-                    for arg in concat_args.iter().rev() {
-                        let arg_size = arg.size();
-                        let const_part = const_val.extract(offset, offset + arg_size - 1)?;
-                        parts.push(ctx.bv_xor(&ctx.bvv(const_part)?, arg)?);
-                        offset += arg_size;
+            let changed = sym_args.len() != simplified.len()
+                || sym_args
+                    .iter()
+                    .zip(simplified.iter())
+                    .any(|(a, b)| a.hash() != b.hash());
+
+            match sym_args.len() {
+                0 => Ok(ctx.bvv(BitVec::zeros(size))?),
+                1 => Ok(sym_args.into_iter().next().unwrap()),
+                2 => {
+                    let (a, b) = (&sym_args[0], &sym_args[1]);
+                    match (a.op(), b.op()) {
+                        // ¬a ^ ¬b = a ^ b
+                        (BitVecOp::Not(lhs), BitVecOp::Not(rhs)) => {
+                            state.rerun(ctx.bv_xor(lhs, rhs)?)
+                        }
+                        // Distribute XOR over CONCAT when one operand is constant
+                        (BitVecOp::BVV(const_val), BitVecOp::Concat(concat_args))
+                        | (BitVecOp::Concat(concat_args), BitVecOp::BVV(const_val)) => {
+                            let mut parts = Vec::with_capacity(concat_args.len());
+                            let mut offset = 0u32;
+                            for arg in concat_args.iter().rev() {
+                                let arg_size = arg.size();
+                                let const_part =
+                                    const_val.extract(offset, offset + arg_size - 1)?;
+                                parts.push(ctx.bv_xor(&ctx.bvv(const_part)?, arg)?);
+                                offset += arg_size;
+                            }
+                            parts.reverse();
+                            state.rerun(ctx.concat(parts)?)
+                        }
+                        // XOR with all-ones = NOT
+                        (BitVecOp::BVV(v), _) if v.is_all_ones() => {
+                            state.rerun(ctx.not(b.clone())?)
+                        }
+                        (_, BitVecOp::BVV(v)) if v.is_all_ones() => {
+                            state.rerun(ctx.not(a.clone())?)
+                        }
+                        _ => {
+                            if changed {
+                                state.rerun(ctx.bv_xor_many(sym_args)?)
+                            } else {
+                                Ok(ctx.bv_xor_many(sym_args)?)
+                            }
+                        }
                     }
-                    parts.reverse();
-                    state.rerun(ctx.concat(parts)?)
                 }
-
-                _ => Ok(ctx.bv_xor(arc, arc1)?),
+                _ => {
+                    // Check if there's an all-ones BVV among the args - if so, extract it
+                    // and apply NOT to the XOR of the remaining args
+                    if changed {
+                        state.rerun(ctx.bv_xor_many(sym_args)?)
+                    } else {
+                        Ok(ctx.bv_xor_many(sym_args)?)
+                    }
+                }
             }
         }
         BitVecOp::Neg(..) => {
@@ -273,81 +488,105 @@ pub(crate) fn simplify_bv<'c>(
                 _ => Ok(ctx.neg(arc)?),
             }
         }
-        BitVecOp::Add(..) => {
-            // Collect all simplified children
-            let child_count = state.expr.child_iter().count();
-            let mut children = Vec::with_capacity(child_count);
-            for i in 0..child_count {
-                children.push(state.get_bv_simplified(i)?);
-            }
+        BitVecOp::Add(args) => {
+            // Simplify all children
+            let simplified: Vec<BitVecAst<'c>> = (0..args.len())
+                .map(|i| state.get_bv_simplified(i))
+                .collect::<Result<_, _>>()?;
 
-            // Flatten one level of nested Adds and separate constants from symbolic terms.
-            // Children are already simplified, so their nested Adds are already flat —
-            // we only need to pull out their immediate args.
-            let mut symbolic = Vec::new();
-            let mut const_acc: Option<BitVec> = None;
-            let mut changed = false;
+            let size = simplified[0].size();
 
-            for child in &children {
-                match child.op() {
+            // Flatten nested Adds, fold constants, remove identities
+            let mut bvv_acc: Option<BitVec> = None;
+            let mut sym_args: Vec<BitVecAst<'c>> = Vec::new();
+
+            for arg in &simplified {
+                match arg.op() {
                     BitVecOp::Add(inner_args) => {
-                        changed = true;
-                        for arg in inner_args {
-                            if let BitVecOp::BVV(v) = arg.op() {
-                                const_acc = Some(match const_acc.take() {
-                                    Some(acc) => (acc + v.clone())?,
-                                    None => v.clone(),
-                                });
-                            } else {
-                                symbolic.push(arg.clone());
+                        for inner in inner_args {
+                            match inner.op() {
+                                BitVecOp::BVV(v) if v.is_zero() => {}
+                                BitVecOp::BVV(v) => {
+                                    bvv_acc = Some(match bvv_acc {
+                                        Some(acc) => (acc + v.clone())?,
+                                        None => v.clone(),
+                                    });
+                                }
+                                _ => sym_args.push(inner.clone()),
                             }
                         }
                     }
+                    BitVecOp::BVV(v) if v.is_zero() => {}
                     BitVecOp::BVV(v) => {
-                        const_acc = Some(match const_acc.take() {
+                        bvv_acc = Some(match bvv_acc {
                             Some(acc) => (acc + v.clone())?,
                             None => v.clone(),
                         });
                     }
-                    _ => {
-                        symbolic.push(child.clone());
-                    }
+                    _ => sym_args.push(arg.clone()),
                 }
             }
 
-            // Check if there are multiple constants being combined
-            let orig_const_count = children
-                .iter()
-                .filter(|c| matches!(c.op(), BitVecOp::BVV(_)))
-                .count();
-            if orig_const_count > 1 {
-                changed = true;
+            // Check folded BVV
+            if let Some(ref bvv) = bvv_acc
+                && !bvv.is_zero()
+            {
+                sym_args.push(ctx.bvv(bvv.clone())?);
             }
 
-            if symbolic.is_empty() {
-                // All constants
-                return Ok(ctx.bvv(const_acc.unwrap())?);
-            }
+            let changed = sym_args.len() != simplified.len()
+                || sym_args
+                    .iter()
+                    .zip(simplified.iter())
+                    .any(|(a, b)| a.hash() != b.hash());
 
-            // If constant is zero, drop it
-            if const_acc.as_ref().is_some_and(|v| v.is_zero()) {
-                const_acc = None;
-                changed = true;
-            }
-
-            // Append the combined constant (if any) at the end
-            if let Some(v) = const_acc {
-                symbolic.push(ctx.bvv(v)?);
-            }
-
-            if symbolic.len() == 1 {
-                return Ok(symbolic.pop().unwrap());
-            }
-
-            if !changed {
-                Ok(ctx.make_bitvec(BitVecOp::Add(children))?)
-            } else {
-                state.rerun(ctx.make_bitvec(BitVecOp::Add(symbolic))?)
+            match sym_args.len() {
+                0 => Ok(ctx.bvv(BitVec::zeros(size))?),
+                1 => Ok(sym_args.into_iter().next().unwrap()),
+                2 => {
+                    let (a, b) = (&sym_args[0], &sym_args[1]);
+                    match (a.op(), b.op()) {
+                        // If one operand is a BVV and the other is a Sub with a BVV, combine
+                        (BitVecOp::BVV(v), BitVecOp::Sub(bvv, other))
+                        | (BitVecOp::Sub(bvv, other), BitVecOp::BVV(v))
+                            if matches!(bvv.op(), BitVecOp::BVV(_)) =>
+                        {
+                            if let BitVecOp::BVV(bvv_value) = bvv.op() {
+                                let combined_value = (v.clone() + bvv_value.clone())?;
+                                let combined_bvv = ctx.bvv(combined_value)?;
+                                state.rerun(ctx.sub(other.clone(), combined_bvv)?)
+                            } else {
+                                unreachable!()
+                            }
+                        }
+                        (BitVecOp::BVV(v), BitVecOp::Sub(other, bvv))
+                        | (BitVecOp::Sub(other, bvv), BitVecOp::BVV(v))
+                            if matches!(bvv.op(), BitVecOp::BVV(_)) =>
+                        {
+                            if let BitVecOp::BVV(bvv_value) = bvv.op() {
+                                let combined_value = (v.clone() - bvv_value.clone())?;
+                                let combined_bvv = ctx.bvv(combined_value)?;
+                                state.rerun(ctx.add(other.clone(), combined_bvv)?)
+                            } else {
+                                unreachable!()
+                            }
+                        }
+                        _ => {
+                            if changed {
+                                state.rerun(ctx.add_many(sym_args)?)
+                            } else {
+                                Ok(ctx.add_many(sym_args)?)
+                            }
+                        }
+                    }
+                }
+                _ => {
+                    if changed {
+                        state.rerun(ctx.add_many(sym_args)?)
+                    } else {
+                        Ok(ctx.add_many(sym_args)?)
+                    }
+                }
             }
         }
         BitVecOp::Sub(..) => {
@@ -369,41 +608,107 @@ pub(crate) fn simplify_bv<'c>(
                         unreachable!()
                     }
                 }
-                (BitVecOp::Add(add_args), BitVecOp::BVV(v))
-                    if add_args.iter().any(|a| matches!(a.op(), BitVecOp::BVV(_))) =>
-                {
-                    // (... + b + ...) - c => (... + ...) + (b - c)
-                    let mut others: Vec<BitVecAst<'c>> = Vec::new();
-                    let mut found_bvv: Option<BitVec> = None;
-                    for arg in add_args {
-                        if found_bvv.is_none()
-                            && let BitVecOp::BVV(b_val) = arg.op()
-                        {
-                            found_bvv = Some(b_val.clone());
-                            continue;
+                (BitVecOp::Add(add_args), BitVecOp::BVV(v)) => {
+                    // Find a BVV among the Add args to combine with
+                    if let Some(bvv_idx) = add_args
+                        .iter()
+                        .position(|a| matches!(a.op(), BitVecOp::BVV(_)))
+                    {
+                        if let BitVecOp::BVV(b_val) = add_args[bvv_idx].op() {
+                            // (sum + b) - c => sum + (b - c)
+                            let combined_value = (b_val.clone() - v.clone())?;
+                            let combined_bvv = ctx.bvv(combined_value)?;
+                            let mut new_args: Vec<BitVecAst<'c>> = add_args
+                                .iter()
+                                .enumerate()
+                                .filter(|(i, _)| *i != bvv_idx)
+                                .map(|(_, a)| a.clone())
+                                .collect();
+                            new_args.push(combined_bvv);
+                            state.rerun(ctx.add_many(new_args)?)
+                        } else {
+                            unreachable!()
                         }
-                        others.push(arg.clone());
+                    } else {
+                        Ok(ctx.sub(arc, arc1)?)
                     }
-                    let combined_value = (found_bvv.unwrap() - v.clone())?;
-                    others.push(ctx.bvv(combined_value)?);
-                    state.rerun(ctx.make_bitvec(BitVecOp::Add(others))?)
                 }
                 (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
                 (lhs_op, rhs_op) if lhs_op == rhs_op => Ok(ctx.bvv(BitVec::zeros(arc.size()))?),
                 _ => Ok(ctx.sub(arc, arc1)?),
             }
         }
-        BitVecOp::Mul(..) => {
-            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
-            match (arc.op(), arc1.op()) {
-                (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
-                    Ok(ctx.bvv((value1.clone() * value2.clone())?)?)
+        BitVecOp::Mul(args) => {
+            // Simplify all children
+            let simplified: Vec<BitVecAst<'c>> = (0..args.len())
+                .map(|i| state.get_bv_simplified(i))
+                .collect::<Result<_, _>>()?;
+
+            let size = simplified[0].size();
+
+            // Flatten nested Muls, fold constants, remove identities, detect absorber
+            let mut bvv_acc: Option<BitVec> = None;
+            let mut sym_args: Vec<BitVecAst<'c>> = Vec::new();
+
+            for arg in &simplified {
+                match arg.op() {
+                    BitVecOp::Mul(inner_args) => {
+                        for inner in inner_args {
+                            match inner.op() {
+                                BitVecOp::BVV(v) if v.is_zero() => {
+                                    return Ok(ctx.bvv(BitVec::zeros(size))?);
+                                }
+                                BitVecOp::BVV(v) if v.to_u64() == Some(1) => {}
+                                BitVecOp::BVV(v) => {
+                                    bvv_acc = Some(match bvv_acc {
+                                        Some(acc) => (acc * v.clone())?,
+                                        None => v.clone(),
+                                    });
+                                }
+                                _ => sym_args.push(inner.clone()),
+                            }
+                        }
+                    }
+                    BitVecOp::BVV(v) if v.is_zero() => {
+                        return Ok(ctx.bvv(BitVec::zeros(size))?);
+                    }
+                    BitVecOp::BVV(v) if v.to_u64() == Some(1) => {}
+                    BitVecOp::BVV(v) => {
+                        bvv_acc = Some(match bvv_acc {
+                            Some(acc) => (acc * v.clone())?,
+                            None => v.clone(),
+                        });
+                    }
+                    _ => sym_args.push(arg.clone()),
                 }
-                (BitVecOp::BVV(v), _) if v.is_zero() => Ok(ctx.bvv(v.clone())?),
-                (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(ctx.bvv(v.clone())?),
-                (BitVecOp::BVV(v), _) if v.to_u64() == Some(1) => Ok(arc1.clone()),
-                (_, BitVecOp::BVV(v)) if v.to_u64() == Some(1) => Ok(arc.clone()),
-                _ => Ok(ctx.mul(arc, arc1)?),
+            }
+
+            // Check folded BVV
+            if let Some(ref bvv) = bvv_acc {
+                if bvv.is_zero() {
+                    return Ok(ctx.bvv(BitVec::zeros(size))?);
+                }
+                if bvv.to_u64() != Some(1) {
+                    sym_args.push(ctx.bvv(bvv.clone())?);
+                }
+            }
+
+            let changed = sym_args.len() != simplified.len()
+                || sym_args
+                    .iter()
+                    .zip(simplified.iter())
+                    .any(|(a, b)| a.hash() != b.hash());
+
+            match sym_args.len() {
+                0 => Ok(ctx.bvv(BitVec::from_prim_with_size(1u64, size)?)?),
+                1 => Ok(sym_args.into_iter().next().unwrap()),
+                _ => {
+                    if changed {
+                        state.rerun(ctx.mul_many(sym_args)?)
+                    } else {
+                        Ok(ctx.mul_many(sym_args)?)
+                    }
+                }
             }
         }
         BitVecOp::UDiv(..) => {
@@ -790,12 +1095,12 @@ pub(crate) fn simplify_bv<'c>(
                 }
 
                 // Propagate extract(n, 0, ...) through add/sub
-                // extract(n, 0, a + b) = extract(n, 0, a) + extract(n, 0, b)
+                // extract(n, 0, a + b + ...) = extract(n, 0, a) + extract(n, 0, b) + ...
                 // This is valid because the low bits of add/sub only depend on the low bits of the operands
                 BitVecOp::Add(add_args) if *low == 0 => {
                     let extracted: Vec<BitVecAst<'c>> = add_args
                         .iter()
-                        .map(|arg| ctx.extract(arg, *high, 0))
+                        .map(|a| ctx.extract(a, *high, 0))
                         .collect::<Result<_, _>>()?;
                     state.rerun(ctx.add_many(extracted)?)
                 }
@@ -806,26 +1111,29 @@ pub(crate) fn simplify_bv<'c>(
                 }
 
                 // Propagate extract through bitwise operations
-                // extract(n, m, a & b) = extract(n, m, a) & extract(n, m, b)
-                BitVecOp::And(and_args) if and_args.len() == 2 => {
-                    let (lhs, rhs) = (&and_args[0], &and_args[1]);
-                    let lhs_extracted = ctx.extract(lhs, *high, *low)?;
-                    let rhs_extracted = ctx.extract(rhs, *high, *low)?;
-                    state.rerun(ctx.bv_and(&lhs_extracted, &rhs_extracted)?)
+                // extract(n, m, a & b & ...) = extract(n, m, a) & extract(n, m, b) & ...
+                BitVecOp::And(and_args) => {
+                    let extracted: Vec<BitVecAst<'c>> = and_args
+                        .iter()
+                        .map(|a| ctx.extract(a, *high, *low))
+                        .collect::<Result<_, _>>()?;
+                    state.rerun(ctx.bv_and_many(extracted)?)
                 }
-                // extract(n, m, a | b) = extract(n, m, a) | extract(n, m, b)
-                BitVecOp::Or(or_args) if or_args.len() == 2 => {
-                    let (lhs, rhs) = (&or_args[0], &or_args[1]);
-                    let lhs_extracted = ctx.extract(lhs, *high, *low)?;
-                    let rhs_extracted = ctx.extract(rhs, *high, *low)?;
-                    state.rerun(ctx.bv_or(&lhs_extracted, &rhs_extracted)?)
+                // extract(n, m, a | b | ...) = extract(n, m, a) | extract(n, m, b) | ...
+                BitVecOp::Or(or_args) => {
+                    let extracted: Vec<BitVecAst<'c>> = or_args
+                        .iter()
+                        .map(|a| ctx.extract(a, *high, *low))
+                        .collect::<Result<_, _>>()?;
+                    state.rerun(ctx.bv_or_many(extracted)?)
                 }
-                // extract(n, m, a ^ b) = extract(n, m, a) ^ extract(n, m, b)
-                BitVecOp::Xor(xor_args) if xor_args.len() == 2 => {
-                    let (lhs, rhs) = (&xor_args[0], &xor_args[1]);
-                    let lhs_extracted = ctx.extract(lhs, *high, *low)?;
-                    let rhs_extracted = ctx.extract(rhs, *high, *low)?;
-                    state.rerun(ctx.bv_xor(&lhs_extracted, &rhs_extracted)?)
+                // extract(n, m, a ^ b ^ ...) = extract(n, m, a) ^ extract(n, m, b) ^ ...
+                BitVecOp::Xor(xor_args) => {
+                    let extracted: Vec<BitVecAst<'c>> = xor_args
+                        .iter()
+                        .map(|a| ctx.extract(a, *high, *low))
+                        .collect::<Result<_, _>>()?;
+                    state.rerun(ctx.bv_xor_many(extracted)?)
                 }
                 // extract(n, m, ~a) = ~extract(n, m, a)
                 BitVecOp::Not(inner) => {
@@ -967,12 +1275,18 @@ pub(crate) fn simplify_bv<'c>(
                 }
             }
 
-            // Concat(BVV(0, N), x) -> ZeroExt(N, x)
-            if merged.len() == 2
+            // Concat(BVV(0, N), rest...) -> ZeroExt(N, Concat(rest...))
+            if merged.len() >= 2
                 && matches!(merged[0].op(), BitVecOp::BVV(high_val) if high_val.is_zero())
             {
                 let ext_size = merged[0].size();
-                return state.rerun(ctx.zero_ext(&merged[1], ext_size)?);
+                let rest: Vec<BitVecAst<'c>> = merged[1..].to_vec();
+                let inner = if rest.len() == 1 {
+                    rest.into_iter().next().unwrap()
+                } else {
+                    ctx.concat(rest)?
+                };
+                return state.rerun(ctx.zero_ext(&inner, ext_size)?);
             }
 
             // Handle result based on merged length
