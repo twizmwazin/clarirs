@@ -222,6 +222,11 @@ fn simplify_inner<'c>(
         })
 }
 
+/// Maximum number of ReRun iterations allowed before we stop simplifying
+/// and return the current expression as-is. This prevents infinite loops
+/// from circular simplification rules.
+const MAX_RERUN_ITERATIONS: usize = 128;
+
 fn simplify<'c>(
     ast: &DynAst<'c>,
     respect_annotations: bool,
@@ -229,6 +234,7 @@ fn simplify<'c>(
 ) -> Result<DynAst<'c>, ClarirsError> {
     let mut work_stack: Vec<SimplifyState<'c>> = Vec::new();
     let mut last_result: Option<DynAst<'c>> = None;
+    let mut rerun_count: usize = 0;
 
     work_stack.push(SimplifyState::new(ast.clone()));
 
@@ -260,6 +266,20 @@ fn simplify<'c>(
                         .expr
                         .context()
                         .annotate_dyn(&result, relocatable_annotations)?;
+
+                    // Cache the mapping from the original expression to the
+                    // simplified result so that identical unsimplified
+                    // sub-expressions elsewhere in the tree get a cache hit.
+                    if state.expr.inner_hash() != annotated.inner_hash() {
+                        let ctx = state.expr.context();
+                        let hash = state.expr.inner_hash();
+                        let annotated_ref = annotated.clone();
+                        let _ = ctx.simplification_cache.get_or_insert::<SimplifyError<'c>>(
+                            hash,
+                            || Ok(annotated_ref.clone()),
+                        );
+                    }
+
                     last_result = Some(annotated)
                 }
                 Err(SimplifyError::MissingChild(index)) => {
@@ -271,8 +291,15 @@ fn simplify<'c>(
                     work_stack.push(child_state);
                 }
                 Err(SimplifyError::ReRun(new_ast)) => {
-                    // Push a new state with the new_ast onto the stack
-                    work_stack.push(SimplifyState::new(new_ast));
+                    rerun_count += 1;
+                    if rerun_count > MAX_RERUN_ITERATIONS {
+                        // Hit the rerun limit - return the expression as-is to
+                        // avoid infinite loops from circular simplification rules
+                        last_result = Some(new_ast);
+                    } else {
+                        // Push a new state with the new_ast onto the stack
+                        work_stack.push(SimplifyState::new(new_ast));
+                    }
                 }
                 Err(SimplifyError::Error(e)) => {
                     return Err(e);

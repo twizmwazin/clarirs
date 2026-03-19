@@ -1,3 +1,5 @@
+use ahash::AHashSet;
+
 use super::SimplifyError;
 use crate::{ast::bitvec::BitVecOpExt, prelude::*};
 
@@ -45,7 +47,7 @@ pub(crate) fn simplify_bool<'c>(
                 .collect::<Result<Vec<_>, _>>()?;
 
             // Absorption simplification
-            let absorbed_args = available_args
+            let mut absorbed_args: Vec<_> = available_args
                 .into_iter()
                 .flat_map(|arg| {
                     if let BooleanOp::And(nested_args) = arg.op() {
@@ -55,15 +57,12 @@ pub(crate) fn simplify_bool<'c>(
                     }
                 })
                 .filter(|arg| !matches!(arg.op(), BooleanOp::BoolV(true)))
-                .collect::<Vec<_>>();
-            // Deduplicate using == comparison
-            let mut deduped = Vec::with_capacity(absorbed_args.len());
-            for arg in absorbed_args {
-                if !deduped.iter().any(|existing| existing == &arg) {
-                    deduped.push(arg);
-                }
+                .collect();
+            // Deduplicate using hash set for O(n) performance
+            {
+                let mut seen = AHashSet::with_capacity(absorbed_args.len());
+                absorbed_args.retain(|arg| seen.insert(arg.hash()));
             }
-            let absorbed_args = deduped;
 
             if absorbed_args.is_empty() {
                 return Ok(ctx.true_()?);
@@ -80,42 +79,44 @@ pub(crate) fn simplify_bool<'c>(
                 return Ok(ctx.false_()?);
             }
 
-            // x & !x == false
-            for i in 0..absorbed_args.len() {
-                for j in (i + 1)..absorbed_args.len() {
-                    if let BooleanOp::Not(neg) = absorbed_args[i].op()
-                        && neg == &absorbed_args[j]
-                    {
-                        return Ok(ctx.false_()?);
-                    }
-                    if let BooleanOp::Not(neg) = absorbed_args[j].op()
-                        && neg == &absorbed_args[i]
-                    {
-                        return Ok(ctx.false_()?);
+            // x & !x == false (O(n) using hash set)
+            {
+                let hashes: AHashSet<u64> =
+                    absorbed_args.iter().map(|a| a.hash()).collect();
+                for arg in &absorbed_args {
+                    if let BooleanOp::Not(neg) = arg.op() {
+                        if hashes.contains(&neg.hash()) {
+                            return Ok(ctx.false_()?);
+                        }
                     }
                 }
             }
 
-            // All of the comparisons
-            // ex x == K & x != K  ==>  false
-            for i in 0..absorbed_args.len() {
-                for j in (i + 1)..absorbed_args.len() {
-                    match (absorbed_args[i].op(), absorbed_args[j].op()) {
-                        (BooleanOp::Eq(var1, val1), BooleanOp::Neq(var2, val2))
-                        | (BooleanOp::Neq(var2, val2), BooleanOp::Eq(var1, val1))
-                        | (BooleanOp::ULT(var1, val1), BooleanOp::UGE(var2, val2))
-                        | (BooleanOp::UGE(var2, val2), BooleanOp::ULT(var1, val1))
-                        | (BooleanOp::ULE(var1, val1), BooleanOp::UGT(var2, val2))
-                        | (BooleanOp::UGT(var2, val2), BooleanOp::ULE(var1, val1))
-                        | (BooleanOp::SLT(var1, val1), BooleanOp::SGE(var2, val2))
-                        | (BooleanOp::SGE(var2, val2), BooleanOp::SLT(var1, val1))
-                        | (BooleanOp::SLE(var1, val1), BooleanOp::SGT(var2, val2))
-                        | (BooleanOp::SGT(var2, val2), BooleanOp::SLE(var1, val1))
-                            if var1 == var2 && val1 == val2 =>
-                        {
+            // Contradictory comparison check: e.g. x == K & x != K ==> false
+            // Build a set of "negated" hashes for O(n) lookup
+            {
+                let arg_hashes: AHashSet<u64> =
+                    absorbed_args.iter().map(|a| a.hash()).collect();
+                for arg in &absorbed_args {
+                    // For each comparison, construct its negation and check if
+                    // it exists in the set
+                    let negated: Option<BoolAst<'c>> = match arg.op() {
+                        BooleanOp::Eq(v, k) => ctx.neq(v.clone(), k.clone()).ok(),
+                        BooleanOp::Neq(v, k) => ctx.eq_(v.clone(), k.clone()).ok(),
+                        BooleanOp::ULT(v, k) => ctx.uge(v.clone(), k.clone()).ok(),
+                        BooleanOp::UGE(v, k) => ctx.ult(v.clone(), k.clone()).ok(),
+                        BooleanOp::ULE(v, k) => ctx.ugt(v.clone(), k.clone()).ok(),
+                        BooleanOp::UGT(v, k) => ctx.ule(v.clone(), k.clone()).ok(),
+                        BooleanOp::SLT(v, k) => ctx.sge(v.clone(), k.clone()).ok(),
+                        BooleanOp::SGE(v, k) => ctx.slt(v.clone(), k.clone()).ok(),
+                        BooleanOp::SLE(v, k) => ctx.sgt(v.clone(), k.clone()).ok(),
+                        BooleanOp::SGT(v, k) => ctx.sle(v.clone(), k.clone()).ok(),
+                        _ => None,
+                    };
+                    if let Some(neg) = negated {
+                        if arg_hashes.contains(&neg.hash()) {
                             return Ok(ctx.false_()?);
                         }
-                        _ => {}
                     }
                 }
             }
@@ -135,7 +136,7 @@ pub(crate) fn simplify_bool<'c>(
                 .collect::<Result<Vec<_>, _>>()?;
 
             // Absorption simplification
-            let absorbed_args = available_args
+            let mut absorbed_args: Vec<_> = available_args
                 .into_iter()
                 .flat_map(|arg| {
                     if let BooleanOp::Or(nested_args) = arg.op() {
@@ -145,15 +146,12 @@ pub(crate) fn simplify_bool<'c>(
                     }
                 })
                 .filter(|arg| !matches!(arg.op(), BooleanOp::BoolV(false)))
-                .collect::<Vec<_>>();
-            // Deduplicate using == comparison
-            let mut deduped = Vec::with_capacity(absorbed_args.len());
-            for arg in absorbed_args {
-                if !deduped.iter().any(|existing| existing == &arg) {
-                    deduped.push(arg);
-                }
+                .collect();
+            // Deduplicate using hash set for O(n) performance
+            {
+                let mut seen = AHashSet::with_capacity(absorbed_args.len());
+                absorbed_args.retain(|arg| seen.insert(arg.hash()));
             }
-            let absorbed_args = deduped;
 
             // Identity simplification
             if absorbed_args
@@ -170,42 +168,42 @@ pub(crate) fn simplify_bool<'c>(
                 return state.rerun(absorbed_args[0].clone());
             }
 
-            // x | !x == true
-            for i in 0..absorbed_args.len() {
-                for j in (i + 1)..absorbed_args.len() {
-                    if let BooleanOp::Not(neg) = absorbed_args[i].op()
-                        && neg == &absorbed_args[j]
-                    {
-                        return Ok(ctx.true_()?);
-                    }
-                    if let BooleanOp::Not(neg) = absorbed_args[j].op()
-                        && neg == &absorbed_args[i]
-                    {
-                        return Ok(ctx.true_()?);
+            // x | !x == true (O(n) using hash set)
+            {
+                let hashes: AHashSet<u64> =
+                    absorbed_args.iter().map(|a| a.hash()).collect();
+                for arg in &absorbed_args {
+                    if let BooleanOp::Not(neg) = arg.op() {
+                        if hashes.contains(&neg.hash()) {
+                            return Ok(ctx.true_()?);
+                        }
                     }
                 }
             }
 
-            // All of the comparisons
-            // ex x == K | x != K  ==>  true
-            for i in 0..absorbed_args.len() {
-                for j in (i + 1)..absorbed_args.len() {
-                    match (absorbed_args[i].op(), absorbed_args[j].op()) {
-                        (BooleanOp::Eq(var1, val1), BooleanOp::Neq(var2, val2))
-                        | (BooleanOp::Neq(var2, val2), BooleanOp::Eq(var1, val1))
-                        | (BooleanOp::ULT(var1, val1), BooleanOp::UGE(var2, val2))
-                        | (BooleanOp::UGE(var2, val2), BooleanOp::ULT(var1, val1))
-                        | (BooleanOp::ULE(var1, val1), BooleanOp::UGT(var2, val2))
-                        | (BooleanOp::UGT(var2, val2), BooleanOp::ULE(var1, val1))
-                        | (BooleanOp::SLT(var1, val1), BooleanOp::SGE(var2, val2))
-                        | (BooleanOp::SGE(var2, val2), BooleanOp::SLT(var1, val1))
-                        | (BooleanOp::SLE(var1, val1), BooleanOp::SGT(var2, val2))
-                        | (BooleanOp::SGT(var2, val2), BooleanOp::SLE(var1, val1))
-                            if var1 == var2 && val1 == val2 =>
-                        {
+            // Tautological comparison check: e.g. x == K | x != K ==> true
+            // Build a set of hashes for O(n) lookup
+            {
+                let arg_hashes: AHashSet<u64> =
+                    absorbed_args.iter().map(|a| a.hash()).collect();
+                for arg in &absorbed_args {
+                    let negated: Option<BoolAst<'c>> = match arg.op() {
+                        BooleanOp::Eq(v, k) => ctx.neq(v.clone(), k.clone()).ok(),
+                        BooleanOp::Neq(v, k) => ctx.eq_(v.clone(), k.clone()).ok(),
+                        BooleanOp::ULT(v, k) => ctx.uge(v.clone(), k.clone()).ok(),
+                        BooleanOp::UGE(v, k) => ctx.ult(v.clone(), k.clone()).ok(),
+                        BooleanOp::ULE(v, k) => ctx.ugt(v.clone(), k.clone()).ok(),
+                        BooleanOp::UGT(v, k) => ctx.ule(v.clone(), k.clone()).ok(),
+                        BooleanOp::SLT(v, k) => ctx.sge(v.clone(), k.clone()).ok(),
+                        BooleanOp::SGE(v, k) => ctx.slt(v.clone(), k.clone()).ok(),
+                        BooleanOp::SLE(v, k) => ctx.sgt(v.clone(), k.clone()).ok(),
+                        BooleanOp::SGT(v, k) => ctx.sle(v.clone(), k.clone()).ok(),
+                        _ => None,
+                    };
+                    if let Some(neg) = negated {
+                        if arg_hashes.contains(&neg.hash()) {
                             return Ok(ctx.true_()?);
                         }
-                        _ => {}
                     }
                 }
             }
