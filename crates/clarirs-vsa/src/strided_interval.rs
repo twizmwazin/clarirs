@@ -1,4 +1,4 @@
-mod modular_arithmatic;
+mod modular_arithmetic;
 
 use num_bigint::{BigInt, BigUint, ToBigInt, ToBigUint};
 use num_traits::{One, Signed, ToPrimitive, Zero};
@@ -6,7 +6,7 @@ use std::cmp::{max, min};
 use std::ops::{BitAnd, BitOr, BitXor, Not};
 
 use clarirs_core::prelude::*;
-use modular_arithmatic::*;
+use modular_arithmetic::*;
 
 /// Represents the result of a comparison operation
 #[derive(Clone, Debug, PartialEq, Eq)]
