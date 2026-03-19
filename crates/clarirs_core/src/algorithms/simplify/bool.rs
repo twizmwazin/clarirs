@@ -247,9 +247,7 @@ pub(crate) fn simplify_bool<'c>(
                 (BooleanOp::BoolV(false), _) => Ok(ctx.not(state.get_bool_simplified(1)?)?),
                 (_, BooleanOp::BoolV(false)) => Ok(ctx.not(state.get_bool_simplified(0)?)?),
                 // a == a -> true, but only when no floats are involved (NaN != NaN)
-                _ if early_lhs == early_rhs
-                    && !early_lhs.theories().contains(Theories::FLOAT) =>
-                {
+                _ if early_lhs == early_rhs && !early_lhs.theories().contains(Theories::FLOAT) => {
                     Ok(ctx.true_()?)
                 }
                 _ => Ok(ctx.eq_(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
@@ -266,9 +264,7 @@ pub(crate) fn simplify_bool<'c>(
                 (BooleanOp::BoolV(false), _) => Ok(state.get_bool_simplified(1)?),
                 (_, BooleanOp::BoolV(false)) => Ok(state.get_bool_simplified(0)?),
                 // a != a -> false, but only when no floats are involved (NaN != NaN)
-                _ if early_lhs == early_rhs
-                    && !early_lhs.theories().contains(Theories::FLOAT) =>
-                {
+                _ if early_lhs == early_rhs && !early_lhs.theories().contains(Theories::FLOAT) => {
                     Ok(ctx.false_()?)
                 }
                 _ => Ok(ctx.neq(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
