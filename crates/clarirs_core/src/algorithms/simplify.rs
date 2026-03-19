@@ -260,6 +260,19 @@ fn simplify<'c>(
                         .expr
                         .context()
                         .annotate_dyn(&result, relocatable_annotations)?;
+
+                    // Cache the mapping from the original expression to the
+                    // simplified result so that identical unsimplified
+                    // sub-expressions elsewhere in the tree get a cache hit.
+                    if state.expr.inner_hash() != annotated.inner_hash() {
+                        let ctx = state.expr.context();
+                        let hash = state.expr.inner_hash();
+                        let annotated_ref = annotated.clone();
+                        let _ = ctx
+                            .simplification_cache
+                            .get_or_insert::<SimplifyError<'c>>(hash, || Ok(annotated_ref.clone()));
+                    }
+
                     last_result = Some(annotated)
                 }
                 Err(SimplifyError::MissingChild(index)) => {
