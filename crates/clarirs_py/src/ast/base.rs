@@ -79,7 +79,25 @@ impl Base {
     }
 }
 
-pub(crate) fn import(_: Python, m: &Bound<PyModule>) -> PyResult<()> {
+pub(crate) fn import(py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<Base>()?;
+
+    // Add ArgType as a Python-level type alias for compatibility with code
+    // that imports it from claripy.ast.base (e.g. angr's sim_action_object.py).
+    // ArgType = Union[Base, bool, int, float, str, tuple, None]
+    let typing = py.import("typing")?;
+    let union = typing.getattr("Union")?;
+    let base_type = m.getattr("Base")?;
+    let arg_type = union.get_item((
+        &base_type,
+        py.get_type::<pyo3::types::PyBool>(),
+        py.get_type::<pyo3::types::PyInt>(),
+        py.get_type::<pyo3::types::PyFloat>(),
+        py.get_type::<pyo3::types::PyString>(),
+        py.get_type::<pyo3::types::PyTuple>(),
+        py.None().bind(py).get_type(),
+    ))?;
+    m.add("ArgType", arg_type)?;
+
     Ok(())
 }
