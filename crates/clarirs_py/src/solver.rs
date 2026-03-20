@@ -199,6 +199,23 @@ impl PySolver {
         }
     }
 
+    fn split<'py>(&self, py: Python<'py>) -> Result<Vec<Bound<'py, PySolver>>, ClaripyError> {
+        self.inner
+            .split()
+            .into_iter()
+            .map(|sub| {
+                Ok(Bound::new(
+                    py,
+                    PySolver {
+                        inner: sub,
+                        timeout: self.timeout,
+                        unsat_core: self.unsat_core,
+                    },
+                )?)
+            })
+            .collect()
+    }
+
     #[pyo3(signature = (others, merge_conditions, common_ancestor = None))]
     fn merge<'py>(
         &mut self,
@@ -689,10 +706,12 @@ impl PySolver {
     /// Add an explicit replacement mapping. The solver will replace occurrences
     /// of `old` with `new` in all future queries. Only supported for
     /// SolverReplacement.
+    #[pyo3(signature = (old, new, invalidate_cache = true))]
     fn add_replacement<'py>(
         &mut self,
         old: Bound<'py, Base>,
         new: Bound<'py, Base>,
+        #[allow(unused)] invalidate_cache: bool,
     ) -> Result<(), ClaripyError> {
         let old_dyn = Base::to_dynast(old)?;
         let new_dyn = Base::to_dynast(new)?;
@@ -854,11 +873,13 @@ pub struct PyReplacementSolver;
 #[pymethods]
 impl PyReplacementSolver {
     #[new]
-    fn new() -> Result<PyClassInitializer<Self>, ClaripyError> {
+    #[pyo3(signature = (auto_replace = true))]
+    fn new(auto_replace: bool) -> Result<PyClassInitializer<Self>, ClaripyError> {
         Ok(PyClassInitializer::from(PySolver {
-            inner: DynSolver::Replacement(ReplacementSolver::new(wrap_solver(
-                Z3Solver::new_with_options(&GLOBAL_CONTEXT, None, false),
-            ))),
+            inner: DynSolver::Replacement(ReplacementSolver::new_with_options(
+                wrap_solver(Z3Solver::new_with_options(&GLOBAL_CONTEXT, None, false)),
+                auto_replace,
+            )),
             timeout: None,
             unsat_core: false,
         })

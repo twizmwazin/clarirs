@@ -55,8 +55,18 @@ impl DynSolver {
                 let z3_solver = hybrid.exact_mut().inner_mut().inner_mut();
                 z3_solver.unsat_core()
             }
+            DynSolver::Composite(composite_solver) => {
+                // Find the first UNSAT child and get its unsat_core
+                for child in composite_solver.children_mut().values_mut() {
+                    if !child.satisfiable()? {
+                        let z3_solver = child.inner_mut().inner_mut();
+                        return z3_solver.unsat_core();
+                    }
+                }
+                Ok(vec![])
+            }
             _ => Err(ClarirsError::UnsupportedOperation(
-                "unsat_core is only supported for Z3 and Hybrid solvers".to_string(),
+                "unsat_core is only supported for Z3, Hybrid, and Composite solvers".to_string(),
             )),
         }
     }
@@ -88,6 +98,20 @@ impl DynSolver {
             _ => Err(ClarirsError::UnsupportedOperation(
                 "clear_replacements is only supported for Replacement solver".to_string(),
             )),
+        }
+    }
+
+    /// Split the solver into independent sub-solvers.
+    /// For Composite solvers, returns one DynSolver per child.
+    /// For all other solver types, returns a single-element vec containing a clone of self.
+    pub(crate) fn split(&self) -> Vec<DynSolver> {
+        match self {
+            DynSolver::Composite(composite_solver) => composite_solver
+                .children()
+                .values()
+                .map(|child| DynSolver::Z3(child.clone()))
+                .collect(),
+            _ => vec![self.clone()],
         }
     }
 }
