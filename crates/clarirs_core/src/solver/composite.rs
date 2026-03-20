@@ -291,14 +291,20 @@ mod tests {
     }
 
     #[test]
-    fn test_composite_solver_unsat_concrete() {
+    fn test_composite_solver_unsat_concrete() -> Result<(), ClarirsError> {
         let ctx = Context::new();
         let template = ConcreteSolver::new(&ctx);
         let mut solver = CompositeSolver::new(&ctx, template);
 
-        // Adding false should return Unsat
-        let result = solver.add(&ctx.false_().unwrap());
-        assert!(result.is_err());
+        // Adding false should succeed but taint the solver as unsat
+        solver.add(&ctx.false_()?)?;
+        assert!(!solver.satisfiable()?);
+
+        // Clearing should reset the tainted state
+        solver.clear()?;
+        assert!(solver.satisfiable()?);
+
+        Ok(())
     }
 
     #[test]
