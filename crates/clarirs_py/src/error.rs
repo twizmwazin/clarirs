@@ -35,6 +35,8 @@ pub enum ClaripyError {
     BitVecError(#[from] BitVecError),
     #[error("Unsupported operation: {0}")]
     UnsupportedOperation(String),
+    #[error("UNSAT")]
+    Unsat,
 }
 
 impl From<ClarirsError> for ClaripyError {
@@ -55,6 +57,7 @@ impl From<ClarirsError> for ClaripyError {
             }
             ClarirsError::TypeError(e) => ClaripyError::TypeError(e),
             ClarirsError::UnsupportedOperation(e) => ClaripyError::UnsupportedOperation(e),
+            ClarirsError::Unsat => ClaripyError::Unsat,
             _ => ClaripyError::ClarirsError(format!("{e}")),
         }
     }
@@ -93,6 +96,7 @@ impl From<ClaripyError> for PyErr {
             ClaripyError::PythonError(o) => {
                 Python::attach(|py| PyErr::from_value(o.bind(py).clone()))
             }
+            ClaripyError::Unsat => py_err::UnsatError::new_err("UNSAT"),
             _ => py_err::ClaripyError::new_err(format!("{e}")),
         }
     }
