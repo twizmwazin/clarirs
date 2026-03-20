@@ -18,6 +18,8 @@ pub struct CompositeSolver<'c, S: Solver<'c>> {
     children: HashMap<usize, S>,
     var_to_child: HashMap<InternedString, usize>,
     next_id: usize,
+    /// Set to true when a concrete false constraint is added, making the solver unconditionally unsat.
+    tainted_unsat: bool,
 }
 
 impl<'c, S: Solver<'c>> HasContext<'c> for CompositeSolver<'c, S> {
@@ -34,7 +36,18 @@ impl<'c, S: Solver<'c>> CompositeSolver<'c, S> {
             children: HashMap::new(),
             var_to_child: HashMap::new(),
             next_id: 0,
+            tainted_unsat: false,
         }
+    }
+
+    /// Get immutable access to child solvers.
+    pub fn children(&self) -> &HashMap<usize, S> {
+        &self.children
+    }
+
+    /// Get mutable access to child solvers.
+    pub fn children_mut(&mut self) -> &mut HashMap<usize, S> {
+        &mut self.children
     }
 
     /// Return the child IDs that own any of the given variables (deduplicated).
@@ -121,9 +134,10 @@ impl<'c, S: Solver<'c>> Solver<'c> for CompositeSolver<'c, S> {
         let vars: BTreeSet<InternedString> = constraint.variables().clone();
 
         if vars.is_empty() {
-            // Concrete constraint — reject immediately if false.
+            // Concrete constraint — true constraints are no-ops, false constraints
+            // taint the solver as unconditionally unsat (without erroring).
             if constraint.is_false() {
-                return Err(ClarirsError::Unsat);
+                self.tainted_unsat = true;
             }
             return Ok(());
         }
@@ -149,6 +163,7 @@ impl<'c, S: Solver<'c>> Solver<'c> for CompositeSolver<'c, S> {
     fn clear(&mut self) -> Result<(), ClarirsError> {
         self.children.clear();
         self.var_to_child.clear();
+        self.tainted_unsat = false;
         Ok(())
     }
 
@@ -168,6 +183,9 @@ impl<'c, S: Solver<'c>> Solver<'c> for CompositeSolver<'c, S> {
     }
 
     fn satisfiable(&mut self) -> Result<bool, ClarirsError> {
+        if self.tainted_unsat {
+            return Ok(false);
+        }
         for child in self.children.values_mut() {
             if !child.satisfiable()? {
                 return Ok(false);
