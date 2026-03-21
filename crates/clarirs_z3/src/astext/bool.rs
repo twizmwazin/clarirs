@@ -4,17 +4,10 @@ use z3::ast::{Ast, Bool, Dynamic};
 
 use super::AstExtZ3;
 
-pub(crate) fn to_z3(
-    ast: &BoolAst,
-    children: &[Dynamic],
-) -> Result<Dynamic, ClarirsError> {
+pub(crate) fn to_z3(ast: &BoolAst, children: &[Dynamic]) -> Result<Dynamic, ClarirsError> {
     Ok(match ast.op() {
-        BooleanOp::BoolS(s) => {
-            Dynamic::from(Bool::new_const(s.as_str()))
-        }
-        BooleanOp::BoolV(b) => {
-            Dynamic::from(Bool::from_bool(*b))
-        }
+        BooleanOp::BoolS(s) => Dynamic::from(Bool::new_const(s.as_str())),
+        BooleanOp::BoolV(b) => Dynamic::from(Bool::from_bool(*b)),
         BooleanOp::Not(..) => {
             let a = child(children, 0)?.as_bool().unwrap();
             Dynamic::from(a.not())
@@ -184,16 +177,13 @@ pub(crate) fn to_z3(
     })
 }
 
-pub(crate) fn from_z3<'c>(
-    ctx: &'c Context<'c>,
-    ast: Dynamic,
-) -> Result<BoolAst<'c>, ClarirsError> {
+pub(crate) fn from_z3<'c>(ctx: &'c Context<'c>, ast: Dynamic) -> Result<BoolAst<'c>, ClarirsError> {
     let ast_kind = ast.kind();
     match ast_kind {
         z3::AstKind::App => {
-            let decl = ast.safe_decl().map_err(|_| {
-                ClarirsError::ConversionError("not an app".to_string())
-            })?;
+            let decl = ast
+                .safe_decl()
+                .map_err(|_| ClarirsError::ConversionError("not an app".to_string()))?;
             let decl_kind = decl.kind();
 
             match decl_kind {

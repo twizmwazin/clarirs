@@ -1,5 +1,5 @@
 use clarirs_core::prelude::*;
-use z3::ast::{Ast, Dynamic, Bool, Int};
+use z3::ast::{Ast, Bool, Dynamic, Int};
 
 use super::AstExtZ3;
 
@@ -31,7 +31,10 @@ mod to_z3 {
         let s = ctx.strings("x").unwrap();
         let z3_ast = s.to_z3().unwrap();
 
-        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::UNINTERPRETED);
+        assert_eq!(
+            z3_ast.safe_decl().unwrap().kind(),
+            z3::DeclKind::UNINTERPRETED
+        );
         assert_eq!(z3_ast.safe_decl().unwrap().name(), "x");
     }
 
@@ -89,8 +92,14 @@ mod to_z3 {
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::SEQ_CONCAT);
         assert_eq!(z3_ast.num_children() as u32, 2);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "a");
-        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "b");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "a"
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(),
+            "b"
+        );
     }
 
     // -- StrSubstr --
@@ -104,7 +113,10 @@ mod to_z3 {
         let sub = ctx.str_substr(s, start, length).unwrap();
         let z3_ast = sub.to_z3().unwrap();
 
-        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::SEQ_EXTRACT);
+        assert_eq!(
+            z3_ast.safe_decl().unwrap().kind(),
+            z3::DeclKind::SEQ_EXTRACT
+        );
         assert_eq!(z3_ast.num_children() as u32, 3);
         assert_z3_string_value(&z3_ast.nth_child(0).unwrap(), "hello world");
     }
@@ -120,7 +132,10 @@ mod to_z3 {
         let replaced = ctx.str_replace(s, pat, rep).unwrap();
         let z3_ast = replaced.to_z3().unwrap();
 
-        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::SEQ_REPLACE);
+        assert_eq!(
+            z3_ast.safe_decl().unwrap().kind(),
+            z3::DeclKind::SEQ_REPLACE
+        );
         assert_eq!(z3_ast.num_children() as u32, 3);
         assert_z3_string_value(&z3_ast.nth_child(0).unwrap(), "hello world");
         assert_z3_string_value(&z3_ast.nth_child(1).unwrap(), "world");
@@ -140,7 +155,10 @@ mod to_z3 {
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::ITE);
         assert_eq!(z3_ast.num_children() as u32, 3);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "c");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "c"
+        );
         assert_z3_string_value(&z3_ast.nth_child(1).unwrap(), "then");
         assert_z3_string_value(&z3_ast.nth_child(2).unwrap(), "else");
     }
@@ -155,9 +173,18 @@ mod to_z3 {
         let z3_ast = ite.to_z3().unwrap();
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::ITE);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "c");
-        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "a");
-        assert_eq!(z3_ast.nth_child(2).unwrap().safe_decl().unwrap().name(), "b");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "c"
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(),
+            "a"
+        );
+        assert_eq!(
+            z3_ast.nth_child(2).unwrap().safe_decl().unwrap().name(),
+            "b"
+        );
     }
 }
 
@@ -255,7 +282,9 @@ mod from_z3 {
         let a_str = z3::ast::String::from("hello world");
         let b_str = z3::ast::String::from("world");
         let c_str = z3::ast::String::from("there");
-        let z3_rep = Dynamic::from(crate::astext::string::str_replace_z3(&a_str, &b_str, &c_str));
+        let z3_rep = Dynamic::from(crate::astext::string::str_replace_z3(
+            &a_str, &b_str, &c_str,
+        ));
         let result = StringAst::from_z3(&ctx, z3_rep).unwrap();
         let expected = ctx
             .str_replace(

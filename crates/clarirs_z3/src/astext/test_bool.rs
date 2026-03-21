@@ -1,5 +1,5 @@
 use clarirs_core::prelude::*;
-use z3::ast::{Ast, Bool, BV, Dynamic, Float};
+use z3::ast::{Ast, BV, Bool, Dynamic, Float};
 
 use super::AstExtZ3;
 
@@ -20,7 +20,10 @@ mod to_z3 {
         let ctx = Context::new();
         let sym = ctx.bools("x").unwrap();
         let z3_ast = sym.to_z3().unwrap();
-        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::UNINTERPRETED);
+        assert_eq!(
+            z3_ast.safe_decl().unwrap().kind(),
+            z3::DeclKind::UNINTERPRETED
+        );
         assert_eq!(z3_ast.safe_decl().unwrap().name(), "x");
     }
 
@@ -50,7 +53,10 @@ mod to_z3 {
         let z3_ast = not_x.to_z3().unwrap();
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::NOT);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
     }
 
     #[test]
@@ -62,8 +68,14 @@ mod to_z3 {
         let z3_ast = and.to_z3().unwrap();
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::AND);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
-        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(),
+            "y"
+        );
     }
 
     #[test]
@@ -77,9 +89,18 @@ mod to_z3 {
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::AND);
         assert_eq!(z3_ast.num_children(), 3);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
-        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
-        assert_eq!(z3_ast.nth_child(2).unwrap().safe_decl().unwrap().name(), "z");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(),
+            "y"
+        );
+        assert_eq!(
+            z3_ast.nth_child(2).unwrap().safe_decl().unwrap().name(),
+            "z"
+        );
     }
 
     #[test]
@@ -91,8 +112,14 @@ mod to_z3 {
         let z3_ast = or.to_z3().unwrap();
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::OR);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
-        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(),
+            "y"
+        );
     }
 
     #[test]
@@ -106,9 +133,18 @@ mod to_z3 {
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::OR);
         assert_eq!(z3_ast.num_children(), 3);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
-        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
-        assert_eq!(z3_ast.nth_child(2).unwrap().safe_decl().unwrap().name(), "z");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(),
+            "y"
+        );
+        assert_eq!(
+            z3_ast.nth_child(2).unwrap().safe_decl().unwrap().name(),
+            "z"
+        );
     }
 
     #[test]
@@ -120,8 +156,14 @@ mod to_z3 {
         let z3_ast = xor.to_z3().unwrap();
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::XOR);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
-        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(),
+            "y"
+        );
     }
 
     #[test]
@@ -133,8 +175,14 @@ mod to_z3 {
         let z3_ast = eq.to_z3().unwrap();
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::EQ);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
-        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(),
+            "y"
+        );
     }
 
     #[test]
@@ -146,8 +194,14 @@ mod to_z3 {
         let z3_ast = neq.to_z3().unwrap();
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::DISTINCT);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
-        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(),
+            "y"
+        );
     }
 
     #[test]
@@ -160,9 +214,18 @@ mod to_z3 {
         let z3_ast = ite.to_z3().unwrap();
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::ITE);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "c");
-        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "t");
-        assert_eq!(z3_ast.nth_child(2).unwrap().safe_decl().unwrap().name(), "e");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "c"
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(),
+            "t"
+        );
+        assert_eq!(
+            z3_ast.nth_child(2).unwrap().safe_decl().unwrap().name(),
+            "e"
+        );
     }
 
     // -- BV comparisons --
@@ -356,7 +419,10 @@ mod to_z3 {
         let b = ctx.strings("b").unwrap();
         let r = ctx.str_contains(a, b).unwrap();
         let z3_ast = r.to_z3().unwrap();
-        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::SEQ_CONTAINS);
+        assert_eq!(
+            z3_ast.safe_decl().unwrap().kind(),
+            z3::DeclKind::SEQ_CONTAINS
+        );
     }
 
     #[test]

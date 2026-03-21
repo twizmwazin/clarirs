@@ -1,5 +1,5 @@
 use clarirs_core::prelude::*;
-use z3::ast::{Ast, Dynamic, Bool, BV};
+use z3::ast::{Ast, BV, Bool, Dynamic};
 
 use super::AstExtZ3;
 
@@ -24,7 +24,10 @@ mod to_z3 {
         let bv = ctx.bvs("x", 32).unwrap();
         let z3_ast = bv.to_z3().unwrap();
 
-        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::UNINTERPRETED);
+        assert_eq!(
+            z3_ast.safe_decl().unwrap().kind(),
+            z3::DeclKind::UNINTERPRETED
+        );
         assert_eq!(z3_ast.safe_decl().unwrap().name(), "x");
     }
 
@@ -62,7 +65,10 @@ mod to_z3 {
         let z3_ast = ast.to_z3().unwrap();
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BNOT);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
     }
 
     #[test]
@@ -73,7 +79,10 @@ mod to_z3 {
         let z3_ast = ast.to_z3().unwrap();
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BNEG);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
     }
 
     // -- Binary arithmetic ops --
@@ -87,8 +96,14 @@ mod to_z3 {
         let z3_ast = ast.to_z3().unwrap();
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BAND);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
-        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(),
+            "y"
+        );
     }
 
     #[test]
@@ -100,8 +115,14 @@ mod to_z3 {
         let z3_ast = ast.to_z3().unwrap();
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BOR);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
-        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(),
+            "y"
+        );
     }
 
     #[test]
@@ -113,8 +134,14 @@ mod to_z3 {
         let z3_ast = ast.to_z3().unwrap();
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BXOR);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
-        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(),
+            "y"
+        );
     }
 
     #[test]
@@ -126,8 +153,14 @@ mod to_z3 {
         let z3_ast = ast.to_z3().unwrap();
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BADD);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
-        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(),
+            "y"
+        );
     }
 
     #[test]
@@ -139,8 +172,14 @@ mod to_z3 {
         let z3_ast = ast.to_z3().unwrap();
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BSUB);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
-        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(),
+            "y"
+        );
     }
 
     #[test]
@@ -152,8 +191,14 @@ mod to_z3 {
         let z3_ast = ast.to_z3().unwrap();
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BMUL);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
-        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(),
+            "y"
+        );
     }
 
     #[test]
@@ -165,8 +210,14 @@ mod to_z3 {
         let z3_ast = ast.to_z3().unwrap();
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BUDIV);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
-        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(),
+            "y"
+        );
     }
 
     #[test]
@@ -178,8 +229,14 @@ mod to_z3 {
         let z3_ast = ast.to_z3().unwrap();
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BSDIV);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
-        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(),
+            "y"
+        );
     }
 
     #[test]
@@ -191,8 +248,14 @@ mod to_z3 {
         let z3_ast = ast.to_z3().unwrap();
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BUREM);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
-        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(),
+            "y"
+        );
     }
 
     #[test]
@@ -204,8 +267,14 @@ mod to_z3 {
         let z3_ast = ast.to_z3().unwrap();
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BSREM);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
-        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(),
+            "y"
+        );
     }
 
     // -- Shift / rotate --
@@ -219,8 +288,14 @@ mod to_z3 {
         let z3_ast = ast.to_z3().unwrap();
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BSHL);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
-        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(),
+            "y"
+        );
     }
 
     #[test]
@@ -232,8 +307,14 @@ mod to_z3 {
         let z3_ast = ast.to_z3().unwrap();
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BLSHR);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
-        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(),
+            "y"
+        );
     }
 
     #[test]
@@ -245,8 +326,14 @@ mod to_z3 {
         let z3_ast = ast.to_z3().unwrap();
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BASHR);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
-        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(),
+            "y"
+        );
     }
 
     #[test]
@@ -257,9 +344,18 @@ mod to_z3 {
         let ast = ctx.rotate_left(x, y).unwrap();
         let z3_ast = ast.to_z3().unwrap();
 
-        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::EXT_ROTATE_LEFT);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
-        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
+        assert_eq!(
+            z3_ast.safe_decl().unwrap().kind(),
+            z3::DeclKind::EXT_ROTATE_LEFT
+        );
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(),
+            "y"
+        );
     }
 
     #[test]
@@ -270,9 +366,18 @@ mod to_z3 {
         let ast = ctx.rotate_right(x, y).unwrap();
         let z3_ast = ast.to_z3().unwrap();
 
-        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::EXT_ROTATE_RIGHT);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
-        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
+        assert_eq!(
+            z3_ast.safe_decl().unwrap().kind(),
+            z3::DeclKind::EXT_ROTATE_RIGHT
+        );
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(),
+            "y"
+        );
     }
 
     // -- Extension / extraction --
@@ -285,7 +390,10 @@ mod to_z3 {
         let z3_ast = ast.to_z3().unwrap();
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::ZERO_EXT);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
     }
 
     #[test]
@@ -296,7 +404,10 @@ mod to_z3 {
         let z3_ast = ast.to_z3().unwrap();
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::SIGN_EXT);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
     }
 
     #[test]
@@ -307,7 +418,10 @@ mod to_z3 {
         let z3_ast = ast.to_z3().unwrap();
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::EXTRACT);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
     }
 
     // -- Concat --
@@ -321,8 +435,14 @@ mod to_z3 {
         let z3_ast = ast.to_z3().unwrap();
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::CONCAT);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
-        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(),
+            "y"
+        );
     }
 
     #[test]
@@ -352,9 +472,18 @@ mod to_z3 {
         let z3_ast = ast.to_z3().unwrap();
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::ITE);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "c");
-        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "x");
-        assert_eq!(z3_ast.nth_child(2).unwrap().safe_decl().unwrap().name(), "y");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "c"
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
+        assert_eq!(
+            z3_ast.nth_child(2).unwrap().safe_decl().unwrap().name(),
+            "y"
+        );
     }
 
     // -- FP to BV conversions --
@@ -365,7 +494,10 @@ mod to_z3 {
         let fp = ctx.fps("x", FSort::f32()).unwrap();
         let ast = ctx.fp_to_ieeebv(fp).unwrap();
         let z3_ast = ast.to_z3().unwrap();
-        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::FPA_TO_IEEE_BV);
+        assert_eq!(
+            z3_ast.safe_decl().unwrap().kind(),
+            z3::DeclKind::FPA_TO_IEEE_BV
+        );
     }
 
     #[test]
@@ -398,9 +530,7 @@ mod from_z3 {
     #[test]
     fn symbol() {
         let ctx = Context::new();
-        let z3_ast = {
-            Dynamic::from(BV::new_const("x", 32))
-        };
+        let z3_ast = { Dynamic::from(BV::new_const("x", 32)) };
         let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
         assert_eq!(result, ctx.bvs("x", 32).unwrap());
     }
@@ -408,9 +538,7 @@ mod from_z3 {
     #[test]
     fn value_8bit() {
         let ctx = Context::new();
-        let z3_ast = {
-            Dynamic::from(BV::from_u64(42, 8))
-        };
+        let z3_ast = { Dynamic::from(BV::from_u64(42, 8)) };
         let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
         assert_eq!(result, ctx.bvv_prim(42u8).unwrap());
     }

@@ -1,5 +1,5 @@
 use clarirs_core::prelude::*;
-use z3::ast::{Ast, Dynamic, Bool, BV, RoundingMode};
+use z3::ast::{Ast, BV, Bool, Dynamic, RoundingMode};
 
 use super::AstExtZ3;
 
@@ -21,7 +21,10 @@ mod to_z3 {
         let x = ctx.fps("x", FSort::f32()).unwrap();
         let z3_ast = x.to_z3().unwrap();
 
-        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::UNINTERPRETED);
+        assert_eq!(
+            z3_ast.safe_decl().unwrap().kind(),
+            z3::DeclKind::UNINTERPRETED
+        );
         assert_eq!(z3_ast.safe_decl().unwrap().name(), "x");
     }
 
@@ -31,7 +34,10 @@ mod to_z3 {
         let x = ctx.fps("x", FSort::f64()).unwrap();
         let z3_ast = x.to_z3().unwrap();
 
-        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::UNINTERPRETED);
+        assert_eq!(
+            z3_ast.safe_decl().unwrap().kind(),
+            z3::DeclKind::UNINTERPRETED
+        );
         assert_eq!(z3_ast.safe_decl().unwrap().name(), "x");
     }
 
@@ -82,7 +88,10 @@ mod to_z3 {
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::FPA_NEG);
         assert_eq!(z3_ast.num_children() as u32, 1);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
     }
 
     #[test]
@@ -94,7 +103,10 @@ mod to_z3 {
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::FPA_ABS);
         assert_eq!(z3_ast.num_children() as u32, 1);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
     }
 
     // -- Binary arithmetic ops (with rounding mode) --
@@ -114,8 +126,14 @@ mod to_z3 {
             z3_ast.nth_child(0).unwrap().safe_decl().unwrap().kind(),
             z3::DeclKind::FPA_RM_NEAREST_TIES_TO_EVEN
         );
-        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "a");
-        assert_eq!(z3_ast.nth_child(2).unwrap().safe_decl().unwrap().name(), "b");
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(),
+            "a"
+        );
+        assert_eq!(
+            z3_ast.nth_child(2).unwrap().safe_decl().unwrap().name(),
+            "b"
+        );
     }
 
     #[test]
@@ -180,7 +198,10 @@ mod to_z3 {
             z3_ast.nth_child(0).unwrap().safe_decl().unwrap().kind(),
             z3::DeclKind::FPA_RM_NEAREST_TIES_TO_AWAY
         );
-        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "x");
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(),
+            "x"
+        );
     }
 
     // -- Conversion ops --
@@ -231,7 +252,10 @@ mod to_z3 {
             .unwrap();
         let z3_ast = conv.to_z3().unwrap();
 
-        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::FPA_TO_FP_UNSIGNED);
+        assert_eq!(
+            z3_ast.safe_decl().unwrap().kind(),
+            z3::DeclKind::FPA_TO_FP_UNSIGNED
+        );
         assert_eq!(z3_ast.num_children() as u32, 2);
     }
 
@@ -262,9 +286,18 @@ mod to_z3 {
 
         assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::ITE);
         assert_eq!(z3_ast.num_children() as u32, 3);
-        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "c");
-        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "a");
-        assert_eq!(z3_ast.nth_child(2).unwrap().safe_decl().unwrap().name(), "b");
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(),
+            "c"
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(),
+            "a"
+        );
+        assert_eq!(
+            z3_ast.nth_child(2).unwrap().safe_decl().unwrap().name(),
+            "b"
+        );
     }
 
     // -- Rounding modes --
@@ -347,7 +380,11 @@ mod from_z3 {
     fn symbol_f32() {
         let ctx = Context::new();
         let sort = FSort::f32();
-        let z3_ast = Dynamic::from(z3::ast::Float::new_const("x", sort.exponent, sort.mantissa + 1));
+        let z3_ast = Dynamic::from(z3::ast::Float::new_const(
+            "x",
+            sort.exponent,
+            sort.mantissa + 1,
+        ));
         let result = FloatAst::from_z3(&ctx, z3_ast).unwrap();
         let expected = ctx.fps("x", FSort::f32()).unwrap();
         assert_eq!(expected, result);
@@ -357,7 +394,11 @@ mod from_z3 {
     fn symbol_f64() {
         let ctx = Context::new();
         let sort = FSort::f64();
-        let z3_ast = Dynamic::from(z3::ast::Float::new_const("x", sort.exponent, sort.mantissa + 1));
+        let z3_ast = Dynamic::from(z3::ast::Float::new_const(
+            "x",
+            sort.exponent,
+            sort.mantissa + 1,
+        ));
         let result = FloatAst::from_z3(&ctx, z3_ast).unwrap();
         let expected = ctx.fps("x", FSort::f64()).unwrap();
         assert_eq!(expected, result);
@@ -537,8 +578,16 @@ mod from_z3 {
         let sort = FSort::f32();
         let z3_ite = {
             let c = Bool::new_const("c");
-            let a = Dynamic::from(z3::ast::Float::new_const("a", sort.exponent, sort.mantissa + 1));
-            let b = Dynamic::from(z3::ast::Float::new_const("b", sort.exponent, sort.mantissa + 1));
+            let a = Dynamic::from(z3::ast::Float::new_const(
+                "a",
+                sort.exponent,
+                sort.mantissa + 1,
+            ));
+            let b = Dynamic::from(z3::ast::Float::new_const(
+                "b",
+                sort.exponent,
+                sort.mantissa + 1,
+            ));
             c.ite(&a, &b)
         };
         let result = FloatAst::from_z3(&ctx, z3_ite).unwrap();

@@ -143,9 +143,9 @@ impl<'c> Z3Solver<'c> {
             return Err(ClarirsError::Unsat);
         }
 
-        z3_solver.get_model().ok_or_else(|| {
-            ClarirsError::BackendError("Z3", "failed to get model".to_string())
-        })
+        z3_solver
+            .get_model()
+            .ok_or_else(|| ClarirsError::BackendError("Z3", "failed to get model".to_string()))
     }
 
     fn simplify_dynast(expr: &DynAst<'c>) -> Result<DynAst<'c>, ClarirsError> {
@@ -158,9 +158,9 @@ impl<'c> Z3Solver<'c> {
     }
 
     fn eval_model(model: &z3::Model, expr_z3: &Dynamic) -> Result<Dynamic, ClarirsError> {
-        model.eval(expr_z3, true).ok_or_else(|| {
-            ClarirsError::BackendError("Z3", "Model evaluation failed".to_string())
-        })
+        model
+            .eval(expr_z3, true)
+            .ok_or_else(|| ClarirsError::BackendError("Z3", "Model evaluation failed".to_string()))
     }
 
     fn eval(&self, expr: &DynAst<'c>) -> Result<DynAst<'c>, ClarirsError> {
@@ -284,9 +284,9 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
             return Err(ClarirsError::Unsat);
         }
 
-        let model = z3_optimize.get_model().ok_or_else(|| {
-            ClarirsError::BackendError("Z3", "failed to get model".to_string())
-        })?;
+        let model = z3_optimize
+            .get_model()
+            .ok_or_else(|| ClarirsError::BackendError("Z3", "failed to get model".to_string()))?;
         let eval_result = Self::eval_model(&model, &expr_z3)?;
         let result = DynAst::from_z3(expr.context(), eval_result)?;
 
@@ -304,9 +304,9 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
             return Err(ClarirsError::Unsat);
         }
 
-        let model = z3_optimize.get_model().ok_or_else(|| {
-            ClarirsError::BackendError("Z3", "failed to get model".to_string())
-        })?;
+        let model = z3_optimize
+            .get_model()
+            .ok_or_else(|| ClarirsError::BackendError("Z3", "failed to get model".to_string()))?;
         let eval_result = Self::eval_model(&model, &expr_z3)?;
         let result = DynAst::from_z3(expr.context(), eval_result)?;
 
@@ -340,9 +340,9 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
             return Err(ClarirsError::Unsat);
         }
 
-        let model = z3_optimize.get_model().ok_or_else(|| {
-            ClarirsError::BackendError("Z3", "failed to get model".to_string())
-        })?;
+        let model = z3_optimize
+            .get_model()
+            .ok_or_else(|| ClarirsError::BackendError("Z3", "failed to get model".to_string()))?;
         let expr_z3 = expr.to_z3()?;
         let eval_result = Self::eval_model(&model, &expr_z3)?;
         let result = DynAst::from_z3(expr.context(), eval_result)?;
@@ -376,9 +376,9 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
             return Err(ClarirsError::Unsat);
         }
 
-        let model = z3_optimize.get_model().ok_or_else(|| {
-            ClarirsError::BackendError("Z3", "failed to get model".to_string())
-        })?;
+        let model = z3_optimize
+            .get_model()
+            .ok_or_else(|| ClarirsError::BackendError("Z3", "failed to get model".to_string()))?;
         let expr_z3 = expr.to_z3()?;
         let eval_result = Self::eval_model(&model, &expr_z3)?;
         let result = DynAst::from_z3(expr.context(), eval_result)?;

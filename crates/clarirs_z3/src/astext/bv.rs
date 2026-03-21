@@ -19,14 +19,9 @@ fn get_decl_int_parameter(ast: &Dynamic, param_index: u32) -> u32 {
     }
 }
 
-pub(crate) fn to_z3(
-    ast: &BitVecAst,
-    children: &[Dynamic],
-) -> Result<Dynamic, ClarirsError> {
+pub(crate) fn to_z3(ast: &BitVecAst, children: &[Dynamic]) -> Result<Dynamic, ClarirsError> {
     Ok(match ast.op() {
-        BitVecOp::BVS(s, w) => {
-            Dynamic::from(z3::ast::BV::new_const(s.as_str(), *w))
-        }
+        BitVecOp::BVS(s, w) => Dynamic::from(z3::ast::BV::new_const(s.as_str(), *w)),
         BitVecOp::BVV(v) => {
             let biguint = v.to_biguint();
             if let Ok(val) = u64::try_from(&biguint) {
@@ -263,19 +258,21 @@ pub(crate) fn from_z3<'c>(
                 })?
             } else {
                 BitVec::from_str(&numeral_str, sort_num).map_err(|e| {
-                    ClarirsError::ConversionError(format!("failed to parse bv numeral: {numeral_str}: {e:?}"))
+                    ClarirsError::ConversionError(format!(
+                        "failed to parse bv numeral: {numeral_str}: {e:?}"
+                    ))
                 })?
             };
             ctx.bvv(biguint)
         }
         z3::AstKind::App => {
-            let decl = ast.safe_decl().map_err(|_| {
-                ClarirsError::ConversionError("not an app".to_string())
-            })?;
+            let decl = ast
+                .safe_decl()
+                .map_err(|_| ClarirsError::ConversionError("not an app".to_string()))?;
             let decl_kind = decl.kind();
-            let bv = ast.as_bv().ok_or_else(|| {
-                ClarirsError::ConversionError("expected bv sort".to_string())
-            })?;
+            let bv = ast
+                .as_bv()
+                .ok_or_else(|| ClarirsError::ConversionError("expected bv sort".to_string()))?;
             let width = bv.get_size();
 
             match decl_kind {
@@ -394,23 +391,25 @@ pub(crate) fn from_z3<'c>(
                                     BitVecAst::from_z3(ctx, inner_int.nth_child(0).unwrap())
                                 }
                                 z3::DeclKind::SEQ_INDEX => {
-                                    let haystack = StringAst::from_z3(ctx, inner_int.nth_child(0).unwrap())?;
-                                    let needle = StringAst::from_z3(ctx, inner_int.nth_child(1).unwrap())?;
+                                    let haystack =
+                                        StringAst::from_z3(ctx, inner_int.nth_child(0).unwrap())?;
+                                    let needle =
+                                        StringAst::from_z3(ctx, inner_int.nth_child(1).unwrap())?;
                                     let offset_arg = inner_int.nth_child(2).unwrap();
-                                    let offset_bv_dyn = z3::ast::BV::from_int(
-                                        &offset_arg.as_int().unwrap(),
-                                        64,
-                                    );
+                                    let offset_bv_dyn =
+                                        z3::ast::BV::from_int(&offset_arg.as_int().unwrap(), 64);
                                     let offset_simplified = Dynamic::from(offset_bv_dyn).simplify();
                                     let offset = BitVecAst::from_z3(ctx, offset_simplified)?;
                                     ctx.str_index_of(haystack, needle, offset)
                                 }
                                 z3::DeclKind::STR_TO_INT => {
-                                    let s = StringAst::from_z3(ctx, inner_int.nth_child(0).unwrap())?;
+                                    let s =
+                                        StringAst::from_z3(ctx, inner_int.nth_child(0).unwrap())?;
                                     ctx.str_to_bv(s)
                                 }
                                 z3::DeclKind::SEQ_LENGTH => {
-                                    let s = StringAst::from_z3(ctx, inner_int.nth_child(0).unwrap())?;
+                                    let s =
+                                        StringAst::from_z3(ctx, inner_int.nth_child(0).unwrap())?;
                                     ctx.str_len(s)
                                 }
                                 _ => Err(ClarirsError::ConversionError(format!(

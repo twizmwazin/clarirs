@@ -79,17 +79,10 @@ pub(crate) fn str_replace_z3(
     }
 }
 
-pub(crate) fn to_z3(
-    ast: &StringAst,
-    children: &[Dynamic],
-) -> Result<Dynamic, ClarirsError> {
+pub(crate) fn to_z3(ast: &StringAst, children: &[Dynamic]) -> Result<Dynamic, ClarirsError> {
     Ok(match ast.op() {
-        StringOp::StringS(s) => {
-            Dynamic::from(z3::ast::String::new_const(s.as_str()))
-        }
-        StringOp::StringV(s) => {
-            Dynamic::from(z3::ast::String::from(s.as_str()))
-        }
+        StringOp::StringS(s) => Dynamic::from(z3::ast::String::new_const(s.as_str())),
+        StringOp::StringV(s) => Dynamic::from(z3::ast::String::from(s.as_str())),
         StringOp::StrConcat(..) => {
             let a = child(children, 0)?.as_string().unwrap();
             let b = child(children, 1)?.as_string().unwrap();
@@ -130,9 +123,9 @@ pub(crate) fn from_z3<'c>(
     let ast_kind = ast.kind();
     match ast_kind {
         z3::AstKind::App => {
-            let decl = ast.safe_decl().map_err(|_| {
-                ClarirsError::ConversionError("not an app".to_string())
-            })?;
+            let decl = ast
+                .safe_decl()
+                .map_err(|_| ClarirsError::ConversionError("not an app".to_string()))?;
             let decl_kind = decl.kind();
 
             match decl_kind {
@@ -157,17 +150,11 @@ pub(crate) fn from_z3<'c>(
                     let offset_int = ast.nth_child(1).unwrap();
                     let len_int = ast.nth_child(2).unwrap();
 
-                    let offset_bv = z3::ast::BV::from_int(
-                        &offset_int.as_int().unwrap(),
-                        64,
-                    );
+                    let offset_bv = z3::ast::BV::from_int(&offset_int.as_int().unwrap(), 64);
                     let offset_simplified = Dynamic::from(offset_bv).simplify();
                     let offset = BitVecAst::from_z3(ctx, offset_simplified)?;
 
-                    let len_bv = z3::ast::BV::from_int(
-                        &len_int.as_int().unwrap(),
-                        64,
-                    );
+                    let len_bv = z3::ast::BV::from_int(&len_int.as_int().unwrap(), 64);
                     let len_simplified = Dynamic::from(len_bv).simplify();
                     let len = BitVecAst::from_z3(ctx, len_simplified)?;
 
@@ -175,9 +162,9 @@ pub(crate) fn from_z3<'c>(
                 }
                 z3::DeclKind::INT_TO_STR => {
                     let inner = ast.nth_child(0).unwrap();
-                    let inner_decl = inner.safe_decl().map_err(|_| {
-                        ClarirsError::ConversionError("not an app".to_string())
-                    })?;
+                    let inner_decl = inner
+                        .safe_decl()
+                        .map_err(|_| ClarirsError::ConversionError("not an app".to_string()))?;
                     if inner_decl.kind() == z3::DeclKind::BV2INT {
                         let bv = BitVecAst::from_z3(ctx, inner.nth_child(0).unwrap())?;
                         ctx.bv_to_str(bv)
@@ -205,9 +192,10 @@ pub(crate) fn from_z3<'c>(
                         let decoded_str = decode_custom_unicode(&s);
                         return ctx.stringv(decoded_str);
                     }
-                    Err(ClarirsError::ConversionError(
-                        format!("Failed converting from z3: unknown decl kind {:?} for string", decl_kind),
-                    ))
+                    Err(ClarirsError::ConversionError(format!(
+                        "Failed converting from z3: unknown decl kind {:?} for string",
+                        decl_kind
+                    )))
                 }
             }
         }

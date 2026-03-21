@@ -49,31 +49,20 @@ fn float_from_bv(bv: &z3::ast::BV, ebits: u32, sbits: u32) -> Dynamic {
 }
 
 /// Convert a signed bitvector to float with rounding mode using z3-sys.
-fn signed_bv_to_float(
-    bv: &z3::ast::BV,
-    rm: &RoundingMode,
-    ebits: u32,
-    sbits: u32,
-) -> Dynamic {
+fn signed_bv_to_float(bv: &z3::ast::BV, rm: &RoundingMode, ebits: u32, sbits: u32) -> Dynamic {
     let ctx = bv.get_ctx();
     unsafe {
         let z3_ctx = ctx.get_z3_context();
         let sort = z3_sys::Z3_mk_fpa_sort(z3_ctx, ebits, sbits).unwrap();
         Dynamic::wrap(
             ctx,
-            z3_sys::Z3_mk_fpa_to_fp_signed(z3_ctx, rm.get_z3_ast(), bv.get_z3_ast(), sort)
-                .unwrap(),
+            z3_sys::Z3_mk_fpa_to_fp_signed(z3_ctx, rm.get_z3_ast(), bv.get_z3_ast(), sort).unwrap(),
         )
     }
 }
 
 /// Convert an unsigned bitvector to float with rounding mode using z3-sys.
-fn unsigned_bv_to_float(
-    bv: &z3::ast::BV,
-    rm: &RoundingMode,
-    ebits: u32,
-    sbits: u32,
-) -> Dynamic {
+fn unsigned_bv_to_float(bv: &z3::ast::BV, rm: &RoundingMode, ebits: u32, sbits: u32) -> Dynamic {
     let ctx = bv.get_ctx();
     unsafe {
         let z3_ctx = ctx.get_z3_context();
@@ -86,14 +75,13 @@ fn unsigned_bv_to_float(
     }
 }
 
-pub(crate) fn to_z3(
-    ast: &FloatAst,
-    children: &[Dynamic],
-) -> Result<Dynamic, ClarirsError> {
+pub(crate) fn to_z3(ast: &FloatAst, children: &[Dynamic]) -> Result<Dynamic, ClarirsError> {
     Ok(match ast.op() {
-        FloatOp::FPS(s, sort) => {
-            Dynamic::from(Float::new_const(s.as_str(), sort.exponent, sort.mantissa + 1))
-        }
+        FloatOp::FPS(s, sort) => Dynamic::from(Float::new_const(
+            s.as_str(),
+            sort.exponent,
+            sort.mantissa + 1,
+        )),
         FloatOp::FPV(f) => match f {
             clarirs_core::prelude::Float::F32(val) => Dynamic::from(Float::from_f32(*val)),
             clarirs_core::prelude::Float::F64(val) => Dynamic::from(Float::from_f64(*val)),
@@ -204,13 +192,13 @@ pub(crate) fn from_z3<'c>(
             }
         }
         z3::AstKind::App => {
-            let decl = ast.safe_decl().map_err(|_| {
-                ClarirsError::ConversionError("not an app".to_string())
-            })?;
+            let decl = ast
+                .safe_decl()
+                .map_err(|_| ClarirsError::ConversionError("not an app".to_string()))?;
             let decl_kind = decl.kind();
-            let fp = ast.as_float().ok_or_else(|| {
-                ClarirsError::ConversionError("expected float sort".to_string())
-            })?;
+            let fp = ast
+                .as_float()
+                .ok_or_else(|| ClarirsError::ConversionError("expected float sort".to_string()))?;
             let sort = fp.get_sort();
             let ebits = sort.float_exponent_size().unwrap();
             let sbits = sort.float_significand_size().unwrap();
@@ -317,9 +305,9 @@ pub(crate) fn from_z3<'c>(
 }
 
 fn parse_fprm_from_z3(ast: &Dynamic) -> Result<FPRM, ClarirsError> {
-    let decl = ast.safe_decl().map_err(|_| {
-        ClarirsError::ConversionError("rounding mode is not an app".to_string())
-    })?;
+    let decl = ast
+        .safe_decl()
+        .map_err(|_| ClarirsError::ConversionError("rounding mode is not an app".to_string()))?;
     let decl_kind = decl.kind();
 
     match decl_kind {
