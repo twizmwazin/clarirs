@@ -1,12 +1,12 @@
-use crate::{Z3_CONTEXT, astext::child, check_z3_error, rc::RcAst};
+use crate::{Z3_CONTEXT, astext::child, check_z3_error, checked_ast};
 use clarirs_core::prelude::*;
 use crate::z3_compat as z3;
 use regex::Regex;
 
 use super::AstExtZ3;
 
-fn mk_bv2int(bv: &RcAst) -> Result<RcAst, ClarirsError> {
-    Z3_CONTEXT.with(|&z3_ctx| unsafe { RcAst::try_from(z3::mk_bv2int(z3_ctx, **bv, false)) })
+fn mk_bv2int(bv: &z3::Ast) -> Result<z3::Ast, ClarirsError> {
+    Z3_CONTEXT.with(|&z3_ctx| unsafe { checked_ast(z3::mk_bv2int(z3_ctx, *bv, false)) })
 }
 
 fn decode_custom_unicode(input: &str) -> String {
@@ -23,14 +23,14 @@ fn decode_custom_unicode(input: &str) -> String {
     .into_owned()
 }
 
-pub(crate) fn to_z3(ast: &StringAst, children: &[RcAst]) -> Result<RcAst, ClarirsError> {
+pub(crate) fn to_z3(ast: &StringAst, children: &[z3::Ast]) -> Result<z3::Ast, ClarirsError> {
     Z3_CONTEXT.with(|&z3_ctx| unsafe {
         Ok(match ast.op() {
             StringOp::StringS(s) => {
                 let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
                 let sym = z3::mk_string_symbol(z3_ctx, s_cstr.as_ptr());
                 let sort = z3::mk_seq_sort(z3_ctx, z3::mk_char_sort(z3_ctx));
-                RcAst::try_from(z3::mk_const(z3_ctx, sym, sort))?
+                checked_ast(z3::mk_const(z3_ctx, sym, sort))?
             }
             StringOp::StringV(s) => {
                 let mut encoded = String::new();
@@ -43,12 +43,12 @@ pub(crate) fn to_z3(ast: &StringAst, children: &[RcAst]) -> Result<RcAst, Clarir
                     }
                 }
                 let cstr = std::ffi::CString::new(encoded).unwrap();
-                RcAst::try_from(z3::mk_string(z3_ctx, cstr.as_ptr()))?
+                checked_ast(z3::mk_string(z3_ctx, cstr.as_ptr()))?
             }
             StringOp::StrConcat(..) => {
                 let a = child(children, 0)?;
                 let b = child(children, 1)?;
-                RcAst::try_from(z3::mk_seq_concat(z3_ctx, 2, [**a, **b].as_ptr()))?
+                checked_ast(z3::mk_seq_concat(z3_ctx, 2, [*a, *b].as_ptr()))?
             }
             StringOp::StrSubstr(..) => {
                 let a = child(children, 0)?;
@@ -56,24 +56,24 @@ pub(crate) fn to_z3(ast: &StringAst, children: &[RcAst]) -> Result<RcAst, Clarir
                 let offset_int = mk_bv2int(offset_bv)?;
                 let len_bv = child(children, 2)?;
                 let len_int = mk_bv2int(len_bv)?;
-                RcAst::try_from(z3::mk_seq_extract(z3_ctx, **a, *offset_int, *len_int))?
+                checked_ast(z3::mk_seq_extract(z3_ctx, *a, offset_int, len_int))?
             }
             StringOp::StrReplace(..) => {
                 let a = child(children, 0)?;
                 let b = child(children, 1)?;
                 let c = child(children, 2)?;
-                RcAst::try_from(z3::mk_seq_replace(z3_ctx, **a, **b, **c))?
+                checked_ast(z3::mk_seq_replace(z3_ctx, *a, *b, *c))?
             }
             StringOp::BVToStr(_) => {
                 let a = child(children, 0)?;
                 let int_val = mk_bv2int(a)?;
-                RcAst::try_from(z3::mk_int_to_str(z3_ctx, *int_val))?
+                checked_ast(z3::mk_int_to_str(z3_ctx, int_val))?
             }
             StringOp::ITE(..) => {
                 let cond = child(children, 0)?;
                 let then = child(children, 1)?;
                 let else_ = child(children, 2)?;
-                RcAst::try_from(z3::mk_ite(z3_ctx, **cond, **then, **else_))?
+                checked_ast(z3::mk_ite(z3_ctx, *cond, *then, *else_))?
             }
         })
         .and_then(|maybe_null| {
@@ -85,28 +85,27 @@ pub(crate) fn to_z3(ast: &StringAst, children: &[RcAst]) -> Result<RcAst, Clarir
 
 pub(crate) fn from_z3<'c>(
     ctx: &'c Context<'c>,
-    ast: impl Into<RcAst>,
+    ast: z3::Ast,
 ) -> Result<StringAst<'c>, ClarirsError> {
     Z3_CONTEXT.with(|&z3_ctx| unsafe {
-        let ast = ast.into();
-        let ast_kind = z3::get_ast_kind(z3_ctx, *ast);
+        let ast_kind = z3::get_ast_kind(z3_ctx, ast);
         match ast_kind {
             z3::AstKind::App => {
-                let app = z3::to_app(z3_ctx, *ast);
+                let app = z3::to_app(z3_ctx, ast);
                 let decl = z3::get_app_decl(z3_ctx, app);
                 let decl_kind = z3::get_decl_kind(z3_ctx, decl);
 
                 match decl_kind {
                     // Handle string constants
-                    _ if z3::is_string(z3_ctx, *ast) => {
-                        let string_ptr = z3::get_string(z3_ctx, *ast);
+                    _ if z3::is_string(z3_ctx, ast) => {
+                        let string_ptr = z3::get_string(z3_ctx, ast);
                         let raw_str = std::ffi::CStr::from_ptr(string_ptr).to_str().unwrap();
                         let decoded_str = decode_custom_unicode(raw_str);
                         ctx.stringv(decoded_str)
                     }
                     z3::DeclKind::Uninterpreted => {
                         // Verify it's a string
-                        let sort = z3::get_sort(z3_ctx, *ast);
+                        let sort = z3::get_sort(z3_ctx, ast);
                         let sort_kind = z3::get_sort_kind(z3_ctx, sort);
                         if sort_kind != z3::SortKind::Seq {
                             return Err(ClarirsError::ConversionError(
@@ -119,36 +118,36 @@ pub(crate) fn from_z3<'c>(
                         ctx.strings(name)
                     }
                     z3::DeclKind::SeqConcat => {
-                        let arg0 = RcAst::try_from(z3::get_app_arg(z3_ctx, app, 0))?;
-                        let arg1 = RcAst::try_from(z3::get_app_arg(z3_ctx, app, 1))?;
+                        let arg0 = checked_ast(z3::get_app_arg(z3_ctx, app, 0))?;
+                        let arg1 = checked_ast(z3::get_app_arg(z3_ctx, app, 1))?;
                         let a = StringAst::from_z3(ctx, arg0)?;
                         let b = StringAst::from_z3(ctx, arg1)?;
                         ctx.str_concat(a, b)
                     }
                     z3::DeclKind::SeqExtract => {
-                        let arg0 = RcAst::try_from(z3::get_app_arg(z3_ctx, app, 0))?;
-                        let arg1 = RcAst::try_from(z3::get_app_arg(z3_ctx, app, 1))?;
-                        let arg2 = RcAst::try_from(z3::get_app_arg(z3_ctx, app, 2))?;
+                        let arg0 = checked_ast(z3::get_app_arg(z3_ctx, app, 0))?;
+                        let arg1 = checked_ast(z3::get_app_arg(z3_ctx, app, 1))?;
+                        let arg2 = checked_ast(z3::get_app_arg(z3_ctx, app, 2))?;
                         let a = StringAst::from_z3(ctx, arg0)?;
 
-                        let offset_bv = RcAst::try_from(z3::mk_int2bv(z3_ctx, 64, *arg1))?;
-                        let offset_simplified = RcAst::try_from(z3::simplify(z3_ctx, *offset_bv))?;
+                        let offset_bv = checked_ast(z3::mk_int2bv(z3_ctx, 64, arg1))?;
+                        let offset_simplified = checked_ast(z3::simplify(z3_ctx, offset_bv))?;
                         let offset = BitVecAst::from_z3(ctx, offset_simplified)?;
 
-                        let len_bv = RcAst::try_from(z3::mk_int2bv(z3_ctx, 64, *arg2))?;
-                        let len_simplified = RcAst::try_from(z3::simplify(z3_ctx, *len_bv))?;
+                        let len_bv = checked_ast(z3::mk_int2bv(z3_ctx, 64, arg2))?;
+                        let len_simplified = checked_ast(z3::simplify(z3_ctx, len_bv))?;
                         let len = BitVecAst::from_z3(ctx, len_simplified)?;
 
                         ctx.str_substr(a, offset, len)
                     }
                     z3::DeclKind::IntToStr => {
                         // int.to.str(bv2int(bv)) -> BVToStr(bv)
-                        let arg0 = RcAst::try_from(z3::get_app_arg(z3_ctx, app, 0))?;
-                        let inner_app = z3::to_app(z3_ctx, *arg0);
+                        let arg0 = checked_ast(z3::get_app_arg(z3_ctx, app, 0))?;
+                        let inner_app = z3::to_app(z3_ctx, arg0);
                         let inner_decl = z3::get_app_decl(z3_ctx, inner_app);
                         let inner_kind = z3::get_decl_kind(z3_ctx, inner_decl);
                         if inner_kind == z3::DeclKind::Bv2int {
-                            let bv_arg = RcAst::try_from(z3::get_app_arg(z3_ctx, inner_app, 0))?;
+                            let bv_arg = checked_ast(z3::get_app_arg(z3_ctx, inner_app, 0))?;
                             let bv = BitVecAst::from_z3(ctx, bv_arg)?;
                             ctx.bv_to_str(bv)
                         } else {
@@ -158,18 +157,18 @@ pub(crate) fn from_z3<'c>(
                         }
                     }
                     z3::DeclKind::SeqReplace => {
-                        let arg0 = RcAst::try_from(z3::get_app_arg(z3_ctx, app, 0))?;
-                        let arg1 = RcAst::try_from(z3::get_app_arg(z3_ctx, app, 1))?;
-                        let arg2 = RcAst::try_from(z3::get_app_arg(z3_ctx, app, 2))?;
+                        let arg0 = checked_ast(z3::get_app_arg(z3_ctx, app, 0))?;
+                        let arg1 = checked_ast(z3::get_app_arg(z3_ctx, app, 1))?;
+                        let arg2 = checked_ast(z3::get_app_arg(z3_ctx, app, 2))?;
                         let a = StringAst::from_z3(ctx, arg0)?;
                         let b = StringAst::from_z3(ctx, arg1)?;
                         let c = StringAst::from_z3(ctx, arg2)?;
                         ctx.str_replace(a, b, c)
                     }
                     z3::DeclKind::Ite => {
-                        let cond = RcAst::try_from(z3::get_app_arg(z3_ctx, app, 0))?;
-                        let then = RcAst::try_from(z3::get_app_arg(z3_ctx, app, 1))?;
-                        let else_ = RcAst::try_from(z3::get_app_arg(z3_ctx, app, 2))?;
+                        let cond = checked_ast(z3::get_app_arg(z3_ctx, app, 0))?;
+                        let then = checked_ast(z3::get_app_arg(z3_ctx, app, 1))?;
+                        let else_ = checked_ast(z3::get_app_arg(z3_ctx, app, 2))?;
                         let cond = BoolAst::from_z3(ctx, cond)?;
                         let then = StringAst::from_z3(ctx, then)?;
                         let else_ = StringAst::from_z3(ctx, else_)?;

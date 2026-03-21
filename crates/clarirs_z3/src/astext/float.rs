@@ -2,10 +2,10 @@ use clarirs_core::prelude::*;
 use crate::z3_compat as z3;
 
 use super::AstExtZ3;
-use crate::{Z3_CONTEXT, astext::child, check_z3_error, rc::RcAst};
+use crate::{Z3_CONTEXT, astext::child, check_z3_error, checked_ast};
 
-pub(crate) fn fprm_to_z3(rm: FPRM) -> Result<RcAst, ClarirsError> {
-    RcAst::try_from(Z3_CONTEXT.with(|&z3_ctx| unsafe {
+pub(crate) fn fprm_to_z3(rm: FPRM) -> Result<z3::Ast, ClarirsError> {
+    checked_ast(Z3_CONTEXT.with(|&z3_ctx| unsafe {
         match rm {
             FPRM::NearestTiesToEven => z3::mk_fpa_rne(z3_ctx),
             FPRM::TowardPositive => z3::mk_fpa_rtp(z3_ctx),
@@ -20,23 +20,23 @@ fn fsort_to_z3(sort: FSort) -> z3::Sort {
     Z3_CONTEXT.with(|&z3_ctx| unsafe { z3::mk_fpa_sort(z3_ctx, sort.exponent, sort.mantissa + 1) })
 }
 
-pub(crate) fn to_z3(ast: &FloatAst, children: &[RcAst]) -> Result<RcAst, ClarirsError> {
+pub(crate) fn to_z3(ast: &FloatAst, children: &[z3::Ast]) -> Result<z3::Ast, ClarirsError> {
     Z3_CONTEXT.with(|&z3_ctx| unsafe {
         Ok(match ast.op() {
             FloatOp::FPS(s, sort) => {
                 let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
                 let sym = z3::mk_string_symbol(z3_ctx, s_cstr.as_ptr());
                 let z3_sort = fsort_to_z3(*sort);
-                RcAst::try_from(z3::mk_const(z3_ctx, sym, z3_sort))?
+                checked_ast(z3::mk_const(z3_ctx, sym, z3_sort))?
             }
             FloatOp::FPV(f) => {
                 let sort = fsort_to_z3(f.fsort());
                 match f {
                     Float::F32(val) => {
-                        RcAst::try_from(z3::mk_fpa_numeral_float(z3_ctx, *val, sort))?
+                        checked_ast(z3::mk_fpa_numeral_float(z3_ctx, *val, sort))?
                     }
                     Float::F64(val) => {
-                        RcAst::try_from(z3::mk_fpa_numeral_double(z3_ctx, *val, sort))?
+                        checked_ast(z3::mk_fpa_numeral_double(z3_ctx, *val, sort))?
                     }
                 }
             }
@@ -46,65 +46,65 @@ pub(crate) fn to_z3(ast: &FloatAst, children: &[RcAst]) -> Result<RcAst, Clarirs
                 let rm_ast = fprm_to_z3(*rm)?;
                 let a = child(children, 0)?;
                 let b = child(children, 1)?;
-                RcAst::try_from(z3::mk_fpa_add(z3_ctx, *rm_ast, **a, **b))?
+                checked_ast(z3::mk_fpa_add(z3_ctx, rm_ast, *a, *b))?
             }
             FloatOp::FpSub(_, _, rm) => {
                 let rm_ast = fprm_to_z3(*rm)?;
                 let a = child(children, 0)?;
                 let b = child(children, 1)?;
-                RcAst::try_from(z3::mk_fpa_sub(z3_ctx, *rm_ast, **a, **b))?
+                checked_ast(z3::mk_fpa_sub(z3_ctx, rm_ast, *a, *b))?
             }
             FloatOp::FpMul(_, _, rm) => {
                 let rm_ast = fprm_to_z3(*rm)?;
                 let a = child(children, 0)?;
                 let b = child(children, 1)?;
-                RcAst::try_from(z3::mk_fpa_mul(z3_ctx, *rm_ast, **a, **b))?
+                checked_ast(z3::mk_fpa_mul(z3_ctx, rm_ast, *a, *b))?
             }
             FloatOp::FpDiv(_, _, rm) => {
                 let rm_ast = fprm_to_z3(*rm)?;
                 let a = child(children, 0)?;
                 let b = child(children, 1)?;
-                RcAst::try_from(z3::mk_fpa_div(z3_ctx, *rm_ast, **a, **b))?
+                checked_ast(z3::mk_fpa_div(z3_ctx, rm_ast, *a, *b))?
             }
             FloatOp::FpSqrt(_, rm) => {
                 let rm_ast = fprm_to_z3(*rm)?;
                 let a = child(children, 0)?;
-                RcAst::try_from(z3::mk_fpa_sqrt(z3_ctx, *rm_ast, **a))?
+                checked_ast(z3::mk_fpa_sqrt(z3_ctx, rm_ast, *a))?
             }
             FloatOp::FpToFp(_, sort, rm) => {
                 let rm_ast = fprm_to_z3(*rm)?;
                 let a = child(children, 0)?;
                 let z3_sort = fsort_to_z3(*sort);
-                RcAst::try_from(z3::mk_fpa_to_fp_float(z3_ctx, *rm_ast, **a, z3_sort))?
+                checked_ast(z3::mk_fpa_to_fp_float(z3_ctx, rm_ast, *a, z3_sort))?
             }
             FloatOp::FpFP(..) => {
                 let sign = child(children, 0)?;
                 let exp = child(children, 1)?;
                 let sig = child(children, 2)?;
-                RcAst::try_from(z3::mk_fpa_fp(z3_ctx, **sign, **exp, **sig))?
+                checked_ast(z3::mk_fpa_fp(z3_ctx, *sign, *exp, *sig))?
             }
             FloatOp::BvToFp(_, sort) => {
                 let a = child(children, 0)?;
                 let z3_sort = fsort_to_z3(*sort);
-                RcAst::try_from(z3::mk_fpa_to_fp_bv(z3_ctx, **a, z3_sort))?
+                checked_ast(z3::mk_fpa_to_fp_bv(z3_ctx, *a, z3_sort))?
             }
             FloatOp::BvToFpSigned(_, sort, rm) => {
                 let rm_ast = fprm_to_z3(*rm)?;
                 let a = child(children, 0)?;
                 let z3_sort = fsort_to_z3(*sort);
-                RcAst::try_from(z3::mk_fpa_to_fp_signed(z3_ctx, *rm_ast, **a, z3_sort))?
+                checked_ast(z3::mk_fpa_to_fp_signed(z3_ctx, rm_ast, *a, z3_sort))?
             }
             FloatOp::BvToFpUnsigned(_, sort, rm) => {
                 let rm_ast = fprm_to_z3(*rm)?;
                 let a = child(children, 0)?;
                 let z3_sort = fsort_to_z3(*sort);
-                RcAst::try_from(z3::mk_fpa_to_fp_unsigned(z3_ctx, *rm_ast, **a, z3_sort))?
+                checked_ast(z3::mk_fpa_to_fp_unsigned(z3_ctx, rm_ast, *a, z3_sort))?
             }
             FloatOp::ITE(..) => {
                 let cond = child(children, 0)?;
                 let then = child(children, 1)?;
                 let else_ = child(children, 2)?;
-                RcAst::try_from(z3::mk_ite(z3_ctx, **cond, **then, **else_))?
+                checked_ast(z3::mk_ite(z3_ctx, *cond, *then, *else_))?
             }
         })
         .and_then(|maybe_null| {
@@ -116,15 +116,14 @@ pub(crate) fn to_z3(ast: &FloatAst, children: &[RcAst]) -> Result<RcAst, Clarirs
 
 pub(crate) fn from_z3<'c>(
     ctx: &'c Context<'c>,
-    ast: impl Into<RcAst>,
+    ast: z3::Ast,
 ) -> Result<FloatAst<'c>, ClarirsError> {
     Z3_CONTEXT.with(|z3_ctx| unsafe {
-        let ast = ast.into();
-        let ast_kind = z3::get_ast_kind(*z3_ctx, *ast);
+        let ast_kind = z3::get_ast_kind(*z3_ctx, ast);
         match ast_kind {
             z3::AstKind::Numeral => {
                 // Get the sort to determine if it's f32 or f64
-                let sort = z3::get_sort(*z3_ctx, *ast);
+                let sort = z3::get_sort(*z3_ctx, ast);
                 let ebits = z3::fpa_get_ebits(*z3_ctx, sort);
                 let sbits = z3::fpa_get_sbits(*z3_ctx, sort);
 
@@ -132,7 +131,7 @@ pub(crate) fn from_z3<'c>(
                 let fsort = FSort::new(ebits, sbits - 1);
 
                 // Get the numeral value as a string and parse it
-                let numeral_string = z3::get_numeral_string(*z3_ctx, *ast);
+                let numeral_string = z3::get_numeral_string(*z3_ctx, ast);
                 let numeral_str = std::ffi::CStr::from_ptr(numeral_string).to_str().unwrap();
 
                 // Parse the float value based on the sort
@@ -155,10 +154,10 @@ pub(crate) fn from_z3<'c>(
                 }
             }
             z3::AstKind::App => {
-                let app = z3::to_app(*z3_ctx, *ast);
+                let app = z3::to_app(*z3_ctx, ast);
                 let decl = z3::get_app_decl(*z3_ctx, app);
                 let decl_kind = z3::get_decl_kind(*z3_ctx, decl);
-                let sort = z3::get_sort(*z3_ctx, *ast);
+                let sort = z3::get_sort(*z3_ctx, ast);
                 let ebits = z3::fpa_get_ebits(*z3_ctx, sort);
                 let sbits = z3::fpa_get_sbits(*z3_ctx, sort);
                 let fsort = FSort::new(ebits, sbits - 1);
@@ -169,14 +168,14 @@ pub(crate) fn from_z3<'c>(
                         // Extract the float value from Z3
                         // For f32/f64, we can use get_numeral_double
                         if fsort == FSort::f32() {
-                            let val = z3::get_numeral_double(*z3_ctx, *ast) as f32;
+                            let val = z3::get_numeral_double(*z3_ctx, ast) as f32;
                             ctx.fpv(Float::F32(val))
                         } else if fsort == FSort::f64() {
-                            let val = z3::get_numeral_double(*z3_ctx, *ast);
+                            let val = z3::get_numeral_double(*z3_ctx, ast);
                             ctx.fpv(Float::F64(val))
                         } else {
                             // For other formats, use f64 as fallback
-                            let val = z3::get_numeral_double(*z3_ctx, *ast);
+                            let val = z3::get_numeral_double(*z3_ctx, ast);
                             ctx.fpv(Float::F64(val))
                         }
                     }
@@ -193,12 +192,12 @@ pub(crate) fn from_z3<'c>(
                         ctx.fps(name, fsort)
                     }
                     z3::DeclKind::FpaNeg => {
-                        let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
+                        let arg = checked_ast(z3::get_app_arg(*z3_ctx, app, 0))?;
                         let inner = FloatAst::from_z3(ctx, arg)?;
                         ctx.fp_neg(inner)
                     }
                     z3::DeclKind::FpaAbs => {
-                        let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
+                        let arg = checked_ast(z3::get_app_arg(*z3_ctx, app, 0))?;
                         let inner = FloatAst::from_z3(ctx, arg)?;
                         ctx.fp_abs(inner)
                     }
@@ -206,11 +205,11 @@ pub(crate) fn from_z3<'c>(
                     | z3::DeclKind::FpaSub
                     | z3::DeclKind::FpaMul
                     | z3::DeclKind::FpaDiv => {
-                        let rm_arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
-                        let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
-                        let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 2))?;
+                        let rm_arg = checked_ast(z3::get_app_arg(*z3_ctx, app, 0))?;
+                        let arg0 = checked_ast(z3::get_app_arg(*z3_ctx, app, 1))?;
+                        let arg1 = checked_ast(z3::get_app_arg(*z3_ctx, app, 2))?;
 
-                        let rm = parse_fprm_from_z3(*z3_ctx, *rm_arg)?;
+                        let rm = parse_fprm_from_z3(*z3_ctx, rm_arg)?;
                         let a = FloatAst::from_z3(ctx, arg0)?;
                         let b = FloatAst::from_z3(ctx, arg1)?;
 
@@ -223,33 +222,28 @@ pub(crate) fn from_z3<'c>(
                         }
                     }
                     z3::DeclKind::FpaSqrt => {
-                        let rm_arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
-                        let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
+                        let rm_arg = checked_ast(z3::get_app_arg(*z3_ctx, app, 0))?;
+                        let arg = checked_ast(z3::get_app_arg(*z3_ctx, app, 1))?;
 
-                        let rm = parse_fprm_from_z3(*z3_ctx, *rm_arg)?;
+                        let rm = parse_fprm_from_z3(*z3_ctx, rm_arg)?;
                         let inner = FloatAst::from_z3(ctx, arg)?;
                         ctx.fp_sqrt(inner, rm)
                     }
                     z3::DeclKind::FpaToFp => {
-                        // Z3 uses FpaToFp for several conversions:
-                        //   1 arg:  BvToFp(bv)           — reinterpret BV bits as FP
-                        //   2 args: [rm, fp] → FpToFp    — convert between FP sorts
-                        //           [rm, bv] → BvToFpSigned — signed int to FP
                         let num_args = z3::get_app_num_args(*z3_ctx, app);
 
                         if num_args == 1 {
                             // BvToFp: no rounding mode, single BV operand
-                            let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
+                            let arg = checked_ast(z3::get_app_arg(*z3_ctx, app, 0))?;
                             let bv = crate::astext::bv::from_z3(ctx, arg)?;
                             ctx.bv_to_fp(bv, fsort)
                         } else if num_args == 2 {
                             // Has rounding mode as arg0, operand as arg1
-                            let rm_arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
-                            let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
-                            let rm = parse_fprm_from_z3(*z3_ctx, *rm_arg)?;
+                            let rm_arg = checked_ast(z3::get_app_arg(*z3_ctx, app, 0))?;
+                            let arg = checked_ast(z3::get_app_arg(*z3_ctx, app, 1))?;
+                            let rm = parse_fprm_from_z3(*z3_ctx, rm_arg)?;
 
-                            // Use sort-kind of the operand to determine FP vs BV
-                            let arg_sort = z3::get_sort(*z3_ctx, *arg);
+                            let arg_sort = z3::get_sort(*z3_ctx, arg);
                             let sort_kind = z3::get_sort_kind(*z3_ctx, arg_sort);
                             match sort_kind {
                                 z3::SortKind::FloatingPoint => {
@@ -271,9 +265,9 @@ pub(crate) fn from_z3<'c>(
                         }
                     }
                     z3::DeclKind::FpaFp => {
-                        let sign = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
-                        let exp = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
-                        let sig = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 2))?;
+                        let sign = checked_ast(z3::get_app_arg(*z3_ctx, app, 0))?;
+                        let exp = checked_ast(z3::get_app_arg(*z3_ctx, app, 1))?;
+                        let sig = checked_ast(z3::get_app_arg(*z3_ctx, app, 2))?;
 
                         let sign_bv = crate::astext::bv::from_z3(ctx, sign)?;
                         let exp_bv = crate::astext::bv::from_z3(ctx, exp)?;
@@ -282,9 +276,9 @@ pub(crate) fn from_z3<'c>(
                         ctx.fp_fp(sign_bv, exp_bv, sig_bv)
                     }
                     z3::DeclKind::Ite => {
-                        let cond = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
-                        let then = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
-                        let else_ = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 2))?;
+                        let cond = checked_ast(z3::get_app_arg(*z3_ctx, app, 0))?;
+                        let then = checked_ast(z3::get_app_arg(*z3_ctx, app, 1))?;
+                        let else_ = checked_ast(z3::get_app_arg(*z3_ctx, app, 2))?;
                         let cond = crate::astext::bool::from_z3(ctx, cond)?;
                         let then = FloatAst::from_z3(ctx, then)?;
                         let else_ = FloatAst::from_z3(ctx, else_)?;

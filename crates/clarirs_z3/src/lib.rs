@@ -1,5 +1,5 @@
+mod ast_helpers;
 mod astext;
-mod rc;
 mod solver;
 mod z3_compat;
 
@@ -7,7 +7,6 @@ pub use solver::Z3Solver;
 
 use clarirs_core::cache::GenericCache;
 use z3_compat as z3;
-use rc::RcAst;
 
 thread_local! {
     static Z3_CONTEXT: z3::Context = unsafe {
@@ -18,7 +17,7 @@ thread_local! {
         ctx
     };
 
-    static Z3_AST_CACHE: GenericCache<u64, RcAst> = GenericCache::default();
+    static Z3_AST_CACHE: GenericCache<u64, z3::Ast> = GenericCache::default();
 }
 
 pub(crate) fn check_z3_error() -> Result<(), clarirs_core::error::ClarirsError> {
@@ -33,4 +32,10 @@ pub(crate) fn check_z3_error() -> Result<(), clarirs_core::error::ClarirsError> 
             Ok(())
         }
     })
+}
+
+/// Check for Z3 errors after creating an AST and return it.
+pub(crate) fn checked_ast(ast: z3::Ast) -> Result<z3::Ast, clarirs_core::error::ClarirsError> {
+    check_z3_error()?;
+    Ok(ast)
 }
