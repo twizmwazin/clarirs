@@ -19,6 +19,23 @@ fn get_decl_int_parameter(ast: &Dynamic, param_index: u32) -> u32 {
     }
 }
 
+/// Fold a binary BV operation across all children.
+fn fold_bv(children: &[Dynamic], op: fn(&z3::ast::BV, &z3::ast::BV) -> z3::ast::BV) -> Dynamic {
+    let mut result = children[0].as_bv().unwrap();
+    for c in &children[1..] {
+        result = op(&result, &c.as_bv().unwrap());
+    }
+    Dynamic::from(result)
+}
+
+/// Apply a binary BV operation to two children.
+fn binop_bv(children: &[Dynamic], op: fn(&z3::ast::BV, &z3::ast::BV) -> z3::ast::BV) -> Dynamic {
+    Dynamic::from(op(
+        &children[0].as_bv().unwrap(),
+        &children[1].as_bv().unwrap(),
+    ))
+}
+
 pub(crate) fn to_z3(ast: &BitVecAst, children: &[Dynamic]) -> Result<Dynamic, ClarirsError> {
     Ok(match ast.op() {
         BitVecOp::BVS(s, w) => Dynamic::from(z3::ast::BV::new_const(s.as_str(), *w)),
@@ -31,99 +48,23 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[Dynamic]) -> Result<Dynamic, Cl
                 Dynamic::from(z3::ast::BV::from_int(&int_ast, v.len()))
             }
         }
-        BitVecOp::Not(..) => {
-            let a = child(children, 0)?.as_bv().unwrap();
-            Dynamic::from(a.bvnot())
-        }
-        BitVecOp::Neg(..) => {
-            let a = child(children, 0)?.as_bv().unwrap();
-            Dynamic::from(a.bvneg())
-        }
-        BitVecOp::And(..) => {
-            let mut result = child(children, 0)?.as_bv().unwrap();
-            for c in &children[1..] {
-                result = result.bvand(&c.as_bv().unwrap());
-            }
-            Dynamic::from(result)
-        }
-        BitVecOp::Or(..) => {
-            let mut result = child(children, 0)?.as_bv().unwrap();
-            for c in &children[1..] {
-                result = result.bvor(&c.as_bv().unwrap());
-            }
-            Dynamic::from(result)
-        }
-        BitVecOp::Xor(..) => {
-            let mut result = child(children, 0)?.as_bv().unwrap();
-            for c in &children[1..] {
-                result = result.bvxor(&c.as_bv().unwrap());
-            }
-            Dynamic::from(result)
-        }
-        BitVecOp::Add(..) => {
-            let mut result = child(children, 0)?.as_bv().unwrap();
-            for c in &children[1..] {
-                result = result.bvadd(&c.as_bv().unwrap());
-            }
-            Dynamic::from(result)
-        }
-        BitVecOp::Sub(..) => {
-            let a = child(children, 0)?.as_bv().unwrap();
-            let b = child(children, 1)?.as_bv().unwrap();
-            Dynamic::from(a.bvsub(&b))
-        }
-        BitVecOp::Mul(..) => {
-            let mut result = child(children, 0)?.as_bv().unwrap();
-            for c in &children[1..] {
-                result = result.bvmul(&c.as_bv().unwrap());
-            }
-            Dynamic::from(result)
-        }
-        BitVecOp::UDiv(..) => {
-            let a = child(children, 0)?.as_bv().unwrap();
-            let b = child(children, 1)?.as_bv().unwrap();
-            Dynamic::from(a.bvudiv(&b))
-        }
-        BitVecOp::SDiv(..) => {
-            let a = child(children, 0)?.as_bv().unwrap();
-            let b = child(children, 1)?.as_bv().unwrap();
-            Dynamic::from(a.bvsdiv(&b))
-        }
-        BitVecOp::URem(..) => {
-            let a = child(children, 0)?.as_bv().unwrap();
-            let b = child(children, 1)?.as_bv().unwrap();
-            Dynamic::from(a.bvurem(&b))
-        }
-        BitVecOp::SRem(..) => {
-            let a = child(children, 0)?.as_bv().unwrap();
-            let b = child(children, 1)?.as_bv().unwrap();
-            Dynamic::from(a.bvsrem(&b))
-        }
-        BitVecOp::ShL(..) => {
-            let a = child(children, 0)?.as_bv().unwrap();
-            let b = child(children, 1)?.as_bv().unwrap();
-            Dynamic::from(a.bvshl(&b))
-        }
-        BitVecOp::LShR(..) => {
-            let a = child(children, 0)?.as_bv().unwrap();
-            let b = child(children, 1)?.as_bv().unwrap();
-            Dynamic::from(a.bvlshr(&b))
-        }
-        BitVecOp::AShR(..) => {
-            let a = child(children, 0)?.as_bv().unwrap();
-            let b = child(children, 1)?.as_bv().unwrap();
-            Dynamic::from(a.bvashr(&b))
-        }
-        BitVecOp::RotateLeft(..) => {
-            let a = child(children, 0)?.as_bv().unwrap();
-            let b = child(children, 1)?.as_bv().unwrap();
-            Dynamic::from(a.bvrotl(&b))
-        }
-        BitVecOp::RotateRight(..) => {
-            let a = child(children, 0)?.as_bv().unwrap();
-            let b = child(children, 1)?.as_bv().unwrap();
-            Dynamic::from(a.bvrotr(&b))
-        }
+        BitVecOp::Not(..) => Dynamic::from(child(children, 0)?.as_bv().unwrap().bvnot()),
+        BitVecOp::Neg(..) => Dynamic::from(child(children, 0)?.as_bv().unwrap().bvneg()),
+        BitVecOp::And(..) => fold_bv(children, z3::ast::BV::bvand),
+        BitVecOp::Or(..) => fold_bv(children, z3::ast::BV::bvor),
+        BitVecOp::Xor(..) => fold_bv(children, z3::ast::BV::bvxor),
+        BitVecOp::Add(..) => fold_bv(children, z3::ast::BV::bvadd),
+        BitVecOp::Sub(..) => binop_bv(children, z3::ast::BV::bvsub),
+        BitVecOp::Mul(..) => fold_bv(children, z3::ast::BV::bvmul),
+        BitVecOp::UDiv(..) => binop_bv(children, z3::ast::BV::bvudiv),
+        BitVecOp::SDiv(..) => binop_bv(children, z3::ast::BV::bvsdiv),
+        BitVecOp::URem(..) => binop_bv(children, z3::ast::BV::bvurem),
+        BitVecOp::SRem(..) => binop_bv(children, z3::ast::BV::bvsrem),
+        BitVecOp::ShL(..) => binop_bv(children, z3::ast::BV::bvshl),
+        BitVecOp::LShR(..) => binop_bv(children, z3::ast::BV::bvlshr),
+        BitVecOp::AShR(..) => binop_bv(children, z3::ast::BV::bvashr),
+        BitVecOp::RotateLeft(..) => binop_bv(children, z3::ast::BV::bvrotl),
+        BitVecOp::RotateRight(..) => binop_bv(children, z3::ast::BV::bvrotr),
         BitVecOp::ZeroExt(_, i) => {
             let a = child(children, 0)?.as_bv().unwrap();
             Dynamic::from(a.zero_ext(*i))

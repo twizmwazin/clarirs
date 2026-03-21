@@ -27,16 +27,6 @@ pub(crate) fn to_z3(ast: &BoolAst, children: &[Dynamic]) -> Result<Dynamic, Clar
             let b = child(children, 1)?.as_bool().unwrap();
             Dynamic::from(a.xor(&b))
         }
-        BooleanOp::BoolEq(..) => {
-            let a = child(children, 0)?;
-            let b = child(children, 1)?;
-            Dynamic::from(a.eq(b))
-        }
-        BooleanOp::BoolNeq(..) => {
-            let a = child(children, 0)?;
-            let b = child(children, 1)?;
-            Dynamic::from(Dynamic::distinct(&[a, b]))
-        }
         BooleanOp::ITE(..) => {
             let cond = child(children, 0)?.as_bool().unwrap();
             let then = child(children, 1)?;
@@ -45,113 +35,120 @@ pub(crate) fn to_z3(ast: &BoolAst, children: &[Dynamic]) -> Result<Dynamic, Clar
         }
 
         // BV comparisons
-        BooleanOp::Eq(..) => {
-            let a = child(children, 0)?;
-            let b = child(children, 1)?;
-            Dynamic::from(a.eq(b))
+        BooleanOp::Eq(..) | BooleanOp::BoolEq(..) | BooleanOp::StrEq(..) => {
+            Dynamic::from(child(children, 0)?.eq(child(children, 1)?))
         }
-        BooleanOp::Neq(..) => {
-            let a = child(children, 0)?;
-            let b = child(children, 1)?;
-            Dynamic::from(Dynamic::distinct(&[a, b]))
-        }
-        BooleanOp::ULT(..) => {
-            let a = child(children, 0)?.as_bv().unwrap();
-            let b = child(children, 1)?.as_bv().unwrap();
-            Dynamic::from(a.bvult(&b))
-        }
-        BooleanOp::ULE(..) => {
-            let a = child(children, 0)?.as_bv().unwrap();
-            let b = child(children, 1)?.as_bv().unwrap();
-            Dynamic::from(a.bvule(&b))
-        }
-        BooleanOp::UGT(..) => {
-            let a = child(children, 0)?.as_bv().unwrap();
-            let b = child(children, 1)?.as_bv().unwrap();
-            Dynamic::from(a.bvugt(&b))
-        }
-        BooleanOp::UGE(..) => {
-            let a = child(children, 0)?.as_bv().unwrap();
-            let b = child(children, 1)?.as_bv().unwrap();
-            Dynamic::from(a.bvuge(&b))
-        }
-        BooleanOp::SLT(..) => {
-            let a = child(children, 0)?.as_bv().unwrap();
-            let b = child(children, 1)?.as_bv().unwrap();
-            Dynamic::from(a.bvslt(&b))
-        }
-        BooleanOp::SLE(..) => {
-            let a = child(children, 0)?.as_bv().unwrap();
-            let b = child(children, 1)?.as_bv().unwrap();
-            Dynamic::from(a.bvsle(&b))
-        }
-        BooleanOp::SGT(..) => {
-            let a = child(children, 0)?.as_bv().unwrap();
-            let b = child(children, 1)?.as_bv().unwrap();
-            Dynamic::from(a.bvsgt(&b))
-        }
-        BooleanOp::SGE(..) => {
-            let a = child(children, 0)?.as_bv().unwrap();
-            let b = child(children, 1)?.as_bv().unwrap();
-            Dynamic::from(a.bvsge(&b))
-        }
+        BooleanOp::Neq(..)
+        | BooleanOp::BoolNeq(..)
+        | BooleanOp::StrNeq(..)
+        | BooleanOp::FpNeq(..) => Dynamic::from(Dynamic::distinct(&[
+            child(children, 0)?,
+            child(children, 1)?,
+        ])),
+        BooleanOp::ULT(..) => Dynamic::from(
+            child(children, 0)?
+                .as_bv()
+                .unwrap()
+                .bvult(&child(children, 1)?.as_bv().unwrap()),
+        ),
+        BooleanOp::ULE(..) => Dynamic::from(
+            child(children, 0)?
+                .as_bv()
+                .unwrap()
+                .bvule(&child(children, 1)?.as_bv().unwrap()),
+        ),
+        BooleanOp::UGT(..) => Dynamic::from(
+            child(children, 0)?
+                .as_bv()
+                .unwrap()
+                .bvugt(&child(children, 1)?.as_bv().unwrap()),
+        ),
+        BooleanOp::UGE(..) => Dynamic::from(
+            child(children, 0)?
+                .as_bv()
+                .unwrap()
+                .bvuge(&child(children, 1)?.as_bv().unwrap()),
+        ),
+        BooleanOp::SLT(..) => Dynamic::from(
+            child(children, 0)?
+                .as_bv()
+                .unwrap()
+                .bvslt(&child(children, 1)?.as_bv().unwrap()),
+        ),
+        BooleanOp::SLE(..) => Dynamic::from(
+            child(children, 0)?
+                .as_bv()
+                .unwrap()
+                .bvsle(&child(children, 1)?.as_bv().unwrap()),
+        ),
+        BooleanOp::SGT(..) => Dynamic::from(
+            child(children, 0)?
+                .as_bv()
+                .unwrap()
+                .bvsgt(&child(children, 1)?.as_bv().unwrap()),
+        ),
+        BooleanOp::SGE(..) => Dynamic::from(
+            child(children, 0)?
+                .as_bv()
+                .unwrap()
+                .bvsge(&child(children, 1)?.as_bv().unwrap()),
+        ),
 
         // FP comparisons
-        BooleanOp::FpEq(..) => {
-            let a = child(children, 0)?.as_float().unwrap();
-            let b = child(children, 1)?.as_float().unwrap();
-            Dynamic::from(a.eq_fpa(&b))
-        }
-        BooleanOp::FpNeq(..) => {
-            let a = child(children, 0)?;
-            let b = child(children, 1)?;
-            Dynamic::from(Dynamic::distinct(&[a, b]))
-        }
-        BooleanOp::FpLt(..) => {
-            let a = child(children, 0)?.as_float().unwrap();
-            let b = child(children, 1)?.as_float().unwrap();
-            Dynamic::from(a.lt(&b))
-        }
-        BooleanOp::FpLeq(..) => {
-            let a = child(children, 0)?.as_float().unwrap();
-            let b = child(children, 1)?.as_float().unwrap();
-            Dynamic::from(a.le(&b))
-        }
-        BooleanOp::FpGt(..) => {
-            let a = child(children, 0)?.as_float().unwrap();
-            let b = child(children, 1)?.as_float().unwrap();
-            Dynamic::from(a.gt(&b))
-        }
-        BooleanOp::FpGeq(..) => {
-            let a = child(children, 0)?.as_float().unwrap();
-            let b = child(children, 1)?.as_float().unwrap();
-            Dynamic::from(a.ge(&b))
-        }
-        BooleanOp::FpIsNan(..) => {
-            let a = child(children, 0)?.as_float().unwrap();
-            Dynamic::from(a.is_nan())
-        }
+        BooleanOp::FpEq(..) => Dynamic::from(
+            child(children, 0)?
+                .as_float()
+                .unwrap()
+                .eq_fpa(&child(children, 1)?.as_float().unwrap()),
+        ),
+        BooleanOp::FpLt(..) => Dynamic::from(
+            child(children, 0)?
+                .as_float()
+                .unwrap()
+                .lt(&child(children, 1)?.as_float().unwrap()),
+        ),
+        BooleanOp::FpLeq(..) => Dynamic::from(
+            child(children, 0)?
+                .as_float()
+                .unwrap()
+                .le(&child(children, 1)?.as_float().unwrap()),
+        ),
+        BooleanOp::FpGt(..) => Dynamic::from(
+            child(children, 0)?
+                .as_float()
+                .unwrap()
+                .gt(&child(children, 1)?.as_float().unwrap()),
+        ),
+        BooleanOp::FpGeq(..) => Dynamic::from(
+            child(children, 0)?
+                .as_float()
+                .unwrap()
+                .ge(&child(children, 1)?.as_float().unwrap()),
+        ),
+        BooleanOp::FpIsNan(..) => Dynamic::from(child(children, 0)?.as_float().unwrap().is_nan()),
         BooleanOp::FpIsInf(..) => {
-            let a = child(children, 0)?.as_float().unwrap();
-            Dynamic::from(a.is_infinite())
+            Dynamic::from(child(children, 0)?.as_float().unwrap().is_infinite())
         }
 
         // String comparisons
-        BooleanOp::StrContains(..) => {
-            let a = child(children, 0)?.as_string().unwrap();
-            let b = child(children, 1)?.as_string().unwrap();
-            Dynamic::from(a.contains(&b))
-        }
-        BooleanOp::StrPrefixOf(..) => {
-            let a = child(children, 0)?.as_string().unwrap();
-            let b = child(children, 1)?.as_string().unwrap();
-            Dynamic::from(a.prefix(&b))
-        }
-        BooleanOp::StrSuffixOf(..) => {
-            let a = child(children, 0)?.as_string().unwrap();
-            let b = child(children, 1)?.as_string().unwrap();
-            Dynamic::from(a.suffix(&b))
-        }
+        BooleanOp::StrContains(..) => Dynamic::from(
+            child(children, 0)?
+                .as_string()
+                .unwrap()
+                .contains(&child(children, 1)?.as_string().unwrap()),
+        ),
+        BooleanOp::StrPrefixOf(..) => Dynamic::from(
+            child(children, 0)?
+                .as_string()
+                .unwrap()
+                .prefix(&child(children, 1)?.as_string().unwrap()),
+        ),
+        BooleanOp::StrSuffixOf(..) => Dynamic::from(
+            child(children, 0)?
+                .as_string()
+                .unwrap()
+                .suffix(&child(children, 1)?.as_string().unwrap()),
+        ),
         BooleanOp::StrIsDigit(..) => {
             let a = child(children, 0)?.as_string().unwrap();
             // str.to_int returns -1 for non-digit strings, so >= 0 means all digits
@@ -163,16 +160,6 @@ pub(crate) fn to_z3(ast: &BoolAst, children: &[Dynamic]) -> Result<Dynamic, Clar
             let zero_int = z3::ast::Int::from_i64(0);
             let is_non_empty = str_len.gt(&zero_int);
             Dynamic::from(Bool::and(&[&is_non_negative, &is_non_empty]))
-        }
-        BooleanOp::StrEq(..) => {
-            let a = child(children, 0)?;
-            let b = child(children, 1)?;
-            Dynamic::from(a.eq(b))
-        }
-        BooleanOp::StrNeq(..) => {
-            let a = child(children, 0)?;
-            let b = child(children, 1)?;
-            Dynamic::from(Dynamic::distinct(&[a, b]))
         }
     })
 }

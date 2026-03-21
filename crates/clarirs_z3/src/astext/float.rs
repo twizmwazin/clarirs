@@ -35,15 +35,20 @@ pub(crate) fn float_from_sign_exp_sig(
     }
 }
 
+/// Create a Z3 floating-point sort with the given exponent and significand bit widths.
+unsafe fn mk_fpa_sort(z3_ctx: z3_sys::Z3_context, ebits: u32, sbits: u32) -> z3_sys::Z3_sort {
+    z3_sys::Z3_mk_fpa_sort(z3_ctx, ebits, sbits).unwrap()
+}
+
 /// Interpret a bitvector as a float of the given sort using z3-sys.
 fn float_from_bv(bv: &z3::ast::BV, ebits: u32, sbits: u32) -> Dynamic {
     let ctx = bv.get_ctx();
     unsafe {
         let z3_ctx = ctx.get_z3_context();
-        let sort = z3_sys::Z3_mk_fpa_sort(z3_ctx, ebits, sbits).unwrap();
         Dynamic::wrap(
             ctx,
-            z3_sys::Z3_mk_fpa_to_fp_bv(z3_ctx, bv.get_z3_ast(), sort).unwrap(),
+            z3_sys::Z3_mk_fpa_to_fp_bv(z3_ctx, bv.get_z3_ast(), mk_fpa_sort(z3_ctx, ebits, sbits))
+                .unwrap(),
         )
     }
 }
@@ -53,10 +58,15 @@ fn signed_bv_to_float(bv: &z3::ast::BV, rm: &RoundingMode, ebits: u32, sbits: u3
     let ctx = bv.get_ctx();
     unsafe {
         let z3_ctx = ctx.get_z3_context();
-        let sort = z3_sys::Z3_mk_fpa_sort(z3_ctx, ebits, sbits).unwrap();
         Dynamic::wrap(
             ctx,
-            z3_sys::Z3_mk_fpa_to_fp_signed(z3_ctx, rm.get_z3_ast(), bv.get_z3_ast(), sort).unwrap(),
+            z3_sys::Z3_mk_fpa_to_fp_signed(
+                z3_ctx,
+                rm.get_z3_ast(),
+                bv.get_z3_ast(),
+                mk_fpa_sort(z3_ctx, ebits, sbits),
+            )
+            .unwrap(),
         )
     }
 }
@@ -66,11 +76,15 @@ fn unsigned_bv_to_float(bv: &z3::ast::BV, rm: &RoundingMode, ebits: u32, sbits: 
     let ctx = bv.get_ctx();
     unsafe {
         let z3_ctx = ctx.get_z3_context();
-        let sort = z3_sys::Z3_mk_fpa_sort(z3_ctx, ebits, sbits).unwrap();
         Dynamic::wrap(
             ctx,
-            z3_sys::Z3_mk_fpa_to_fp_unsigned(z3_ctx, rm.get_z3_ast(), bv.get_z3_ast(), sort)
-                .unwrap(),
+            z3_sys::Z3_mk_fpa_to_fp_unsigned(
+                z3_ctx,
+                rm.get_z3_ast(),
+                bv.get_z3_ast(),
+                mk_fpa_sort(z3_ctx, ebits, sbits),
+            )
+            .unwrap(),
         )
     }
 }
@@ -86,43 +100,29 @@ pub(crate) fn to_z3(ast: &FloatAst, children: &[Dynamic]) -> Result<Dynamic, Cla
             clarirs_core::prelude::Float::F32(val) => Dynamic::from(Float::from_f32(*val)),
             clarirs_core::prelude::Float::F64(val) => Dynamic::from(Float::from_f64(*val)),
         },
-        FloatOp::FpNeg(..) => {
-            let a = child(children, 0)?.as_float().unwrap();
-            Dynamic::from(a.unary_neg())
-        }
-        FloatOp::FpAbs(..) => {
-            let a = child(children, 0)?.as_float().unwrap();
-            Dynamic::from(a.unary_abs())
-        }
-        FloatOp::FpAdd(_, _, rm) => {
+        FloatOp::FpNeg(..) => Dynamic::from(child(children, 0)?.as_float().unwrap().unary_neg()),
+        FloatOp::FpAbs(..) => Dynamic::from(child(children, 0)?.as_float().unwrap().unary_abs()),
+        FloatOp::FpAdd(_, _, rm)
+        | FloatOp::FpSub(_, _, rm)
+        | FloatOp::FpMul(_, _, rm)
+        | FloatOp::FpDiv(_, _, rm) => {
             let rm_ast = fprm_to_z3(*rm)?;
             let a = child(children, 0)?.as_float().unwrap();
             let b = child(children, 1)?.as_float().unwrap();
-            Dynamic::from(a.add_with_rounding_mode(&b, &rm_ast))
+            Dynamic::from(match ast.op() {
+                FloatOp::FpAdd(..) => a.add_with_rounding_mode(&b, &rm_ast),
+                FloatOp::FpSub(..) => a.sub_with_rounding_mode(&b, &rm_ast),
+                FloatOp::FpMul(..) => a.mul_with_rounding_mode(&b, &rm_ast),
+                FloatOp::FpDiv(..) => a.div_with_rounding_mode(&b, &rm_ast),
+                _ => unreachable!(),
+            })
         }
-        FloatOp::FpSub(_, _, rm) => {
-            let rm_ast = fprm_to_z3(*rm)?;
-            let a = child(children, 0)?.as_float().unwrap();
-            let b = child(children, 1)?.as_float().unwrap();
-            Dynamic::from(a.sub_with_rounding_mode(&b, &rm_ast))
-        }
-        FloatOp::FpMul(_, _, rm) => {
-            let rm_ast = fprm_to_z3(*rm)?;
-            let a = child(children, 0)?.as_float().unwrap();
-            let b = child(children, 1)?.as_float().unwrap();
-            Dynamic::from(a.mul_with_rounding_mode(&b, &rm_ast))
-        }
-        FloatOp::FpDiv(_, _, rm) => {
-            let rm_ast = fprm_to_z3(*rm)?;
-            let a = child(children, 0)?.as_float().unwrap();
-            let b = child(children, 1)?.as_float().unwrap();
-            Dynamic::from(a.div_with_rounding_mode(&b, &rm_ast))
-        }
-        FloatOp::FpSqrt(_, rm) => {
-            let rm_ast = fprm_to_z3(*rm)?;
-            let a = child(children, 0)?.as_float().unwrap();
-            Dynamic::from(a.sqrt_with_rounding_mode(&rm_ast))
-        }
+        FloatOp::FpSqrt(_, rm) => Dynamic::from(
+            child(children, 0)?
+                .as_float()
+                .unwrap()
+                .sqrt_with_rounding_mode(&fprm_to_z3(*rm)?),
+        ),
         FloatOp::FpToFp(_, sort, rm) => {
             let rm_ast = fprm_to_z3(*rm)?;
             let a = child(children, 0)?.as_float().unwrap();
