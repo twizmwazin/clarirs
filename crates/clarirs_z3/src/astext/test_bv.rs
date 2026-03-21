@@ -1,8 +1,7 @@
 use clarirs_core::prelude::*;
-use clarirs_z3_sys as z3;
+use z3::ast::{Ast, Dynamic, Bool, BV};
 
 use super::AstExtZ3;
-use crate::{Z3_CONTEXT, rc::RcAst};
 
 fn round_trip<'c>(
     ctx: &'c Context<'c>,
@@ -25,8 +24,8 @@ mod to_z3 {
         let bv = ctx.bvs("x", 32).unwrap();
         let z3_ast = bv.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Uninterpreted);
-        assert_eq!(z3_ast.symbol_name().as_deref(), Some("x"));
+        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::UNINTERPRETED);
+        assert_eq!(z3_ast.safe_decl().unwrap().name(), "x");
     }
 
     #[test]
@@ -34,7 +33,7 @@ mod to_z3 {
         let ctx = Context::new();
         let bv = ctx.bvv_prim(42u8).unwrap();
         let z3_ast = bv.to_z3().unwrap();
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Bnum);
+        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BNUM);
     }
 
     #[test]
@@ -42,7 +41,7 @@ mod to_z3 {
         let ctx = Context::new();
         let bv = ctx.bvv_prim(0xDEADBEEFu32).unwrap();
         let z3_ast = bv.to_z3().unwrap();
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Bnum);
+        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BNUM);
     }
 
     #[test]
@@ -50,7 +49,7 @@ mod to_z3 {
         let ctx = Context::new();
         let bv = ctx.bvv_prim(0x0123456789ABCDEFu64).unwrap();
         let z3_ast = bv.to_z3().unwrap();
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Bnum);
+        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BNUM);
     }
 
     // -- Unary ops --
@@ -62,8 +61,8 @@ mod to_z3 {
         let ast = ctx.not(x).unwrap();
         let z3_ast = ast.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Bnot);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("x"));
+        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BNOT);
+        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
     }
 
     #[test]
@@ -73,8 +72,8 @@ mod to_z3 {
         let ast = ctx.neg(x).unwrap();
         let z3_ast = ast.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Bneg);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("x"));
+        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BNEG);
+        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
     }
 
     // -- Binary arithmetic ops --
@@ -87,9 +86,9 @@ mod to_z3 {
         let ast = ctx.bv_and(x, y).unwrap();
         let z3_ast = ast.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Band);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("x"));
-        assert_eq!(z3_ast.arg(1).unwrap().symbol_name().as_deref(), Some("y"));
+        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BAND);
+        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
+        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
     }
 
     #[test]
@@ -100,9 +99,9 @@ mod to_z3 {
         let ast = ctx.bv_or(x, y).unwrap();
         let z3_ast = ast.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Bor);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("x"));
-        assert_eq!(z3_ast.arg(1).unwrap().symbol_name().as_deref(), Some("y"));
+        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BOR);
+        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
+        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
     }
 
     #[test]
@@ -113,9 +112,9 @@ mod to_z3 {
         let ast = ctx.bv_xor(x, y).unwrap();
         let z3_ast = ast.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Bxor);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("x"));
-        assert_eq!(z3_ast.arg(1).unwrap().symbol_name().as_deref(), Some("y"));
+        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BXOR);
+        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
+        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
     }
 
     #[test]
@@ -126,9 +125,9 @@ mod to_z3 {
         let ast = ctx.add(x, y).unwrap();
         let z3_ast = ast.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Badd);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("x"));
-        assert_eq!(z3_ast.arg(1).unwrap().symbol_name().as_deref(), Some("y"));
+        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BADD);
+        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
+        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
     }
 
     #[test]
@@ -139,9 +138,9 @@ mod to_z3 {
         let ast = ctx.sub(x, y).unwrap();
         let z3_ast = ast.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Bsub);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("x"));
-        assert_eq!(z3_ast.arg(1).unwrap().symbol_name().as_deref(), Some("y"));
+        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BSUB);
+        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
+        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
     }
 
     #[test]
@@ -152,9 +151,9 @@ mod to_z3 {
         let ast = ctx.mul(x, y).unwrap();
         let z3_ast = ast.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Bmul);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("x"));
-        assert_eq!(z3_ast.arg(1).unwrap().symbol_name().as_deref(), Some("y"));
+        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BMUL);
+        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
+        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
     }
 
     #[test]
@@ -165,9 +164,9 @@ mod to_z3 {
         let ast = ctx.udiv(x, y).unwrap();
         let z3_ast = ast.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Budiv);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("x"));
-        assert_eq!(z3_ast.arg(1).unwrap().symbol_name().as_deref(), Some("y"));
+        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BUDIV);
+        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
+        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
     }
 
     #[test]
@@ -178,9 +177,9 @@ mod to_z3 {
         let ast = ctx.sdiv(x, y).unwrap();
         let z3_ast = ast.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Bsdiv);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("x"));
-        assert_eq!(z3_ast.arg(1).unwrap().symbol_name().as_deref(), Some("y"));
+        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BSDIV);
+        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
+        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
     }
 
     #[test]
@@ -191,9 +190,9 @@ mod to_z3 {
         let ast = ctx.urem(x, y).unwrap();
         let z3_ast = ast.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Burem);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("x"));
-        assert_eq!(z3_ast.arg(1).unwrap().symbol_name().as_deref(), Some("y"));
+        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BUREM);
+        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
+        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
     }
 
     #[test]
@@ -204,9 +203,9 @@ mod to_z3 {
         let ast = ctx.srem(x, y).unwrap();
         let z3_ast = ast.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Bsrem);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("x"));
-        assert_eq!(z3_ast.arg(1).unwrap().symbol_name().as_deref(), Some("y"));
+        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BSREM);
+        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
+        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
     }
 
     // -- Shift / rotate --
@@ -219,9 +218,9 @@ mod to_z3 {
         let ast = ctx.shl(x, y).unwrap();
         let z3_ast = ast.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Bshl);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("x"));
-        assert_eq!(z3_ast.arg(1).unwrap().symbol_name().as_deref(), Some("y"));
+        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BSHL);
+        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
+        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
     }
 
     #[test]
@@ -232,9 +231,9 @@ mod to_z3 {
         let ast = ctx.lshr(x, y).unwrap();
         let z3_ast = ast.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Blshr);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("x"));
-        assert_eq!(z3_ast.arg(1).unwrap().symbol_name().as_deref(), Some("y"));
+        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BLSHR);
+        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
+        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
     }
 
     #[test]
@@ -245,9 +244,9 @@ mod to_z3 {
         let ast = ctx.ashr(x, y).unwrap();
         let z3_ast = ast.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Bashr);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("x"));
-        assert_eq!(z3_ast.arg(1).unwrap().symbol_name().as_deref(), Some("y"));
+        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::BASHR);
+        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
+        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
     }
 
     #[test]
@@ -258,9 +257,9 @@ mod to_z3 {
         let ast = ctx.rotate_left(x, y).unwrap();
         let z3_ast = ast.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::ExtRotateLeft);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("x"));
-        assert_eq!(z3_ast.arg(1).unwrap().symbol_name().as_deref(), Some("y"));
+        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::EXT_ROTATE_LEFT);
+        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
+        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
     }
 
     #[test]
@@ -271,9 +270,9 @@ mod to_z3 {
         let ast = ctx.rotate_right(x, y).unwrap();
         let z3_ast = ast.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::ExtRotateRight);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("x"));
-        assert_eq!(z3_ast.arg(1).unwrap().symbol_name().as_deref(), Some("y"));
+        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::EXT_ROTATE_RIGHT);
+        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
+        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
     }
 
     // -- Extension / extraction --
@@ -285,8 +284,8 @@ mod to_z3 {
         let ast = ctx.zero_ext(x, 8).unwrap();
         let z3_ast = ast.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::ZeroExt);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("x"));
+        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::ZERO_EXT);
+        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
     }
 
     #[test]
@@ -296,8 +295,8 @@ mod to_z3 {
         let ast = ctx.sign_ext(x, 8).unwrap();
         let z3_ast = ast.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::SignExt);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("x"));
+        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::SIGN_EXT);
+        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
     }
 
     #[test]
@@ -307,8 +306,8 @@ mod to_z3 {
         let ast = ctx.extract(x, 6, 2).unwrap();
         let z3_ast = ast.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Extract);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("x"));
+        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::EXTRACT);
+        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
     }
 
     // -- Concat --
@@ -321,9 +320,9 @@ mod to_z3 {
         let ast = ctx.concat2(x, y).unwrap();
         let z3_ast = ast.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Concat);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("x"));
-        assert_eq!(z3_ast.arg(1).unwrap().symbol_name().as_deref(), Some("y"));
+        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::CONCAT);
+        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "x");
+        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "y");
     }
 
     #[test]
@@ -337,8 +336,8 @@ mod to_z3 {
 
         // Z3's concat is binary, so 3-arg concat becomes nested:
         // concat(concat(x, y), z)
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Concat);
-        assert_eq!(z3_ast.num_args(), 2);
+        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::CONCAT);
+        assert_eq!(z3_ast.num_children() as u32, 2);
     }
 
     // -- ITE --
@@ -352,10 +351,10 @@ mod to_z3 {
         let ast = ctx.ite(c, x, y).unwrap();
         let z3_ast = ast.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Ite);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("c"));
-        assert_eq!(z3_ast.arg(1).unwrap().symbol_name().as_deref(), Some("x"));
-        assert_eq!(z3_ast.arg(2).unwrap().symbol_name().as_deref(), Some("y"));
+        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::ITE);
+        assert_eq!(z3_ast.nth_child(0).unwrap().safe_decl().unwrap().name(), "c");
+        assert_eq!(z3_ast.nth_child(1).unwrap().safe_decl().unwrap().name(), "x");
+        assert_eq!(z3_ast.nth_child(2).unwrap().safe_decl().unwrap().name(), "y");
     }
 
     // -- FP to BV conversions --
@@ -366,7 +365,7 @@ mod to_z3 {
         let fp = ctx.fps("x", FSort::f32()).unwrap();
         let ast = ctx.fp_to_ieeebv(fp).unwrap();
         let z3_ast = ast.to_z3().unwrap();
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::FpaToIeeeBv);
+        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::FPA_TO_IEEE_BV);
     }
 
     #[test]
@@ -375,7 +374,7 @@ mod to_z3 {
         let fp = ctx.fps("x", FSort::f32()).unwrap();
         let ast = ctx.fp_to_ubv(fp, 32, FPRM::TowardZero).unwrap();
         let z3_ast = ast.to_z3().unwrap();
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::FpaToUbv);
+        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::FPA_TO_UBV);
     }
 
     #[test]
@@ -384,7 +383,7 @@ mod to_z3 {
         let fp = ctx.fps("x", FSort::f32()).unwrap();
         let ast = ctx.fp_to_sbv(fp, 32, FPRM::TowardZero).unwrap();
         let z3_ast = ast.to_z3().unwrap();
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::FpaToSbv);
+        assert_eq!(z3_ast.safe_decl().unwrap().kind(), z3::DeclKind::FPA_TO_SBV);
     }
 }
 
@@ -399,7 +398,9 @@ mod from_z3 {
     #[test]
     fn symbol() {
         let ctx = Context::new();
-        let z3_ast = RcAst::mk_bv("x", 32);
+        let z3_ast = {
+            Dynamic::from(BV::new_const("x", 32))
+        };
         let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
         assert_eq!(result, ctx.bvs("x", 32).unwrap());
     }
@@ -407,7 +408,9 @@ mod from_z3 {
     #[test]
     fn value_8bit() {
         let ctx = Context::new();
-        let z3_ast = RcAst::mk_bv_val("42", 8);
+        let z3_ast = {
+            Dynamic::from(BV::from_u64(42, 8))
+        };
         let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
         assert_eq!(result, ctx.bvv_prim(42u8).unwrap());
     }
@@ -415,7 +418,9 @@ mod from_z3 {
     #[test]
     fn value_32bit() {
         let ctx = Context::new();
-        let z3_ast = RcAst::mk_bv_val("3735928559", 32); // 0xDEADBEEF
+        let z3_ast = {
+            Dynamic::from(BV::from_u64(3735928559, 32)) // 0xDEADBEEF
+        };
         let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
         assert_eq!(result, ctx.bvv_prim(0xDEADBEEFu32).unwrap());
     }
@@ -423,7 +428,9 @@ mod from_z3 {
     #[test]
     fn value_64bit() {
         let ctx = Context::new();
-        let z3_ast = RcAst::mk_bv_val("81985529216486895", 64); // 0x0123456789ABCDEF
+        let z3_ast = {
+            Dynamic::from(BV::from_u64(81985529216486895, 64)) // 0x0123456789ABCDEF
+        };
         let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
         assert_eq!(result, ctx.bvv_prim(0x0123456789ABCDEFu64).unwrap());
     }
@@ -433,27 +440,27 @@ mod from_z3 {
     #[test]
     fn not() {
         let ctx = Context::new();
-        Z3_CONTEXT.with(|z3_ctx| unsafe {
-            let x = RcAst::mk_bv("x", 8);
-            let z3_ast = RcAst::try_from(z3::mk_bvnot(*z3_ctx, *x)).unwrap();
+        let z3_ast = {
+            let x = BV::new_const("x", 8);
+            Dynamic::from(x.bvnot())
+        };
 
-            let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
-            let expected = ctx.not(ctx.bvs("x", 8).unwrap()).unwrap();
-            assert_eq!(result, expected);
-        });
+        let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
+        let expected = ctx.not(ctx.bvs("x", 8).unwrap()).unwrap();
+        assert_eq!(result, expected);
     }
 
     #[test]
     fn neg() {
         let ctx = Context::new();
-        Z3_CONTEXT.with(|z3_ctx| unsafe {
-            let x = RcAst::mk_bv("x", 8);
-            let z3_ast = RcAst::try_from(z3::mk_bvneg(*z3_ctx, *x)).unwrap();
+        let z3_ast = {
+            let x = BV::new_const("x", 8);
+            Dynamic::from(x.bvneg())
+        };
 
-            let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
-            let expected = ctx.neg(ctx.bvs("x", 8).unwrap()).unwrap();
-            assert_eq!(result, expected);
-        });
+        let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
+        let expected = ctx.neg(ctx.bvs("x", 8).unwrap()).unwrap();
+        assert_eq!(result, expected);
     }
 
     // -- Binary arithmetic ops --
@@ -461,161 +468,161 @@ mod from_z3 {
     #[test]
     fn and() {
         let ctx = Context::new();
-        Z3_CONTEXT.with(|z3_ctx| unsafe {
-            let x = RcAst::mk_bv("x", 8);
-            let y = RcAst::mk_bv("y", 8);
-            let z3_ast = RcAst::try_from(z3::mk_bvand(*z3_ctx, *x, *y)).unwrap();
+        let z3_ast = {
+            let x = BV::new_const("x", 8);
+            let y = BV::new_const("y", 8);
+            Dynamic::from(x.bvand(&y))
+        };
 
-            let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
-            let expected = ctx
-                .bv_and(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
-                .unwrap();
-            assert_eq!(result, expected);
-        });
+        let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
+        let expected = ctx
+            .bv_and(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
+            .unwrap();
+        assert_eq!(result, expected);
     }
 
     #[test]
     fn or() {
         let ctx = Context::new();
-        Z3_CONTEXT.with(|z3_ctx| unsafe {
-            let x = RcAst::mk_bv("x", 8);
-            let y = RcAst::mk_bv("y", 8);
-            let z3_ast = RcAst::try_from(z3::mk_bvor(*z3_ctx, *x, *y)).unwrap();
+        let z3_ast = {
+            let x = BV::new_const("x", 8);
+            let y = BV::new_const("y", 8);
+            Dynamic::from(x.bvor(&y))
+        };
 
-            let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
-            let expected = ctx
-                .bv_or(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
-                .unwrap();
-            assert_eq!(result, expected);
-        });
+        let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
+        let expected = ctx
+            .bv_or(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
+            .unwrap();
+        assert_eq!(result, expected);
     }
 
     #[test]
     fn xor() {
         let ctx = Context::new();
-        Z3_CONTEXT.with(|z3_ctx| unsafe {
-            let x = RcAst::mk_bv("x", 8);
-            let y = RcAst::mk_bv("y", 8);
-            let z3_ast = RcAst::try_from(z3::mk_bvxor(*z3_ctx, *x, *y)).unwrap();
+        let z3_ast = {
+            let x = BV::new_const("x", 8);
+            let y = BV::new_const("y", 8);
+            Dynamic::from(x.bvxor(&y))
+        };
 
-            let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
-            let expected = ctx
-                .bv_xor(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
-                .unwrap();
-            assert_eq!(result, expected);
-        });
+        let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
+        let expected = ctx
+            .bv_xor(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
+            .unwrap();
+        assert_eq!(result, expected);
     }
 
     #[test]
     fn add() {
         let ctx = Context::new();
-        Z3_CONTEXT.with(|z3_ctx| unsafe {
-            let x = RcAst::mk_bv("x", 8);
-            let y = RcAst::mk_bv("y", 8);
-            let z3_ast = RcAst::try_from(z3::mk_bvadd(*z3_ctx, *x, *y)).unwrap();
+        let z3_ast = {
+            let x = BV::new_const("x", 8);
+            let y = BV::new_const("y", 8);
+            Dynamic::from(x.bvadd(&y))
+        };
 
-            let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
-            let expected = ctx
-                .add(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
-                .unwrap();
-            assert_eq!(result, expected);
-        });
+        let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
+        let expected = ctx
+            .add(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
+            .unwrap();
+        assert_eq!(result, expected);
     }
 
     #[test]
     fn sub() {
         let ctx = Context::new();
-        Z3_CONTEXT.with(|z3_ctx| unsafe {
-            let x = RcAst::mk_bv("x", 8);
-            let y = RcAst::mk_bv("y", 8);
-            let z3_ast = RcAst::try_from(z3::mk_bvsub(*z3_ctx, *x, *y)).unwrap();
+        let z3_ast = {
+            let x = BV::new_const("x", 8);
+            let y = BV::new_const("y", 8);
+            Dynamic::from(x.bvsub(&y))
+        };
 
-            let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
-            let expected = ctx
-                .sub(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
-                .unwrap();
-            assert_eq!(result, expected);
-        });
+        let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
+        let expected = ctx
+            .sub(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
+            .unwrap();
+        assert_eq!(result, expected);
     }
 
     #[test]
     fn mul() {
         let ctx = Context::new();
-        Z3_CONTEXT.with(|z3_ctx| unsafe {
-            let x = RcAst::mk_bv("x", 8);
-            let y = RcAst::mk_bv("y", 8);
-            let z3_ast = RcAst::try_from(z3::mk_bvmul(*z3_ctx, *x, *y)).unwrap();
+        let z3_ast = {
+            let x = BV::new_const("x", 8);
+            let y = BV::new_const("y", 8);
+            Dynamic::from(x.bvmul(&y))
+        };
 
-            let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
-            let expected = ctx
-                .mul(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
-                .unwrap();
-            assert_eq!(result, expected);
-        });
+        let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
+        let expected = ctx
+            .mul(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
+            .unwrap();
+        assert_eq!(result, expected);
     }
 
     #[test]
     fn udiv() {
         let ctx = Context::new();
-        Z3_CONTEXT.with(|z3_ctx| unsafe {
-            let x = RcAst::mk_bv("x", 8);
-            let y = RcAst::mk_bv("y", 8);
-            let z3_ast = RcAst::try_from(z3::mk_bvudiv(*z3_ctx, *x, *y)).unwrap();
+        let z3_ast = {
+            let x = BV::new_const("x", 8);
+            let y = BV::new_const("y", 8);
+            Dynamic::from(x.bvudiv(&y))
+        };
 
-            let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
-            let expected = ctx
-                .udiv(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
-                .unwrap();
-            assert_eq!(result, expected);
-        });
+        let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
+        let expected = ctx
+            .udiv(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
+            .unwrap();
+        assert_eq!(result, expected);
     }
 
     #[test]
     fn sdiv() {
         let ctx = Context::new();
-        Z3_CONTEXT.with(|z3_ctx| unsafe {
-            let x = RcAst::mk_bv("x", 8);
-            let y = RcAst::mk_bv("y", 8);
-            let z3_ast = RcAst::try_from(z3::mk_bvsdiv(*z3_ctx, *x, *y)).unwrap();
+        let z3_ast = {
+            let x = BV::new_const("x", 8);
+            let y = BV::new_const("y", 8);
+            Dynamic::from(x.bvsdiv(&y))
+        };
 
-            let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
-            let expected = ctx
-                .sdiv(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
-                .unwrap();
-            assert_eq!(result, expected);
-        });
+        let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
+        let expected = ctx
+            .sdiv(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
+            .unwrap();
+        assert_eq!(result, expected);
     }
 
     #[test]
     fn urem() {
         let ctx = Context::new();
-        Z3_CONTEXT.with(|z3_ctx| unsafe {
-            let x = RcAst::mk_bv("x", 8);
-            let y = RcAst::mk_bv("y", 8);
-            let z3_ast = RcAst::try_from(z3::mk_bvurem(*z3_ctx, *x, *y)).unwrap();
+        let z3_ast = {
+            let x = BV::new_const("x", 8);
+            let y = BV::new_const("y", 8);
+            Dynamic::from(x.bvurem(&y))
+        };
 
-            let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
-            let expected = ctx
-                .urem(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
-                .unwrap();
-            assert_eq!(result, expected);
-        });
+        let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
+        let expected = ctx
+            .urem(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
+            .unwrap();
+        assert_eq!(result, expected);
     }
 
     #[test]
     fn srem() {
         let ctx = Context::new();
-        Z3_CONTEXT.with(|z3_ctx| unsafe {
-            let x = RcAst::mk_bv("x", 8);
-            let y = RcAst::mk_bv("y", 8);
-            let z3_ast = RcAst::try_from(z3::mk_bvsrem(*z3_ctx, *x, *y)).unwrap();
+        let z3_ast = {
+            let x = BV::new_const("x", 8);
+            let y = BV::new_const("y", 8);
+            Dynamic::from(x.bvsrem(&y))
+        };
 
-            let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
-            let expected = ctx
-                .srem(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
-                .unwrap();
-            assert_eq!(result, expected);
-        });
+        let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
+        let expected = ctx
+            .srem(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
+            .unwrap();
+        assert_eq!(result, expected);
     }
 
     // -- Shift / rotate --
@@ -623,81 +630,81 @@ mod from_z3 {
     #[test]
     fn shl() {
         let ctx = Context::new();
-        Z3_CONTEXT.with(|z3_ctx| unsafe {
-            let x = RcAst::mk_bv("x", 8);
-            let y = RcAst::mk_bv("y", 8);
-            let z3_ast = RcAst::try_from(z3::mk_bvshl(*z3_ctx, *x, *y)).unwrap();
+        let z3_ast = {
+            let x = BV::new_const("x", 8);
+            let y = BV::new_const("y", 8);
+            Dynamic::from(x.bvshl(&y))
+        };
 
-            let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
-            let expected = ctx
-                .shl(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
-                .unwrap();
-            assert_eq!(result, expected);
-        });
+        let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
+        let expected = ctx
+            .shl(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
+            .unwrap();
+        assert_eq!(result, expected);
     }
 
     #[test]
     fn lshr() {
         let ctx = Context::new();
-        Z3_CONTEXT.with(|z3_ctx| unsafe {
-            let x = RcAst::mk_bv("x", 8);
-            let y = RcAst::mk_bv("y", 8);
-            let z3_ast = RcAst::try_from(z3::mk_bvlshr(*z3_ctx, *x, *y)).unwrap();
+        let z3_ast = {
+            let x = BV::new_const("x", 8);
+            let y = BV::new_const("y", 8);
+            Dynamic::from(x.bvlshr(&y))
+        };
 
-            let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
-            let expected = ctx
-                .lshr(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
-                .unwrap();
-            assert_eq!(result, expected);
-        });
+        let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
+        let expected = ctx
+            .lshr(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
+            .unwrap();
+        assert_eq!(result, expected);
     }
 
     #[test]
     fn ashr() {
         let ctx = Context::new();
-        Z3_CONTEXT.with(|z3_ctx| unsafe {
-            let x = RcAst::mk_bv("x", 8);
-            let y = RcAst::mk_bv("y", 8);
-            let z3_ast = RcAst::try_from(z3::mk_bvashr(*z3_ctx, *x, *y)).unwrap();
+        let z3_ast = {
+            let x = BV::new_const("x", 8);
+            let y = BV::new_const("y", 8);
+            Dynamic::from(x.bvashr(&y))
+        };
 
-            let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
-            let expected = ctx
-                .ashr(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
-                .unwrap();
-            assert_eq!(result, expected);
-        });
+        let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
+        let expected = ctx
+            .ashr(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
+            .unwrap();
+        assert_eq!(result, expected);
     }
 
     #[test]
     fn rotate_left() {
         let ctx = Context::new();
-        Z3_CONTEXT.with(|z3_ctx| unsafe {
-            let x = RcAst::mk_bv("x", 8);
-            let y = RcAst::mk_bv("y", 8);
-            let z3_ast = RcAst::try_from(z3::mk_ext_rotate_left(*z3_ctx, *x, *y)).unwrap();
+        let z3_ast = {
+            let x = BV::new_const("x", 8);
+            let y = BV::new_const("y", 8);
+            Dynamic::from(x.bvrotl(&y))
+        };
 
-            let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
-            let expected = ctx
-                .rotate_left(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
-                .unwrap();
-            assert_eq!(result, expected);
-        });
+        let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
+        let expected = ctx
+            .rotate_left(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
+            .unwrap();
+        assert_eq!(result, expected);
     }
 
     #[test]
     fn rotate_right() {
         let ctx = Context::new();
-        Z3_CONTEXT.with(|z3_ctx| unsafe {
-            let x = RcAst::mk_bv("x", 8);
-            let y = RcAst::mk_bv("y", 8);
-            let z3_ast = RcAst::try_from(z3::mk_ext_rotate_right(*z3_ctx, *x, *y)).unwrap();
+        let z3_ast = {
+            let x = BV::new_const("x", 8);
+            let y = BV::new_const("y", 8);
+            Dynamic::from(x.bvrotr(&y))
+        };
 
-            let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
-            let expected = ctx
-                .rotate_right(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
-                .unwrap();
-            assert_eq!(result, expected);
-        });
+        let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
+        let expected = ctx
+            .rotate_right(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
+            .unwrap();
+        assert_eq!(result, expected);
     }
 
     // -- Extension / extraction --
@@ -705,40 +712,40 @@ mod from_z3 {
     #[test]
     fn zero_ext() {
         let ctx = Context::new();
-        Z3_CONTEXT.with(|z3_ctx| unsafe {
-            let x = RcAst::mk_bv("x", 8);
-            let z3_ast = RcAst::try_from(z3::mk_zero_ext(*z3_ctx, 8, *x)).unwrap();
+        let z3_ast = {
+            let x = BV::new_const("x", 8);
+            Dynamic::from(x.zero_ext(8))
+        };
 
-            let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
-            let expected = ctx.zero_ext(ctx.bvs("x", 8).unwrap(), 8).unwrap();
-            assert_eq!(result, expected);
-        });
+        let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
+        let expected = ctx.zero_ext(ctx.bvs("x", 8).unwrap(), 8).unwrap();
+        assert_eq!(result, expected);
     }
 
     #[test]
     fn sign_ext() {
         let ctx = Context::new();
-        Z3_CONTEXT.with(|z3_ctx| unsafe {
-            let x = RcAst::mk_bv("x", 8);
-            let z3_ast = RcAst::try_from(z3::mk_sign_ext(*z3_ctx, 8, *x)).unwrap();
+        let z3_ast = {
+            let x = BV::new_const("x", 8);
+            Dynamic::from(x.sign_ext(8))
+        };
 
-            let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
-            let expected = ctx.sign_ext(ctx.bvs("x", 8).unwrap(), 8).unwrap();
-            assert_eq!(result, expected);
-        });
+        let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
+        let expected = ctx.sign_ext(ctx.bvs("x", 8).unwrap(), 8).unwrap();
+        assert_eq!(result, expected);
     }
 
     #[test]
     fn extract() {
         let ctx = Context::new();
-        Z3_CONTEXT.with(|z3_ctx| unsafe {
-            let x = RcAst::mk_bv("x", 8);
-            let z3_ast = RcAst::try_from(z3::mk_extract(*z3_ctx, 6, 2, *x)).unwrap();
+        let z3_ast = {
+            let x = BV::new_const("x", 8);
+            Dynamic::from(x.extract(6, 2))
+        };
 
-            let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
-            let expected = ctx.extract(ctx.bvs("x", 8).unwrap(), 6, 2).unwrap();
-            assert_eq!(result, expected);
-        });
+        let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
+        let expected = ctx.extract(ctx.bvs("x", 8).unwrap(), 6, 2).unwrap();
+        assert_eq!(result, expected);
     }
 
     // -- Concat --
@@ -746,17 +753,17 @@ mod from_z3 {
     #[test]
     fn concat_2args() {
         let ctx = Context::new();
-        Z3_CONTEXT.with(|z3_ctx| unsafe {
-            let x = RcAst::mk_bv("x", 8);
-            let y = RcAst::mk_bv("y", 8);
-            let z3_ast = RcAst::try_from(z3::mk_concat(*z3_ctx, *x, *y)).unwrap();
+        let z3_ast = {
+            let x = BV::new_const("x", 8);
+            let y = BV::new_const("y", 8);
+            Dynamic::from(x.concat(&y))
+        };
 
-            let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
-            let expected = ctx
-                .concat2(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
-                .unwrap();
-            assert_eq!(result, expected);
-        });
+        let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
+        let expected = ctx
+            .concat2(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
+            .unwrap();
+        assert_eq!(result, expected);
     }
 
     // -- ITE --
@@ -764,22 +771,22 @@ mod from_z3 {
     #[test]
     fn ite() {
         let ctx = Context::new();
-        Z3_CONTEXT.with(|z3_ctx| unsafe {
-            let c = RcAst::mk_bool("c");
-            let x = RcAst::mk_bv("x", 8);
-            let y = RcAst::mk_bv("y", 8);
-            let z3_ast = RcAst::try_from(z3::mk_ite(*z3_ctx, *c, *x, *y)).unwrap();
+        let z3_ast = {
+            let c = Bool::new_const("c");
+            let x = BV::new_const("x", 8);
+            let y = BV::new_const("y", 8);
+            c.ite(&Dynamic::from(x), &Dynamic::from(y))
+        };
 
-            let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
-            let expected = ctx
-                .ite(
-                    ctx.bools("c").unwrap(),
-                    ctx.bvs("x", 8).unwrap(),
-                    ctx.bvs("y", 8).unwrap(),
-                )
-                .unwrap();
-            assert_eq!(result, expected);
-        });
+        let result = BitVecAst::from_z3(&ctx, z3_ast).unwrap();
+        let expected = ctx
+            .ite(
+                ctx.bools("c").unwrap(),
+                ctx.bvs("x", 8).unwrap(),
+                ctx.bvs("y", 8).unwrap(),
+            )
+            .unwrap();
+        assert_eq!(result, expected);
     }
 }
 
@@ -1046,7 +1053,7 @@ mod roundtrip {
         let ctx = Context::new();
         let fp = ctx.fps("x", FSort::f32()).unwrap();
         let ast = ctx.fp_to_ieeebv(fp).unwrap();
-        // fp_to_ieeebv has no from_z3 handler (Z3 DeclKind::FpaToIeeeBv is
+        // fp_to_ieeebv has no from_z3 handler (Z3 DeclKind::FPA_TO_IEEE_BV is
         // not matched in bv::from_z3), so just verify to_z3 succeeds.
         assert!(ast.to_z3().is_ok());
     }

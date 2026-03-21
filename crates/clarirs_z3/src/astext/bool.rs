@@ -1,344 +1,388 @@
-use std::ffi::CStr;
-
-use crate::{Z3_CONTEXT, astext::child, check_z3_error, rc::RcAst};
+use crate::astext::child;
 use clarirs_core::prelude::*;
-use clarirs_z3_sys as z3;
+use z3::ast::{Ast, Bool, Dynamic};
 
 use super::AstExtZ3;
 
-pub(crate) fn to_z3(ast: &BoolAst, children: &[RcAst]) -> Result<RcAst, ClarirsError> {
-    Z3_CONTEXT.with(|&z3_ctx| unsafe {
-        Ok(match ast.op() {
-            BooleanOp::BoolS(s) => {
-                let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
-                let sym = z3::mk_string_symbol(z3_ctx, s_cstr.as_ptr());
-                let sort = z3::mk_bool_sort(z3_ctx);
-                RcAst::try_from(z3::mk_const(z3_ctx, sym, sort))?
-            }
-            BooleanOp::BoolV(b) => if *b {
-                z3::mk_true(z3_ctx)
-            } else {
-                z3::mk_false(z3_ctx)
-            }
-            .try_into()?,
-            BooleanOp::Not(..) => unop!(z3_ctx, children, mk_not),
-            BooleanOp::And(..) => {
-                let args: Vec<_> = children.iter().map(|c| **c).collect();
-                z3::mk_and(z3_ctx, args.len() as u32, args.as_ptr()).try_into()?
-            }
-            BooleanOp::Or(..) => {
-                let args: Vec<_> = children.iter().map(|c| **c).collect();
-                z3::mk_or(z3_ctx, args.len() as u32, args.as_ptr()).try_into()?
-            }
-            BooleanOp::Xor(..) => binop!(z3_ctx, children, mk_xor),
-            BooleanOp::BoolEq(..) => binop!(z3_ctx, children, mk_eq),
-            BooleanOp::BoolNeq(..) => {
-                let a = child(children, 0)?;
-                let b = child(children, 1)?;
-                z3::mk_distinct(z3_ctx, 2, [**a, **b].as_ptr()).try_into()?
-            }
-            BooleanOp::ITE(..) => {
-                let cond = child(children, 0)?;
-                let then = child(children, 1)?;
-                let else_ = child(children, 2)?;
-                z3::mk_ite(z3_ctx, **cond, **then, **else_).try_into()?
-            }
+pub(crate) fn to_z3(
+    ast: &BoolAst,
+    children: &[Dynamic],
+) -> Result<Dynamic, ClarirsError> {
+    Ok(match ast.op() {
+        BooleanOp::BoolS(s) => {
+            Dynamic::from(Bool::new_const(s.as_str()))
+        }
+        BooleanOp::BoolV(b) => {
+            Dynamic::from(Bool::from_bool(*b))
+        }
+        BooleanOp::Not(..) => {
+            let a = child(children, 0)?.as_bool().unwrap();
+            Dynamic::from(a.not())
+        }
+        BooleanOp::And(..) => {
+            let args: Vec<Bool> = children.iter().map(|c| c.as_bool().unwrap()).collect();
+            let refs: Vec<&Bool> = args.iter().collect();
+            Dynamic::from(Bool::and(&refs))
+        }
+        BooleanOp::Or(..) => {
+            let args: Vec<Bool> = children.iter().map(|c| c.as_bool().unwrap()).collect();
+            let refs: Vec<&Bool> = args.iter().collect();
+            Dynamic::from(Bool::or(&refs))
+        }
+        BooleanOp::Xor(..) => {
+            let a = child(children, 0)?.as_bool().unwrap();
+            let b = child(children, 1)?.as_bool().unwrap();
+            Dynamic::from(a.xor(&b))
+        }
+        BooleanOp::BoolEq(..) => {
+            let a = child(children, 0)?;
+            let b = child(children, 1)?;
+            Dynamic::from(a.eq(b))
+        }
+        BooleanOp::BoolNeq(..) => {
+            let a = child(children, 0)?;
+            let b = child(children, 1)?;
+            Dynamic::from(Dynamic::distinct(&[a, b]))
+        }
+        BooleanOp::ITE(..) => {
+            let cond = child(children, 0)?.as_bool().unwrap();
+            let then = child(children, 1)?;
+            let else_ = child(children, 2)?;
+            cond.ite(then, else_)
+        }
 
-            // BV operations
-            BooleanOp::Eq(..) => binop!(z3_ctx, children, mk_eq),
-            BooleanOp::Neq(..) => {
-                let a = child(children, 0)?;
-                let b = child(children, 1)?;
-                z3::mk_distinct(z3_ctx, 2, [**a, **b].as_ptr()).try_into()?
-            }
-            BooleanOp::ULT(..) => binop!(z3_ctx, children, mk_bvult),
-            BooleanOp::ULE(..) => binop!(z3_ctx, children, mk_bvule),
-            BooleanOp::UGT(..) => binop!(z3_ctx, children, mk_bvugt),
-            BooleanOp::UGE(..) => binop!(z3_ctx, children, mk_bvuge),
-            BooleanOp::SLT(..) => binop!(z3_ctx, children, mk_bvslt),
-            BooleanOp::SLE(..) => binop!(z3_ctx, children, mk_bvsle),
-            BooleanOp::SGT(..) => binop!(z3_ctx, children, mk_bvsgt),
-            BooleanOp::SGE(..) => binop!(z3_ctx, children, mk_bvsge),
+        // BV comparisons
+        BooleanOp::Eq(..) => {
+            let a = child(children, 0)?;
+            let b = child(children, 1)?;
+            Dynamic::from(a.eq(b))
+        }
+        BooleanOp::Neq(..) => {
+            let a = child(children, 0)?;
+            let b = child(children, 1)?;
+            Dynamic::from(Dynamic::distinct(&[a, b]))
+        }
+        BooleanOp::ULT(..) => {
+            let a = child(children, 0)?.as_bv().unwrap();
+            let b = child(children, 1)?.as_bv().unwrap();
+            Dynamic::from(a.bvult(&b))
+        }
+        BooleanOp::ULE(..) => {
+            let a = child(children, 0)?.as_bv().unwrap();
+            let b = child(children, 1)?.as_bv().unwrap();
+            Dynamic::from(a.bvule(&b))
+        }
+        BooleanOp::UGT(..) => {
+            let a = child(children, 0)?.as_bv().unwrap();
+            let b = child(children, 1)?.as_bv().unwrap();
+            Dynamic::from(a.bvugt(&b))
+        }
+        BooleanOp::UGE(..) => {
+            let a = child(children, 0)?.as_bv().unwrap();
+            let b = child(children, 1)?.as_bv().unwrap();
+            Dynamic::from(a.bvuge(&b))
+        }
+        BooleanOp::SLT(..) => {
+            let a = child(children, 0)?.as_bv().unwrap();
+            let b = child(children, 1)?.as_bv().unwrap();
+            Dynamic::from(a.bvslt(&b))
+        }
+        BooleanOp::SLE(..) => {
+            let a = child(children, 0)?.as_bv().unwrap();
+            let b = child(children, 1)?.as_bv().unwrap();
+            Dynamic::from(a.bvsle(&b))
+        }
+        BooleanOp::SGT(..) => {
+            let a = child(children, 0)?.as_bv().unwrap();
+            let b = child(children, 1)?.as_bv().unwrap();
+            Dynamic::from(a.bvsgt(&b))
+        }
+        BooleanOp::SGE(..) => {
+            let a = child(children, 0)?.as_bv().unwrap();
+            let b = child(children, 1)?.as_bv().unwrap();
+            Dynamic::from(a.bvsge(&b))
+        }
 
-            // FP operations
-            BooleanOp::FpEq(..) => binop!(z3_ctx, children, mk_fpa_eq),
-            BooleanOp::FpNeq(..) => {
-                let a = child(children, 0)?;
-                let b = child(children, 1)?;
-                z3::mk_distinct(z3_ctx, 2, [**a, **b].as_ptr()).try_into()?
-            }
-            BooleanOp::FpLt(..) => binop!(z3_ctx, children, mk_fpa_lt),
-            BooleanOp::FpLeq(..) => binop!(z3_ctx, children, mk_fpa_leq),
-            BooleanOp::FpGt(..) => binop!(z3_ctx, children, mk_fpa_gt),
-            BooleanOp::FpGeq(..) => binop!(z3_ctx, children, mk_fpa_geq),
-            BooleanOp::FpIsNan(..) => unop!(z3_ctx, children, mk_fpa_is_nan),
-            BooleanOp::FpIsInf(..) => unop!(z3_ctx, children, mk_fpa_is_infinite),
+        // FP comparisons
+        BooleanOp::FpEq(..) => {
+            let a = child(children, 0)?.as_float().unwrap();
+            let b = child(children, 1)?.as_float().unwrap();
+            Dynamic::from(a.eq_fpa(&b))
+        }
+        BooleanOp::FpNeq(..) => {
+            let a = child(children, 0)?;
+            let b = child(children, 1)?;
+            Dynamic::from(Dynamic::distinct(&[a, b]))
+        }
+        BooleanOp::FpLt(..) => {
+            let a = child(children, 0)?.as_float().unwrap();
+            let b = child(children, 1)?.as_float().unwrap();
+            Dynamic::from(a.lt(&b))
+        }
+        BooleanOp::FpLeq(..) => {
+            let a = child(children, 0)?.as_float().unwrap();
+            let b = child(children, 1)?.as_float().unwrap();
+            Dynamic::from(a.le(&b))
+        }
+        BooleanOp::FpGt(..) => {
+            let a = child(children, 0)?.as_float().unwrap();
+            let b = child(children, 1)?.as_float().unwrap();
+            Dynamic::from(a.gt(&b))
+        }
+        BooleanOp::FpGeq(..) => {
+            let a = child(children, 0)?.as_float().unwrap();
+            let b = child(children, 1)?.as_float().unwrap();
+            Dynamic::from(a.ge(&b))
+        }
+        BooleanOp::FpIsNan(..) => {
+            let a = child(children, 0)?.as_float().unwrap();
+            Dynamic::from(a.is_nan())
+        }
+        BooleanOp::FpIsInf(..) => {
+            let a = child(children, 0)?.as_float().unwrap();
+            Dynamic::from(a.is_infinite())
+        }
 
-            // String operations
-            BooleanOp::StrContains(..) => binop!(z3_ctx, children, mk_seq_contains),
-            BooleanOp::StrPrefixOf(..) => binop!(z3_ctx, children, mk_seq_prefix),
-            BooleanOp::StrSuffixOf(..) => binop!(z3_ctx, children, mk_seq_suffix),
-            BooleanOp::StrIsDigit(..) => {
-                let a = child(children, 0)?;
-                // str.to_int returns -1 for non-digit strings, so >= 0 means all digits
-                let int_val = z3::mk_str_to_int(z3_ctx, **a);
-                let int_sort = z3::mk_int_sort(z3_ctx);
-                let zero_cstr = std::ffi::CString::new("0").unwrap();
-                let zero = z3::mk_numeral(z3_ctx, zero_cstr.as_ptr(), int_sort);
-                let is_non_negative = z3::mk_ge(z3_ctx, int_val, zero);
-                // Also require non-empty string
-                let str_len = z3::mk_seq_length(z3_ctx, **a);
-                let zero_int_cstr = std::ffi::CString::new("0").unwrap();
-                let zero_int = z3::mk_numeral(z3_ctx, zero_int_cstr.as_ptr(), int_sort);
-                let is_non_empty = z3::mk_gt(z3_ctx, str_len, zero_int);
-                let args = [is_non_negative, is_non_empty];
-                z3::mk_and(z3_ctx, 2, args.as_ptr()).try_into()?
-            }
-            BooleanOp::StrEq(..) => binop!(z3_ctx, children, mk_eq),
-            BooleanOp::StrNeq(..) => {
-                let a = child(children, 0)?;
-                let b = child(children, 1)?;
-                z3::mk_distinct(z3_ctx, 2, [**a, **b].as_ptr()).try_into()?
-            }
-        })
-        .and_then(|maybe_null| {
-            check_z3_error()?;
-            Ok(maybe_null)
-        })
+        // String comparisons
+        BooleanOp::StrContains(..) => {
+            let a = child(children, 0)?.as_string().unwrap();
+            let b = child(children, 1)?.as_string().unwrap();
+            Dynamic::from(a.contains(&b))
+        }
+        BooleanOp::StrPrefixOf(..) => {
+            let a = child(children, 0)?.as_string().unwrap();
+            let b = child(children, 1)?.as_string().unwrap();
+            Dynamic::from(a.prefix(&b))
+        }
+        BooleanOp::StrSuffixOf(..) => {
+            let a = child(children, 0)?.as_string().unwrap();
+            let b = child(children, 1)?.as_string().unwrap();
+            Dynamic::from(a.suffix(&b))
+        }
+        BooleanOp::StrIsDigit(..) => {
+            let a = child(children, 0)?.as_string().unwrap();
+            // str.to_int returns -1 for non-digit strings, so >= 0 means all digits
+            let int_val = super::string::str_to_int(&a);
+            let zero = z3::ast::Int::from_i64(0);
+            let is_non_negative = int_val.ge(&zero);
+            // Also require non-empty string
+            let str_len = a.length();
+            let zero_int = z3::ast::Int::from_i64(0);
+            let is_non_empty = str_len.gt(&zero_int);
+            Dynamic::from(Bool::and(&[&is_non_negative, &is_non_empty]))
+        }
+        BooleanOp::StrEq(..) => {
+            let a = child(children, 0)?;
+            let b = child(children, 1)?;
+            Dynamic::from(a.eq(b))
+        }
+        BooleanOp::StrNeq(..) => {
+            let a = child(children, 0)?;
+            let b = child(children, 1)?;
+            Dynamic::from(Dynamic::distinct(&[a, b]))
+        }
     })
 }
 
 pub(crate) fn from_z3<'c>(
     ctx: &'c Context<'c>,
-    ast: impl Into<RcAst>,
+    ast: Dynamic,
 ) -> Result<BoolAst<'c>, ClarirsError> {
-    Z3_CONTEXT.with(|z3_ctx| unsafe {
-        let ast = ast.into();
-        let ast_kind = z3::get_ast_kind(*z3_ctx, *ast);
-        match ast_kind {
-            z3::AstKind::App => {
-                let app = z3::to_app(*z3_ctx, *ast);
-                let decl = z3::get_app_decl(*z3_ctx, app);
-                let decl_kind = z3::get_decl_kind(*z3_ctx, decl);
+    let ast_kind = ast.kind();
+    match ast_kind {
+        z3::AstKind::App => {
+            let decl = ast.safe_decl().map_err(|_| {
+                ClarirsError::ConversionError("not an app".to_string())
+            })?;
+            let decl_kind = decl.kind();
 
-                match decl_kind {
-                    z3::DeclKind::True => ctx.true_(),
-                    z3::DeclKind::False => ctx.false_(),
-                    z3::DeclKind::Not => {
-                        let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
-                        let inner = BoolAst::from_z3(ctx, arg)?;
+            match decl_kind {
+                z3::DeclKind::TRUE => ctx.true_(),
+                z3::DeclKind::FALSE => ctx.false_(),
+                z3::DeclKind::NOT => {
+                    let arg = ast.nth_child(0).unwrap();
+                    let inner = BoolAst::from_z3(ctx, arg)?;
 
-                        // Special case: if the inner expression is a BoolEq, convert to BoolNeq
-                        if let BooleanOp::BoolEq(a, b) = inner.op() {
-                            ctx.neq(a, b)
-                        } else {
-                            ctx.not(inner)
-                        }
-                    }
-                    z3::DeclKind::And | z3::DeclKind::Or => {
-                        let num_args = z3::get_app_num_args(*z3_ctx, app);
-                        let mut args = Vec::with_capacity(num_args as usize);
-                        for i in 0..num_args {
-                            let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, i))?;
-                            args.push(BoolAst::from_z3(ctx, arg)?);
-                        }
-                        match decl_kind {
-                            z3::DeclKind::And => ctx.and(args),
-                            z3::DeclKind::Or => ctx.or(args),
-                            _ => unreachable!(),
-                        }
-                    }
-                    z3::DeclKind::Xor => {
-                        let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
-                        let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
-                        let a = BoolAst::from_z3(ctx, arg0)?;
-                        let b = BoolAst::from_z3(ctx, arg1)?;
-                        ctx.xor(a, b)
-                    }
-                    z3::DeclKind::Eq => {
-                        let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
-                        let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
-                        let sort = z3::get_sort(*z3_ctx, *arg0);
-                        let sort_kind = z3::get_sort_kind(*z3_ctx, sort);
-
-                        match sort_kind {
-                            z3::SortKind::Bool => {
-                                let lhs = BoolAst::from_z3(ctx, arg0)?;
-                                let rhs = BoolAst::from_z3(ctx, arg1)?;
-                                ctx.eq_(lhs, rhs)
-                            }
-                            z3::SortKind::Bv => {
-                                let lhs = BitVecAst::from_z3(ctx, arg0)?;
-                                let rhs = BitVecAst::from_z3(ctx, arg1)?;
-                                ctx.eq_(lhs, rhs)
-                            }
-                            z3::SortKind::FloatingPoint => {
-                                let lhs = FloatAst::from_z3(ctx, arg0)?;
-                                let rhs = FloatAst::from_z3(ctx, arg1)?;
-                                ctx.eq_(lhs, rhs)
-                            }
-                            z3::SortKind::Seq => {
-                                let lhs = StringAst::from_z3(ctx, arg0)?;
-                                let rhs = StringAst::from_z3(ctx, arg1)?;
-                                ctx.str_eq(lhs, rhs)
-                            }
-                            _ => Err(ClarirsError::ConversionError(
-                                "Eq operand has unrecognized sort".to_string(),
-                            )),
-                        }
-                    }
-                    z3::DeclKind::Distinct => {
-                        if z3::get_app_num_args(*z3_ctx, app) != 2 {
-                            return Err(ClarirsError::ConversionError(
-                                "Distinct with != 2 args not supported".to_string(),
-                            ));
-                        }
-                        let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
-                        let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
-                        let sort = z3::get_sort(*z3_ctx, *arg0);
-                        let sort_kind = z3::get_sort_kind(*z3_ctx, sort);
-
-                        match sort_kind {
-                            z3::SortKind::Bool => {
-                                let lhs = BoolAst::from_z3(ctx, arg0)?;
-                                let rhs = BoolAst::from_z3(ctx, arg1)?;
-                                ctx.neq(lhs, rhs)
-                            }
-                            z3::SortKind::Bv => {
-                                let lhs = BitVecAst::from_z3(ctx, arg0)?;
-                                let rhs = BitVecAst::from_z3(ctx, arg1)?;
-                                ctx.neq(lhs, rhs)
-                            }
-                            z3::SortKind::FloatingPoint => {
-                                let lhs = FloatAst::from_z3(ctx, arg0)?;
-                                let rhs = FloatAst::from_z3(ctx, arg1)?;
-                                ctx.fp_neq(lhs, rhs)
-                            }
-                            z3::SortKind::Seq => {
-                                let lhs = StringAst::from_z3(ctx, arg0)?;
-                                let rhs = StringAst::from_z3(ctx, arg1)?;
-                                ctx.str_neq(lhs, rhs)
-                            }
-                            _ => Err(ClarirsError::ConversionError(
-                                "Distinct operand has unrecognized sort".to_string(),
-                            )),
-                        }
-                    }
-                    z3::DeclKind::Ult
-                    | z3::DeclKind::Uleq
-                    | z3::DeclKind::Ugt
-                    | z3::DeclKind::Ugeq
-                    | z3::DeclKind::Slt
-                    | z3::DeclKind::Sleq
-                    | z3::DeclKind::Sgt
-                    | z3::DeclKind::Sgeq => {
-                        let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
-                        let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
-
-                        // Convert both arguments
-                        let a = BitVecAst::from_z3(ctx, arg0)?;
-                        let b = BitVecAst::from_z3(ctx, arg1)?;
-
-                        // Create the appropriate operation
-                        match decl_kind {
-                            z3::DeclKind::Ult => ctx.ult(a, b),
-                            z3::DeclKind::Uleq => ctx.ule(a, b),
-                            z3::DeclKind::Ugt => ctx.ugt(a, b),
-                            z3::DeclKind::Ugeq => ctx.uge(a, b),
-                            z3::DeclKind::Slt => ctx.slt(a, b),
-                            z3::DeclKind::Sleq => ctx.sle(a, b),
-                            z3::DeclKind::Sgt => ctx.sgt(a, b),
-                            z3::DeclKind::Sgeq => ctx.sge(a, b),
-                            _ => unreachable!(),
-                        }
-                    }
-                    // FP comparisons
-                    z3::DeclKind::FpaEq
-                    | z3::DeclKind::FpaLt
-                    | z3::DeclKind::FpaLe
-                    | z3::DeclKind::FpaGt
-                    | z3::DeclKind::FpaGe => {
-                        let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
-                        let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
-
-                        let a = FloatAst::from_z3(ctx, arg0)?;
-                        let b = FloatAst::from_z3(ctx, arg1)?;
-
-                        match decl_kind {
-                            z3::DeclKind::FpaEq => ctx.fp_eq(a, b),
-                            z3::DeclKind::FpaLt => ctx.fp_lt(a, b),
-                            z3::DeclKind::FpaLe => ctx.fp_leq(a, b),
-                            z3::DeclKind::FpaGt => ctx.fp_gt(a, b),
-                            z3::DeclKind::FpaGe => ctx.fp_geq(a, b),
-                            _ => unreachable!(),
-                        }
-                    }
-                    z3::DeclKind::FpaIsNan => {
-                        let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
-                        let a = FloatAst::from_z3(ctx, arg0)?;
-                        ctx.fp_is_nan(a)
-                    }
-                    z3::DeclKind::FpaIsInf => {
-                        let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
-                        let a = FloatAst::from_z3(ctx, arg0)?;
-                        ctx.fp_is_inf(a)
-                    }
-
-                    // String predicates
-                    z3::DeclKind::SeqContains
-                    | z3::DeclKind::SeqPrefix
-                    | z3::DeclKind::SeqSuffix => {
-                        let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
-                        let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
-
-                        let a = StringAst::from_z3(ctx, arg0)?;
-                        let b = StringAst::from_z3(ctx, arg1)?;
-
-                        match decl_kind {
-                            z3::DeclKind::SeqContains => ctx.str_contains(a, b),
-                            z3::DeclKind::SeqPrefix => ctx.str_prefix_of(a, b),
-                            z3::DeclKind::SeqSuffix => ctx.str_suffix_of(a, b),
-                            _ => unreachable!(),
-                        }
-                    }
-
-                    z3::DeclKind::Ite => {
-                        let cond = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
-                        let then = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
-                        let else_ = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 2))?;
-                        let cond = BoolAst::from_z3(ctx, cond)?;
-                        let then = BoolAst::from_z3(ctx, then)?;
-                        let else_ = BoolAst::from_z3(ctx, else_)?;
-                        ctx.ite(cond, then, else_)
-                    }
-                    z3::DeclKind::Uninterpreted => {
-                        // Verify it's a boolean
-                        let sort = z3::get_sort(*z3_ctx, *ast);
-                        let bool_sort = z3::mk_bool_sort(*z3_ctx);
-                        if sort != bool_sort {
-                            return Err(ClarirsError::ConversionError(
-                                "expected a boolean".to_string(),
-                            ));
-                        }
-                        let sym = z3::get_decl_name(*z3_ctx, decl);
-                        let name = z3::get_symbol_string(*z3_ctx, sym);
-                        let name = std::ffi::CStr::from_ptr(name).to_str().unwrap();
-                        ctx.bools(name)
-                    }
-                    _ => {
-                        let decl_name =
-                            CStr::from_ptr(z3::func_decl_to_string(*z3_ctx, decl) as *mut i8)
-                                .to_string_lossy();
-
-                        Err(ClarirsError::ConversionError(format!(
-                            "Failed converting from z3: unknown decl kind for bool: {decl_name}"
-                        )))
+                    if let BooleanOp::BoolEq(a, b) = inner.op() {
+                        ctx.neq(a, b)
+                    } else {
+                        ctx.not(inner)
                     }
                 }
+                z3::DeclKind::AND | z3::DeclKind::OR => {
+                    let num_args = ast.num_children();
+                    let mut args = Vec::with_capacity(num_args);
+                    for i in 0..num_args {
+                        let arg = ast.nth_child(i).unwrap();
+                        args.push(BoolAst::from_z3(ctx, arg)?);
+                    }
+                    match decl_kind {
+                        z3::DeclKind::AND => ctx.and(args),
+                        z3::DeclKind::OR => ctx.or(args),
+                        _ => unreachable!(),
+                    }
+                }
+                z3::DeclKind::XOR => {
+                    let a = BoolAst::from_z3(ctx, ast.nth_child(0).unwrap())?;
+                    let b = BoolAst::from_z3(ctx, ast.nth_child(1).unwrap())?;
+                    ctx.xor(a, b)
+                }
+                z3::DeclKind::EQ => {
+                    let arg0 = ast.nth_child(0).unwrap();
+                    let arg1 = ast.nth_child(1).unwrap();
+                    let sort_kind = arg0.sort_kind();
+
+                    match sort_kind {
+                        z3::SortKind::Bool => {
+                            let lhs = BoolAst::from_z3(ctx, arg0)?;
+                            let rhs = BoolAst::from_z3(ctx, arg1)?;
+                            ctx.eq_(lhs, rhs)
+                        }
+                        z3::SortKind::BV => {
+                            let lhs = BitVecAst::from_z3(ctx, arg0)?;
+                            let rhs = BitVecAst::from_z3(ctx, arg1)?;
+                            ctx.eq_(lhs, rhs)
+                        }
+                        z3::SortKind::FloatingPoint => {
+                            let lhs = FloatAst::from_z3(ctx, arg0)?;
+                            let rhs = FloatAst::from_z3(ctx, arg1)?;
+                            ctx.eq_(lhs, rhs)
+                        }
+                        z3::SortKind::Seq => {
+                            let lhs = StringAst::from_z3(ctx, arg0)?;
+                            let rhs = StringAst::from_z3(ctx, arg1)?;
+                            ctx.str_eq(lhs, rhs)
+                        }
+                        _ => Err(ClarirsError::ConversionError(
+                            "Eq operand has unrecognized sort".to_string(),
+                        )),
+                    }
+                }
+                z3::DeclKind::DISTINCT => {
+                    if ast.num_children() != 2 {
+                        return Err(ClarirsError::ConversionError(
+                            "Distinct with != 2 args not supported".to_string(),
+                        ));
+                    }
+                    let arg0 = ast.nth_child(0).unwrap();
+                    let arg1 = ast.nth_child(1).unwrap();
+                    let sort_kind = arg0.sort_kind();
+
+                    match sort_kind {
+                        z3::SortKind::Bool => {
+                            let lhs = BoolAst::from_z3(ctx, arg0)?;
+                            let rhs = BoolAst::from_z3(ctx, arg1)?;
+                            ctx.neq(lhs, rhs)
+                        }
+                        z3::SortKind::BV => {
+                            let lhs = BitVecAst::from_z3(ctx, arg0)?;
+                            let rhs = BitVecAst::from_z3(ctx, arg1)?;
+                            ctx.neq(lhs, rhs)
+                        }
+                        z3::SortKind::FloatingPoint => {
+                            let lhs = FloatAst::from_z3(ctx, arg0)?;
+                            let rhs = FloatAst::from_z3(ctx, arg1)?;
+                            ctx.fp_neq(lhs, rhs)
+                        }
+                        z3::SortKind::Seq => {
+                            let lhs = StringAst::from_z3(ctx, arg0)?;
+                            let rhs = StringAst::from_z3(ctx, arg1)?;
+                            ctx.str_neq(lhs, rhs)
+                        }
+                        _ => Err(ClarirsError::ConversionError(
+                            "Distinct operand has unrecognized sort".to_string(),
+                        )),
+                    }
+                }
+                z3::DeclKind::ULT
+                | z3::DeclKind::ULEQ
+                | z3::DeclKind::UGT
+                | z3::DeclKind::UGEQ
+                | z3::DeclKind::SLT
+                | z3::DeclKind::SLEQ
+                | z3::DeclKind::SGT
+                | z3::DeclKind::SGEQ => {
+                    let a = BitVecAst::from_z3(ctx, ast.nth_child(0).unwrap())?;
+                    let b = BitVecAst::from_z3(ctx, ast.nth_child(1).unwrap())?;
+
+                    match decl_kind {
+                        z3::DeclKind::ULT => ctx.ult(a, b),
+                        z3::DeclKind::ULEQ => ctx.ule(a, b),
+                        z3::DeclKind::UGT => ctx.ugt(a, b),
+                        z3::DeclKind::UGEQ => ctx.uge(a, b),
+                        z3::DeclKind::SLT => ctx.slt(a, b),
+                        z3::DeclKind::SLEQ => ctx.sle(a, b),
+                        z3::DeclKind::SGT => ctx.sgt(a, b),
+                        z3::DeclKind::SGEQ => ctx.sge(a, b),
+                        _ => unreachable!(),
+                    }
+                }
+                z3::DeclKind::FPA_EQ
+                | z3::DeclKind::FPA_LT
+                | z3::DeclKind::FPA_LE
+                | z3::DeclKind::FPA_GT
+                | z3::DeclKind::FPA_GE => {
+                    let a = FloatAst::from_z3(ctx, ast.nth_child(0).unwrap())?;
+                    let b = FloatAst::from_z3(ctx, ast.nth_child(1).unwrap())?;
+
+                    match decl_kind {
+                        z3::DeclKind::FPA_EQ => ctx.fp_eq(a, b),
+                        z3::DeclKind::FPA_LT => ctx.fp_lt(a, b),
+                        z3::DeclKind::FPA_LE => ctx.fp_leq(a, b),
+                        z3::DeclKind::FPA_GT => ctx.fp_gt(a, b),
+                        z3::DeclKind::FPA_GE => ctx.fp_geq(a, b),
+                        _ => unreachable!(),
+                    }
+                }
+                z3::DeclKind::FPA_IS_NAN => {
+                    let a = FloatAst::from_z3(ctx, ast.nth_child(0).unwrap())?;
+                    ctx.fp_is_nan(a)
+                }
+                z3::DeclKind::FPA_IS_INF => {
+                    let a = FloatAst::from_z3(ctx, ast.nth_child(0).unwrap())?;
+                    ctx.fp_is_inf(a)
+                }
+
+                z3::DeclKind::SEQ_CONTAINS
+                | z3::DeclKind::SEQ_PREFIX
+                | z3::DeclKind::SEQ_SUFFIX => {
+                    let a = StringAst::from_z3(ctx, ast.nth_child(0).unwrap())?;
+                    let b = StringAst::from_z3(ctx, ast.nth_child(1).unwrap())?;
+
+                    match decl_kind {
+                        z3::DeclKind::SEQ_CONTAINS => ctx.str_contains(a, b),
+                        z3::DeclKind::SEQ_PREFIX => ctx.str_prefix_of(a, b),
+                        z3::DeclKind::SEQ_SUFFIX => ctx.str_suffix_of(a, b),
+                        _ => unreachable!(),
+                    }
+                }
+
+                z3::DeclKind::ITE => {
+                    let cond = BoolAst::from_z3(ctx, ast.nth_child(0).unwrap())?;
+                    let then = BoolAst::from_z3(ctx, ast.nth_child(1).unwrap())?;
+                    let else_ = BoolAst::from_z3(ctx, ast.nth_child(2).unwrap())?;
+                    ctx.ite(cond, then, else_)
+                }
+                z3::DeclKind::UNINTERPRETED => {
+                    // Verify it's a boolean
+                    if ast.sort_kind() != z3::SortKind::Bool {
+                        return Err(ClarirsError::ConversionError(
+                            "expected a boolean".to_string(),
+                        ));
+                    }
+                    let name = decl.name();
+                    ctx.bools(&name)
+                }
+                _ => {
+                    let decl_name = format!("{decl}");
+                    Err(ClarirsError::ConversionError(format!(
+                        "Failed converting from z3: unknown decl kind for bool: {decl_name}"
+                    )))
+                }
             }
-            _ => Err(ClarirsError::ConversionError(
-                "Failed converting from z3: unknown ast kind for bool".to_string(),
-            )),
         }
-    })
+        _ => Err(ClarirsError::ConversionError(
+            "Failed converting from z3: unknown ast kind for bool".to_string(),
+        )),
+    }
 }

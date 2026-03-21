@@ -1,9 +1,8 @@
 use crate::astext::AstExtZ3;
-use crate::rc::{RcModel, RcOptimize, RcParamSet, RcSolver};
 use clarirs_core::ast::bitvec::BitVecOpExt;
 use clarirs_core::prelude::*;
-use clarirs_z3_sys as z3;
 use std::collections::HashMap;
+use z3::ast::Dynamic;
 
 #[derive(Clone, Debug)]
 pub struct Z3Solver<'c> {
@@ -11,7 +10,6 @@ pub struct Z3Solver<'c> {
     assertions: Vec<BoolAst<'c>>,
     timeout: Option<u32>,
     unsat_core: bool,
-    // Maps constraint index to tracking variable
     tracking_vars: HashMap<usize, BoolAst<'c>>,
 }
 
@@ -46,11 +44,6 @@ impl<'c> Z3Solver<'c> {
         }
     }
 
-    /// Get the unsat core from the last unsatisfiable check.
-    /// Returns a vector of constraint indices that form the unsat core.
-    ///
-    /// This method only works if the solver was created with unsat_core enabled
-    /// and the last satisfiability check returned UNSAT.
     pub fn unsat_core(&mut self) -> Result<Vec<usize>, ClarirsError> {
         if !self.unsat_core {
             return Err(ClarirsError::UnsupportedOperation(
@@ -59,33 +52,26 @@ impl<'c> Z3Solver<'c> {
             ));
         }
 
-        let mut z3_solver = self.make_filled_solver()?;
+        let z3_solver = self.make_filled_solver()?;
 
-        // Check if UNSAT
-        if z3_solver.check()? != z3::Lbool::False {
+        if z3_solver.check() != z3::SatResult::Unsat {
             return Err(ClarirsError::UnsupportedOperation(
                 "Can only get unsat core after an UNSAT result".to_string(),
             ));
         }
 
-        let core_vector = z3_solver.get_unsat_core()?;
-        let core_size = core_vector.size();
-
+        let core_asts = z3_solver.get_unsat_core();
         let mut core_indices = Vec::new();
 
-        // Build a reverse map from tracking variable to index
         let mut track_to_idx: HashMap<String, usize> = HashMap::new();
         for (idx, track_var) in &self.tracking_vars {
-            // Extract the variable name
             if let Some(vars) = track_var.variables().iter().next() {
                 track_to_idx.insert(vars.to_string(), *idx);
             }
         }
 
-        for i in 0..core_size {
-            let core_ast = core_vector.get(i)?;
-            // Convert the Z3 AST back to a BoolAst to get its variable name
-            let bool_ast = BoolAst::from_z3(self.ctx, &core_ast)?;
+        for core_ast in &core_asts {
+            let bool_ast = BoolAst::from_z3(self.ctx, Dynamic::from(core_ast.clone()))?;
             if let Some(vars) = bool_ast.variables().iter().next()
                 && let Some(idx) = track_to_idx.get(&vars.to_string())
             {
@@ -104,54 +90,62 @@ impl<'c> HasContext<'c> for Z3Solver<'c> {
 }
 
 impl<'c> Z3Solver<'c> {
-    fn make_filled_solver(&self) -> Result<RcSolver, ClarirsError> {
-        let mut z3_solver = RcSolver::new()?;
+    fn make_filled_solver(&self) -> Result<z3::Solver, ClarirsError> {
+        let z3_solver = z3::Solver::new();
 
-        let mut params = RcParamSet::new()?;
+        let mut params = z3::Params::new();
         if let Some(timeout) = self.timeout {
-            params.set_u32("timeout", timeout)?;
+            params.set_u32("timeout", timeout);
         }
         if self.unsat_core {
-            params.set_bool("unsat_core", true)?;
+            params.set_bool("unsat_core", true);
         }
-        z3_solver.set_params(params)?;
+        z3_solver.set_params(&params);
 
         for (idx, assertion) in self.assertions.iter().enumerate() {
             let converted = assertion.to_z3()?;
+            let bool_ast = converted.as_bool().ok_or_else(|| {
+                ClarirsError::ConversionError("expected bool for assertion".to_string())
+            })?;
             if self.unsat_core {
-                // Use assert_and_track with a tracking variable
                 if let Some(track_var) = self.tracking_vars.get(&idx) {
                     let track_z3 = track_var.to_z3()?;
-                    z3_solver.assert_and_track(&converted, &track_z3)?;
+                    let track_bool = track_z3.as_bool().unwrap();
+                    z3_solver.assert_and_track(&bool_ast, &track_bool);
                 } else {
-                    z3_solver.assert(&converted)?;
+                    z3_solver.assert(&bool_ast);
                 }
             } else {
-                z3_solver.assert(&converted)?;
+                z3_solver.assert(&bool_ast);
             }
         }
 
         Ok(z3_solver)
     }
 
-    fn mk_filled_optimize(&self) -> Result<RcOptimize, ClarirsError> {
-        let mut z3_optimize = RcOptimize::new()?;
+    fn mk_filled_optimize(&self) -> Result<z3::Optimize, ClarirsError> {
+        let z3_optimize = z3::Optimize::new();
 
         for assertion in &self.assertions {
             let converted = assertion.to_z3()?;
-            z3_optimize.assert(&converted)?;
+            let bool_ast = converted.as_bool().ok_or_else(|| {
+                ClarirsError::ConversionError("expected bool for assertion".to_string())
+            })?;
+            z3_optimize.assert(&bool_ast);
         }
 
         Ok(z3_optimize)
     }
 
-    fn make_model(&self) -> Result<RcModel, ClarirsError> {
-        let mut z3_solver = self.make_filled_solver()?;
-        if z3_solver.check()? != z3::Lbool::True {
+    fn make_model(&self) -> Result<z3::Model, ClarirsError> {
+        let z3_solver = self.make_filled_solver()?;
+        if z3_solver.check() != z3::SatResult::Sat {
             return Err(ClarirsError::Unsat);
         }
 
-        z3_solver.model()
+        z3_solver.get_model().ok_or_else(|| {
+            ClarirsError::BackendError("Z3", "failed to get model".to_string())
+        })
     }
 
     fn simplify_dynast(expr: &DynAst<'c>) -> Result<DynAst<'c>, ClarirsError> {
@@ -163,19 +157,23 @@ impl<'c> Z3Solver<'c> {
         })
     }
 
+    fn eval_model(model: &z3::Model, expr_z3: &Dynamic) -> Result<Dynamic, ClarirsError> {
+        model.eval(expr_z3, true).ok_or_else(|| {
+            ClarirsError::BackendError("Z3", "Model evaluation failed".to_string())
+        })
+    }
+
     fn eval(&self, expr: &DynAst<'c>) -> Result<DynAst<'c>, ClarirsError> {
         let expr = Z3Solver::simplify_dynast(&expr.simplify()?)?;
 
-        // If the expression is concrete, we can return it directly
         if expr.concrete() {
             return Ok(expr);
         }
 
-        // Expression is not concrete, we need to get a model from Z3 and
-        // replace the variables with the values from the model
         let model = self.make_model()?;
-
-        DynAst::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)
+        let expr_z3 = expr.to_z3()?;
+        let eval_result = Self::eval_model(&model, &expr_z3)?;
+        DynAst::from_z3(expr.context(), eval_result)
     }
 }
 
@@ -184,7 +182,6 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         let idx = self.assertions.len();
         self.assertions.push(constraint.clone());
 
-        // Create a tracking variable if unsat_core is enabled
         if self.unsat_core {
             let track_name = format!("__track_{idx}");
             let track_var = self.ctx.bools(&track_name)?;
@@ -221,8 +218,8 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
     }
 
     fn satisfiable(&mut self) -> Result<bool, ClarirsError> {
-        let mut z3_solver = self.make_filled_solver()?;
-        Ok(z3_solver.check()? == z3::Lbool::True)
+        let z3_solver = self.make_filled_solver()?;
+        Ok(z3_solver.check() == z3::SatResult::Sat)
     }
 
     fn eval_bool(&mut self, expr: &BoolAst<'c>) -> Result<BoolAst<'c>, ClarirsError> {
@@ -280,14 +277,18 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
     }
 
     fn min_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        let mut optimize = self.mk_filled_optimize()?;
-        optimize.minimize(&expr.to_z3()?)?;
-        if optimize.check()? != z3::Lbool::True {
+        let z3_optimize = self.mk_filled_optimize()?;
+        let expr_z3 = expr.to_z3()?;
+        z3_optimize.minimize(&expr_z3);
+        if z3_optimize.check(&[]) != z3::SatResult::Sat {
             return Err(ClarirsError::Unsat);
         }
 
-        let model = optimize.get_model()?;
-        let result = DynAst::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)?;
+        let model = z3_optimize.get_model().ok_or_else(|| {
+            ClarirsError::BackendError("Z3", "failed to get model".to_string())
+        })?;
+        let eval_result = Self::eval_model(&model, &expr_z3)?;
+        let result = DynAst::from_z3(expr.context(), eval_result)?;
 
         match result {
             DynAst::BitVec(ast) => Ok(ast),
@@ -296,14 +297,18 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
     }
 
     fn max_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        let mut optimize = self.mk_filled_optimize()?;
-        optimize.maximize(&expr.to_z3()?)?;
-        if optimize.check()? != z3::Lbool::True {
+        let z3_optimize = self.mk_filled_optimize()?;
+        let expr_z3 = expr.to_z3()?;
+        z3_optimize.maximize(&expr_z3);
+        if z3_optimize.check(&[]) != z3::SatResult::Sat {
             return Err(ClarirsError::Unsat);
         }
 
-        let model = optimize.get_model()?;
-        let result = DynAst::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)?;
+        let model = z3_optimize.get_model().ok_or_else(|| {
+            ClarirsError::BackendError("Z3", "failed to get model".to_string())
+        })?;
+        let eval_result = Self::eval_model(&model, &expr_z3)?;
+        let result = DynAst::from_z3(expr.context(), eval_result)?;
 
         match result {
             DynAst::BitVec(ast) => Ok(ast),
@@ -312,36 +317,35 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
     }
 
     fn min_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        let mut optimize = self.mk_filled_optimize()?;
-        // Get the size of the bitvector
+        let z3_optimize = self.mk_filled_optimize()?;
         let size = expr.size();
 
-        // For signed minimization, the sign bit should be 1 (for negative numbers)
-        // Extract the sign bit
         let sign_bit = self.ctx.extract(expr, size - 1, size - 1)?;
         let one_bit = self.ctx.bvv_prim_with_size(1u64, 1)?;
 
-        // Create a target variable equal to the expression
         let target_name = format!("min_signed_target_{size}");
         let target = self.ctx.bvs(&target_name, size)?;
         let equality = self.ctx.eq_(&target, expr)?;
-        optimize.assert(&equality.to_z3()?)?;
+        let eq_z3 = equality.to_z3()?;
+        z3_optimize.assert(&eq_z3.as_bool().unwrap());
 
-        // First, maximize the sign bit with a high weight
-        // This will prefer negative numbers (sign bit = 1) over positive ones
         let sign_equality = self.ctx.eq_(&sign_bit, &one_bit)?;
-        optimize.assert_soft(&sign_equality.to_z3()?, 1000000)?;
+        let sign_z3 = sign_equality.to_z3()?;
+        z3_optimize.assert_soft(&sign_z3.as_bool().unwrap(), 1000000, None);
 
-        // Then minimize the target value (with lower weight)
-        // This will find the smallest value among those with the preferred sign bit
-        optimize.minimize(&target.to_z3()?)?;
+        let target_z3 = target.to_z3()?;
+        z3_optimize.minimize(&target_z3);
 
-        if optimize.check()? != z3::Lbool::True {
+        if z3_optimize.check(&[]) != z3::SatResult::Sat {
             return Err(ClarirsError::Unsat);
         }
 
-        let model = optimize.get_model()?;
-        let result = DynAst::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)?;
+        let model = z3_optimize.get_model().ok_or_else(|| {
+            ClarirsError::BackendError("Z3", "failed to get model".to_string())
+        })?;
+        let expr_z3 = expr.to_z3()?;
+        let eval_result = Self::eval_model(&model, &expr_z3)?;
+        let result = DynAst::from_z3(expr.context(), eval_result)?;
         match result {
             DynAst::BitVec(ast) => Ok(ast),
             _ => unreachable!(),
@@ -349,36 +353,35 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
     }
 
     fn max_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        let mut optimize = self.mk_filled_optimize()?;
-        // Get the size of the bitvector
+        let z3_optimize = self.mk_filled_optimize()?;
         let size = expr.size();
 
-        // For signed maximization, the sign bit should be 0 (for positive numbers)
-        // Extract the sign bit
         let sign_bit = self.ctx.extract(expr, size - 1, size - 1)?;
         let zero_bit = self.ctx.bvv_prim_with_size(0u64, 1)?;
 
-        // Create a target variable equal to the expression
         let target_name = format!("max_signed_target_{size}");
         let target = self.ctx.bvs(&target_name, size)?;
         let equality = self.ctx.eq_(&target, expr)?;
-        optimize.assert(&equality.to_z3()?)?;
+        let eq_z3 = equality.to_z3()?;
+        z3_optimize.assert(&eq_z3.as_bool().unwrap());
 
-        // First, maximize making the sign bit 0 with a high weight
-        // This will prefer positive numbers (sign bit = 0) over negative ones
         let sign_equality = self.ctx.eq_(&sign_bit, &zero_bit)?;
-        optimize.assert_soft(&sign_equality.to_z3()?, 1000000)?;
+        let sign_z3 = sign_equality.to_z3()?;
+        z3_optimize.assert_soft(&sign_z3.as_bool().unwrap(), 1000000, None);
 
-        // Then maximize the target value (with lower weight)
-        // This will find the largest value among those with the preferred sign bit
-        optimize.maximize(&target.to_z3()?)?;
+        let target_z3 = target.to_z3()?;
+        z3_optimize.maximize(&target_z3);
 
-        if optimize.check()? != z3::Lbool::True {
+        if z3_optimize.check(&[]) != z3::SatResult::Sat {
             return Err(ClarirsError::Unsat);
         }
 
-        let model = optimize.get_model()?;
-        let result = DynAst::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)?;
+        let model = z3_optimize.get_model().ok_or_else(|| {
+            ClarirsError::BackendError("Z3", "failed to get model".to_string())
+        })?;
+        let expr_z3 = expr.to_z3()?;
+        let eval_result = Self::eval_model(&model, &expr_z3)?;
+        let result = DynAst::from_z3(expr.context(), eval_result)?;
         match result {
             DynAst::BitVec(ast) => Ok(ast),
             _ => unreachable!(),
@@ -392,38 +395,36 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
     ) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
         let mut results = Vec::new();
 
-        // Simplify and check if concrete
         let expr = expr.simplify_z3()?;
         if expr.concrete() {
             return Ok(vec![expr; n as usize]);
         }
 
-        // Convert to Z3 once
         let z3_expr = expr.to_z3()?;
 
-        // Create and fill the Z3 solver once
-        let mut z3_solver = RcSolver::new()?;
+        let z3_solver = z3::Solver::new();
 
         for assertion in &self.assertions {
             let converted = assertion.to_z3()?;
-            z3_solver.assert(&converted)?;
+            z3_solver.assert(&converted.as_bool().unwrap());
         }
 
         for _ in 0..n {
-            if z3_solver.check()? != z3::Lbool::True {
+            if z3_solver.check() != z3::SatResult::Sat {
                 break;
             }
 
-            let model = z3_solver.model()?;
-            let eval_result = model.eval(&z3_expr)?;
+            let model = z3_solver.get_model().ok_or_else(|| {
+                ClarirsError::BackendError("Z3", "failed to get model".to_string())
+            })?;
+            let eval_result = Self::eval_model(&model, &z3_expr)?;
 
             let solution = BoolAst::from_z3(self.context(), eval_result)?;
             results.push(solution.clone());
 
-            // Add constraint to exclude this solution
             let neq_constraint = self.context().neq(&expr, &solution)?;
             let z3_neq = neq_constraint.to_z3()?;
-            z3_solver.assert(&z3_neq)?;
+            z3_solver.assert(&z3_neq.as_bool().unwrap());
         }
 
         Ok(results)
@@ -436,38 +437,36 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
     ) -> Result<Vec<BitVecAst<'c>>, ClarirsError> {
         let mut results = Vec::new();
 
-        // Simplify and check if concrete
         let expr = expr.simplify_z3()?;
         if expr.concrete() {
             return Ok(vec![expr; n as usize]);
         }
 
-        // Convert to Z3 once
         let z3_expr = expr.to_z3()?;
 
-        // Create and fill the Z3 solver once
-        let mut z3_solver = RcSolver::new()?;
+        let z3_solver = z3::Solver::new();
 
         for assertion in &self.assertions {
             let converted = assertion.to_z3()?;
-            z3_solver.assert(&converted)?;
+            z3_solver.assert(&converted.as_bool().unwrap());
         }
 
         for _ in 0..n {
-            if z3_solver.check()? != z3::Lbool::True {
+            if z3_solver.check() != z3::SatResult::Sat {
                 break;
             }
 
-            let model = z3_solver.model()?;
-            let eval_result = model.eval(&z3_expr)?;
+            let model = z3_solver.get_model().ok_or_else(|| {
+                ClarirsError::BackendError("Z3", "failed to get model".to_string())
+            })?;
+            let eval_result = Self::eval_model(&model, &z3_expr)?;
 
             let solution = BitVecAst::from_z3(self.context(), eval_result)?;
             results.push(solution.clone());
 
-            // Add constraint to exclude this solution
             let neq_constraint = self.context().neq(&expr, &solution)?;
             let z3_neq = neq_constraint.to_z3()?;
-            z3_solver.assert(&z3_neq)?;
+            z3_solver.assert(&z3_neq.as_bool().unwrap());
         }
 
         Ok(results)
@@ -480,38 +479,36 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
     ) -> Result<Vec<FloatAst<'c>>, ClarirsError> {
         let mut results = Vec::new();
 
-        // Simplify and check if concrete
         let expr = expr.simplify_z3()?;
         if expr.concrete() {
             return Ok(vec![expr; n as usize]);
         }
 
-        // Convert to Z3 once
         let z3_expr = expr.to_z3()?;
 
-        // Create and fill the Z3 solver once
-        let mut z3_solver = RcSolver::new()?;
+        let z3_solver = z3::Solver::new();
 
         for assertion in &self.assertions {
             let converted = assertion.to_z3()?;
-            z3_solver.assert(&converted)?;
+            z3_solver.assert(&converted.as_bool().unwrap());
         }
 
         for _ in 0..n {
-            if z3_solver.check()? != z3::Lbool::True {
+            if z3_solver.check() != z3::SatResult::Sat {
                 break;
             }
 
-            let model = z3_solver.model()?;
-            let eval_result = model.eval(&z3_expr)?;
+            let model = z3_solver.get_model().ok_or_else(|| {
+                ClarirsError::BackendError("Z3", "failed to get model".to_string())
+            })?;
+            let eval_result = Self::eval_model(&model, &z3_expr)?;
 
             let solution = FloatAst::from_z3(self.context(), eval_result)?;
             results.push(solution.clone());
 
-            // Add constraint to exclude this solution
             let neq_constraint = self.context().neq(&expr, &solution)?;
             let z3_neq = neq_constraint.to_z3()?;
-            z3_solver.assert(&z3_neq)?;
+            z3_solver.assert(&z3_neq.as_bool().unwrap());
         }
 
         Ok(results)
@@ -524,38 +521,36 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
     ) -> Result<Vec<StringAst<'c>>, ClarirsError> {
         let mut results = Vec::new();
 
-        // Simplify and check if concrete
         let expr = expr.simplify_z3()?;
         if expr.concrete() {
             return Ok(vec![expr; n as usize]);
         }
 
-        // Convert to Z3 once
         let z3_expr = expr.to_z3()?;
 
-        // Create and fill the Z3 solver once
-        let mut z3_solver = RcSolver::new()?;
+        let z3_solver = z3::Solver::new();
 
         for assertion in &self.assertions {
             let converted = assertion.to_z3()?;
-            z3_solver.assert(&converted)?;
+            z3_solver.assert(&converted.as_bool().unwrap());
         }
 
         for _ in 0..n {
-            if z3_solver.check()? != z3::Lbool::True {
+            if z3_solver.check() != z3::SatResult::Sat {
                 break;
             }
 
-            let model = z3_solver.model()?;
-            let eval_result = model.eval(&z3_expr)?;
+            let model = z3_solver.get_model().ok_or_else(|| {
+                ClarirsError::BackendError("Z3", "failed to get model".to_string())
+            })?;
+            let eval_result = Self::eval_model(&model, &z3_expr)?;
 
             let solution = StringAst::from_z3(self.context(), eval_result)?;
             results.push(solution.clone());
 
-            // Add constraint to exclude this solution
             let neq_constraint = self.context().neq(&expr, &solution)?;
             let z3_neq = neq_constraint.to_z3()?;
-            z3_solver.assert(&z3_neq)?;
+            z3_solver.assert(&z3_neq.as_bool().unwrap());
         }
 
         Ok(results)
@@ -664,13 +659,11 @@ mod tests {
             let ctx = Context::new();
             let mut solver = Z3Solver::new(&ctx);
 
-            // Test with concrete value
             let t = ctx.true_()?;
             let not_t = ctx.not(&t)?;
             let result = solver.eval_bool(&not_t)?;
             assert!(result.is_false());
 
-            // Test with symbolic value
             let x = ctx.bools("x")?;
             solver.add(&ctx.eq_(&x, &ctx.true_()?)?)?;
             let not_x = ctx.not(&x)?;
@@ -685,7 +678,6 @@ mod tests {
             let ctx = Context::new();
             let mut solver = Z3Solver::new(&ctx);
 
-            // Test with concrete values - truth table
             let t = ctx.true_()?;
             let f = ctx.false_()?;
 
@@ -699,7 +691,6 @@ mod tests {
             assert!(ft.is_false());
             assert!(ff.is_false());
 
-            // Test with symbolic values
             let x = ctx.bools("x")?;
             let y = ctx.bools("y")?;
             solver.add(&ctx.eq_(&x, &ctx.true_()?)?)?;
@@ -716,7 +707,6 @@ mod tests {
             let ctx = Context::new();
             let mut solver = Z3Solver::new(&ctx);
 
-            // Test with concrete values - truth table
             let t = ctx.true_()?;
             let f = ctx.false_()?;
 
@@ -730,7 +720,6 @@ mod tests {
             assert!(ft.is_true());
             assert!(ff.is_false());
 
-            // Test with symbolic values
             let x = ctx.bools("x")?;
             let y = ctx.bools("y")?;
             solver.add(&ctx.eq_(&x, &ctx.false_()?)?)?;
@@ -747,7 +736,6 @@ mod tests {
             let ctx = Context::new();
             let mut solver = Z3Solver::new(&ctx);
 
-            // Test with concrete values - truth table
             let t = ctx.true_()?;
             let f = ctx.false_()?;
 
@@ -761,7 +749,6 @@ mod tests {
             assert!(ft.is_true());
             assert!(ff.is_false());
 
-            // Test with symbolic values
             let x = ctx.bools("x")?;
             let y = ctx.bools("y")?;
             solver.add(&ctx.eq_(&x, &ctx.true_()?)?)?;
@@ -778,7 +765,6 @@ mod tests {
             let ctx = Context::new();
             let mut solver = Z3Solver::new(&ctx);
 
-            // Test with concrete values
             let t = ctx.true_()?;
             let f = ctx.false_()?;
 
@@ -788,7 +774,6 @@ mod tests {
             assert!(tt.is_true());
             assert!(tf.is_false());
 
-            // Test with symbolic values
             let x = ctx.bools("x")?;
             let y = ctx.bools("y")?;
             solver.add(&ctx.eq_(&x, &ctx.true_()?)?)?;
@@ -805,7 +790,6 @@ mod tests {
             let ctx = Context::new();
             let mut solver = Z3Solver::new(&ctx);
 
-            // Test with concrete values
             let t = ctx.true_()?;
             let f = ctx.false_()?;
 
@@ -815,7 +799,6 @@ mod tests {
             assert!(tt.is_false());
             assert!(tf.is_true());
 
-            // Test with symbolic values
             let x = ctx.bools("x")?;
             let y = ctx.bools("y")?;
             solver.add(&ctx.eq_(&x, &ctx.true_()?)?)?;
@@ -832,7 +815,6 @@ mod tests {
             let ctx = Context::new();
             let mut solver = Z3Solver::new(&ctx);
 
-            // Test with concrete values
             let t = ctx.true_()?;
             let f = ctx.false_()?;
 
@@ -842,7 +824,6 @@ mod tests {
             assert!(tt.is_true());
             assert!(tf.is_false());
 
-            // Test with symbolic values
             let c = ctx.bools("c")?;
             let x = ctx.bools("x")?;
             let y = ctx.bools("y")?;
@@ -866,7 +847,6 @@ mod tests {
             let ctx = Context::new();
             let mut solver = Z3Solver::new(&ctx);
 
-            // Using a concrete value should return the same value
             let bv = ctx.bvv_prim(42u64)?;
             let result = solver.min_unsigned(&bv)?;
 
@@ -880,7 +860,6 @@ mod tests {
             let ctx = Context::new();
             let mut solver = Z3Solver::new(&ctx);
 
-            // Using a concrete value should return the same value
             let bv = ctx.bvv_prim(42u64)?;
             let result = solver.max_unsigned(&bv)?;
 
@@ -894,17 +873,14 @@ mod tests {
             let ctx = Context::new();
             let mut solver = Z3Solver::new(&ctx);
 
-            // Create a variable with constraints
             let x = ctx.bvs("x", 64)?;
 
-            // Add constraints: 10 <= x <= 20
             let lower_bound = ctx.bvv_prim(10u64)?;
             let upper_bound = ctx.bvv_prim(20u64)?;
 
             solver.add(&ctx.uge(&x, &lower_bound)?)?;
             solver.add(&ctx.ule(&x, &upper_bound)?)?;
 
-            // Min value should be 10
             let result = solver.min_unsigned(&x)?;
             assert_eq!(result, lower_bound);
 
@@ -916,17 +892,14 @@ mod tests {
             let ctx = Context::new();
             let mut solver = Z3Solver::new(&ctx);
 
-            // Create a variable with constraints
             let x = ctx.bvs("x", 64)?;
 
-            // Add constraints: 10 <= x <= 20
             let lower_bound = ctx.bvv_prim(10u64)?;
             let upper_bound = ctx.bvv_prim(20u64)?;
 
             solver.add(&ctx.uge(&x, &lower_bound)?)?;
             solver.add(&ctx.ule(&x, &upper_bound)?)?;
 
-            // Max value should be 20
             let result = solver.max_unsigned(&x)?;
             assert_eq!(result, upper_bound);
 
@@ -938,30 +911,21 @@ mod tests {
             let ctx = Context::new();
             let mut solver = Z3Solver::new(&ctx);
 
-            // Create variables
             let x = ctx.bvs("x", 8)?;
             let y = ctx.bvs("y", 8)?;
 
-            // Add constraints:
-            // x must be greater than 5
-            // y must be less than 10
-            // x + y must be even (lowest bit is 0)
             let five = ctx.bvv_prim(5u8)?;
             let ten = ctx.bvv_prim(10u8)?;
 
             solver.add(&ctx.ugt(&x, &five)?)?;
             solver.add(&ctx.ult(&y, &ten)?)?;
 
-            // x + y must be even
             let sum = ctx.add(&x, &y)?;
             let zero = ctx.bvv_prim_with_size(0u64, 1)?;
             solver.add(&ctx.eq_(&ctx.extract(&sum, 0, 0)?, &zero)?)?;
 
-            // Find min value of x
             let result = solver.min_unsigned(&x)?;
 
-            // Min value should be 6
-            // Because x > 5, and if x = 6 and y = 0, then 6+0=6 which is even
             let six = ctx.bvv_prim(6u8)?;
             assert_eq!(result, six);
 
@@ -973,14 +937,9 @@ mod tests {
             let ctx = Context::new();
             let mut solver = Z3Solver::new(&ctx);
 
-            // Create variables
             let x = ctx.bvs("x", 8)?;
             let y = ctx.bvs("y", 8)?;
 
-            // Add constraints:
-            // x must be less than 100
-            // y must be greater than 20
-            // x must be greater than y
             let hundred = ctx.bvv_prim(100u8)?;
             let twenty = ctx.bvv_prim(20u8)?;
 
@@ -988,24 +947,19 @@ mod tests {
             solver.add(&ctx.ugt(&y, &twenty)?)?;
             solver.add(&ctx.ugt(&x, &y)?)?;
 
-            // Find max value of x
             let result = solver.max_unsigned(&x)?;
 
-            // Max value should be 99 (since x < 100)
             let ninety_nine = ctx.bvv_prim(99u8)?;
             assert_eq!(result, ninety_nine);
 
             Ok(())
         }
 
-        // Tests for signed bitvector operations
-
         #[test]
         fn test_min_signed_concrete() -> Result<(), ClarirsError> {
             let ctx = Context::new();
             let mut solver = Z3Solver::new(&ctx);
 
-            // Using a concrete value should return the same value
             let bv = ctx.bvv_prim(42u64)?;
             let result = solver.min_signed(&bv)?;
 
@@ -1019,7 +973,6 @@ mod tests {
             let ctx = Context::new();
             let mut solver = Z3Solver::new(&ctx);
 
-            // Using a concrete value should return the same value
             let bv = ctx.bvv_prim(42u64)?;
             let result = solver.max_signed(&bv)?;
 
@@ -1033,18 +986,14 @@ mod tests {
             let ctx = Context::new();
             let mut solver = Z3Solver::new(&ctx);
 
-            // Create a variable with constraints
             let x = ctx.bvs("x", 64)?;
 
-            // Add constraints: -10 <= x <= 20 (in signed interpretation)
-            // -10 in 64-bit two's complement is 0xfffffffffffffff6
             let lower_bound = ctx.bvv_prim(0xfffffffffffffff6u64)?;
             let upper_bound = ctx.bvv_prim(20u64)?;
 
             solver.add(&ctx.sge(&x, &lower_bound)?)?;
             solver.add(&ctx.sle(&x, &upper_bound)?)?;
 
-            // Min value should be -10
             let result = solver.min_signed(&x)?;
             assert_eq!(result, lower_bound);
 
@@ -1056,18 +1005,14 @@ mod tests {
             let ctx = Context::new();
             let mut solver = Z3Solver::new(&ctx);
 
-            // Create a variable with constraints
             let x = ctx.bvs("x", 64)?;
 
-            // Add constraints: -10 <= x <= 20 (in signed interpretation)
-            // -10 in 64-bit two's complement is 0xfffffffffffffff6
             let lower_bound = ctx.bvv_prim(0xfffffffffffffff6u64)?;
             let upper_bound = ctx.bvv_prim(20u64)?;
 
             solver.add(&ctx.sge(&x, &lower_bound)?)?;
             solver.add(&ctx.sle(&x, &upper_bound)?)?;
 
-            // Max value should be 20
             let result = solver.max_signed(&x)?;
             assert_eq!(result, upper_bound);
 
@@ -1079,32 +1024,21 @@ mod tests {
             let ctx = Context::new();
             let mut solver = Z3Solver::new(&ctx);
 
-            // Create variables
             let x = ctx.bvs("x", 8)?;
             let y = ctx.bvs("y", 8)?;
 
-            // Add constraints:
-            // x must be greater than -5 (signed)
-            // y must be less than 10 (signed)
-            // x + y must be even (lowest bit is 0)
-
-            // -5 in 8-bit two's complement is 0xfb (251 in unsigned)
             let neg_five = ctx.bvv_prim(0xfbu8)?;
             let ten = ctx.bvv_prim(10u8)?;
 
             solver.add(&ctx.sgt(&x, &neg_five)?)?;
             solver.add(&ctx.slt(&y, &ten)?)?;
 
-            // x + y must be even
             let sum = ctx.add(&x, &y)?;
             let zero = ctx.bvv_prim_with_size(0u64, 1)?;
             solver.add(&ctx.eq_(&ctx.extract(&sum, 0, 0)?, &zero)?)?;
 
-            // Find min value of x
             let result = solver.min_signed(&x)?;
 
-            // Min value should be -4 (0xfc in 8-bit two's complement)
-            // Because x > -5, and if x = -4 and y = 0, then -4+0=-4 which is even
             let neg_four = ctx.bvv_prim(0xfcu8)?;
             assert_eq!(result, neg_four);
 
@@ -1116,27 +1050,18 @@ mod tests {
             let ctx = Context::new();
             let mut solver = Z3Solver::new(&ctx);
 
-            // Create variables
             let x = ctx.bvs("x", 8)?;
             let y = ctx.bvs("y", 8)?;
 
-            // Add constraints:
-            // x must be less than 100 (signed)
-            // y must be greater than -20 (signed)
-            // x must be greater than y (signed)
             let hundred = ctx.bvv_prim(100u8)?;
-
-            // -20 in 8-bit two's complement is 0xec (236 in unsigned)
             let neg_twenty = ctx.bvv_prim(0xecu8)?;
 
             solver.add(&ctx.slt(&x, &hundred)?)?;
             solver.add(&ctx.sgt(&y, &neg_twenty)?)?;
             solver.add(&ctx.sgt(&x, &y)?)?;
 
-            // Find max value of x
             let result = solver.max_signed(&x)?;
 
-            // Max value should be 99 (since x < 100)
             let ninety_nine = ctx.bvv_prim(99u8)?;
             assert_eq!(result, ninety_nine);
 
@@ -1148,19 +1073,14 @@ mod tests {
             let ctx = Context::new();
             let mut solver = Z3Solver::new(&ctx);
 
-            // Create a variable with constraints
             let x = ctx.bvs("x", 8)?;
 
-            // Add constraints: -100 <= x <= -10 (in signed interpretation)
-            // -100 in 8-bit two's complement is 0x9c (156 in unsigned)
-            // -10 in 8-bit two's complement is 0xf6 (246 in unsigned)
             let lower_bound = ctx.bvv_prim(0x9cu8)?;
             let upper_bound = ctx.bvv_prim(0xf6u8)?;
 
             solver.add(&ctx.sge(&x, &lower_bound)?)?;
             solver.add(&ctx.sle(&x, &upper_bound)?)?;
 
-            // Min value should be -100
             let result = solver.min_signed(&x)?;
             assert_eq!(result, lower_bound);
 
@@ -1172,19 +1092,14 @@ mod tests {
             let ctx = Context::new();
             let mut solver = Z3Solver::new(&ctx);
 
-            // Create a variable with constraints
             let x = ctx.bvs("x", 8)?;
 
-            // Add constraints: -100 <= x <= -10 (in signed interpretation)
-            // -100 in 8-bit two's complement is 0x9c (156 in unsigned)
-            // -10 in 8-bit two's complement is 0xf6 (246 in unsigned)
             let lower_bound = ctx.bvv_prim(0x9cu8)?;
             let upper_bound = ctx.bvv_prim(0xf6u8)?;
 
             solver.add(&ctx.sge(&x, &lower_bound)?)?;
             solver.add(&ctx.sle(&x, &upper_bound)?)?;
 
-            // Max value should be -10
             let result = solver.max_signed(&x)?;
             assert_eq!(result, upper_bound);
 
@@ -1200,22 +1115,17 @@ mod tests {
         let x = ctx.bools("x")?;
         let y = ctx.bools("y")?;
 
-        // Add contradictory constraints
-        solver.add(&ctx.eq_(&x, &ctx.true_()?)?)?; // constraint 0
-        solver.add(&ctx.eq_(&y, &ctx.true_()?)?)?; // constraint 1
-        solver.add(&ctx.eq_(&x, &y)?)?; // constraint 2
-        solver.add(&ctx.neq(&x, &y)?)?; // constraint 3 - contradicts with 0, 1, and 2
+        solver.add(&ctx.eq_(&x, &ctx.true_()?)?)?;
+        solver.add(&ctx.eq_(&y, &ctx.true_()?)?)?;
+        solver.add(&ctx.eq_(&x, &y)?)?;
+        solver.add(&ctx.neq(&x, &y)?)?;
 
-        // Should be unsat
         assert!(!solver.satisfiable()?);
 
-        // Get unsat core
         let core = solver.unsat_core()?;
 
-        // The core should contain the contradictory constraints
-        // At minimum, it should contain constraint 2 and 3 (or 0, 1, and 3)
         assert!(!core.is_empty());
-        assert!(core.len() <= 4); // Should be a subset of all constraints
+        assert!(core.len() <= 4);
 
         Ok(())
     }
@@ -1227,22 +1137,18 @@ mod tests {
 
         let x = ctx.bvs("x", 8)?;
 
-        // Add constraints
-        let c0 = ctx.ugt(&x, &ctx.bvv_prim(10u8)?)?; // x > 10
-        let c1 = ctx.ult(&x, &ctx.bvv_prim(5u8)?)?; // x < 5 - contradicts c0
-        let c2 = ctx.ugt(&x, &ctx.bvv_prim(0u8)?)?; // x > 0 - doesn't contribute to unsat
+        let c0 = ctx.ugt(&x, &ctx.bvv_prim(10u8)?)?;
+        let c1 = ctx.ult(&x, &ctx.bvv_prim(5u8)?)?;
+        let c2 = ctx.ugt(&x, &ctx.bvv_prim(0u8)?)?;
 
-        solver.add(&c0)?; // constraint 0
-        solver.add(&c1)?; // constraint 1
-        solver.add(&c2)?; // constraint 2
+        solver.add(&c0)?;
+        solver.add(&c1)?;
+        solver.add(&c2)?;
 
-        // Should be unsat
         assert!(!solver.satisfiable()?);
 
-        // Get unsat core
         let core = solver.unsat_core()?;
 
-        // The core should contain constraints 0 and 1, but not necessarily 2
         assert!(!core.is_empty());
         assert!(core.contains(&0));
         assert!(core.contains(&1));
@@ -1253,17 +1159,15 @@ mod tests {
     #[test]
     fn test_unsat_core_not_enabled() -> Result<(), ClarirsError> {
         let ctx = Context::new();
-        let mut solver = Z3Solver::new(&ctx); // unsat_core not enabled
+        let mut solver = Z3Solver::new(&ctx);
 
         let x = ctx.bools("x")?;
 
         solver.add(&x)?;
         solver.add(&ctx.not(&x)?)?;
 
-        // Should be unsat
         assert!(!solver.satisfiable()?);
 
-        // Getting unsat core should fail because it's not enabled
         assert!(solver.unsat_core().is_err());
 
         Ok(())
@@ -1277,10 +1181,8 @@ mod tests {
         let x = ctx.bools("x")?;
         solver.add(&x)?;
 
-        // Should be sat
         assert!(solver.satisfiable()?);
 
-        // Getting unsat core on a SAT result should fail
         assert!(solver.unsat_core().is_err());
 
         Ok(())
