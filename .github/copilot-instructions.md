@@ -11,7 +11,6 @@ crates/
 ├── clarirs_num/        # Numeric primitives (BitVec, Float)
 ├── clarirs_py/         # Python bindings (builds as 'claripy' module)
 ├── clarirs_z3/         # Z3 solver implementation
-├── clarirs-z3-sys/     # Low-level Z3 FFI bindings (builds Z3 from source)
 └── clarirs-vsa/        # Value Set Analysis solver
 ```
 
@@ -120,14 +119,9 @@ pub trait Solver<'c>: Clone + HasContext<'c> {
 
 Use `ClarirsError` from `crates/clarirs_core/src/error.rs`. Conversion from `BitVecError` and `PoisonError` is automatic. Python bindings map to custom exception hierarchy (`ClaripyError`, `UnsatError`, etc.).
 
-### Z3 Bindings Build Process
+### Z3 Bindings
 
-`clarirs-z3-sys` uses `build.rs` to:
-1. Invoke CMake on `z3/` submodule
-2. Generate Rust bindings via `bindgen` with custom callbacks (strip `Z3_` prefix, convert to PascalCase)
-3. Link statically to avoid runtime Z3 dependency
-
-Requires: CMake, Ninja, Clang (for faster builds). On CI, sccache caches compilation.
+The `clarirs_z3` crate uses the `z3` and `z3-sys` crates from crates.io (with the `bundled` feature to compile Z3 from source).
 
 ## Claripy Compatibility Notes
 
