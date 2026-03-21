@@ -1,11 +1,12 @@
 mod astext;
 mod rc;
 mod solver;
+mod z3_compat;
 
 pub use solver::Z3Solver;
 
 use clarirs_core::cache::GenericCache;
-use clarirs_z3_sys as z3;
+use z3_compat as z3;
 use rc::RcAst;
 
 thread_local! {

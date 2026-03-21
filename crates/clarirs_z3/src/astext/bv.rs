@@ -1,5 +1,5 @@
 use clarirs_core::{ast::bitvec::BitVecOpExt, prelude::*};
-use clarirs_z3_sys as z3;
+use crate::z3_compat as z3;
 
 use super::AstExtZ3;
 use crate::{Z3_CONTEXT, astext::child, check_z3_error, rc::RcAst};

@@ -11,7 +11,7 @@ repository = { workspace = true }
 
 [dependencies]
 clarirs_core = { path = "../clarirs_core" }
-clarirs-z3-sys = { path = "../clarirs-z3-sys" }
+z3-sys = { git = "https://github.com/prove-rs/z3.rs", features = ["vendored"] }
 regex = "1.12" 
 
 [lints]

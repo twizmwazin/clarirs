@@ -3,7 +3,7 @@ use std::ops::{Deref, DerefMut};
 
 use crate::{Z3_CONTEXT, check_z3_error};
 use clarirs_core::error::ClarirsError;
-use clarirs_z3_sys as z3;
+use crate::z3_compat as z3;
 
 #[repr(transparent)]
 pub struct RcAst(z3::Ast);
@@ -389,13 +389,7 @@ impl RcOptimize {
             ClarirsError::BackendError("Z3", "Failed to convert weight to CString".into())
         })?;
         Z3_CONTEXT.with(|&ctx| unsafe {
-            z3::optimize_assert_soft(
-                ctx,
-                self.0,
-                **ast,
-                weight_string.as_ptr(),
-                std::ptr::null_mut(),
-            );
+            z3::optimize_assert_soft(ctx, self.0, **ast, weight_string.as_ptr(), None);
         });
         check_z3_error()
     }
@@ -473,8 +467,8 @@ pub struct RcModel(z3::Model);
 impl RcModel {
     pub fn eval(&self, ast: &RcAst) -> Result<RcAst, ClarirsError> {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            let mut eval_result: z3::Ast = std::mem::zeroed();
-            let eval_ret = z3::model_eval(ctx, self.0, **ast, true, &mut eval_result);
+            let mut eval_result = std::mem::MaybeUninit::<z3::Ast>::uninit();
+            let eval_ret = z3::model_eval(ctx, self.0, **ast, true, eval_result.as_mut_ptr());
             check_z3_error()?;
             if !eval_ret {
                 return Err(ClarirsError::BackendError(
@@ -482,7 +476,7 @@ impl RcModel {
                     "Model evaluation failed".into(),
                 ));
             }
-            RcAst::try_from(eval_result)
+            RcAst::try_from(eval_result.assume_init())
         })
     }
 }

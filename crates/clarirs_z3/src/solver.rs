@@ -2,7 +2,7 @@ use crate::astext::AstExtZ3;
 use crate::rc::{RcModel, RcOptimize, RcParamSet, RcSolver};
 use clarirs_core::ast::bitvec::BitVecOpExt;
 use clarirs_core::prelude::*;
-use clarirs_z3_sys as z3;
+use crate::z3_compat as z3;
 use std::collections::HashMap;
 
 #[derive(Clone, Debug)]
