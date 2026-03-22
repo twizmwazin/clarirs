@@ -8,7 +8,7 @@ use std::sync::atomic::Ordering;
 use ast::args::ExtractPyArgs;
 use clarirs_core::algorithms::canonicalize;
 use clarirs_core::algorithms::structurally_match;
-use clarirs_vsa::reduce::Reduce;
+use clarirs_vsa::reduce::{Reduce, ReduceResult};
 use clarirs_vsa::strided_interval::ComparisonResult;
 use dashmap::DashMap;
 use pyo3::exceptions::PyValueError;
@@ -278,17 +278,12 @@ impl Bool {
         &self,
         py: Python<'py>,
     ) -> Result<(HashMap<u64, Bound<'py, PyAny>>, usize, Bound<'py, Bool>), ClaripyError> {
-        let (replacement_map, counter, canonical) = canonicalize(&self.inner.clone().into())?;
-        let canonical_bool = Bool::new(
-            py,
-            &canonical.into_bool().ok_or(ClaripyError::InvalidOperation(
-                "Canonicalization did not produce a Bool".to_string(),
-            ))?,
-        )?;
+        let (replacement_map, counter, canonical) = canonicalize(&self.inner)?;
+        let canonical_bool = Bool::new(py, &canonical)?;
 
         let mut py_map = HashMap::new();
-        for (hash, dynast) in replacement_map {
-            let py_ast = Base::from_dynast(py, dynast)?;
+        for (hash, ast) in replacement_map {
+            let py_ast = Base::from_astref(py, &ast)?;
             py_map.insert(hash, py_ast.into_any());
         }
 
@@ -296,11 +291,8 @@ impl Bool {
     }
 
     pub fn identical(&self, other: Bound<'_, Base>) -> Result<bool, ClaripyError> {
-        let other_dyn = Base::to_dynast(other)?;
-        Ok(structurally_match(
-            &DynAst::Boolean(self.inner.clone()),
-            &other_dyn,
-        )?)
+        let other_ast = Base::to_astref(other)?;
+        Ok(structurally_match(&self.inner, &other_ast)?)
     }
 
     #[getter]
@@ -328,8 +320,8 @@ impl Bool {
         to: Bound<'py, Base>,
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         use clarirs_core::algorithms::Replace;
-        let from_ast = Base::to_dynast(from)?;
-        let to_ast = Base::to_dynast(to)?;
+        let from_ast = Base::to_astref(from)?;
+        let to_ast = Base::to_astref(to)?;
         let replaced = self.inner.replace(&from_ast, &to_ast)?;
         Bool::new(py, &replaced)
     }
@@ -353,7 +345,7 @@ impl Bool {
     #[getter]
     pub fn concrete_value(&self) -> Result<Option<bool>, ClaripyError> {
         Ok(match self.inner.simplify_ext(false, false)?.op() {
-            BooleanOp::BoolV(value) => Some(*value),
+            AstOp::BoolV(value) => Some(*value),
             _ => None,
         })
     }
@@ -440,7 +432,7 @@ impl Bool {
         let inner = self
             .inner
             .context()
-            .make_bool_annotated(self.inner.op().clone(), new_annotations)?;
+            .make_ast_annotated(self.inner.op().clone(), new_annotations)?;
         Self::new(py, &inner)
     }
 
@@ -461,7 +453,7 @@ impl Bool {
         py: Python<'py>,
         annotations: Vec<PyAnnotation>,
     ) -> Result<Bound<'py, Self>, ClaripyError> {
-        let inner = self.inner.context().make_bool_annotated(
+        let inner = self.inner.context().make_ast_annotated(
             self.inner.op().clone(),
             annotations.into_iter().map(|a| a.0).collect(),
         )?;
@@ -473,7 +465,7 @@ impl Bool {
         py: Python<'py>,
         annotation: PyAnnotation,
     ) -> Result<Bound<'py, Self>, ClaripyError> {
-        let inner = self.inner.context().make_bool_annotated(
+        let inner = self.inner.context().make_ast_annotated(
             self.inner.op().clone(),
             self.inner
                 .annotations()
@@ -491,7 +483,7 @@ impl Bool {
         annotations: Vec<PyAnnotation>,
     ) -> Result<Bound<'py, Self>, ClaripyError> {
         let annotations_set: BTreeSet<_> = annotations.into_iter().map(|a| a.0).collect();
-        let inner = self.inner.context().make_bool_annotated(
+        let inner = self.inner.context().make_ast_annotated(
             self.inner.op().clone(),
             self.inner
                 .annotations()
@@ -510,7 +502,7 @@ impl Bool {
         let inner = self
             .inner
             .context()
-            .make_bool_annotated(self.inner.op().clone(), Default::default())?;
+            .make_ast_annotated(self.inner.op().clone(), Default::default())?;
         Self::new(py, &inner)
     }
 
@@ -519,7 +511,7 @@ impl Bool {
         py: Python<'py>,
         annotation_type: PyAnnotationType,
     ) -> Result<Bound<'py, Self>, ClaripyError> {
-        let inner = self.inner.context().make_bool_annotated(
+        let inner = self.inner.context().make_ast_annotated(
             self.inner.op().clone(),
             self.inner
                 .annotations()
@@ -542,7 +534,7 @@ impl Bool {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.and2(&self.inner, <CoerceBool as Into<BoolAst>>::into(other))?,
+            &GLOBAL_CONTEXT.and2(&self.inner, <CoerceBool as Into<AstRef<'static>>>::into(other))?,
         )
     }
 
@@ -553,7 +545,7 @@ impl Bool {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.or2(&self.inner, <CoerceBool as Into<BoolAst>>::into(other))?,
+            &GLOBAL_CONTEXT.or2(&self.inner, <CoerceBool as Into<AstRef<'static>>>::into(other))?,
         )
     }
 
@@ -564,7 +556,7 @@ impl Bool {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.xor(&self.inner, <CoerceBool as Into<BoolAst>>::into(other))?,
+            &GLOBAL_CONTEXT.xor(&self.inner, <CoerceBool as Into<AstRef<'static>>>::into(other))?,
         )
     }
 
@@ -575,7 +567,7 @@ impl Bool {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.eq_(&self.inner, <CoerceBool as Into<BoolAst>>::into(other))?,
+            &GLOBAL_CONTEXT.eq_(&self.inner, <CoerceBool as Into<AstRef<'static>>>::into(other))?,
         )
     }
 
@@ -586,16 +578,17 @@ impl Bool {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.neq(&self.inner, <CoerceBool as Into<BoolAst>>::into(other))?,
+            &GLOBAL_CONTEXT.neq(&self.inner, <CoerceBool as Into<AstRef<'static>>>::into(other))?,
         )
     }
 
     #[getter]
     pub fn cardinality(&self) -> Result<usize, ClaripyError> {
         match self.inner.reduce()? {
-            ComparisonResult::True => Ok(1),
-            ComparisonResult::False => Ok(1),
-            ComparisonResult::Maybe => Ok(2),
+            ReduceResult::Bool(ComparisonResult::True) => Ok(1),
+            ReduceResult::Bool(ComparisonResult::False) => Ok(1),
+            ReduceResult::Bool(ComparisonResult::Maybe) => Ok(2),
+            _ => Err(ClaripyError::TypeError("Expected Bool reduce result".to_string())),
         }
     }
 

@@ -62,107 +62,53 @@ impl<K: Hash + Eq, V: Clone> Cache<K, V> for GenericCache<K, V> {
     }
 }
 
-#[derive(Debug)]
-enum AstCacheValue<'c> {
-    Boolean(Weak<AstNode<'c, BooleanOp<'c>>>),
-    BitVec(Weak<AstNode<'c, BitVecOp<'c>>>),
-    Float(Weak<AstNode<'c, FloatOp<'c>>>),
-    String(Weak<AstNode<'c, StringOp<'c>>>),
-}
-
 /// A special cache for when the result type is an AST. Unlike the generic cache,
 /// this cache stores weak references to the AST nodes.
 #[derive(Debug, Default)]
-pub struct AstCache<'c>(RwLock<HashMap<u64, AstCacheValue<'c>>>);
+pub struct AstCache<'c>(RwLock<HashMap<u64, Weak<AstNode<'c>>>>);
 
-impl<'c> Cache<u64, DynAst<'c>> for AstCache<'c> {
+impl<'c> Cache<u64, AstRef<'c>> for AstCache<'c> {
     fn get_or_insert<E>(
         &self,
         hash: u64,
-        f: impl FnOnce() -> Result<DynAst<'c>, E>,
-    ) -> Result<DynAst<'c>, E> {
+        f: impl FnOnce() -> Result<AstRef<'c>, E>,
+    ) -> Result<AstRef<'c>, E> {
         #[cfg(not(feature = "panic-on-hash-collision"))]
         {
             // Normal mode: Try to get from cache first, compute only if needed
-            // Step 1: Try to get a read lock and check if the value is already in the cache
             {
                 let inner = self.0.read().unwrap();
-                if let Some(value) = inner.get(&hash)
-                    && let Some(arc) = match value {
-                        AstCacheValue::Boolean(weak) => weak.upgrade().map(DynAst::Boolean),
-                        AstCacheValue::BitVec(weak) => weak.upgrade().map(DynAst::BitVec),
-                        AstCacheValue::Float(weak) => weak.upgrade().map(DynAst::Float),
-                        AstCacheValue::String(weak) => weak.upgrade().map(DynAst::String),
-                    }
+                if let Some(weak) = inner.get(&hash)
+                    && let Some(arc) = weak.upgrade()
                 {
                     return Ok(arc);
                 }
-                // Value not found or expired; we'll compute it next
-            } // Read lock is dropped here
-
-            // Step 2: Compute the value without holding any lock
-            let arc = f()?; // This may call `simplify()` and recurse
-
-            // Step 3: Acquire a write lock to insert the new value
-            let mut inner = self.0.write().unwrap();
-
-            match &arc {
-                DynAst::Boolean(ast) => {
-                    inner.insert(hash, AstCacheValue::Boolean(Arc::downgrade(ast)));
-                }
-                DynAst::BitVec(ast) => {
-                    inner.insert(hash, AstCacheValue::BitVec(Arc::downgrade(ast)));
-                }
-                DynAst::Float(ast) => {
-                    inner.insert(hash, AstCacheValue::Float(Arc::downgrade(ast)));
-                }
-                DynAst::String(ast) => {
-                    inner.insert(hash, AstCacheValue::String(Arc::downgrade(ast)));
-                }
             }
+
+            let arc = f()?;
+
+            let mut inner = self.0.write().unwrap();
+            inner.insert(hash, Arc::downgrade(&arc));
 
             Ok(arc)
         }
 
         #[cfg(feature = "panic-on-hash-collision")]
         {
-            // Collision detection mode: Always compute first, then check for collisions
-            // Step 1: Compute the value without holding any lock
-            let arc = f()?; // This may call `simplify()` and recurse
+            let arc = f()?;
 
-            // Step 2: Acquire a write lock to check for collisions and insert
             let mut inner = self.0.write().unwrap();
 
-            // Check for hash collision
-            if let Some(existing_value) = inner.get(&hash)
-                && let Some(existing_arc) = match existing_value {
-                    AstCacheValue::Boolean(weak) => weak.upgrade().map(DynAst::Boolean),
-                    AstCacheValue::BitVec(weak) => weak.upgrade().map(DynAst::BitVec),
-                    AstCacheValue::Float(weak) => weak.upgrade().map(DynAst::Float),
-                    AstCacheValue::String(weak) => weak.upgrade().map(DynAst::String),
-                }
-                && existing_arc != arc
+            if let Some(existing_weak) = inner.get(&hash)
+                && let Some(existing_arc) = existing_weak.upgrade()
+                && *existing_arc != *arc
             {
                 panic!(
                     "Hash collision detected! Hash: {hash}, Existing: {existing_arc:?}, New: {arc:?}"
                 );
             }
 
-            // Insert the new value
-            match &arc {
-                DynAst::Boolean(ast) => {
-                    inner.insert(hash, AstCacheValue::Boolean(Arc::downgrade(ast)));
-                }
-                DynAst::BitVec(ast) => {
-                    inner.insert(hash, AstCacheValue::BitVec(Arc::downgrade(ast)));
-                }
-                DynAst::Float(ast) => {
-                    inner.insert(hash, AstCacheValue::Float(Arc::downgrade(ast)));
-                }
-                DynAst::String(ast) => {
-                    inner.insert(hash, AstCacheValue::String(Arc::downgrade(ast)));
-                }
-            }
+            inner.insert(hash, Arc::downgrade(&arc));
 
             Ok(arc)
         }
@@ -184,14 +130,11 @@ mod tests {
         let ctx = crate::context::Context::new();
         let cache = AstCache::default();
 
-        // Create a simple AST
         let ast1 = ctx.bvv_prim_with_size(42u64, 64)?;
-        let hash1 = 12345u64; // Arbitrary hash for testing
+        let hash1 = 12345u64;
 
-        // Insert into cache
-        let result1 = cache.get_or_insert::<ClarirsError>(hash1, || Ok(DynAst::from(&ast1)))?;
+        let result1 = cache.get_or_insert::<ClarirsError>(hash1, || Ok(ast1.clone()))?;
 
-        // Verify we can retrieve it without recomputing
         let result2 = cache.get_or_insert::<ClarirsError>(hash1, || {
             panic!("Should not compute new value when cached")
         })?;
@@ -205,16 +148,13 @@ mod tests {
         let ctx = crate::context::Context::new();
         let cache = AstCache::default();
 
-        // Create a simple AST
         let ast1 = ctx.bvv_prim_with_size(42u64, 64)?;
-        let hash1 = 12345u64; // Arbitrary hash for testing
+        let hash1 = 12345u64;
 
-        // Insert into cache
-        let result1 = cache.get_or_insert::<ClarirsError>(hash1, || Ok(DynAst::from(&ast1)))?;
+        let result1 = cache.get_or_insert::<ClarirsError>(hash1, || Ok(ast1.clone()))?;
 
-        // In collision mode, it will always recompute, so provide a valid computation
         let ast2 = ctx.bvv_prim_with_size(42u64, 64)?;
-        let result2 = cache.get_or_insert::<ClarirsError>(hash1, || Ok(DynAst::from(&ast2)))?;
+        let result2 = cache.get_or_insert::<ClarirsError>(hash1, || Ok(ast2.clone()))?;
         assert_eq!(result1, result2);
         Ok(())
     }
@@ -227,10 +167,9 @@ mod tests {
         let ast1 = ctx.bvv_prim_with_size(42u64, 64)?;
         let ast2 = ctx.bvv_prim_with_size(99u64, 64)?;
 
-        let result1 = cache.get_or_insert::<ClarirsError>(1, || Ok(DynAst::from(&ast1)))?;
-        let result2 = cache.get_or_insert::<ClarirsError>(2, || Ok(DynAst::from(&ast2)))?;
+        let result1 = cache.get_or_insert::<ClarirsError>(1, || Ok(ast1.clone()))?;
+        let result2 = cache.get_or_insert::<ClarirsError>(2, || Ok(ast2.clone()))?;
 
-        // Different hashes should cache different values
         assert_ne!(result1, result2);
         Ok(())
     }
@@ -243,18 +182,15 @@ mod tests {
         let hash = 999u64;
 
         {
-            // Create and cache an AST
             let ast = ctx.bvv_prim_with_size(42u64, 64)?;
-            let _result = cache.get_or_insert::<ClarirsError>(hash, || Ok(DynAst::from(&ast)))?;
-            // ast and _result go out of scope here
+            let _result = cache.get_or_insert::<ClarirsError>(hash, || Ok(ast.clone()))?;
         }
 
-        // The weak reference should be expired now, so this should compute a new value
         let mut computed = false;
         let ast2 = ctx.bvv_prim_with_size(42u64, 64)?;
         let _result = cache.get_or_insert::<ClarirsError>(hash, || {
             computed = true;
-            Ok(DynAst::from(&ast2))
+            Ok(ast2.clone())
         })?;
 
         assert!(
@@ -264,7 +200,6 @@ mod tests {
         Ok(())
     }
 
-    // Test for collision detection mode
     #[test]
     #[cfg(feature = "panic-on-hash-collision")]
     #[should_panic(expected = "Hash collision detected")]
@@ -273,16 +208,14 @@ mod tests {
         let cache = AstCache::default();
         let hash = 777u64;
 
-        // Insert first value
         let ast1 = ctx.bvv_prim_with_size(42u64, 64).unwrap();
         let _ = cache
-            .get_or_insert::<ClarirsError>(hash, || Ok(DynAst::from(&ast1)))
+            .get_or_insert::<ClarirsError>(hash, || Ok(ast1.clone()))
             .unwrap();
 
-        // Try to insert different value with same hash - should panic
         let ast2 = ctx.bvv_prim_with_size(99u64, 64).unwrap();
         let _ = cache
-            .get_or_insert::<ClarirsError>(hash, || Ok(DynAst::from(&ast2)))
+            .get_or_insert::<ClarirsError>(hash, || Ok(ast2.clone()))
             .unwrap();
     }
 
@@ -293,13 +226,11 @@ mod tests {
         let cache = AstCache::default();
         let hash = 888u64;
 
-        // Insert first value
         let ast1 = ctx.bvv_prim_with_size(42u64, 64)?;
-        let result1 = cache.get_or_insert::<ClarirsError>(hash, || Ok(DynAst::from(&ast1)))?;
+        let result1 = cache.get_or_insert::<ClarirsError>(hash, || Ok(ast1.clone()))?;
 
-        // Insert same value with same hash - should be fine
         let ast2 = ctx.bvv_prim_with_size(42u64, 64)?;
-        let result2 = cache.get_or_insert::<ClarirsError>(hash, || Ok(DynAst::from(&ast2)))?;
+        let result2 = cache.get_or_insert::<ClarirsError>(hash, || Ok(ast2.clone()))?;
 
         assert_eq!(result1, result2);
         Ok(())
@@ -312,19 +243,17 @@ mod tests {
         let cache = AstCache::default();
         let hash = 999u64;
 
-        // Insert first value
         let ast1 = ctx.bvv_prim_with_size(42u64, 64).unwrap();
         let _ = cache
-            .get_or_insert::<ClarirsError>(hash, || Ok(DynAst::from(&ast1)))
+            .get_or_insert::<ClarirsError>(hash, || Ok(ast1.clone()))
             .unwrap();
 
-        // This should always compute, even though the value is in cache
         let mut computed = false;
         let ast2 = ctx.bvv_prim_with_size(42u64, 64).unwrap();
         let _ = cache
             .get_or_insert::<ClarirsError>(hash, || {
                 computed = true;
-                Ok(DynAst::from(&ast2))
+                Ok(ast2.clone())
             })
             .unwrap();
 

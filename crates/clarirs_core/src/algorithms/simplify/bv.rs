@@ -1,25 +1,25 @@
 use num_bigint::{BigInt, BigUint};
 use num_traits::{Num, One, Zero};
 
-use crate::{algorithms::simplify::SimplifyError, ast::bitvec::BitVecOpExt, prelude::*};
+use crate::{algorithms::simplify::SimplifyError, prelude::*};
 
 pub(crate) fn simplify_bv<'c>(
     state: &mut super::SimplifyState<'c>,
     error_on_dbz: bool,
 ) -> Result<BitVecAst<'c>, SimplifyError<'c>> {
     let ctx = state.expr.context();
-    let bv_expr = state.expr.clone().into_bitvec().unwrap();
+    let bv_expr = state.expr.clone();
 
     match bv_expr.op() {
-        BitVecOp::BVS(..) | BitVecOp::BVV(..) => Ok(bv_expr),
-        BitVecOp::Not(..) => {
+        AstOp::BVS(..) | AstOp::BVV(..) => Ok(bv_expr),
+        AstOp::Not(..) => {
             let arc = state.get_bv_simplified(0)?;
             match arc.op() {
-                BitVecOp::BVV(value) => Ok(ctx.bvv((!value.clone())?)?),
+                AstOp::BVV(value) => Ok(ctx.bvv((!value.clone())?)?),
                 _ => Ok(ctx.not(arc)?),
             }
         }
-        BitVecOp::And(args) => {
+        AstOp::And(args) => {
             // Simplify all children
             let simplified: Vec<BitVecAst<'c>> = (0..args.len())
                 .map(|i| state.get_bv_simplified(i))
@@ -33,14 +33,14 @@ pub(crate) fn simplify_bv<'c>(
 
             for arg in &simplified {
                 match arg.op() {
-                    BitVecOp::And(inner_args) => {
+                    AstOp::And(inner_args) => {
                         for inner in inner_args {
                             match inner.op() {
-                                BitVecOp::BVV(v) if v.is_zero() => {
+                                AstOp::BVV(v) if v.is_zero() => {
                                     return Ok(ctx.bvv(BitVec::zeros(size))?);
                                 }
-                                BitVecOp::BVV(v) if v.is_all_ones() => {}
-                                BitVecOp::BVV(v) => {
+                                AstOp::BVV(v) if v.is_all_ones() => {}
+                                AstOp::BVV(v) => {
                                     bvv_acc = Some(match bvv_acc {
                                         Some(acc) => (acc & v.clone())?,
                                         None => v.clone(),
@@ -50,11 +50,11 @@ pub(crate) fn simplify_bv<'c>(
                             }
                         }
                     }
-                    BitVecOp::BVV(v) if v.is_zero() => {
+                    AstOp::BVV(v) if v.is_zero() => {
                         return Ok(ctx.bvv(BitVec::zeros(size))?);
                     }
-                    BitVecOp::BVV(v) if v.is_all_ones() => {}
-                    BitVecOp::BVV(v) => {
+                    AstOp::BVV(v) if v.is_all_ones() => {}
+                    AstOp::BVV(v) => {
                         bvv_acc = Some(match bvv_acc {
                             Some(acc) => (acc & v.clone())?,
                             None => v.clone(),
@@ -74,7 +74,7 @@ pub(crate) fn simplify_bv<'c>(
             {
                 let hashes: ahash::AHashSet<u64> = sym_args.iter().map(|a| a.hash()).collect();
                 for arg in &sym_args {
-                    if let BitVecOp::Not(inner) = arg.op()
+                    if let AstOp::Not(inner) = arg.op()
                         && hashes.contains(&inner.hash())
                     {
                         return Ok(ctx.bvv(BitVec::zeros(size))?);
@@ -109,8 +109,8 @@ pub(crate) fn simplify_bv<'c>(
                     let (a, b) = (&sym_args[0], &sym_args[1]);
                     match (a.op(), b.op()) {
                         // Distribute AND over CONCAT when one operand is constant
-                        (BitVecOp::BVV(const_val), BitVecOp::Concat(concat_args))
-                        | (BitVecOp::Concat(concat_args), BitVecOp::BVV(const_val)) => {
+                        (AstOp::BVV(const_val), AstOp::Concat(concat_args))
+                        | (AstOp::Concat(concat_args), AstOp::BVV(const_val)) => {
                             let mut parts = Vec::with_capacity(concat_args.len());
                             let mut offset = 0u32;
                             for arg in concat_args.iter().rev() {
@@ -125,8 +125,8 @@ pub(crate) fn simplify_bv<'c>(
                         }
 
                         // Distribute AND over zero-extend when one operand is constant
-                        (BitVecOp::BVV(const_val), BitVecOp::ZeroExt(inner, ext_size))
-                        | (BitVecOp::ZeroExt(inner, ext_size), BitVecOp::BVV(const_val)) => {
+                        (AstOp::BVV(const_val), AstOp::ZeroExt(inner, ext_size))
+                        | (AstOp::ZeroExt(inner, ext_size), AstOp::BVV(const_val)) => {
                             let inner_size = inner.size();
                             let const_inner = const_val.extract(0, inner_size - 1)?;
                             let inner_and = ctx.bv_and(&ctx.bvv(const_inner)?, inner)?;
@@ -135,21 +135,21 @@ pub(crate) fn simplify_bv<'c>(
                         }
 
                         // rotate_shift_mask: ((A << a) | (A >> (N - a))) & mask
-                        (BitVecOp::Or(or_args), BitVecOp::BVV(mask_val))
-                        | (BitVecOp::BVV(mask_val), BitVecOp::Or(or_args))
+                        (AstOp::Or(or_args), AstOp::BVV(mask_val))
+                        | (AstOp::BVV(mask_val), AstOp::Or(or_args))
                             if or_args.len() == 2 =>
                         {
                             let (or_lhs, or_rhs) = (&or_args[0], &or_args[1]);
                             match (or_lhs.op(), or_rhs.op()) {
                                 (
-                                    BitVecOp::ShL(shl_inner, shl_amt),
-                                    BitVecOp::LShR(lshr_inner, lshr_amt),
+                                    AstOp::ShL(shl_inner, shl_amt),
+                                    AstOp::LShR(lshr_inner, lshr_amt),
                                 )
                                 | (
-                                    BitVecOp::LShR(lshr_inner, lshr_amt),
-                                    BitVecOp::ShL(shl_inner, shl_amt),
+                                    AstOp::LShR(lshr_inner, lshr_amt),
+                                    AstOp::ShL(shl_inner, shl_amt),
                                 ) if shl_inner.hash() == lshr_inner.hash() => {
-                                    if let (BitVecOp::BVV(shl_val), BitVecOp::BVV(lshr_val)) =
+                                    if let (AstOp::BVV(shl_val), AstOp::BVV(lshr_val)) =
                                         (shl_amt.op(), lshr_amt.op())
                                     {
                                         if let (Some(lshift), Some(rshift)) =
@@ -227,7 +227,7 @@ pub(crate) fn simplify_bv<'c>(
                 }
             }
         }
-        BitVecOp::Or(args) => {
+        AstOp::Or(args) => {
             // Simplify all children
             let simplified: Vec<BitVecAst<'c>> = (0..args.len())
                 .map(|i| state.get_bv_simplified(i))
@@ -243,14 +243,14 @@ pub(crate) fn simplify_bv<'c>(
 
             for arg in &simplified {
                 match arg.op() {
-                    BitVecOp::Or(inner_args) => {
+                    AstOp::Or(inner_args) => {
                         for inner in inner_args {
                             match inner.op() {
-                                BitVecOp::BVV(v) if v.is_all_ones() => {
+                                AstOp::BVV(v) if v.is_all_ones() => {
                                     return Ok(ctx.bvv(all_ones)?);
                                 }
-                                BitVecOp::BVV(v) if v.is_zero() => {}
-                                BitVecOp::BVV(v) => {
+                                AstOp::BVV(v) if v.is_zero() => {}
+                                AstOp::BVV(v) => {
                                     bvv_acc = Some(match bvv_acc {
                                         Some(acc) => (acc | v.clone())?,
                                         None => v.clone(),
@@ -260,11 +260,11 @@ pub(crate) fn simplify_bv<'c>(
                             }
                         }
                     }
-                    BitVecOp::BVV(v) if v.is_all_ones() => {
+                    AstOp::BVV(v) if v.is_all_ones() => {
                         return Ok(ctx.bvv(all_ones)?);
                     }
-                    BitVecOp::BVV(v) if v.is_zero() => {}
-                    BitVecOp::BVV(v) => {
+                    AstOp::BVV(v) if v.is_zero() => {}
+                    AstOp::BVV(v) => {
                         bvv_acc = Some(match bvv_acc {
                             Some(acc) => (acc | v.clone())?,
                             None => v.clone(),
@@ -284,7 +284,7 @@ pub(crate) fn simplify_bv<'c>(
             {
                 let hashes: ahash::AHashSet<u64> = sym_args.iter().map(|a| a.hash()).collect();
                 for arg in &sym_args {
-                    if let BitVecOp::Not(inner) = arg.op()
+                    if let AstOp::Not(inner) = arg.op()
                         && hashes.contains(&inner.hash())
                     {
                         return Ok(ctx.bvv(all_ones)?);
@@ -315,8 +315,8 @@ pub(crate) fn simplify_bv<'c>(
                     let (a, b) = (&sym_args[0], &sym_args[1]);
                     match (a.op(), b.op()) {
                         // Distribute OR over CONCAT when one operand is constant
-                        (BitVecOp::BVV(const_val), BitVecOp::Concat(concat_args))
-                        | (BitVecOp::Concat(concat_args), BitVecOp::BVV(const_val)) => {
+                        (AstOp::BVV(const_val), AstOp::Concat(concat_args))
+                        | (AstOp::Concat(concat_args), AstOp::BVV(const_val)) => {
                             let mut parts = Vec::with_capacity(concat_args.len());
                             let mut offset = 0u32;
                             for arg in concat_args.iter().rev() {
@@ -347,7 +347,7 @@ pub(crate) fn simplify_bv<'c>(
                 }
             }
         }
-        BitVecOp::Xor(args) => {
+        AstOp::Xor(args) => {
             // Simplify all children
             let simplified: Vec<BitVecAst<'c>> = (0..args.len())
                 .map(|i| state.get_bv_simplified(i))
@@ -361,11 +361,11 @@ pub(crate) fn simplify_bv<'c>(
 
             for arg in &simplified {
                 match arg.op() {
-                    BitVecOp::Xor(inner_args) => {
+                    AstOp::Xor(inner_args) => {
                         for inner in inner_args {
                             match inner.op() {
-                                BitVecOp::BVV(v) if v.is_zero() => {}
-                                BitVecOp::BVV(v) => {
+                                AstOp::BVV(v) if v.is_zero() => {}
+                                AstOp::BVV(v) => {
                                     bvv_acc = Some(match bvv_acc {
                                         Some(acc) => (acc ^ v.clone())?,
                                         None => v.clone(),
@@ -375,8 +375,8 @@ pub(crate) fn simplify_bv<'c>(
                             }
                         }
                     }
-                    BitVecOp::BVV(v) if v.is_zero() => {}
-                    BitVecOp::BVV(v) => {
+                    AstOp::BVV(v) if v.is_zero() => {}
+                    AstOp::BVV(v) => {
                         bvv_acc = Some(match bvv_acc {
                             Some(acc) => (acc ^ v.clone())?,
                             None => v.clone(),
@@ -427,12 +427,12 @@ pub(crate) fn simplify_bv<'c>(
                     let (a, b) = (&sym_args[0], &sym_args[1]);
                     match (a.op(), b.op()) {
                         // ¬a ^ ¬b = a ^ b
-                        (BitVecOp::Not(lhs), BitVecOp::Not(rhs)) => {
+                        (AstOp::Not(lhs), AstOp::Not(rhs)) => {
                             state.rerun(ctx.bv_xor(lhs, rhs)?)
                         }
                         // Distribute XOR over CONCAT when one operand is constant
-                        (BitVecOp::BVV(const_val), BitVecOp::Concat(concat_args))
-                        | (BitVecOp::Concat(concat_args), BitVecOp::BVV(const_val)) => {
+                        (AstOp::BVV(const_val), AstOp::Concat(concat_args))
+                        | (AstOp::Concat(concat_args), AstOp::BVV(const_val)) => {
                             let mut parts = Vec::with_capacity(concat_args.len());
                             let mut offset = 0u32;
                             for arg in concat_args.iter().rev() {
@@ -446,10 +446,10 @@ pub(crate) fn simplify_bv<'c>(
                             state.rerun(ctx.concat(parts)?)
                         }
                         // XOR with all-ones = NOT
-                        (BitVecOp::BVV(v), _) if v.is_all_ones() => {
+                        (AstOp::BVV(v), _) if v.is_all_ones() => {
                             state.rerun(ctx.not(b.clone())?)
                         }
-                        (_, BitVecOp::BVV(v)) if v.is_all_ones() => {
+                        (_, AstOp::BVV(v)) if v.is_all_ones() => {
                             state.rerun(ctx.not(a.clone())?)
                         }
                         _ => {
@@ -472,16 +472,16 @@ pub(crate) fn simplify_bv<'c>(
                 }
             }
         }
-        BitVecOp::Neg(..) => {
+        AstOp::Neg(..) => {
             let arc = state.get_bv_simplified(0)?;
             match arc.op() {
-                BitVecOp::BVV(value) => Ok(ctx.bvv((-value.clone())?)?),
+                AstOp::BVV(value) => Ok(ctx.bvv((-value.clone())?)?),
                 // -(-x) = x (double negation)
-                BitVecOp::Neg(inner) => Ok(inner.clone()),
+                AstOp::Neg(inner) => Ok(inner.clone()),
                 _ => Ok(ctx.neg(arc)?),
             }
         }
-        BitVecOp::Add(args) => {
+        AstOp::Add(args) => {
             // Simplify all children
             let simplified: Vec<BitVecAst<'c>> = (0..args.len())
                 .map(|i| state.get_bv_simplified(i))
@@ -495,11 +495,11 @@ pub(crate) fn simplify_bv<'c>(
 
             for arg in &simplified {
                 match arg.op() {
-                    BitVecOp::Add(inner_args) => {
+                    AstOp::Add(inner_args) => {
                         for inner in inner_args {
                             match inner.op() {
-                                BitVecOp::BVV(v) if v.is_zero() => {}
-                                BitVecOp::BVV(v) => {
+                                AstOp::BVV(v) if v.is_zero() => {}
+                                AstOp::BVV(v) => {
                                     bvv_acc = Some(match bvv_acc {
                                         Some(acc) => (acc + v.clone())?,
                                         None => v.clone(),
@@ -509,8 +509,8 @@ pub(crate) fn simplify_bv<'c>(
                             }
                         }
                     }
-                    BitVecOp::BVV(v) if v.is_zero() => {}
-                    BitVecOp::BVV(v) => {
+                    AstOp::BVV(v) if v.is_zero() => {}
+                    AstOp::BVV(v) => {
                         bvv_acc = Some(match bvv_acc {
                             Some(acc) => (acc + v.clone())?,
                             None => v.clone(),
@@ -540,11 +540,11 @@ pub(crate) fn simplify_bv<'c>(
                     let (a, b) = (&sym_args[0], &sym_args[1]);
                     match (a.op(), b.op()) {
                         // If one operand is a BVV and the other is a Sub with a BVV, combine
-                        (BitVecOp::BVV(v), BitVecOp::Sub(bvv, other))
-                        | (BitVecOp::Sub(bvv, other), BitVecOp::BVV(v))
-                            if matches!(bvv.op(), BitVecOp::BVV(_)) =>
+                        (AstOp::BVV(v), AstOp::Sub(bvv, other))
+                        | (AstOp::Sub(bvv, other), AstOp::BVV(v))
+                            if matches!(bvv.op(), AstOp::BVV(_)) =>
                         {
-                            if let BitVecOp::BVV(bvv_value) = bvv.op() {
+                            if let AstOp::BVV(bvv_value) = bvv.op() {
                                 let combined_value = (v.clone() + bvv_value.clone())?;
                                 let combined_bvv = ctx.bvv(combined_value)?;
                                 state.rerun(ctx.sub(other.clone(), combined_bvv)?)
@@ -552,11 +552,11 @@ pub(crate) fn simplify_bv<'c>(
                                 unreachable!()
                             }
                         }
-                        (BitVecOp::BVV(v), BitVecOp::Sub(other, bvv))
-                        | (BitVecOp::Sub(other, bvv), BitVecOp::BVV(v))
-                            if matches!(bvv.op(), BitVecOp::BVV(_)) =>
+                        (AstOp::BVV(v), AstOp::Sub(other, bvv))
+                        | (AstOp::Sub(other, bvv), AstOp::BVV(v))
+                            if matches!(bvv.op(), AstOp::BVV(_)) =>
                         {
-                            if let BitVecOp::BVV(bvv_value) = bvv.op() {
+                            if let AstOp::BVV(bvv_value) = bvv.op() {
                                 let combined_value = (v.clone() - bvv_value.clone())?;
                                 let combined_bvv = ctx.bvv(combined_value)?;
                                 state.rerun(ctx.add(other.clone(), combined_bvv)?)
@@ -582,17 +582,17 @@ pub(crate) fn simplify_bv<'c>(
                 }
             }
         }
-        BitVecOp::Sub(..) => {
+        AstOp::Sub(..) => {
             let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
-                (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => {
+                (AstOp::BVV(value1), AstOp::BVV(value2)) => {
                     Ok(ctx.bvv((value1.clone() - value2.clone())?)?)
                 }
-                (BitVecOp::Sub(inner_lhs, inner_rhs), BitVecOp::BVV(v))
-                    if matches!(inner_rhs.op(), BitVecOp::BVV(_)) =>
+                (AstOp::Sub(inner_lhs, inner_rhs), AstOp::BVV(v))
+                    if matches!(inner_rhs.op(), AstOp::BVV(_)) =>
                 {
                     // (a - b) - c  => a - (b + c)
-                    if let BitVecOp::BVV(b_val) = inner_rhs.op() {
+                    if let AstOp::BVV(b_val) = inner_rhs.op() {
                         let combined_value = (b_val.clone() + v.clone())?;
                         let combined_bvv = ctx.bvv(combined_value)?;
                         let new_sub = ctx.sub(inner_lhs.clone(), combined_bvv)?;
@@ -601,13 +601,13 @@ pub(crate) fn simplify_bv<'c>(
                         unreachable!()
                     }
                 }
-                (BitVecOp::Add(add_args), BitVecOp::BVV(v)) => {
+                (AstOp::Add(add_args), AstOp::BVV(v)) => {
                     // Find a BVV among the Add args to combine with
                     if let Some(bvv_idx) = add_args
                         .iter()
-                        .position(|a| matches!(a.op(), BitVecOp::BVV(_)))
+                        .position(|a| matches!(a.op(), AstOp::BVV(_)))
                     {
-                        if let BitVecOp::BVV(b_val) = add_args[bvv_idx].op() {
+                        if let AstOp::BVV(b_val) = add_args[bvv_idx].op() {
                             // (sum + b) - c => sum + (b - c)
                             let combined_value = (b_val.clone() - v.clone())?;
                             let combined_bvv = ctx.bvv(combined_value)?;
@@ -626,12 +626,12 @@ pub(crate) fn simplify_bv<'c>(
                         Ok(ctx.sub(arc, arc1)?)
                     }
                 }
-                (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
+                (_, AstOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
                 (lhs_op, rhs_op) if lhs_op == rhs_op => Ok(ctx.bvv(BitVec::zeros(arc.size()))?),
                 _ => Ok(ctx.sub(arc, arc1)?),
             }
         }
-        BitVecOp::Mul(args) => {
+        AstOp::Mul(args) => {
             // Simplify all children
             let simplified: Vec<BitVecAst<'c>> = (0..args.len())
                 .map(|i| state.get_bv_simplified(i))
@@ -645,14 +645,14 @@ pub(crate) fn simplify_bv<'c>(
 
             for arg in &simplified {
                 match arg.op() {
-                    BitVecOp::Mul(inner_args) => {
+                    AstOp::Mul(inner_args) => {
                         for inner in inner_args {
                             match inner.op() {
-                                BitVecOp::BVV(v) if v.is_zero() => {
+                                AstOp::BVV(v) if v.is_zero() => {
                                     return Ok(ctx.bvv(BitVec::zeros(size))?);
                                 }
-                                BitVecOp::BVV(v) if v.to_u64() == Some(1) => {}
-                                BitVecOp::BVV(v) => {
+                                AstOp::BVV(v) if v.to_u64() == Some(1) => {}
+                                AstOp::BVV(v) => {
                                     bvv_acc = Some(match bvv_acc {
                                         Some(acc) => (acc * v.clone())?,
                                         None => v.clone(),
@@ -662,11 +662,11 @@ pub(crate) fn simplify_bv<'c>(
                             }
                         }
                     }
-                    BitVecOp::BVV(v) if v.is_zero() => {
+                    AstOp::BVV(v) if v.is_zero() => {
                         return Ok(ctx.bvv(BitVec::zeros(size))?);
                     }
-                    BitVecOp::BVV(v) if v.to_u64() == Some(1) => {}
-                    BitVecOp::BVV(v) => {
+                    AstOp::BVV(v) if v.to_u64() == Some(1) => {}
+                    AstOp::BVV(v) => {
                         bvv_acc = Some(match bvv_acc {
                             Some(acc) => (acc * v.clone())?,
                             None => v.clone(),
@@ -704,59 +704,59 @@ pub(crate) fn simplify_bv<'c>(
                 }
             }
         }
-        BitVecOp::UDiv(..) => {
+        AstOp::UDiv(..) => {
             let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
-                (_, BitVecOp::BVV(v)) if error_on_dbz && v.is_zero() => {
+                (_, AstOp::BVV(v)) if error_on_dbz && v.is_zero() => {
                     Err(SimplifyError::Error(ClarirsError::DivisionByZero))
                 }
-                (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) if !value2.is_zero() => {
+                (AstOp::BVV(value1), AstOp::BVV(value2)) if !value2.is_zero() => {
                     Ok(ctx.bvv((value1.clone() / value2.clone())?)?)
                 }
-                (_, BitVecOp::BVV(v)) if v.to_u64() == Some(1) => Ok(arc.clone()),
+                (_, AstOp::BVV(v)) if v.to_u64() == Some(1) => Ok(arc.clone()),
                 _ => Ok(ctx.udiv(arc, arc1)?),
             }
         }
-        BitVecOp::SDiv(..) => {
+        AstOp::SDiv(..) => {
             let (dividend_ast, divisor_ast) =
                 (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (dividend_ast.op(), divisor_ast.op()) {
-                (_, BitVecOp::BVV(v)) if error_on_dbz && v.is_zero() => {
+                (_, AstOp::BVV(v)) if error_on_dbz && v.is_zero() => {
                     Err(SimplifyError::Error(ClarirsError::DivisionByZero))
                 }
-                (BitVecOp::BVV(dividend_val), BitVecOp::BVV(divisor_val))
+                (AstOp::BVV(dividend_val), AstOp::BVV(divisor_val))
                     if !divisor_val.is_zero() =>
                 {
                     Ok(ctx.bvv((dividend_val.sdiv(divisor_val))?)?)
                 }
-                (_, BitVecOp::BVV(v)) if v.to_u64() == Some(1) => Ok(dividend_ast.clone()),
+                (_, AstOp::BVV(v)) if v.to_u64() == Some(1) => Ok(dividend_ast.clone()),
                 _ => Ok(ctx.sdiv(dividend_ast, divisor_ast)?),
             }
         }
-        BitVecOp::URem(..) => {
+        AstOp::URem(..) => {
             let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
-                (BitVecOp::BVV(value1), BitVecOp::BVV(value2)) => Ok(ctx.bvv(value1.urem(value2))?),
+                (AstOp::BVV(value1), AstOp::BVV(value2)) => Ok(ctx.bvv(value1.urem(value2))?),
                 _ => Ok(ctx.urem(arc, arc1)?),
             }
         }
-        BitVecOp::SRem(..) => {
+        AstOp::SRem(..) => {
             let (dividend_ast, divisor_ast) =
                 (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (dividend_ast.op(), divisor_ast.op()) {
-                (BitVecOp::BVV(dividend_val), BitVecOp::BVV(divisor_val)) => {
+                (AstOp::BVV(dividend_val), AstOp::BVV(divisor_val)) => {
                     Ok(ctx.bvv((dividend_val.srem(divisor_val))?)?)
                 }
                 _ => Ok(ctx.srem(dividend_ast, divisor_ast)?),
             }
         }
-        BitVecOp::ShL(..) => {
+        AstOp::ShL(..) => {
             let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 // Base value is zero
-                (BitVecOp::BVV(v), _) if v.is_zero() => Ok(arc),
+                (AstOp::BVV(v), _) if v.is_zero() => Ok(arc),
                 // Shift by zero
-                (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
+                (_, AstOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
 
                 // Simplify shift left of zero-extended value when shift amount is >= extension size
                 // (shl (zero_extend n x) m) where m >= n
@@ -765,7 +765,7 @@ pub(crate) fn simplify_bv<'c>(
                 // Result: concat(shl(inner, m-n), BVV(0, m)) truncated to total_size
                 // Which is: concat(extract(inner_size-1-(m-n), 0, inner), BVV(0, m))
                 // Simplified: concat(shl(inner, m-n), BVV(0, ext_size))
-                (BitVecOp::ZeroExt(inner, ext_size), BitVecOp::BVV(shift_amt))
+                (AstOp::ZeroExt(inner, ext_size), AstOp::BVV(shift_amt))
                     if { shift_amt.to_u64().unwrap_or(0) as u32 >= *ext_size } =>
                 {
                     let shift_val = shift_amt.to_u64().unwrap_or(0) as u32;
@@ -797,7 +797,7 @@ pub(crate) fn simplify_bv<'c>(
                 }
 
                 // Fully concrete case
-                (BitVecOp::BVV(value), BitVecOp::BVV(shift_amount)) => {
+                (AstOp::BVV(value), AstOp::BVV(shift_amount)) => {
                     let bit_width = value.len();
                     let shift_amount_u32 = shift_amount.to_u64().unwrap_or(0) as u32;
 
@@ -815,18 +815,18 @@ pub(crate) fn simplify_bv<'c>(
                 _ => Ok(ctx.shl(arc, arc1)?),
             }
         }
-        BitVecOp::LShR(..) => {
+        AstOp::LShR(..) => {
             let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 // Base value is zero
-                (BitVecOp::BVV(v), _) if v.is_zero() => Ok(arc),
+                (AstOp::BVV(v), _) if v.is_zero() => Ok(arc),
                 // Shift by zero
-                (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
+                (_, AstOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
 
                 // Detect bit extraction pattern: (lshr (shl x n) m)
                 // This extracts bits from position (m) to position (size - 1 - n) of x
-                (BitVecOp::ShL(inner, shl_amt), BitVecOp::BVV(shr_amt)) => {
-                    if let BitVecOp::BVV(shl_val) = shl_amt.op() {
+                (AstOp::ShL(inner, shl_amt), AstOp::BVV(shr_amt)) => {
+                    if let AstOp::BVV(shl_val) = shl_amt.op() {
                         let shl_u32 = shl_val.to_u64().unwrap_or(0) as u32;
                         let shr_u32 = shr_amt.to_u64().unwrap_or(0) as u32;
                         let size = arc.size();
@@ -844,7 +844,7 @@ pub(crate) fn simplify_bv<'c>(
                             let low = shr_u32;
 
                             // Special handling for zero-extended values
-                            if let BitVecOp::ZeroExt(inner_val, _) = inner.op() {
+                            if let AstOp::ZeroExt(inner_val, _) = inner.op() {
                                 let inner_size = inner_val.size();
 
                                 if low >= inner_size {
@@ -885,7 +885,7 @@ pub(crate) fn simplify_bv<'c>(
                 }
 
                 // Fully concrete case
-                (BitVecOp::BVV(value), BitVecOp::BVV(shift_amount)) => {
+                (AstOp::BVV(value), AstOp::BVV(shift_amount)) => {
                     let bit_width = value.len();
                     let shift_amount_u32 = shift_amount.to_u64().unwrap_or(0) as u32;
                     if shift_amount_u32 >= bit_width {
@@ -901,15 +901,15 @@ pub(crate) fn simplify_bv<'c>(
                 _ => Ok(ctx.lshr(arc, arc1)?),
             }
         }
-        BitVecOp::AShR(..) => {
+        AstOp::AShR(..) => {
             let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 // Base value is zero
-                (BitVecOp::BVV(v), _) if v.is_zero() => Ok(arc),
+                (AstOp::BVV(v), _) if v.is_zero() => Ok(arc),
                 // Zero shift amount
-                (_, BitVecOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
+                (_, AstOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
                 // Fully concrete case
-                (BitVecOp::BVV(value), BitVecOp::BVV(shift_amount)) => {
+                (AstOp::BVV(value), AstOp::BVV(shift_amount)) => {
                     let shift_amount_u32 = shift_amount.to_u64().unwrap_or(0) as u32;
                     let bit_length = value.len();
 
@@ -952,27 +952,27 @@ pub(crate) fn simplify_bv<'c>(
                 _ => Ok(ctx.ashr(arc, arc1)?),
             }
         }
-        BitVecOp::RotateLeft(..) => {
+        AstOp::RotateLeft(..) => {
             let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 // Base value is zero
-                (BitVecOp::BVV(v), _) if v.is_zero() => Ok(arc),
+                (AstOp::BVV(v), _) if v.is_zero() => Ok(arc),
                 // Shift by zero or multiple of size
-                (_, BitVecOp::BVV(v))
+                (_, AstOp::BVV(v))
                     if v.is_zero() || v.to_bigint() % arc.size() == BigInt::zero() =>
                 {
                     Ok(arc.clone())
                 }
                 // Fully concrete case
-                (BitVecOp::BVV(value_bv), BitVecOp::BVV(rotate_bv)) => {
+                (AstOp::BVV(value_bv), AstOp::BVV(rotate_bv)) => {
                     let rotate_u32 = rotate_bv.to_u64().unwrap_or(0) as u32;
                     let rotated_bv = value_bv.rotate_left(rotate_u32)?;
                     Ok(ctx.bvv(rotated_bv)?)
                 }
                 // Nested rotation with concrete amounts - combine them
                 // rotate_left(rotate_left(x, c1), c2) => rotate_left(x, (c1 + c2) % size)
-                (BitVecOp::RotateLeft(inner, inner_amt), BitVecOp::BVV(outer_amt)) => {
-                    if let BitVecOp::BVV(inner_amt_val) = inner_amt.op() {
+                (AstOp::RotateLeft(inner, inner_amt), AstOp::BVV(outer_amt)) => {
+                    if let AstOp::BVV(inner_amt_val) = inner_amt.op() {
                         let size = arc.size();
                         let combined_amt = (inner_amt_val.to_bigint() + outer_amt.to_bigint())
                             % BigInt::from(size);
@@ -990,27 +990,27 @@ pub(crate) fn simplify_bv<'c>(
                 _ => Ok(ctx.rotate_left(arc, arc1)?),
             }
         }
-        BitVecOp::RotateRight(..) => {
+        AstOp::RotateRight(..) => {
             let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 // Base value is zero
-                (BitVecOp::BVV(v), _) if v.is_zero() => Ok(arc),
+                (AstOp::BVV(v), _) if v.is_zero() => Ok(arc),
                 // Shift by zero or multiple of size
-                (_, BitVecOp::BVV(v))
+                (_, AstOp::BVV(v))
                     if v.is_zero() || v.to_bigint() % arc.size() == BigInt::zero() =>
                 {
                     Ok(arc.clone())
                 }
                 // Fully concrete case
-                (BitVecOp::BVV(value_bv), BitVecOp::BVV(rotate_amount_bv)) => {
+                (AstOp::BVV(value_bv), AstOp::BVV(rotate_amount_bv)) => {
                     let rotate_u32 = rotate_amount_bv.to_u64().unwrap_or(0) as u32;
                     let rotated_bv = value_bv.rotate_right(rotate_u32)?;
                     Ok(ctx.bvv(rotated_bv)?)
                 }
                 // Nested rotation with concrete amounts - combine them
                 // rotate_right(rotate_right(x, c1), c2) => rotate_right(x, (c1 + c2) % size)
-                (BitVecOp::RotateRight(inner, inner_amt), BitVecOp::BVV(outer_amt)) => {
-                    if let BitVecOp::BVV(inner_amt_val) = inner_amt.op() {
+                (AstOp::RotateRight(inner, inner_amt), AstOp::BVV(outer_amt)) => {
+                    if let AstOp::BVV(inner_amt_val) = inner_amt.op() {
                         let size = arc.size();
                         let combined_amt = (inner_amt_val.to_bigint() + outer_amt.to_bigint())
                             % BigInt::from(size);
@@ -1029,20 +1029,20 @@ pub(crate) fn simplify_bv<'c>(
                 _ => Ok(ctx.rotate_right(arc, arc1)?),
             }
         }
-        BitVecOp::ZeroExt(_, num_bits) => {
+        AstOp::ZeroExt(_, num_bits) => {
             let arc = state.get_bv_simplified(0)?;
             match (arc.op(), num_bits) {
                 // Zero extension
                 (_, 0) => Ok(arc.clone()),
                 // Concrete BVV case
-                (BitVecOp::BVV(value), _) => Ok(ctx.bvv(value.zero_extend(*num_bits)?)?),
+                (AstOp::BVV(value), _) => Ok(ctx.bvv(value.zero_extend(*num_bits)?)?),
                 // Nested ZeroExt - combine extensions
-                (BitVecOp::ZeroExt(inner, inner_num_bits), _) => {
+                (AstOp::ZeroExt(inner, inner_num_bits), _) => {
                     let total_ext = inner_num_bits + num_bits;
                     state.rerun(ctx.zero_ext(inner, total_ext)?)
                 }
                 // Propogate over ITE when the children are BVVs
-                (BitVecOp::ITE(cond, then_bv, else_bv), _) => {
+                (AstOp::If(cond, then_bv, else_bv), _) => {
                     let then_ext = ctx.zero_ext(then_bv, *num_bits)?;
                     let else_ext = ctx.zero_ext(else_bv, *num_bits)?;
                     state.rerun(ctx.ite(cond, &then_ext, &else_ext)?)
@@ -1051,15 +1051,15 @@ pub(crate) fn simplify_bv<'c>(
                 (_, _) => Ok(ctx.zero_ext(arc, *num_bits)?),
             }
         }
-        BitVecOp::SignExt(_, num_bits) => {
+        AstOp::SignExt(_, num_bits) => {
             let arc = state.get_bv_simplified(0)?;
             match (arc.op(), num_bits) {
                 // Sign extension
                 (_, 0) => Ok(arc.clone()),
                 // Concrete BVV case
-                (BitVecOp::BVV(value), _) => Ok(ctx.bvv(value.sign_extend(*num_bits)?)?),
+                (AstOp::BVV(value), _) => Ok(ctx.bvv(value.sign_extend(*num_bits)?)?),
                 // Nested SignExt - combine extensions
-                (BitVecOp::SignExt(inner, inner_num_bits), _) => {
+                (AstOp::SignExt(inner, inner_num_bits), _) => {
                     let total_ext = inner_num_bits + num_bits;
                     state.rerun(ctx.sign_ext(inner, total_ext)?)
                 }
@@ -1067,7 +1067,7 @@ pub(crate) fn simplify_bv<'c>(
                 (_, _) => Ok(ctx.sign_ext(arc, *num_bits)?),
             }
         }
-        BitVecOp::Extract(_, high, low) => {
+        AstOp::Extract(_, high, low) => {
             let arc = state.get_bv_simplified(0)?;
 
             // If the extract bounds are the entire BV, return the inner value as-is
@@ -1077,10 +1077,10 @@ pub(crate) fn simplify_bv<'c>(
 
             match arc.op() {
                 // Concrete BVV case
-                BitVecOp::BVV(value) => Ok(ctx.bvv(value.extract(*low, *high)?)?),
+                AstOp::BVV(value) => Ok(ctx.bvv(value.extract(*low, *high)?)?),
 
                 // Nested Extract - combine extracts
-                BitVecOp::Extract(inner, _, inner_low) => {
+                AstOp::Extract(inner, _, inner_low) => {
                     // Calculate new high and low for the inner extract
                     let new_high = inner_low + *high;
                     let new_low = inner_low + *low;
@@ -1090,14 +1090,14 @@ pub(crate) fn simplify_bv<'c>(
                 // Propagate extract(n, 0, ...) through add/sub
                 // extract(n, 0, a + b + ...) = extract(n, 0, a) + extract(n, 0, b) + ...
                 // This is valid because the low bits of add/sub only depend on the low bits of the operands
-                BitVecOp::Add(add_args) if *low == 0 => {
+                AstOp::Add(add_args) if *low == 0 => {
                     let extracted: Vec<BitVecAst<'c>> = add_args
                         .iter()
                         .map(|a| ctx.extract(a, *high, 0))
                         .collect::<Result<_, _>>()?;
                     state.rerun(ctx.add_many(extracted)?)
                 }
-                BitVecOp::Sub(lhs, rhs) if *low == 0 => {
+                AstOp::Sub(lhs, rhs) if *low == 0 => {
                     let lhs_extracted = ctx.extract(lhs, *high, 0)?;
                     let rhs_extracted = ctx.extract(rhs, *high, 0)?;
                     state.rerun(ctx.sub(&lhs_extracted, &rhs_extracted)?)
@@ -1105,7 +1105,7 @@ pub(crate) fn simplify_bv<'c>(
 
                 // Propagate extract through bitwise operations
                 // extract(n, m, a & b & ...) = extract(n, m, a) & extract(n, m, b) & ...
-                BitVecOp::And(and_args) => {
+                AstOp::And(and_args) => {
                     let extracted: Vec<BitVecAst<'c>> = and_args
                         .iter()
                         .map(|a| ctx.extract(a, *high, *low))
@@ -1113,7 +1113,7 @@ pub(crate) fn simplify_bv<'c>(
                     state.rerun(ctx.bv_and_many(extracted)?)
                 }
                 // extract(n, m, a | b | ...) = extract(n, m, a) | extract(n, m, b) | ...
-                BitVecOp::Or(or_args) => {
+                AstOp::Or(or_args) => {
                     let extracted: Vec<BitVecAst<'c>> = or_args
                         .iter()
                         .map(|a| ctx.extract(a, *high, *low))
@@ -1121,7 +1121,7 @@ pub(crate) fn simplify_bv<'c>(
                     state.rerun(ctx.bv_or_many(extracted)?)
                 }
                 // extract(n, m, a ^ b ^ ...) = extract(n, m, a) ^ extract(n, m, b) ^ ...
-                BitVecOp::Xor(xor_args) => {
+                AstOp::Xor(xor_args) => {
                     let extracted: Vec<BitVecAst<'c>> = xor_args
                         .iter()
                         .map(|a| ctx.extract(a, *high, *low))
@@ -1129,13 +1129,13 @@ pub(crate) fn simplify_bv<'c>(
                     state.rerun(ctx.bv_xor_many(extracted)?)
                 }
                 // extract(n, m, ~a) = ~extract(n, m, a)
-                BitVecOp::Not(inner) => {
+                AstOp::Not(inner) => {
                     let inner_extracted = ctx.extract(inner, *high, *low)?;
                     state.rerun(ctx.not(&inner_extracted)?)
                 }
 
                 // Propogate through ITE
-                BitVecOp::ITE(cond, then_bv, else_bv) => {
+                AstOp::If(cond, then_bv, else_bv) => {
                     let then_extracted = ctx.extract(then_bv, *high, *low)?;
                     let else_extracted = ctx.extract(else_bv, *high, *low)?;
                     state.rerun(ctx.ite(cond, &then_extracted, &else_extracted)?)
@@ -1143,15 +1143,15 @@ pub(crate) fn simplify_bv<'c>(
 
                 // ZeroExt cases
                 // If extracting from the original bits (not the extended zero bits)
-                BitVecOp::ZeroExt(inner, _) if *high < inner.size() => {
+                AstOp::ZeroExt(inner, _) if *high < inner.size() => {
                     state.rerun(ctx.extract(inner, *high, *low)?)
                 }
                 // If extracting only from the extended zero bits
-                BitVecOp::ZeroExt(inner, _) if *low >= inner.size() => {
+                AstOp::ZeroExt(inner, _) if *low >= inner.size() => {
                     Ok(ctx.bvv(BitVec::zeros(*high - *low + 1))?)
                 }
                 // If extracting bits that span original and extended parts
-                BitVecOp::ZeroExt(inner, _) => {
+                AstOp::ZeroExt(inner, _) => {
                     let inner_size = inner.size();
                     // Extract what we can from the original bits
                     let extracted = ctx.extract(inner, inner_size - 1, *low)?;
@@ -1161,11 +1161,11 @@ pub(crate) fn simplify_bv<'c>(
 
                 // SignExt cases
                 // If extracting from the original bits (not the extended sign bits)
-                BitVecOp::SignExt(inner, _) if *high < inner.size() => {
+                AstOp::SignExt(inner, _) if *high < inner.size() => {
                     state.rerun(ctx.extract(inner, *high, *low)?)
                 }
                 // If extracting only from the extended sign bits
-                BitVecOp::SignExt(inner, _) if *low >= inner.size() => {
+                AstOp::SignExt(inner, _) if *low >= inner.size() => {
                     let sign_bit = ctx.extract(inner, inner.size() - 1, inner.size() - 1)?;
                     // Replicate the sign bit for the extracted width
                     let width = *high - *low + 1;
@@ -1174,7 +1174,7 @@ pub(crate) fn simplify_bv<'c>(
                 }
 
                 // N-ary Concat cases
-                BitVecOp::Concat(args) => {
+                AstOp::Concat(args) => {
                     // Compute cumulative sizes from the right (LSB side)
                     // For concat(a, b, c), sizes are [a.size()+b.size()+c.size(), b.size()+c.size(), c.size(), 0]
                     let mut cumulative_sizes: Vec<u32> = Vec::with_capacity(args.len() + 1);
@@ -1234,7 +1234,7 @@ pub(crate) fn simplify_bv<'c>(
                 _ => Ok(ctx.extract(arc, *high, *low)?),
             }
         }
-        BitVecOp::Concat(args) => {
+        AstOp::Concat(args) => {
             // Simplify all children first
             let simplified_args: Vec<BitVecAst<'c>> = (0..args.len())
                 .map(|i| state.get_bv_simplified(i))
@@ -1246,7 +1246,7 @@ pub(crate) fn simplify_bv<'c>(
                 if arg.size() == 0 {
                     continue;
                 }
-                if let BitVecOp::Concat(inner_args) = arg.op() {
+                if let AstOp::Concat(inner_args) = arg.op() {
                     flattened.extend(inner_args.iter().cloned());
                 } else {
                     flattened.push(arg);
@@ -1256,8 +1256,8 @@ pub(crate) fn simplify_bv<'c>(
             // Merge adjacent constants
             let mut merged: Vec<BitVecAst<'c>> = Vec::new();
             for arg in flattened {
-                if let (Some(last), BitVecOp::BVV(curr_val)) = (merged.last(), arg.op())
-                    && let BitVecOp::BVV(last_val) = last.op()
+                if let (Some(last), AstOp::BVV(curr_val)) = (merged.last(), arg.op())
+                    && let AstOp::BVV(last_val) = last.op()
                 {
                     // Merge adjacent constants
                     let merged_val = last_val.concat(curr_val)?;
@@ -1270,7 +1270,7 @@ pub(crate) fn simplify_bv<'c>(
 
             // Concat(BVV(0, N), rest...) -> ZeroExt(N, Concat(rest...))
             if merged.len() >= 2
-                && matches!(merged[0].op(), BitVecOp::BVV(high_val) if high_val.is_zero())
+                && matches!(merged[0].op(), AstOp::BVV(high_val) if high_val.is_zero())
             {
                 let ext_size = merged[0].size();
                 let rest: Vec<BitVecAst<'c>> = merged[1..].to_vec();
@@ -1291,20 +1291,20 @@ pub(crate) fn simplify_bv<'c>(
                 _ => Ok(ctx.concat(merged)?),
             }
         }
-        BitVecOp::ByteReverse(..) => {
+        AstOp::ByteReverse(..) => {
             let arc = state.get_bv_simplified(0)?;
             match arc.op() {
-                BitVecOp::BVV(value) => {
+                AstOp::BVV(value) => {
                     let reversed_bits = value.reverse_bytes()?;
                     Ok(ctx.bvv(reversed_bits)?)
                 }
                 _ => Ok(ctx.byte_reverse(arc)?),
             }
         }
-        BitVecOp::FpToIEEEBV(..) => {
+        AstOp::FpToIEEEBV(..) => {
             let arc = state.get_fp_simplified(0)?;
             match arc.op() {
-                FloatOp::FPV(float) => {
+                AstOp::FPV(float) => {
                     // Convert the floating-point value to its IEEE 754 bit representation
                     let ieee_bits = float.to_ieee_bits();
                     let bit_length = float.fsort().size();
@@ -1318,10 +1318,10 @@ pub(crate) fn simplify_bv<'c>(
                 _ => Ok(ctx.fp_to_ieeebv(arc)?), // Fallback for non-concrete values
             }
         }
-        BitVecOp::FpToUBV(_, bit_size, fprm) => {
+        AstOp::FpToUBV(_, bit_size, fprm) => {
             let arc = state.get_fp_simplified(0)?;
             match arc.op() {
-                FloatOp::FPV(float) => {
+                AstOp::FPV(float) => {
                     // Convert the float to an unsigned integer representation (BigUint)
                     let unsigned_value = float.to_unsigned_biguint().unwrap_or(BigUint::zero());
 
@@ -1333,10 +1333,10 @@ pub(crate) fn simplify_bv<'c>(
                 _ => Ok(ctx.fp_to_ubv(arc, *bit_size, *fprm)?), // Fallback for non-concrete values
             }
         }
-        BitVecOp::FpToSBV(_, bit_size, fprm) => {
+        AstOp::FpToSBV(_, bit_size, fprm) => {
             let arc = state.get_fp_simplified(0)?;
             match arc.op() {
-                FloatOp::FPV(float) => {
+                AstOp::FPV(float) => {
                     // Convert the float to a signed integer representation (BigInt)
                     let signed_value = float.to_signed_bigint().unwrap_or(BigInt::zero());
 
@@ -1351,10 +1351,10 @@ pub(crate) fn simplify_bv<'c>(
                 _ => Ok(ctx.fp_to_sbv(arc, *bit_size, *fprm)?), // Fallback for non-concrete values
             }
         }
-        BitVecOp::StrLen(..) => {
+        AstOp::StrLen(..) => {
             let arc = state.get_string_simplified(0)?;
             match arc.op() {
-                StringOp::StringV(value) => {
+                AstOp::StringV(value) => {
                     // chars().count() returns the number of Unicode scalar values
                     let length = value.chars().count() as u64;
                     Ok(ctx.bvv(BitVec::from_prim_with_size(length, 64)?)?)
@@ -1362,7 +1362,7 @@ pub(crate) fn simplify_bv<'c>(
                 _ => Ok(ctx.str_len(arc)?), // Fallback to symbolic
             }
         }
-        BitVecOp::StrIndexOf(..) => {
+        AstOp::StrIndexOf(..) => {
             let (arc, arc1, arc2) = (
                 state.get_string_simplified(0)?,
                 state.get_string_simplified(1)?,
@@ -1371,9 +1371,9 @@ pub(crate) fn simplify_bv<'c>(
 
             match (arc.op(), arc1.op(), arc2.op()) {
                 (
-                    StringOp::StringV(input_string),
-                    StringOp::StringV(substring),
-                    BitVecOp::BVV(start_index),
+                    AstOp::StringV(input_string),
+                    AstOp::StringV(substring),
+                    AstOp::BVV(start_index),
                 ) => {
                     let s = input_string;
                     let t = substring;
@@ -1408,10 +1408,10 @@ pub(crate) fn simplify_bv<'c>(
                 _ => Ok(ctx.str_index_of(arc, arc1, arc2)?), // Fallback to symbolic
             }
         }
-        BitVecOp::StrToBV(..) => {
+        AstOp::StrToBV(..) => {
             let arc = state.get_string_simplified(0)?;
             match arc.op() {
-                StringOp::StringV(string) => {
+                AstOp::StringV(string) => {
                     if string.is_empty() {
                         let max_int = BigUint::from_str_radix("ffffffffffffffff", 16).unwrap();
                         return Ok(ctx.bvv(BitVec::from_biguint_trunc(&max_int, 64))?);
@@ -1435,7 +1435,7 @@ pub(crate) fn simplify_bv<'c>(
                 _ => Ok(ctx.str_to_bv(arc)?),
             }
         }
-        BitVecOp::ITE(..) => {
+        AstOp::If(..) => {
             let (if_, then_, else_) = (
                 state.get_bool_simplified(0)?,
                 state.get_bv_simplified(1)?,
@@ -1449,7 +1449,7 @@ pub(crate) fn simplify_bv<'c>(
 
             match if_.op() {
                 // If the condition is a concrete boolean value, return the appropriate branch
-                BooleanOp::BoolV(value) => {
+                AstOp::BoolV(value) => {
                     if *value {
                         Ok(then_.clone())
                     } else {
@@ -1457,30 +1457,31 @@ pub(crate) fn simplify_bv<'c>(
                     }
                 }
                 // If the condition has a Not at the top level, invert the branches
-                BooleanOp::Not(inner) => state.rerun(ctx.ite(inner, else_, then_)?),
+                AstOp::Not(inner) => state.rerun(ctx.ite(inner, else_, then_)?),
                 _ => Ok(ctx.ite(if_, then_, else_)?),
             }
         }
-        BitVecOp::Union(..) => {
+        AstOp::Union(..) => {
             let (lhs, rhs) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             if lhs == rhs {
                 return Ok(lhs.clone());
             }
             Ok(ctx.union(lhs, rhs)?)
         }
-        BitVecOp::Intersection(..) => {
+        AstOp::Intersection(..) => {
             let (lhs, rhs) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             if lhs == rhs {
                 return Ok(lhs.clone());
             }
             Ok(ctx.intersection(lhs, rhs)?)
         }
-        BitVecOp::Widen(..) => {
+        AstOp::Widen(..) => {
             let (lhs, rhs) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             if lhs == rhs {
                 return Ok(lhs.clone());
             }
             Ok(ctx.widen(lhs, rhs)?)
         }
+        _ => unreachable!("simplify dispatched to wrong function"),
     }
 }

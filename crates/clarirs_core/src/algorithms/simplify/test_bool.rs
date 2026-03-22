@@ -5,6 +5,7 @@ use crate::{
     ast::{
         AstFactory,
         annotation::{Annotation, AnnotationType},
+        astop::AstOp,
     },
     context::Context,
 };
@@ -497,7 +498,7 @@ fn test_booleq_identity_simplification_without_floats() -> Result<()> {
     let simplified = eq_check.simplify()?;
 
     assert!(
-        matches!(simplified.op(), crate::ast::bool::BooleanOp::BoolV(true)),
+        matches!(simplified.op(), AstOp::BoolV(true)),
         "BoolEq(x, x) should simplify to true when no floats are involved, got: {:?}",
         simplified.op()
     );
@@ -517,7 +518,7 @@ fn test_booleq_no_identity_simplification_with_floats() -> Result<()> {
     let simplified = eq_check.simplify()?;
 
     assert!(
-        !matches!(simplified.op(), crate::ast::bool::BooleanOp::BoolV(true)),
+        !matches!(simplified.op(), AstOp::BoolV(true)),
         "BoolEq(x, x) should NOT simplify to true when floats are involved, got: {:?}",
         simplified.op()
     );

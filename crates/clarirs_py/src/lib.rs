@@ -13,10 +13,7 @@ pub mod pyslicemethodsext;
 pub mod solver;
 pub mod vsa;
 
-use clarirs_core::{
-    algorithms::{ExcavateIte, Replace},
-    ast::float::FloatOpExt,
-};
+use clarirs_core::algorithms::{ExcavateIte, Replace};
 use num_bigint::BigInt;
 use prelude::*;
 
@@ -61,21 +58,9 @@ fn py_simplify<'py>(
     py: Python<'py>,
     expr: Bound<'py, Base>,
 ) -> Result<Bound<'py, Base>, ClaripyError> {
-    if let Ok(bv_value) = expr.clone().into_any().cast::<BV>() {
-        BV::new(py, &bv_value.get().inner.simplify().unwrap())
-            .map(|b| b.into_any().cast::<Base>().unwrap().clone())
-    } else if let Ok(bool_value) = expr.clone().into_any().cast::<Bool>() {
-        Bool::new(py, &bool_value.get().inner.simplify().unwrap())
-            .map(|b| b.into_any().cast::<Base>().unwrap().clone())
-    } else if let Ok(fp_value) = expr.clone().into_any().cast::<FP>() {
-        FP::new(py, &fp_value.get().inner.simplify().unwrap())
-            .map(|b| b.into_any().cast::<Base>().unwrap().clone())
-    } else if let Ok(string_value) = expr.clone().into_any().cast::<PyAstString>() {
-        PyAstString::new(py, &string_value.get().inner.simplify().unwrap())
-            .map(|b| b.into_any().cast::<Base>().unwrap().clone())
-    } else {
-        panic!("Unsupported type");
-    }
+    let ast = Base::to_astref(expr)?;
+    let simplified = ast.simplify().unwrap();
+    Base::from_astref(py, &simplified)
 }
 
 #[pyfunction(name = "replace")]
@@ -84,22 +69,22 @@ fn py_replace<'py>(
     old: Bound<'py, Base>,
     new: Bound<'py, Base>,
 ) -> Result<Bound<'py, Base>, ClaripyError> {
-    let old_dyn = Base::to_dynast(old.clone())?;
-    let new_dyn = Base::to_dynast(new.clone())?;
+    let old_ast = Base::to_astref(old.clone())?;
+    let new_ast = Base::to_astref(new.clone())?;
 
     // Convert new type to old type, if they do not match and both are BV or FP
-    let new_coerced = match (&old_dyn, &new_dyn) {
-        (DynAst::BitVec(_), DynAst::Float(new_fp)) => new_fp.context().fp_to_ieeebv(new_fp)?.into(),
-        (DynAst::Float(old_fp), DynAst::BitVec(new_bv)) => {
-            new_bv.context().bv_to_fp(new_bv, old_fp.sort())?.into()
+    let new_coerced = match (old_ast.op().base_theories(), new_ast.op().base_theories()) {
+        (Theories::BITVEC, Theories::FLOAT) => new_ast.context().fp_to_ieeebv(&new_ast)?,
+        (Theories::FLOAT, Theories::BITVEC) => {
+            new_ast
+                .context()
+                .bv_to_fp(&new_ast, old_ast.op().sort())?
         }
-        (_, new_dyn) => new_dyn.clone(),
+        _ => new_ast.clone(),
     };
 
-    Base::from_dynast(
-        expr.py(),
-        Base::to_dynast(expr)?.replace(&old_dyn, &new_coerced)?,
-    )
+    let expr_ast = Base::to_astref(expr.clone())?;
+    Base::from_astref(expr.py(), &expr_ast.replace(&old_ast, &new_coerced)?)
 }
 
 #[pyfunction(name = "excavate_ite")]
@@ -107,7 +92,7 @@ fn py_excavate_ite<'py>(
     py: Python<'py>,
     expr: Bound<'py, Base>,
 ) -> Result<Bound<'py, Base>, ClaripyError> {
-    Base::from_dynast(py, Base::to_dynast(expr)?.excavate_ite()?)
+    Base::from_astref(py, &Base::to_astref(expr)?.excavate_ite()?)
 }
 
 #[pyfunction]

@@ -7,225 +7,237 @@ pub trait ExtractPyArgs {
     -> Result<Vec<Bound<'py, PyAny>>, ClaripyError>;
 }
 
-impl ExtractPyArgs for BoolAst<'static> {
+impl ExtractPyArgs for AstRef<'static> {
     fn extract_py_args<'py>(
         &self,
         py: Python<'py>,
     ) -> Result<Vec<Bound<'py, PyAny>>, ClaripyError> {
         Ok(match self.op() {
-            BooleanOp::BoolS(name) => vec![name.as_str().into_bound_py_any(py)?],
-            BooleanOp::BoolV(val) => vec![val.into_bound_py_any(py)?],
-            BooleanOp::Not(expr) => vec![Bool::new(py, expr)?.into_any()],
-            BooleanOp::And(args) | BooleanOp::Or(args) => args
-                .iter()
-                .map(|a| Bool::new(py, a).map(|b| b.into_any()))
-                .collect::<Result<Vec<_>, _>>()?,
-            BooleanOp::Xor(lhs, rhs)
-            | BooleanOp::BoolEq(lhs, rhs)
-            | BooleanOp::BoolNeq(lhs, rhs) => vec![
-                Bool::new(py, lhs)?.into_any(),
-                Bool::new(py, rhs)?.into_any(),
-            ],
-            BooleanOp::Eq(lhs, rhs)
-            | BooleanOp::Neq(lhs, rhs)
-            | BooleanOp::ULT(lhs, rhs)
-            | BooleanOp::ULE(lhs, rhs)
-            | BooleanOp::UGT(lhs, rhs)
-            | BooleanOp::UGE(lhs, rhs)
-            | BooleanOp::SLT(lhs, rhs)
-            | BooleanOp::SLE(lhs, rhs)
-            | BooleanOp::SGT(lhs, rhs)
-            | BooleanOp::SGE(lhs, rhs) => {
+            // Boolean
+            AstOp::BoolS(name) => vec![name.as_str().into_bound_py_any(py)?],
+            AstOp::BoolV(val) => vec![val.into_bound_py_any(py)?],
+
+            // Cross-sort ops
+            AstOp::Not(expr) => {
+                if self.op().base_theories() == Theories::BOOLEAN {
+                    vec![Bool::new(py, expr)?.into_any()]
+                } else {
+                    vec![BV::new(py, expr)?.into_any()]
+                }
+            }
+            AstOp::And(args) | AstOp::Or(args) => {
+                if self.op().base_theories() == Theories::BOOLEAN {
+                    args.iter()
+                        .map(|a| Bool::new(py, a).map(|b| b.into_any()))
+                        .collect::<Result<Vec<_>, _>>()?
+                } else {
+                    args.iter()
+                        .map(|a| BV::new(py, a).map(|b| b.into_any()))
+                        .collect::<Result<Vec<_>, _>>()?
+                }
+            }
+            AstOp::Xor(args) => {
+                if self.op().base_theories() == Theories::BOOLEAN {
+                    args.iter()
+                        .map(|a| Bool::new(py, a).map(|b| b.into_any()))
+                        .collect::<Result<Vec<_>, _>>()?
+                } else {
+                    args.iter()
+                        .map(|a| BV::new(py, a).map(|b| b.into_any()))
+                        .collect::<Result<Vec<_>, _>>()?
+                }
+            }
+            AstOp::Eq(lhs, rhs) | AstOp::Neq(lhs, rhs) => {
+                // Determine the type of the children
+                let child_theory = lhs.op().base_theories();
+                if child_theory == Theories::BOOLEAN {
+                    vec![
+                        Bool::new(py, lhs)?.into_any(),
+                        Bool::new(py, rhs)?.into_any(),
+                    ]
+                } else if child_theory == Theories::BITVEC {
+                    vec![
+                        BV::new(py, lhs)?.into_any(),
+                        BV::new(py, rhs)?.into_any(),
+                    ]
+                } else if child_theory == Theories::FLOAT {
+                    vec![
+                        FP::new(py, lhs)?.into_any(),
+                        FP::new(py, rhs)?.into_any(),
+                    ]
+                } else {
+                    vec![
+                        PyAstString::new(py, lhs)?.into_any(),
+                        PyAstString::new(py, rhs)?.into_any(),
+                    ]
+                }
+            }
+            AstOp::If(cond, then_, else_) => {
+                let result_theory = then_.op().base_theories();
+                if result_theory == Theories::BOOLEAN {
+                    vec![
+                        Bool::new(py, cond)?.into_any(),
+                        Bool::new(py, then_)?.into_any(),
+                        Bool::new(py, else_)?.into_any(),
+                    ]
+                } else if result_theory == Theories::BITVEC {
+                    vec![
+                        Bool::new(py, cond)?.into_any(),
+                        BV::new(py, then_)?.into_any(),
+                        BV::new(py, else_)?.into_any(),
+                    ]
+                } else if result_theory == Theories::FLOAT {
+                    vec![
+                        Bool::new(py, cond)?.into_any(),
+                        FP::new(py, then_)?.into_any(),
+                        FP::new(py, else_)?.into_any(),
+                    ]
+                } else {
+                    vec![
+                        Bool::new(py, cond)?.into_any(),
+                        PyAstString::new(py, then_)?.into_any(),
+                        PyAstString::new(py, else_)?.into_any(),
+                    ]
+                }
+            }
+
+            // BV comparisons (result is Bool but children are BV)
+            AstOp::ULT(lhs, rhs)
+            | AstOp::ULE(lhs, rhs)
+            | AstOp::UGT(lhs, rhs)
+            | AstOp::UGE(lhs, rhs)
+            | AstOp::SLT(lhs, rhs)
+            | AstOp::SLE(lhs, rhs)
+            | AstOp::SGT(lhs, rhs)
+            | AstOp::SGE(lhs, rhs) => {
                 vec![BV::new(py, lhs)?.into_any(), BV::new(py, rhs)?.into_any()]
             }
-            BooleanOp::FpEq(lhs, rhs)
-            | BooleanOp::FpNeq(lhs, rhs)
-            | BooleanOp::FpLt(lhs, rhs)
-            | BooleanOp::FpLeq(lhs, rhs)
-            | BooleanOp::FpGt(lhs, rhs)
-            | BooleanOp::FpGeq(lhs, rhs) => {
+
+            // FP comparisons (result is Bool but children are FP)
+            AstOp::FpLt(lhs, rhs)
+            | AstOp::FpLeq(lhs, rhs)
+            | AstOp::FpGt(lhs, rhs)
+            | AstOp::FpGeq(lhs, rhs) => {
                 vec![FP::new(py, lhs)?.into_any(), FP::new(py, rhs)?.into_any()]
             }
-            BooleanOp::FpIsNan(expr) | BooleanOp::FpIsInf(expr) => {
+            AstOp::FpIsNan(expr) | AstOp::FpIsInf(expr) => {
                 vec![FP::new(py, expr)?.into_any()]
             }
-            BooleanOp::StrContains(lhs, rhs)
-            | BooleanOp::StrPrefixOf(lhs, rhs)
-            | BooleanOp::StrSuffixOf(lhs, rhs)
-            | BooleanOp::StrEq(lhs, rhs)
-            | BooleanOp::StrNeq(lhs, rhs) => vec![
+
+            // String comparisons (result is Bool but children are String)
+            AstOp::StrContains(lhs, rhs)
+            | AstOp::StrPrefixOf(lhs, rhs)
+            | AstOp::StrSuffixOf(lhs, rhs) => vec![
                 PyAstString::new(py, lhs)?.into_any(),
                 PyAstString::new(py, rhs)?.into_any(),
             ],
-            BooleanOp::StrIsDigit(expr) => vec![PyAstString::new(py, expr)?.into_any()],
-            BooleanOp::ITE(cond, then_, else_) => vec![
-                Bool::new(py, cond)?.into_any(),
-                Bool::new(py, then_)?.into_any(),
-                Bool::new(py, else_)?.into_any(),
-            ],
-        })
-    }
-}
+            AstOp::StrIsDigit(expr) => vec![PyAstString::new(py, expr)?.into_any()],
 
-impl ExtractPyArgs for BitVecAst<'static> {
-    fn extract_py_args<'py>(
-        &self,
-        py: Python<'py>,
-    ) -> Result<Vec<Bound<'py, PyAny>>, ClaripyError> {
-        Ok(match self.op() {
-            BitVecOp::BVS(name, size) => {
+            // BV
+            AstOp::BVS(name, size) => {
                 vec![
                     name.as_str().into_bound_py_any(py)?,
                     size.into_bound_py_any(py)?,
                 ]
             }
-            BitVecOp::BVV(bit_vec) => vec![
+            AstOp::BVV(bit_vec) => vec![
                 bit_vec.to_biguint().into_bound_py_any(py)?,
                 bit_vec.len().into_bound_py_any(py)?,
             ],
-            BitVecOp::Not(expr) | BitVecOp::Neg(expr) => {
+            AstOp::Neg(expr) => {
                 vec![BV::new(py, expr)?.into_any()]
             }
-            BitVecOp::And(args)
-            | BitVecOp::Or(args)
-            | BitVecOp::Xor(args)
-            | BitVecOp::Add(args)
-            | BitVecOp::Mul(args) => args
+            AstOp::Add(args) | AstOp::Mul(args) => args
                 .iter()
                 .map(|arg| BV::new(py, arg).map(|b| b.into_any()))
                 .collect::<Result<Vec<_>, _>>()?,
-            BitVecOp::Sub(lhs, rhs)
-            | BitVecOp::UDiv(lhs, rhs)
-            | BitVecOp::SDiv(lhs, rhs)
-            | BitVecOp::URem(lhs, rhs)
-            | BitVecOp::SRem(lhs, rhs)
-            | BitVecOp::ShL(lhs, rhs)
-            | BitVecOp::LShR(lhs, rhs)
-            | BitVecOp::AShR(lhs, rhs)
-            | BitVecOp::RotateLeft(lhs, rhs)
-            | BitVecOp::RotateRight(lhs, rhs)
-            | BitVecOp::Union(lhs, rhs)
-            | BitVecOp::Intersection(lhs, rhs)
-            | BitVecOp::Widen(lhs, rhs) => {
+            AstOp::Sub(lhs, rhs)
+            | AstOp::UDiv(lhs, rhs)
+            | AstOp::SDiv(lhs, rhs)
+            | AstOp::URem(lhs, rhs)
+            | AstOp::SRem(lhs, rhs)
+            | AstOp::ShL(lhs, rhs)
+            | AstOp::LShR(lhs, rhs)
+            | AstOp::AShR(lhs, rhs)
+            | AstOp::RotateLeft(lhs, rhs)
+            | AstOp::RotateRight(lhs, rhs)
+            | AstOp::Union(lhs, rhs)
+            | AstOp::Intersection(lhs, rhs)
+            | AstOp::Widen(lhs, rhs) => {
                 vec![BV::new(py, lhs)?.into_any(), BV::new(py, rhs)?.into_any()]
             }
-            BitVecOp::Concat(args) => args
+            AstOp::Concat(args) => args
                 .iter()
                 .map(|arg| BV::new(py, arg).map(|b| b.into_any()))
                 .collect::<Result<Vec<_>, _>>()?,
-            BitVecOp::ZeroExt(expr, amount) | BitVecOp::SignExt(expr, amount) => {
+            AstOp::ZeroExt(expr, amount) | AstOp::SignExt(expr, amount) => {
                 vec![amount.into_bound_py_any(py)?, BV::new(py, expr)?.into_any()]
             }
-            BitVecOp::Extract(expr, end, start) => vec![
+            AstOp::Extract(expr, end, start) => vec![
                 end.into_bound_py_any(py)?,
                 start.into_bound_py_any(py)?,
                 BV::new(py, expr)?.into_any(),
             ],
-            BitVecOp::ByteReverse(expr) => vec![BV::new(py, expr)?.into_any()],
-            BitVecOp::FpToIEEEBV(expr) => vec![FP::new(py, expr)?.into_any()],
-            BitVecOp::FpToUBV(arc, _, _) => vec![FP::new(py, arc)?.into_any()],
-            BitVecOp::FpToSBV(arc, _, _) => vec![FP::new(py, arc)?.into_any()],
-            BitVecOp::StrLen(expr) | BitVecOp::StrToBV(expr) => {
+            AstOp::ByteReverse(expr) => vec![BV::new(py, expr)?.into_any()],
+            AstOp::FpToIEEEBV(expr) => vec![FP::new(py, expr)?.into_any()],
+            AstOp::FpToUBV(arc, _, _) => vec![FP::new(py, arc)?.into_any()],
+            AstOp::FpToSBV(arc, _, _) => vec![FP::new(py, arc)?.into_any()],
+            AstOp::StrLen(expr) | AstOp::StrToBV(expr) => {
                 vec![PyAstString::new(py, expr)?.into_any()]
             }
-            BitVecOp::StrIndexOf(base, search, offset) => vec![
+            AstOp::StrIndexOf(base, search, offset) => vec![
                 PyAstString::new(py, base)?.into_any(),
                 PyAstString::new(py, search)?.into_any(),
                 BV::new(py, offset)?.into_any(),
             ],
-            BitVecOp::ITE(cond, then_, else_) => vec![
-                Bool::new(py, cond)?.into_any(),
-                BV::new(py, then_)?.into_any(),
-                BV::new(py, else_)?.into_any(),
-            ],
-        })
-    }
-}
 
-impl ExtractPyArgs for FloatAst<'static> {
-    fn extract_py_args<'py>(
-        &self,
-        py: Python<'py>,
-    ) -> Result<Vec<Bound<'py, PyAny>>, ClaripyError> {
-        Ok(match self.op() {
-            FloatOp::FPS(name, fsort) => vec![
+            // Float
+            AstOp::FPS(name, fsort) => vec![
                 name.as_str().into_bound_py_any(py)?,
                 Bound::new(py, PyFSort::from(fsort))?.into_any(),
             ],
-            FloatOp::FPV(value) => vec![value.to_f64().into_bound_py_any(py)?],
-            FloatOp::FpFP(sign, exp, sig) => vec![
+            AstOp::FPV(value) => vec![value.to_f64().into_bound_py_any(py)?],
+            AstOp::FpFP(sign, exp, sig) => vec![
                 BV::new(py, sign)?.into_any(),
                 BV::new(py, exp)?.into_any(),
                 BV::new(py, sig)?.into_any(),
             ],
-            FloatOp::FpNeg(expr) | FloatOp::FpAbs(expr) => vec![FP::new(py, expr)?.into_any()],
-            FloatOp::FpAdd(lhs, rhs, rm)
-            | FloatOp::FpSub(lhs, rhs, rm)
-            | FloatOp::FpMul(lhs, rhs, rm)
-            | FloatOp::FpDiv(lhs, rhs, rm) => vec![
+            AstOp::FpNeg(expr) | AstOp::FpAbs(expr) => vec![FP::new(py, expr)?.into_any()],
+            AstOp::FpAdd(lhs, rhs, rm)
+            | AstOp::FpSub(lhs, rhs, rm)
+            | AstOp::FpMul(lhs, rhs, rm)
+            | AstOp::FpDiv(lhs, rhs, rm) => vec![
                 FP::new(py, lhs)?.into_any(),
                 FP::new(py, rhs)?.into_any(),
                 Bound::new(py, PyRM::from(rm))?.into_any(),
             ],
-            FloatOp::FpSqrt(expr, rm) => vec![
+            AstOp::FpSqrt(expr, rm) => vec![
                 FP::new(py, expr)?.into_any(),
                 Bound::new(py, PyRM::from(rm))?.into_any(),
             ],
-            FloatOp::FpToFp(arc, _, _) => vec![FP::new(py, arc)?.into_any()],
-            FloatOp::BvToFp(arc, _)
-            | FloatOp::BvToFpSigned(arc, _, _)
-            | FloatOp::BvToFpUnsigned(arc, _, _) => vec![BV::new(py, arc)?.into_any()],
-            FloatOp::ITE(cond, then_, else_) => vec![
-                Bool::new(py, cond)?.into_any(),
-                FP::new(py, then_)?.into_any(),
-                FP::new(py, else_)?.into_any(),
-            ],
-        })
-    }
-}
+            AstOp::FpToFp(arc, _, _) => vec![FP::new(py, arc)?.into_any()],
+            AstOp::BvToFp(arc, _)
+            | AstOp::BvToFpSigned(arc, _, _)
+            | AstOp::BvToFpUnsigned(arc, _, _) => vec![BV::new(py, arc)?.into_any()],
 
-impl ExtractPyArgs for StringAst<'static> {
-    fn extract_py_args<'py>(
-        &self,
-        py: Python<'py>,
-    ) -> Result<Vec<Bound<'py, PyAny>>, ClaripyError> {
-        Ok(match self.op() {
-            StringOp::StringS(name) => vec![name.as_str().into_bound_py_any(py)?],
-            StringOp::StringV(value) => vec![value.into_bound_py_any(py)?],
-            StringOp::StrConcat(lhs, rhs) => vec![
+            // String
+            AstOp::StringS(name) => vec![name.as_str().into_bound_py_any(py)?],
+            AstOp::StringV(value) => vec![value.into_bound_py_any(py)?],
+            AstOp::StrConcat(lhs, rhs) => vec![
                 PyAstString::new(py, lhs)?.into_any(),
                 PyAstString::new(py, rhs)?.into_any(),
             ],
-            StringOp::StrSubstr(base, start, end) => vec![
+            AstOp::StrSubstr(base, start, end) => vec![
                 PyAstString::new(py, base)?.into_any(),
                 BV::new(py, start)?.into_any(),
                 BV::new(py, end)?.into_any(),
             ],
-            StringOp::StrReplace(base, old, new) => vec![
+            AstOp::StrReplace(base, old, new) => vec![
                 PyAstString::new(py, base)?.into_any(),
                 PyAstString::new(py, old)?.into_any(),
                 PyAstString::new(py, new)?.into_any(),
             ],
-            StringOp::BVToStr(expr) => vec![BV::new(py, expr)?.into_any()],
-            StringOp::ITE(cond, then_, else_) => vec![
-                Bool::new(py, cond)?.into_any(),
-                PyAstString::new(py, then_)?.into_any(),
-                PyAstString::new(py, else_)?.into_any(),
-            ],
+            AstOp::BVToStr(expr) => vec![BV::new(py, expr)?.into_any()],
         })
-    }
-}
-
-impl ExtractPyArgs for DynAst<'static> {
-    fn extract_py_args<'py>(
-        &self,
-        py: Python<'py>,
-    ) -> Result<Vec<Bound<'py, PyAny>>, ClaripyError> {
-        match self {
-            DynAst::Boolean(expr) => expr.extract_py_args(py),
-            DynAst::BitVec(expr) => expr.extract_py_args(py),
-            DynAst::Float(expr) => expr.extract_py_args(py),
-            DynAst::String(expr) => expr.extract_py_args(py),
-        }
     }
 }

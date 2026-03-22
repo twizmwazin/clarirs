@@ -22,48 +22,94 @@ pub trait Reduce<'c>: Sized {
     fn reduce(&self) -> Result<Self::Result, ClarirsError>;
 }
 
-impl<'c> Reduce<'c> for DynAst<'c> {
+impl<'c> Reduce<'c> for AstRef<'c> {
     type Result = ReduceResult;
 
     fn reduce(&self) -> Result<Self::Result, ClarirsError> {
         walk_post_order(
             self.clone(),
-            |node, children| match node {
-                DynAst::BitVec(bv) => bv::reduce_bv(&bv, children).map(ReduceResult::BitVec),
-                DynAst::Boolean(bool) => bool::reduce_bool(&bool, children).map(ReduceResult::Bool),
+            |node, children| match node.op() {
+                // Boolean leaf/op nodes
+                AstOp::BoolS(..)
+                | AstOp::BoolV(..)
+                | AstOp::Not(..)
+                | AstOp::ULT(..)
+                | AstOp::ULE(..)
+                | AstOp::UGT(..)
+                | AstOp::UGE(..)
+                | AstOp::SLT(..)
+                | AstOp::SLE(..)
+                | AstOp::SGT(..)
+                | AstOp::SGE(..)
+                | AstOp::FpLt(..)
+                | AstOp::FpLeq(..)
+                | AstOp::FpGt(..)
+                | AstOp::FpGeq(..)
+                | AstOp::FpIsNan(..)
+                | AstOp::FpIsInf(..)
+                | AstOp::StrContains(..)
+                | AstOp::StrPrefixOf(..)
+                | AstOp::StrSuffixOf(..)
+                | AstOp::StrIsDigit(..) => {
+                    bool::reduce_bool(&node, children).map(ReduceResult::Bool)
+                }
+                // BitVec leaf/op nodes
+                AstOp::BVS(..)
+                | AstOp::BVV(..)
+                | AstOp::Neg(..)
+                | AstOp::Add(..)
+                | AstOp::Sub(..)
+                | AstOp::Mul(..)
+                | AstOp::UDiv(..)
+                | AstOp::SDiv(..)
+                | AstOp::URem(..)
+                | AstOp::SRem(..)
+                | AstOp::ShL(..)
+                | AstOp::LShR(..)
+                | AstOp::AShR(..)
+                | AstOp::RotateLeft(..)
+                | AstOp::RotateRight(..)
+                | AstOp::ZeroExt(..)
+                | AstOp::SignExt(..)
+                | AstOp::Extract(..)
+                | AstOp::Concat(..)
+                | AstOp::ByteReverse(..)
+                | AstOp::FpToIEEEBV(..)
+                | AstOp::FpToUBV(..)
+                | AstOp::FpToSBV(..)
+                | AstOp::StrLen(..)
+                | AstOp::StrIndexOf(..)
+                | AstOp::StrToBV(..)
+                | AstOp::Union(..)
+                | AstOp::Intersection(..)
+                | AstOp::Widen(..) => {
+                    bv::reduce_bv(&node, children).map(ReduceResult::BitVec)
+                }
+                // Polymorphic ops: dispatch based on what children produce
+                AstOp::And(..) | AstOp::Or(..) | AstOp::Xor(..) => {
+                    // Check first child to determine sort
+                    if children.first().is_some_and(|c| matches!(c, ReduceResult::Bool(..))) {
+                        bool::reduce_bool(&node, children).map(ReduceResult::Bool)
+                    } else {
+                        bv::reduce_bv(&node, children).map(ReduceResult::BitVec)
+                    }
+                }
+                AstOp::Eq(..) | AstOp::Neq(..) => {
+                    bool::reduce_bool(&node, children).map(ReduceResult::Bool)
+                }
+                AstOp::If(..) => {
+                    // Check second child (the "then" branch) to determine result sort
+                    if children.get(1).is_some_and(|c| matches!(c, ReduceResult::Bool(..))) {
+                        bool::reduce_bool(&node, children).map(ReduceResult::Bool)
+                    } else {
+                        bv::reduce_bv(&node, children).map(ReduceResult::BitVec)
+                    }
+                }
                 _ => Err(ClarirsError::UnsupportedOperation(
                     "Unsupported operation for reduction".to_string(),
                 )),
             },
             &(),
         )
-    }
-}
-
-impl<'c> Reduce<'c> for BoolAst<'c> {
-    type Result = ComparisonResult;
-
-    fn reduce(&self) -> Result<Self::Result, ClarirsError> {
-        if let ReduceResult::Bool(result) = DynAst::Boolean(self.clone()).reduce()? {
-            Ok(result)
-        } else {
-            Err(ClarirsError::InvalidArguments(
-                "Expected Bool result".to_string(),
-            ))
-        }
-    }
-}
-
-impl<'c> Reduce<'c> for BitVecAst<'c> {
-    type Result = StridedInterval;
-
-    fn reduce(&self) -> Result<StridedInterval, ClarirsError> {
-        if let ReduceResult::BitVec(result) = DynAst::BitVec(self.clone()).reduce()? {
-            Ok(result)
-        } else {
-            Err(ClarirsError::InvalidArguments(
-                "Expected BitVec result".to_string(),
-            ))
-        }
     }
 }

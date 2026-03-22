@@ -6,9 +6,9 @@ use std::sync::LazyLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use clarirs_core::algorithms::{canonicalize, structurally_match};
-use clarirs_core::ast::bitvec::{BitVecAstExt, BitVecOpExt};
+use clarirs_core::ast::bitvec::BitVecAstExt;
 use clarirs_vsa::cardinality::Cardinality;
-use clarirs_vsa::reduce::Reduce;
+use clarirs_vsa::reduce::{Reduce, ReduceResult};
 use dashmap::DashMap;
 use num_bigint::{BigInt, BigUint, Sign};
 use pyo3::exceptions::{PyTypeError, PyValueError};
@@ -260,19 +260,12 @@ impl BV {
         &self,
         py: Python<'py>,
     ) -> Result<(HashMap<u64, Bound<'py, PyAny>>, usize, Bound<'py, BV>), ClaripyError> {
-        let (replacement_map, counter, canonical) = canonicalize(&self.inner.clone().into())?;
-        let canonical_bv = BV::new(
-            py,
-            &canonical
-                .into_bitvec()
-                .ok_or(ClaripyError::InvalidOperation(
-                    "Canonicalization did not produce a BitVec".to_string(),
-                ))?,
-        )?;
+        let (replacement_map, counter, canonical) = canonicalize(&self.inner)?;
+        let canonical_bv = BV::new(py, &canonical)?;
 
         let mut py_map = HashMap::new();
-        for (hash, dynast) in replacement_map {
-            let py_ast = Base::from_dynast(py, dynast)?;
+        for (hash, ast) in replacement_map {
+            let py_ast = Base::from_astref(py, &ast)?;
             py_map.insert(hash, py_ast.into_any());
         }
 
@@ -281,8 +274,8 @@ impl BV {
 
     pub fn identical(&self, other: Bound<'_, Base>) -> Result<bool, ClaripyError> {
         let structural = structurally_match(
-            &DynAst::BitVec(self.inner.clone()),
-            &Base::to_dynast(other.clone())?,
+            &self.inner,
+            &Base::to_astref(other.clone())?,
         )?;
         if structural {
             return Ok(true);
@@ -292,7 +285,11 @@ impl BV {
             && let (Ok(a_reduced), Ok(b_reduced)) =
                 (self.inner.reduce(), other_bv.get().inner.reduce())
         {
-            return Ok(a_reduced == b_reduced);
+            return Ok(match (a_reduced, b_reduced) {
+                (ReduceResult::BitVec(a), ReduceResult::BitVec(b)) => a == b,
+                (ReduceResult::Bool(a), ReduceResult::Bool(b)) => a == b,
+                _ => false,
+            });
         }
         Ok(false)
     }
@@ -322,8 +319,8 @@ impl BV {
         to: Bound<'py, Base>,
     ) -> Result<Bound<'py, BV>, ClaripyError> {
         use clarirs_core::algorithms::Replace;
-        let from_ast = Base::to_dynast(from)?;
-        let to_ast = Base::to_dynast(to)?;
+        let from_ast = Base::to_astref(from)?;
+        let to_ast = Base::to_astref(to)?;
         let replaced = self.inner.replace(&from_ast, &to_ast)?;
         BV::new(py, &replaced)
     }
@@ -344,7 +341,7 @@ impl BV {
     #[getter]
     pub fn concrete_value(&self) -> Result<Option<BigUint>, ClaripyError> {
         Ok(match self.inner.simplify_ext(false, false)?.op() {
-            BitVecOp::BVV(bv) => Some(bv.to_biguint()),
+            AstOp::BVV(bv) => Some(bv.to_biguint()),
             _ => None,
         })
     }
@@ -499,7 +496,7 @@ impl BV {
         let inner = self
             .inner
             .context()
-            .make_bitvec_annotated(self.inner.op().clone(), new_annotations)?;
+            .make_ast_annotated(self.inner.op().clone(), new_annotations)?;
         Self::new(py, &inner)
     }
 
@@ -520,7 +517,7 @@ impl BV {
         py: Python<'py>,
         annotations: Vec<PyAnnotation>,
     ) -> Result<Bound<'py, Self>, ClaripyError> {
-        let inner = self.inner.context().make_bitvec_annotated(
+        let inner = self.inner.context().make_ast_annotated(
             self.inner.op().clone(),
             annotations.into_iter().map(|a| a.0).collect(),
         )?;
@@ -532,7 +529,7 @@ impl BV {
         py: Python<'py>,
         annotation: PyAnnotation,
     ) -> Result<Bound<'py, Self>, ClaripyError> {
-        let inner = self.inner.context().make_bitvec_annotated(
+        let inner = self.inner.context().make_ast_annotated(
             self.inner.op().clone(),
             self.inner
                 .annotations()
@@ -550,7 +547,7 @@ impl BV {
         annotations: Vec<PyAnnotation>,
     ) -> Result<Bound<'py, Self>, ClaripyError> {
         let annotations_set: BTreeSet<_> = annotations.into_iter().map(|a| a.0).collect();
-        let inner = self.inner.context().make_bitvec_annotated(
+        let inner = self.inner.context().make_ast_annotated(
             self.inner.op().clone(),
             self.inner
                 .annotations()
@@ -566,7 +563,7 @@ impl BV {
         &self,
         py: Python<'py>,
     ) -> Result<Bound<'py, Self>, ClaripyError> {
-        let inner = self.inner.context().make_bitvec(self.inner.op().clone())?;
+        let inner = self.inner.context().make_ast(self.inner.op().clone())?;
         Self::new(py, &inner)
     }
 
@@ -575,7 +572,7 @@ impl BV {
         py: Python<'py>,
         annotation_type: PyAnnotationType,
     ) -> Result<Bound<'py, Self>, ClaripyError> {
-        let inner = self.inner.context().make_bitvec_annotated(
+        let inner = self.inner.context().make_ast_annotated(
             self.inner.op().clone(),
             self.inner
                 .annotations()

@@ -1,6 +1,5 @@
 use crate::astext::AstExtZ3;
 use crate::rc::{RcModel, RcOptimize, RcParamSet, RcSolver};
-use clarirs_core::ast::bitvec::BitVecOpExt;
 use clarirs_core::prelude::*;
 use clarirs_z3_sys as z3;
 use std::collections::HashMap;
@@ -8,11 +7,11 @@ use std::collections::HashMap;
 #[derive(Clone, Debug)]
 pub struct Z3Solver<'c> {
     ctx: &'c Context<'c>,
-    assertions: Vec<BoolAst<'c>>,
+    assertions: Vec<AstRef<'c>>,
     timeout: Option<u32>,
     unsat_core: bool,
     // Maps constraint index to tracking variable
-    tracking_vars: HashMap<usize, BoolAst<'c>>,
+    tracking_vars: HashMap<usize, AstRef<'c>>,
 }
 
 impl<'c> Z3Solver<'c> {
@@ -84,8 +83,8 @@ impl<'c> Z3Solver<'c> {
 
         for i in 0..core_size {
             let core_ast = core_vector.get(i)?;
-            // Convert the Z3 AST back to a BoolAst to get its variable name
-            let bool_ast = BoolAst::from_z3(self.ctx, &core_ast)?;
+            // Convert the Z3 AST back to get its variable name
+            let bool_ast = AstRef::from_z3(self.ctx, &core_ast)?;
             if let Some(vars) = bool_ast.variables().iter().next()
                 && let Some(idx) = track_to_idx.get(&vars.to_string())
             {
@@ -154,17 +153,8 @@ impl<'c> Z3Solver<'c> {
         z3_solver.model()
     }
 
-    fn simplify_dynast(expr: &DynAst<'c>) -> Result<DynAst<'c>, ClarirsError> {
-        Ok(match expr {
-            DynAst::Boolean(expr) => DynAst::from(&expr.simplify_z3()?),
-            DynAst::BitVec(expr) => DynAst::from(&expr.simplify_z3()?),
-            DynAst::Float(expr) => DynAst::from(&expr.simplify_z3()?),
-            DynAst::String(expr) => DynAst::from(&expr.simplify_z3()?),
-        })
-    }
-
-    fn eval(&self, expr: &DynAst<'c>) -> Result<DynAst<'c>, ClarirsError> {
-        let expr = Z3Solver::simplify_dynast(&expr.simplify()?)?;
+    fn eval_expr(&self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
+        let expr = expr.simplify()?.simplify_z3()?;
 
         // If the expression is concrete, we can return it directly
         if expr.concrete() {
@@ -175,12 +165,12 @@ impl<'c> Z3Solver<'c> {
         // replace the variables with the values from the model
         let model = self.make_model()?;
 
-        DynAst::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)
+        AstRef::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)
     }
 }
 
 impl<'c> Solver<'c> for Z3Solver<'c> {
-    fn add(&mut self, constraint: &BoolAst<'c>) -> Result<(), ClarirsError> {
+    fn add(&mut self, constraint: &AstRef<'c>) -> Result<(), ClarirsError> {
         let idx = self.assertions.len();
         self.assertions.push(constraint.clone());
 
@@ -200,7 +190,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         Ok(())
     }
 
-    fn constraints(&self) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
+    fn constraints(&self) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         Ok(self.assertions.clone())
     }
 
@@ -225,61 +215,33 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         Ok(z3_solver.check()? == z3::Lbool::True)
     }
 
-    fn eval_bool(&mut self, expr: &BoolAst<'c>) -> Result<BoolAst<'c>, ClarirsError> {
-        let result = self.eval(&DynAst::from(expr))?;
-        match result {
-            DynAst::Boolean(ast) => Ok(ast),
-            _ => unreachable!(),
-        }
+    fn eval(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
+        self.eval_expr(expr)
     }
 
-    fn eval_bitvec(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        let result = self.eval(&DynAst::from(expr))?;
-        match result {
-            DynAst::BitVec(ast) => Ok(ast),
-            _ => unreachable!(),
-        }
-    }
-
-    fn eval_float(&mut self, expr: &FloatAst<'c>) -> Result<FloatAst<'c>, ClarirsError> {
-        let result = self.eval(&DynAst::from(expr))?;
-        match result {
-            DynAst::Float(ast) => Ok(ast),
-            _ => unreachable!(),
-        }
-    }
-
-    fn eval_string(&mut self, expr: &StringAst<'c>) -> Result<StringAst<'c>, ClarirsError> {
-        let result = self.eval(&DynAst::from(expr))?;
-        match result {
-            DynAst::String(ast) => Ok(ast),
-            _ => unreachable!(),
-        }
-    }
-
-    fn is_true(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+    fn is_true(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
         let expr = expr.simplify_z3()?;
         Ok(expr.concrete() && expr.is_true())
     }
 
-    fn is_false(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+    fn is_false(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
         let expr = expr.simplify_z3()?;
         Ok(expr.concrete() && expr.is_false())
     }
 
-    fn has_true(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+    fn has_true(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
         let mut solver = self.clone();
         solver.add(expr)?;
         solver.satisfiable()
     }
 
-    fn has_false(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+    fn has_false(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
         let mut solver = self.clone();
         solver.add(&self.context().not(expr)?)?;
         solver.satisfiable()
     }
 
-    fn min_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn min_unsigned(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         let mut optimize = self.mk_filled_optimize()?;
         optimize.minimize(&expr.to_z3()?)?;
         if optimize.check()? != z3::Lbool::True {
@@ -287,15 +249,10 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         }
 
         let model = optimize.get_model()?;
-        let result = DynAst::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)?;
-
-        match result {
-            DynAst::BitVec(ast) => Ok(ast),
-            _ => unreachable!(),
-        }
+        AstRef::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)
     }
 
-    fn max_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn max_unsigned(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         let mut optimize = self.mk_filled_optimize()?;
         optimize.maximize(&expr.to_z3()?)?;
         if optimize.check()? != z3::Lbool::True {
@@ -303,15 +260,10 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         }
 
         let model = optimize.get_model()?;
-        let result = DynAst::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)?;
-
-        match result {
-            DynAst::BitVec(ast) => Ok(ast),
-            _ => unreachable!(),
-        }
+        AstRef::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)
     }
 
-    fn min_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn min_signed(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         let mut optimize = self.mk_filled_optimize()?;
         // Get the size of the bitvector
         let size = expr.size();
@@ -341,14 +293,10 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         }
 
         let model = optimize.get_model()?;
-        let result = DynAst::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)?;
-        match result {
-            DynAst::BitVec(ast) => Ok(ast),
-            _ => unreachable!(),
-        }
+        AstRef::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)
     }
 
-    fn max_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn max_signed(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         let mut optimize = self.mk_filled_optimize()?;
         // Get the size of the bitvector
         let size = expr.size();
@@ -378,18 +326,14 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         }
 
         let model = optimize.get_model()?;
-        let result = DynAst::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)?;
-        match result {
-            DynAst::BitVec(ast) => Ok(ast),
-            _ => unreachable!(),
-        }
+        AstRef::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)
     }
 
-    fn eval_bool_n(
+    fn eval_n(
         &mut self,
-        expr: &BoolAst<'c>,
+        expr: &AstRef<'c>,
         n: u32,
-    ) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
+    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         let mut results = Vec::new();
 
         // Simplify and check if concrete
@@ -417,139 +361,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
             let model = z3_solver.model()?;
             let eval_result = model.eval(&z3_expr)?;
 
-            let solution = BoolAst::from_z3(self.context(), eval_result)?;
-            results.push(solution.clone());
-
-            // Add constraint to exclude this solution
-            let neq_constraint = self.context().neq(&expr, &solution)?;
-            let z3_neq = neq_constraint.to_z3()?;
-            z3_solver.assert(&z3_neq)?;
-        }
-
-        Ok(results)
-    }
-
-    fn eval_bitvec_n(
-        &mut self,
-        expr: &BitVecAst<'c>,
-        n: u32,
-    ) -> Result<Vec<BitVecAst<'c>>, ClarirsError> {
-        let mut results = Vec::new();
-
-        // Simplify and check if concrete
-        let expr = expr.simplify_z3()?;
-        if expr.concrete() {
-            return Ok(vec![expr; n as usize]);
-        }
-
-        // Convert to Z3 once
-        let z3_expr = expr.to_z3()?;
-
-        // Create and fill the Z3 solver once
-        let mut z3_solver = RcSolver::new()?;
-
-        for assertion in &self.assertions {
-            let converted = assertion.to_z3()?;
-            z3_solver.assert(&converted)?;
-        }
-
-        for _ in 0..n {
-            if z3_solver.check()? != z3::Lbool::True {
-                break;
-            }
-
-            let model = z3_solver.model()?;
-            let eval_result = model.eval(&z3_expr)?;
-
-            let solution = BitVecAst::from_z3(self.context(), eval_result)?;
-            results.push(solution.clone());
-
-            // Add constraint to exclude this solution
-            let neq_constraint = self.context().neq(&expr, &solution)?;
-            let z3_neq = neq_constraint.to_z3()?;
-            z3_solver.assert(&z3_neq)?;
-        }
-
-        Ok(results)
-    }
-
-    fn eval_float_n(
-        &mut self,
-        expr: &FloatAst<'c>,
-        n: u32,
-    ) -> Result<Vec<FloatAst<'c>>, ClarirsError> {
-        let mut results = Vec::new();
-
-        // Simplify and check if concrete
-        let expr = expr.simplify_z3()?;
-        if expr.concrete() {
-            return Ok(vec![expr; n as usize]);
-        }
-
-        // Convert to Z3 once
-        let z3_expr = expr.to_z3()?;
-
-        // Create and fill the Z3 solver once
-        let mut z3_solver = RcSolver::new()?;
-
-        for assertion in &self.assertions {
-            let converted = assertion.to_z3()?;
-            z3_solver.assert(&converted)?;
-        }
-
-        for _ in 0..n {
-            if z3_solver.check()? != z3::Lbool::True {
-                break;
-            }
-
-            let model = z3_solver.model()?;
-            let eval_result = model.eval(&z3_expr)?;
-
-            let solution = FloatAst::from_z3(self.context(), eval_result)?;
-            results.push(solution.clone());
-
-            // Add constraint to exclude this solution
-            let neq_constraint = self.context().neq(&expr, &solution)?;
-            let z3_neq = neq_constraint.to_z3()?;
-            z3_solver.assert(&z3_neq)?;
-        }
-
-        Ok(results)
-    }
-
-    fn eval_string_n(
-        &mut self,
-        expr: &StringAst<'c>,
-        n: u32,
-    ) -> Result<Vec<StringAst<'c>>, ClarirsError> {
-        let mut results = Vec::new();
-
-        // Simplify and check if concrete
-        let expr = expr.simplify_z3()?;
-        if expr.concrete() {
-            return Ok(vec![expr; n as usize]);
-        }
-
-        // Convert to Z3 once
-        let z3_expr = expr.to_z3()?;
-
-        // Create and fill the Z3 solver once
-        let mut z3_solver = RcSolver::new()?;
-
-        for assertion in &self.assertions {
-            let converted = assertion.to_z3()?;
-            z3_solver.assert(&converted)?;
-        }
-
-        for _ in 0..n {
-            if z3_solver.check()? != z3::Lbool::True {
-                break;
-            }
-
-            let model = z3_solver.model()?;
-            let eval_result = model.eval(&z3_expr)?;
-
-            let solution = StringAst::from_z3(self.context(), eval_result)?;
+            let solution = AstRef::from_z3(self.context(), eval_result)?;
             results.push(solution.clone());
 
             // Add constraint to exclude this solution
@@ -577,8 +389,8 @@ mod tests {
 
         solver.add(&ctx.neq(&x, &y)?)?;
 
-        let x_val = solver.eval_bool(&x).unwrap();
-        let y_val = solver.eval_bool(&y).unwrap();
+        let x_val = solver.eval(&x).unwrap();
+        let y_val = solver.eval(&y).unwrap();
 
         assert_ne!(x_val, y_val);
 
@@ -614,8 +426,8 @@ mod tests {
         solver.add(&ctx.not(&ctx.eq_(&x, &y)?)?).unwrap();
         solver.add(&ctx.eq_(&x, &ctx.true_()?)?).unwrap();
 
-        let x_val = solver.eval_bool(&x).unwrap();
-        let y_val = solver.eval_bool(&y).unwrap();
+        let x_val = solver.eval(&x).unwrap();
+        let y_val = solver.eval(&y).unwrap();
 
         assert_ne!(x_val, y_val);
         assert!(x_val.is_true());
@@ -635,7 +447,7 @@ mod tests {
             let x = ctx.bools("x")?;
             solver.add(&ctx.eq_(&x, &ctx.true_()?)?)?;
 
-            let result = solver.eval_bool(&x)?;
+            let result = solver.eval(&x)?;
             assert!(result.is_true());
 
             Ok(())
@@ -650,8 +462,8 @@ mod tests {
             let f = ctx.false_()?;
 
             assert!(solver.satisfiable()?);
-            let t_result = solver.eval_bool(&t)?;
-            let f_result = solver.eval_bool(&f)?;
+            let t_result = solver.eval(&t)?;
+            let f_result = solver.eval(&f)?;
 
             assert!(t_result.is_true());
             assert!(f_result.is_false());
@@ -667,14 +479,14 @@ mod tests {
             // Test with concrete value
             let t = ctx.true_()?;
             let not_t = ctx.not(&t)?;
-            let result = solver.eval_bool(&not_t)?;
+            let result = solver.eval(&not_t)?;
             assert!(result.is_false());
 
             // Test with symbolic value
             let x = ctx.bools("x")?;
             solver.add(&ctx.eq_(&x, &ctx.true_()?)?)?;
             let not_x = ctx.not(&x)?;
-            let result = solver.eval_bool(&not_x)?;
+            let result = solver.eval(&not_x)?;
             assert!(result.is_false());
 
             Ok(())
@@ -689,10 +501,10 @@ mod tests {
             let t = ctx.true_()?;
             let f = ctx.false_()?;
 
-            let tt = solver.eval_bool(&ctx.and2(&t, &t)?)?;
-            let tf = solver.eval_bool(&ctx.and2(&t, &f)?)?;
-            let ft = solver.eval_bool(&ctx.and2(&f, &t)?)?;
-            let ff = solver.eval_bool(&ctx.and2(&f, &f)?)?;
+            let tt = solver.eval(&ctx.and2(&t, &t)?)?;
+            let tf = solver.eval(&ctx.and2(&t, &f)?)?;
+            let ft = solver.eval(&ctx.and2(&f, &t)?)?;
+            let ff = solver.eval(&ctx.and2(&f, &f)?)?;
 
             assert!(tt.is_true());
             assert!(tf.is_false());
@@ -705,7 +517,7 @@ mod tests {
             solver.add(&ctx.eq_(&x, &ctx.true_()?)?)?;
             solver.add(&ctx.eq_(&y, &ctx.false_()?)?)?;
 
-            let result = solver.eval_bool(&ctx.and2(&x, &y)?)?;
+            let result = solver.eval(&ctx.and2(&x, &y)?)?;
             assert!(result.is_false());
 
             Ok(())
@@ -720,10 +532,10 @@ mod tests {
             let t = ctx.true_()?;
             let f = ctx.false_()?;
 
-            let tt = solver.eval_bool(&ctx.or2(&t, &t)?)?;
-            let tf = solver.eval_bool(&ctx.or2(&t, &f)?)?;
-            let ft = solver.eval_bool(&ctx.or2(&f, &t)?)?;
-            let ff = solver.eval_bool(&ctx.or2(&f, &f)?)?;
+            let tt = solver.eval(&ctx.or2(&t, &t)?)?;
+            let tf = solver.eval(&ctx.or2(&t, &f)?)?;
+            let ft = solver.eval(&ctx.or2(&f, &t)?)?;
+            let ff = solver.eval(&ctx.or2(&f, &f)?)?;
 
             assert!(tt.is_true());
             assert!(tf.is_true());
@@ -736,7 +548,7 @@ mod tests {
             solver.add(&ctx.eq_(&x, &ctx.false_()?)?)?;
             solver.add(&ctx.eq_(&y, &ctx.true_()?)?)?;
 
-            let result = solver.eval_bool(&ctx.or2(&x, &y)?)?;
+            let result = solver.eval(&ctx.or2(&x, &y)?)?;
             assert!(result.is_true());
 
             Ok(())
@@ -751,10 +563,10 @@ mod tests {
             let t = ctx.true_()?;
             let f = ctx.false_()?;
 
-            let tt = solver.eval_bool(&ctx.xor(&t, &t)?)?;
-            let tf = solver.eval_bool(&ctx.xor(&t, &f)?)?;
-            let ft = solver.eval_bool(&ctx.xor(&f, &t)?)?;
-            let ff = solver.eval_bool(&ctx.xor(&f, &f)?)?;
+            let tt = solver.eval(&ctx.xor(&t, &t)?)?;
+            let tf = solver.eval(&ctx.xor(&t, &f)?)?;
+            let ft = solver.eval(&ctx.xor(&f, &t)?)?;
+            let ff = solver.eval(&ctx.xor(&f, &f)?)?;
 
             assert!(tt.is_false());
             assert!(tf.is_true());
@@ -767,7 +579,7 @@ mod tests {
             solver.add(&ctx.eq_(&x, &ctx.true_()?)?)?;
             solver.add(&ctx.eq_(&y, &ctx.true_()?)?)?;
 
-            let result = solver.eval_bool(&ctx.xor(&x, &y)?)?;
+            let result = solver.eval(&ctx.xor(&x, &y)?)?;
             assert!(result.is_false());
 
             Ok(())
@@ -782,8 +594,8 @@ mod tests {
             let t = ctx.true_()?;
             let f = ctx.false_()?;
 
-            let tt = solver.eval_bool(&ctx.eq_(&t, &t)?)?;
-            let tf = solver.eval_bool(&ctx.eq_(&t, &f)?)?;
+            let tt = solver.eval(&ctx.eq_(&t, &t)?)?;
+            let tf = solver.eval(&ctx.eq_(&t, &f)?)?;
 
             assert!(tt.is_true());
             assert!(tf.is_false());
@@ -794,7 +606,7 @@ mod tests {
             solver.add(&ctx.eq_(&x, &ctx.true_()?)?)?;
             solver.add(&ctx.eq_(&y, &ctx.true_()?)?)?;
 
-            let result = solver.eval_bool(&ctx.eq_(&x, &y)?)?;
+            let result = solver.eval(&ctx.eq_(&x, &y)?)?;
             assert!(result.is_true());
 
             Ok(())
@@ -809,8 +621,8 @@ mod tests {
             let t = ctx.true_()?;
             let f = ctx.false_()?;
 
-            let tt = solver.eval_bool(&ctx.neq(&t, &t)?)?;
-            let tf = solver.eval_bool(&ctx.neq(&t, &f)?)?;
+            let tt = solver.eval(&ctx.neq(&t, &t)?)?;
+            let tf = solver.eval(&ctx.neq(&t, &f)?)?;
 
             assert!(tt.is_false());
             assert!(tf.is_true());
@@ -821,7 +633,7 @@ mod tests {
             solver.add(&ctx.eq_(&x, &ctx.true_()?)?)?;
             solver.add(&ctx.eq_(&y, &ctx.false_()?)?)?;
 
-            let result = solver.eval_bool(&ctx.neq(&x, &y)?)?;
+            let result = solver.eval(&ctx.neq(&x, &y)?)?;
             assert!(result.is_true());
 
             Ok(())
@@ -836,8 +648,8 @@ mod tests {
             let t = ctx.true_()?;
             let f = ctx.false_()?;
 
-            let tt = solver.eval_bool(&ctx.ite(&t, &t, &f)?)?;
-            let tf = solver.eval_bool(&ctx.ite(&f, &t, &f)?)?;
+            let tt = solver.eval(&ctx.ite(&t, &t, &f)?)?;
+            let tf = solver.eval(&ctx.ite(&f, &t, &f)?)?;
 
             assert!(tt.is_true());
             assert!(tf.is_false());
@@ -851,7 +663,7 @@ mod tests {
             solver.add(&ctx.eq_(&x, &ctx.true_()?)?)?;
             solver.add(&ctx.eq_(&y, &ctx.false_()?)?)?;
 
-            let result = solver.eval_bool(&ctx.ite(c, x, y)?)?;
+            let result = solver.eval(&ctx.ite(c, x, y)?)?;
             assert!(result.is_true());
 
             Ok(())

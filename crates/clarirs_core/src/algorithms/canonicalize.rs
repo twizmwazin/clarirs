@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use crate::{ast::bitvec::BitVecOpExt, ast::float::FloatOpExt, prelude::*};
+use crate::prelude::*;
 
 use super::collect_vars::collect_vars;
 use super::replace::Replace;
@@ -21,10 +21,10 @@ use super::replace::Replace;
 /// let ast1 = ctx.add(&ctx.bvs("x", 64)?, &ctx.bvs("y", 64)?)?;
 /// let ast2 = ctx.add(&ctx.bvs("a", 64)?, &ctx.bvs("b", 64)?)?;
 ///
-/// assert!(structurally_match(&DynAst::from(&ast1), &DynAst::from(&ast2))?);
+/// assert!(structurally_match(&ast1, &ast2)?);
 /// # Ok::<(), ClarirsError>(())
 /// ```
-pub fn structurally_match<'c>(ast1: &DynAst<'c>, ast2: &DynAst<'c>) -> Result<bool, ClarirsError> {
+pub fn structurally_match<'c>(ast1: &AstRef<'c>, ast2: &AstRef<'c>) -> Result<bool, ClarirsError> {
     let (_, _, canonical1) = canonicalize(ast1)?;
     let (_, _, canonical2) = canonicalize(ast2)?;
     Ok(canonical1 == canonical2)
@@ -49,16 +49,16 @@ pub fn structurally_match<'c>(ast1: &DynAst<'c>, ast2: &DynAst<'c>) -> Result<bo
 /// let ast1 = ctx.add(&ctx.bvs("x", 64)?, &ctx.bvs("y", 64)?)?;
 /// let ast2 = ctx.add(&ctx.bvs("a", 64)?, &ctx.bvs("b", 64)?)?;
 ///
-/// let (_, _, canonical1) = canonicalize(&DynAst::from(&ast1))?;
-/// let (_, _, canonical2) = canonicalize(&DynAst::from(&ast2))?;
+/// let (_, _, canonical1) = canonicalize(&ast1)?;
+/// let (_, _, canonical2) = canonicalize(&ast2)?;
 ///
 /// // Both should be structurally identical after canonicalization
 /// assert_eq!(canonical1, canonical2);
 /// # Ok::<(), ClarirsError>(())
 /// ```
 pub fn canonicalize<'c>(
-    ast: &DynAst<'c>,
-) -> Result<(HashMap<u64, DynAst<'c>>, usize, DynAst<'c>), ClarirsError> {
+    ast: &AstRef<'c>,
+) -> Result<(HashMap<u64, AstRef<'c>>, usize, AstRef<'c>), ClarirsError> {
     // Collect all variables in the AST
     let vars = collect_vars(ast)?;
 
@@ -70,23 +70,22 @@ pub fn canonicalize<'c>(
     // Sort variable names to ensure deterministic ordering
     let mut var_names: Vec<InternedString> = vars
         .iter()
-        .flat_map(|v| v.variables().into_iter())
+        .flat_map(|v| v.variables().iter().cloned())
         .collect();
     var_names.sort();
     var_names.dedup();
 
     // Create mapping from original names to canonical names
-    let ctx_ref = ast.context();
+    let ctx = ast.context();
     let var_mapping: HashMap<InternedString, InternedString> = var_names
         .iter()
         .enumerate()
-        .map(|(i, name)| (name.clone(), ctx_ref.intern_string(format!("v{i}"))))
+        .map(|(i, name)| (name.clone(), ctx.intern_string(format!("v{i}"))))
         .collect();
 
     // Build replacement map: original var AST -> canonical var AST
-    let mut replacements: HashMap<DynAst<'c>, DynAst<'c>> = HashMap::new();
-    let mut replacement_map: HashMap<u64, DynAst<'c>> = HashMap::new();
-    let ctx = ast.context();
+    let mut replacements: HashMap<AstRef<'c>, AstRef<'c>> = HashMap::new();
+    let mut replacement_map: HashMap<u64, AstRef<'c>> = HashMap::new();
 
     for var in vars {
         let var_names_set = var.variables();
@@ -95,19 +94,14 @@ pub fn canonicalize<'c>(
             && let Some(canonical_name) = var_mapping.get(original_name)
         {
             // Create the canonical variable with the same type and size as the original
-            let canonical_var = match &var {
-                DynAst::Boolean(_) => DynAst::Boolean(ctx.bools(canonical_name.as_str())?),
-                DynAst::BitVec(bv) => {
-                    let size = bv.size();
-                    DynAst::BitVec(ctx.bvs(canonical_name.as_str(), size)?)
-                }
-                DynAst::Float(fp) => {
-                    let sort = fp.sort();
-                    DynAst::Float(ctx.fps(canonical_name.as_str(), sort)?)
-                }
-                DynAst::String(_) => DynAst::String(ctx.strings(canonical_name.as_str())?),
+            let canonical_var = match var.op() {
+                AstOp::BoolS(_) => ctx.bools(canonical_name.as_str())?,
+                AstOp::BVS(_, size) => ctx.bvs(canonical_name.as_str(), *size)?,
+                AstOp::FPS(_, sort) => ctx.fps(canonical_name.as_str(), *sort)?,
+                AstOp::StringS(_) => ctx.strings(canonical_name.as_str())?,
+                _ => var.clone(), // non-variable leaf, keep as-is
             };
-            replacement_map.insert(var.inner_hash(), canonical_var.clone());
+            replacement_map.insert(var.hash(), canonical_var.clone());
             replacements.insert(var.clone(), canonical_var);
         }
     }
@@ -135,11 +129,8 @@ mod tests {
         let ast1 = ctx.add(&ctx.bvs("x", 64)?, &ctx.bvs("y", 64)?)?;
         let ast2 = ctx.add(&ctx.bvs("a", 64)?, &ctx.bvs("b", 64)?)?;
 
-        let dyn_ast1 = DynAst::from(&ast1);
-        let dyn_ast2 = DynAst::from(&ast2);
-
-        let (map1, counter1, canonical1) = canonicalize(&dyn_ast1)?;
-        let (map2, counter2, canonical2) = canonicalize(&dyn_ast2)?;
+        let (map1, counter1, canonical1) = canonicalize(&ast1)?;
+        let (map2, counter2, canonical2) = canonicalize(&ast2)?;
 
         // Both should be structurally identical after canonicalization
         assert_eq!(canonical1, canonical2);
@@ -158,11 +149,8 @@ mod tests {
         let ast1 = ctx.and2(&ctx.bools("p")?, &ctx.bools("q")?)?;
         let ast2 = ctx.and2(&ctx.bools("x")?, &ctx.bools("y")?)?;
 
-        let dyn_ast1 = DynAst::from(&ast1);
-        let dyn_ast2 = DynAst::from(&ast2);
-
-        let (map1, counter1, canonical1) = canonicalize(&dyn_ast1)?;
-        let (map2, counter2, canonical2) = canonicalize(&dyn_ast2)?;
+        let (map1, counter1, canonical1) = canonicalize(&ast1)?;
+        let (map2, counter2, canonical2) = canonicalize(&ast2)?;
 
         assert_eq!(canonical1, canonical2);
         assert_eq!(counter1, counter2);
@@ -188,11 +176,8 @@ mod tests {
         let z2 = ctx.bvs("z", 32)?;
         let ast2 = ctx.add(&ctx.mul(&x2, &y2)?, &z2)?;
 
-        let dyn_ast1 = DynAst::from(&ast1);
-        let dyn_ast2 = DynAst::from(&ast2);
-
-        let (_, counter1, canonical1) = canonicalize(&dyn_ast1)?;
-        let (_, counter2, canonical2) = canonicalize(&dyn_ast2)?;
+        let (_, counter1, canonical1) = canonicalize(&ast1)?;
+        let (_, counter2, canonical2) = canonicalize(&ast2)?;
 
         // Both should canonicalize to: (v0 * v1) + v2
         assert_eq!(canonical1, canonical2);
@@ -210,12 +195,11 @@ mod tests {
             &ctx.bvv_prim_with_size(5u64, 32)?,
             &ctx.bvv_prim_with_size(10u64, 32)?,
         )?;
-        let dyn_ast = DynAst::from(&ast);
 
-        let (map, counter, canonical) = canonicalize(&dyn_ast)?;
+        let (map, counter, canonical) = canonicalize(&ast)?;
 
         // Should be unchanged
-        assert_eq!(dyn_ast, canonical);
+        assert_eq!(ast, canonical);
         assert!(map.is_empty());
         assert_eq!(counter, 0);
 
@@ -227,16 +211,14 @@ mod tests {
         let ctx = Context::new();
 
         let ast = ctx.add(&ctx.bvs("x", 64)?, &ctx.bvv_prim_with_size(5u64, 64)?)?;
-        let dyn_ast = DynAst::from(&ast);
 
-        let (map, counter, canonical) = canonicalize(&dyn_ast)?;
+        let (map, counter, canonical) = canonicalize(&ast)?;
 
         // Check that the variable was renamed to v0
         let canonical_expected =
             ctx.add(&ctx.bvs("v0", 64)?, &ctx.bvv_prim_with_size(5u64, 64)?)?;
-        let dyn_canonical_expected = DynAst::from(&canonical_expected);
 
-        assert_eq!(canonical, dyn_canonical_expected);
+        assert_eq!(canonical, canonical_expected);
         assert_eq!(map.len(), 1);
         assert_eq!(counter, 1);
 
@@ -252,22 +234,16 @@ mod tests {
         let ast1 = ctx.add(&ctx.bvs("z", 64)?, &ctx.bvs("a", 64)?)?;
         let ast2 = ctx.add(&ctx.bvs("a", 64)?, &ctx.bvs("z", 64)?)?;
 
-        let dyn_ast1 = DynAst::from(&ast1);
-        let dyn_ast2 = DynAst::from(&ast2);
-
-        let (_, counter1, canonical1) = canonicalize(&dyn_ast1)?;
-        let (_, counter2, canonical2) = canonicalize(&dyn_ast2)?;
+        let (_, counter1, canonical1) = canonicalize(&ast1)?;
+        let (_, counter2, canonical2) = canonicalize(&ast2)?;
 
         // Both should canonicalize but may not be equal due to order
         // a -> v0, z -> v1
         let expected1 = ctx.add(&ctx.bvs("v1", 64)?, &ctx.bvs("v0", 64)?)?;
-        let dyn_expected1 = DynAst::from(&expected1);
-
         let expected2 = ctx.add(&ctx.bvs("v0", 64)?, &ctx.bvs("v1", 64)?)?;
-        let dyn_expected2 = DynAst::from(&expected2);
 
-        assert_eq!(canonical1, dyn_expected1);
-        assert_eq!(canonical2, dyn_expected2);
+        assert_eq!(canonical1, expected1);
+        assert_eq!(canonical2, expected2);
         assert_eq!(counter1, 2);
         assert_eq!(counter2, 2);
 
@@ -284,10 +260,7 @@ mod tests {
         let ast1 = ctx.add(&ctx.bvs("x", 64)?, &ctx.bvs("y", 64)?)?;
         let ast2 = ctx.add(&ctx.bvs("a", 64)?, &ctx.bvs("b", 64)?)?;
 
-        let dyn_ast1 = DynAst::from(&ast1);
-        let dyn_ast2 = DynAst::from(&ast2);
-
-        assert!(structurally_match(&dyn_ast1, &dyn_ast2)?);
+        assert!(structurally_match(&ast1, &ast2)?);
 
         Ok(())
     }
@@ -300,10 +273,7 @@ mod tests {
         let ast1 = ctx.add(&ctx.bvs("x", 64)?, &ctx.bvs("y", 64)?)?;
         let ast2 = ctx.mul(&ctx.bvs("a", 64)?, &ctx.bvs("b", 64)?)?;
 
-        let dyn_ast1 = DynAst::from(&ast1);
-        let dyn_ast2 = DynAst::from(&ast2);
-
-        assert!(!structurally_match(&dyn_ast1, &dyn_ast2)?);
+        assert!(!structurally_match(&ast1, &ast2)?);
 
         Ok(())
     }
@@ -316,10 +286,7 @@ mod tests {
         let ast1 = ctx.add(&ctx.bvs("x", 64)?, &ctx.bvs("y", 64)?)?;
         let ast2 = ctx.add(&ctx.bvs("a", 32)?, &ctx.bvs("b", 32)?)?;
 
-        let dyn_ast1 = DynAst::from(&ast1);
-        let dyn_ast2 = DynAst::from(&ast2);
-
-        assert!(!structurally_match(&dyn_ast1, &dyn_ast2)?);
+        assert!(!structurally_match(&ast1, &ast2)?);
 
         Ok(())
     }
@@ -339,10 +306,7 @@ mod tests {
         let z2 = ctx.bvs("gamma", 32)?;
         let ast2 = ctx.mul(&ctx.add(&x2, &y2)?, &z2)?;
 
-        let dyn_ast1 = DynAst::from(&ast1);
-        let dyn_ast2 = DynAst::from(&ast2);
-
-        assert!(structurally_match(&dyn_ast1, &dyn_ast2)?);
+        assert!(structurally_match(&ast1, &ast2)?);
 
         Ok(())
     }
@@ -361,10 +325,7 @@ mod tests {
             &ctx.bools("z")?,
         )?;
 
-        let dyn_ast1 = DynAst::from(&ast1);
-        let dyn_ast2 = DynAst::from(&ast2);
-
-        assert!(structurally_match(&dyn_ast1, &dyn_ast2)?);
+        assert!(structurally_match(&ast1, &ast2)?);
 
         Ok(())
     }
@@ -375,9 +336,8 @@ mod tests {
 
         // Same AST should match with itself
         let ast = ctx.add(&ctx.bvs("x", 64)?, &ctx.bvs("y", 64)?)?;
-        let dyn_ast = DynAst::from(&ast);
 
-        assert!(structurally_match(&dyn_ast, &dyn_ast)?);
+        assert!(structurally_match(&ast, &ast)?);
 
         Ok(())
     }
@@ -391,14 +351,10 @@ mod tests {
         let ast2 = ctx.add(&ctx.bvs("y", 64)?, &ctx.bvv_prim_with_size(5u64, 64)?)?;
         let ast3 = ctx.add(&ctx.bvs("z", 64)?, &ctx.bvv_prim_with_size(10u64, 64)?)?;
 
-        let dyn_ast1 = DynAst::from(&ast1);
-        let dyn_ast2 = DynAst::from(&ast2);
-        let dyn_ast3 = DynAst::from(&ast3);
-
         // Same constant values should match
-        assert!(structurally_match(&dyn_ast1, &dyn_ast2)?);
+        assert!(structurally_match(&ast1, &ast2)?);
         // Different constant values should not match
-        assert!(!structurally_match(&dyn_ast1, &dyn_ast3)?);
+        assert!(!structurally_match(&ast1, &ast3)?);
 
         Ok(())
     }
@@ -418,11 +374,8 @@ mod tests {
             &ctx.bvv_prim_with_size(5u64, 32)?,
         )?;
 
-        let dyn_ast1 = DynAst::from(&ast1);
-        let dyn_ast2 = DynAst::from(&ast2);
-
-        let (_, counter1, canonical1) = canonicalize(&dyn_ast1)?;
-        let (_, counter2, canonical2) = canonicalize(&dyn_ast2)?;
+        let (_, counter1, canonical1) = canonicalize(&ast1)?;
+        let (_, counter2, canonical2) = canonicalize(&ast2)?;
 
         // Both should canonicalize to: (v0 + v1) == 5
         assert_eq!(canonical1, canonical2);
@@ -430,7 +383,7 @@ mod tests {
         assert_eq!(counter2, 2);
 
         // Also verify structurally_match works for cross-type
-        assert!(structurally_match(&dyn_ast1, &dyn_ast2)?);
+        assert!(structurally_match(&ast1, &ast2)?);
 
         Ok(())
     }

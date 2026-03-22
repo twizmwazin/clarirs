@@ -24,39 +24,42 @@ impl Base {
         }
     }
 
-    pub fn to_dynast(self_: Bound<'_, Base>) -> Result<DynAst<'static>, ClaripyError> {
+    pub fn to_astref(self_: Bound<'_, Base>) -> Result<AstRef<'static>, ClaripyError> {
         if let Ok(bool) = self_.clone().into_any().cast::<Bool>() {
-            Ok(DynAst::Boolean(bool.get().inner.clone()))
+            Ok(bool.get().inner.clone())
         } else if let Ok(bv) = self_.clone().into_any().cast::<BV>() {
-            Ok(DynAst::BitVec(bv.get().inner.clone()))
+            Ok(bv.get().inner.clone())
         } else if let Ok(fp) = self_.clone().into_any().cast::<FP>() {
-            Ok(DynAst::Float(fp.get().inner.clone()))
+            Ok(fp.get().inner.clone())
         } else if let Ok(string) = self_.clone().into_any().cast::<PyAstString>() {
-            Ok(DynAst::String(string.get().inner.clone()))
+            Ok(string.get().inner.clone())
         } else {
             Err(ClaripyError::TypeError(
-                "Cannot convert to DynAst: unsupported type".to_string(),
+                "Cannot convert to AstRef: unsupported type".to_string(),
             ))
         }
     }
 
-    pub fn from_dynast<'py>(
+    pub fn from_astref<'py>(
         py: Python<'py>,
-        dynast: DynAst<'static>,
+        ast: &AstRef<'static>,
     ) -> Result<Bound<'py, Base>, ClaripyError> {
-        match dynast {
-            DynAst::Boolean(ast) => {
-                Bool::new(py, &ast).map(|b| b.into_any().cast_into::<Base>().unwrap())
+        match ast.op().base_theories() {
+            Theories::BOOLEAN => {
+                Bool::new(py, ast).map(|b| b.into_any().cast_into::<Base>().unwrap())
             }
-            DynAst::BitVec(ast) => {
-                BV::new(py, &ast).map(|b| b.into_any().cast_into::<Base>().unwrap())
+            Theories::BITVEC => {
+                BV::new(py, ast).map(|b| b.into_any().cast_into::<Base>().unwrap())
             }
-            DynAst::Float(ast) => {
-                FP::new(py, &ast).map(|b| b.into_any().cast_into::<Base>().unwrap())
+            Theories::FLOAT => {
+                FP::new(py, ast).map(|b| b.into_any().cast_into::<Base>().unwrap())
             }
-            DynAst::String(ast) => {
-                PyAstString::new(py, &ast).map(|b| b.into_any().cast_into::<Base>().unwrap())
+            Theories::STRING => {
+                PyAstString::new(py, ast).map(|b| b.into_any().cast_into::<Base>().unwrap())
             }
+            _ => Err(ClaripyError::TypeError(
+                "Cannot convert AstRef to Python type: unknown theory".to_string(),
+            )),
         }
     }
 }

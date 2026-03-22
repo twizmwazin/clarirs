@@ -7,7 +7,6 @@ use std::{
 };
 
 use crate::{
-    ast::bitvec::BitVecOpExt,
     cache::{AstCache, Cache},
     prelude::*,
 };
@@ -38,16 +37,12 @@ impl std::borrow::Borrow<str> for InternedString {
 
 impl PartialEq for InternedString {
     fn eq(&self, other: &Self) -> bool {
-        // Fast pointer comparison first, fall back to content comparison
-        // to satisfy the contract that Eq and Ord must agree
         Arc::ptr_eq(&self.0, &other.0) || *self.0 == *other.0
     }
 }
 
 impl Hash for InternedString {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        // Hash the contents so that Hash is consistent with Eq and Ord:
-        // two InternedStrings with the same content must have the same hash
         self.0.hash(state);
     }
 }
@@ -104,12 +99,9 @@ impl Context<'_> {
         Self::default()
     }
 
-    /// Intern a string for use as a variable name.
-    /// This ensures that identical strings share the same allocation and can be compared by pointer.
     pub fn intern_string(&self, s: impl AsRef<str>) -> InternedString {
         let s = s.as_ref();
 
-        // Fast path: check if already interned with read lock
         {
             let interner = self.string_interner.read().unwrap();
             if let Some(existing) = interner.get(s) {
@@ -117,9 +109,7 @@ impl Context<'_> {
             }
         }
 
-        // Slow path: intern the string with write lock
         let mut interner = self.string_interner.write().unwrap();
-        // Double-check after acquiring write lock (another thread might have inserted it)
         if let Some(existing) = interner.get(s) {
             return InternedString(Arc::clone(existing));
         }
@@ -141,159 +131,43 @@ impl<'c> AstFactory<'c> for Context<'c> {
         self.intern_string(s)
     }
 
-    fn make_bool_annotated(
+    fn make_ast_annotated(
         &'c self,
-        op: BooleanOp<'c>,
+        op: AstOp<'c>,
         mut annotations: BTreeSet<Annotation>,
-    ) -> Result<BoolAst<'c>, ClarirsError> {
-        annotations.extend(
-            op.child_iter()
-                .flat_map(|c| c.annotations())
-                .filter(|a| a.relocatable()),
-        );
+    ) -> Result<AstRef<'c>, ClarirsError> {
+        for child in op.children() {
+            for a in child.annotations().iter() {
+                if a.relocatable() {
+                    annotations.insert(a.clone());
+                }
+            }
+        }
 
         let mut hasher = AHasher::default();
-        0u32.hash(&mut hasher); // Domain separation for bools
+        // Domain separation based on base theory
+        op.base_theories().bits().hash(&mut hasher);
         op.hash(&mut hasher);
         for a in &annotations {
             a.hash(&mut hasher);
         }
         let hash = hasher.finish();
 
-        Ok(self
-            .ast_cache
-            .get_or_insert::<ClarirsError>(hash, || {
-                Ok(DynAst::from(Arc::new(AstNode::new(
-                    self,
-                    op.clone(),
-                    annotations.clone(),
-                    hash,
-                    0, // size is not used for bools
-                ))))
-            })?
-            .as_bool()
-            .ok_or(ClarirsError::TypeError("Expected BoolAst".to_string()))?
-            .clone())
-    }
-
-    fn make_bitvec_annotated(
-        &'c self,
-        op: BitVecOp<'c>,
-        mut annotations: BTreeSet<Annotation>,
-    ) -> Result<BitVecAst<'c>, ClarirsError> {
-        annotations.extend(
-            op.child_iter()
-                .flat_map(|c| c.annotations())
-                .filter(|a| a.relocatable()),
-        );
-
-        let mut hasher = AHasher::default();
-        1u32.hash(&mut hasher); // Domain separation for bitvecs
-        op.hash(&mut hasher);
-        for a in &annotations {
-            a.hash(&mut hasher);
-        }
-        let hash = hasher.finish();
-
-        // Compute size before caching - children already have cached sizes
         let size = op.size();
 
-        Ok(self
-            .ast_cache
+        self.ast_cache
             .get_or_insert::<ClarirsError>(hash, || {
-                Ok(DynAst::from(Arc::new(AstNode::new(
+                Ok(Arc::new(AstNode::new(
                     self,
                     op.clone(),
                     annotations.clone(),
                     hash,
                     size,
-                ))))
-            })?
-            .as_bitvec()
-            .ok_or(ClarirsError::TypeError("Expected BitVecAst".to_string()))?
-            .clone())
-    }
-
-    fn make_float_annotated(
-        &'c self,
-        op: FloatOp<'c>,
-        mut annotations: BTreeSet<Annotation>,
-    ) -> std::result::Result<FloatAst<'c>, ClarirsError> {
-        annotations.extend(
-            op.child_iter()
-                .flat_map(|c| c.annotations())
-                .filter(|a| a.relocatable()),
-        );
-
-        let mut hasher = AHasher::default();
-        2u32.hash(&mut hasher); // Domain separation for floats
-        op.hash(&mut hasher);
-        for a in &annotations {
-            a.hash(&mut hasher);
-        }
-        let hash = hasher.finish();
-
-        Ok(self
-            .ast_cache
-            .get_or_insert::<ClarirsError>(hash, || {
-                Ok(DynAst::from(Arc::new(AstNode::new(
-                    self,
-                    op.clone(),
-                    annotations.clone(),
-                    hash,
-                    0, // size is not used for floats
-                ))))
-            })?
-            .as_float()
-            .ok_or(ClarirsError::TypeError("Expected FloatAst".to_string()))?
-            .clone())
-    }
-
-    fn make_string_annotated(
-        &'c self,
-        op: StringOp<'c>,
-        mut annotations: BTreeSet<Annotation>,
-    ) -> Result<StringAst<'c>, ClarirsError> {
-        annotations.extend(
-            op.child_iter()
-                .flat_map(|c| c.annotations())
-                .filter(|a| a.relocatable()),
-        );
-
-        let mut hasher = AHasher::default();
-        3u32.hash(&mut hasher); // Domain separation for strings
-        op.hash(&mut hasher);
-        for a in &annotations {
-            a.hash(&mut hasher);
-        }
-        let hash = hasher.finish();
-
-        Ok(self
-            .ast_cache
-            .get_or_insert::<ClarirsError>(hash, || {
-                Ok(DynAst::from(Arc::new(AstNode::new(
-                    self,
-                    op.clone(),
-                    annotations.clone(),
-                    hash,
-                    0, // size is not used for strings
-                ))))
-            })?
-            .as_string()
-            .ok_or(ClarirsError::TypeError("Expected StringAst".to_string()))?
-            .clone())
+                )))
+            })
     }
 }
 
 pub trait HasContext<'c> {
     fn context(&self) -> &'c Context<'c>;
-}
-
-impl<'c, T> HasContext<'c> for Arc<T>
-where
-    T: HasContext<'c>,
-{
-    fn context(&self) -> &'c Context<'c> {
-        self.as_ref().context()
-    }
 }

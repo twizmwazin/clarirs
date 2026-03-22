@@ -175,19 +175,12 @@ impl PyAstString {
         ),
         ClaripyError,
     > {
-        let (replacement_map, counter, canonical) = canonicalize(&self.inner.clone().into())?;
-        let canonical_string = PyAstString::new(
-            py,
-            &canonical
-                .into_string()
-                .ok_or(ClaripyError::InvalidOperation(
-                    "Canonicalization did not produce a String".to_string(),
-                ))?,
-        )?;
+        let (replacement_map, counter, canonical) = canonicalize(&self.inner)?;
+        let canonical_string = PyAstString::new(py, &canonical)?;
 
         let mut py_map = HashMap::new();
-        for (hash, dynast) in replacement_map {
-            let py_ast = Base::from_dynast(py, dynast)?;
+        for (hash, ast) in replacement_map {
+            let py_ast = Base::from_astref(py, &ast)?;
             py_map.insert(hash, py_ast.into_any());
         }
 
@@ -195,11 +188,8 @@ impl PyAstString {
     }
 
     pub fn identical(&self, other: Bound<'_, Base>) -> Result<bool, ClaripyError> {
-        let other_dyn = Base::to_dynast(other)?;
-        Ok(structurally_match(
-            &DynAst::String(self.inner.clone()),
-            &other_dyn,
-        )?)
+        let other_ast = Base::to_astref(other)?;
+        Ok(structurally_match(&self.inner, &other_ast)?)
     }
 
     #[getter]
@@ -227,8 +217,8 @@ impl PyAstString {
         to: Bound<'py, Base>,
     ) -> Result<Bound<'py, PyAstString>, ClaripyError> {
         use clarirs_core::algorithms::Replace;
-        let from_ast = Base::to_dynast(from)?;
-        let to_ast = Base::to_dynast(to)?;
+        let from_ast = Base::to_astref(from)?;
+        let to_ast = Base::to_astref(to)?;
         let replaced = self.inner.replace(&from_ast, &to_ast)?;
         PyAstString::new(py, &replaced)
     }
@@ -236,7 +226,7 @@ impl PyAstString {
     #[getter]
     pub fn concrete_value(&self) -> Result<Option<String>, ClaripyError> {
         Ok(match self.inner.simplify_ext(false, false)?.op() {
-            StringOp::StringV(value) => Some(value.clone()),
+            AstOp::StringV(value) => Some(value.clone()),
             _ => None,
         })
     }
@@ -323,7 +313,7 @@ impl PyAstString {
         let inner = self
             .inner
             .context()
-            .make_string_annotated(self.inner.op().clone(), new_annotations)?;
+            .make_ast_annotated(self.inner.op().clone(), new_annotations)?;
         Self::new(py, &inner)
     }
 
@@ -344,7 +334,7 @@ impl PyAstString {
         py: Python<'py>,
         annotations: Vec<PyAnnotation>,
     ) -> Result<Bound<'py, Self>, ClaripyError> {
-        let inner = self.inner.context().make_string_annotated(
+        let inner = self.inner.context().make_ast_annotated(
             self.inner.op().clone(),
             annotations.into_iter().map(|a| a.0).collect(),
         )?;
@@ -356,7 +346,7 @@ impl PyAstString {
         py: Python<'py>,
         annotation: PyAnnotation,
     ) -> Result<Bound<'py, Self>, ClaripyError> {
-        let inner = self.inner.context().make_string_annotated(
+        let inner = self.inner.context().make_ast_annotated(
             self.inner.op().clone(),
             self.inner
                 .annotations()
@@ -374,7 +364,7 @@ impl PyAstString {
         annotations: Vec<PyAnnotation>,
     ) -> Result<Bound<'py, Self>, ClaripyError> {
         let annotations_set: BTreeSet<_> = annotations.into_iter().map(|a| a.0).collect();
-        let inner = self.inner.context().make_string_annotated(
+        let inner = self.inner.context().make_ast_annotated(
             self.inner.op().clone(),
             self.inner
                 .annotations()
@@ -390,7 +380,7 @@ impl PyAstString {
         &self,
         py: Python<'py>,
     ) -> Result<Bound<'py, Self>, ClaripyError> {
-        let inner = self.inner.context().make_string(self.inner.op().clone())?;
+        let inner = self.inner.context().make_ast(self.inner.op().clone())?;
         Self::new(py, &inner)
     }
 
@@ -399,7 +389,7 @@ impl PyAstString {
         py: Python<'py>,
         annotation_type: PyAnnotationType,
     ) -> Result<Bound<'py, Self>, ClaripyError> {
-        let inner = self.inner.context().make_string_annotated(
+        let inner = self.inner.context().make_ast_annotated(
             self.inner.op().clone(),
             self.inner
                 .annotations()

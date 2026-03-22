@@ -1,237 +1,136 @@
-//! Shared helper for reconstructing a DynAst node from its transformed children.
+//! Shared helper for reconstructing an AstRef node from its transformed children.
 //! Used by the `replace` algorithm.
 
-use crate::{
-    algorithms::post_order::{bitvec_child, bool_child, float_child, string_child},
-    prelude::*,
-};
+use crate::prelude::*;
 
-/// Reconstructs a `DynAst` node from its operation and transformed children.
+/// Reconstructs an `AstRef` node from its operation and transformed children.
 ///
 /// Leaf nodes are returned as-is. Non-leaf nodes are rebuilt using the context
 /// factory methods with the provided transformed children.
 pub fn reconstruct_node<'c>(
     ctx: &'c Context<'c>,
-    ast: &DynAst<'c>,
-    children: &[DynAst<'c>],
-) -> Result<DynAst<'c>, ClarirsError> {
-    match ast {
-        DynAst::Boolean(bool_ast) => match bool_ast.op() {
-            BooleanOp::BoolS(..) | BooleanOp::BoolV(..) => Ok(bool_ast.clone()),
-            BooleanOp::Not(..) => ctx.not(bool_child(children, 0)?),
-            BooleanOp::And(..) => {
-                let args: Vec<_> = children
-                    .iter()
-                    .map(|c| bool_child(std::slice::from_ref(c), 0))
-                    .collect::<Result<_, _>>()?;
-                ctx.and(args)
-            }
-            BooleanOp::Or(..) => {
-                let args: Vec<_> = children
-                    .iter()
-                    .map(|c| bool_child(std::slice::from_ref(c), 0))
-                    .collect::<Result<_, _>>()?;
-                ctx.or(args)
-            }
-            BooleanOp::Xor(..) => ctx.xor(bool_child(children, 0)?, bool_child(children, 1)?),
-            BooleanOp::BoolEq(..) => ctx.eq_(bool_child(children, 0)?, bool_child(children, 1)?),
-            BooleanOp::BoolNeq(..) => ctx.neq(bool_child(children, 0)?, bool_child(children, 1)?),
-            BooleanOp::Eq(..) => ctx.eq_(bitvec_child(children, 0)?, bitvec_child(children, 1)?),
-            BooleanOp::Neq(..) => ctx.neq(bitvec_child(children, 0)?, bitvec_child(children, 1)?),
-            BooleanOp::ULT(..) => ctx.ult(bitvec_child(children, 0)?, bitvec_child(children, 1)?),
-            BooleanOp::ULE(..) => ctx.ule(bitvec_child(children, 0)?, bitvec_child(children, 1)?),
-            BooleanOp::UGT(..) => ctx.ugt(bitvec_child(children, 0)?, bitvec_child(children, 1)?),
-            BooleanOp::UGE(..) => ctx.uge(bitvec_child(children, 0)?, bitvec_child(children, 1)?),
-            BooleanOp::SLT(..) => ctx.slt(bitvec_child(children, 0)?, bitvec_child(children, 1)?),
-            BooleanOp::SLE(..) => ctx.sle(bitvec_child(children, 0)?, bitvec_child(children, 1)?),
-            BooleanOp::SGT(..) => ctx.sgt(bitvec_child(children, 0)?, bitvec_child(children, 1)?),
-            BooleanOp::SGE(..) => ctx.sge(bitvec_child(children, 0)?, bitvec_child(children, 1)?),
-            BooleanOp::FpEq(..) => ctx.fp_eq(float_child(children, 0)?, float_child(children, 1)?),
-            BooleanOp::FpNeq(..) => {
-                ctx.fp_neq(float_child(children, 0)?, float_child(children, 1)?)
-            }
-            BooleanOp::FpLt(..) => ctx.fp_lt(float_child(children, 0)?, float_child(children, 1)?),
-            BooleanOp::FpLeq(..) => {
-                ctx.fp_leq(float_child(children, 0)?, float_child(children, 1)?)
-            }
-            BooleanOp::FpGt(..) => ctx.fp_gt(float_child(children, 0)?, float_child(children, 1)?),
-            BooleanOp::FpGeq(..) => {
-                ctx.fp_geq(float_child(children, 0)?, float_child(children, 1)?)
-            }
-            BooleanOp::FpIsNan(..) => ctx.fp_is_nan(float_child(children, 0)?),
-            BooleanOp::FpIsInf(..) => ctx.fp_is_inf(float_child(children, 0)?),
-            BooleanOp::StrContains(..) => {
-                ctx.str_contains(string_child(children, 0)?, string_child(children, 1)?)
-            }
-            BooleanOp::StrPrefixOf(..) => {
-                ctx.str_prefix_of(string_child(children, 0)?, string_child(children, 1)?)
-            }
-            BooleanOp::StrSuffixOf(..) => {
-                ctx.str_suffix_of(string_child(children, 0)?, string_child(children, 1)?)
-            }
-            BooleanOp::StrIsDigit(..) => ctx.str_is_digit(string_child(children, 0)?),
-            BooleanOp::StrEq(..) => {
-                ctx.str_eq(string_child(children, 0)?, string_child(children, 1)?)
-            }
-            BooleanOp::StrNeq(..) => {
-                ctx.str_neq(string_child(children, 0)?, string_child(children, 1)?)
-            }
-            BooleanOp::ITE(..) => ctx.ite(
-                bool_child(children, 0)?,
-                bool_child(children, 1)?,
-                bool_child(children, 2)?,
-            ),
+    ast: &AstRef<'c>,
+    children: &[AstRef<'c>],
+) -> Result<AstRef<'c>, ClarirsError> {
+    match ast.op() {
+        // === Leaf nodes ===
+        AstOp::BoolS(..) | AstOp::BoolV(..) | AstOp::BVS(..) | AstOp::BVV(..)
+        | AstOp::FPS(..) | AstOp::FPV(..) | AstOp::StringS(..) | AstOp::StringV(..) => {
+            Ok(ast.clone())
         }
-        .map(DynAst::Boolean),
-        DynAst::BitVec(bv_ast) => match bv_ast.op() {
-            BitVecOp::BVS(..) | BitVecOp::BVV(..) => Ok(bv_ast.clone()),
-            BitVecOp::Not(..) => ctx.not(bitvec_child(children, 0)?),
-            BitVecOp::And(args) => {
-                let new_args: Vec<_> = (0..args.len())
-                    .map(|i| bitvec_child(children, i))
-                    .collect::<Result<_, _>>()?;
-                ctx.bv_and_many(new_args)
-            }
-            BitVecOp::Or(args) => {
-                let new_args: Vec<_> = (0..args.len())
-                    .map(|i| bitvec_child(children, i))
-                    .collect::<Result<_, _>>()?;
-                ctx.bv_or_many(new_args)
-            }
-            BitVecOp::Xor(args) => {
-                let new_args: Vec<_> = (0..args.len())
-                    .map(|i| bitvec_child(children, i))
-                    .collect::<Result<_, _>>()?;
-                ctx.bv_xor_many(new_args)
-            }
-            BitVecOp::Neg(..) => ctx.neg(bitvec_child(children, 0)?),
-            BitVecOp::Add(args) => {
-                let new_args: Vec<_> = (0..args.len())
-                    .map(|i| bitvec_child(children, i))
-                    .collect::<Result<_, _>>()?;
-                ctx.add_many(new_args)
-            }
-            BitVecOp::Sub(..) => ctx.sub(bitvec_child(children, 0)?, bitvec_child(children, 1)?),
-            BitVecOp::Mul(args) => {
-                let new_args: Vec<_> = (0..args.len())
-                    .map(|i| bitvec_child(children, i))
-                    .collect::<Result<_, _>>()?;
-                ctx.mul_many(new_args)
-            }
-            BitVecOp::UDiv(..) => ctx.udiv(bitvec_child(children, 0)?, bitvec_child(children, 1)?),
-            BitVecOp::SDiv(..) => ctx.sdiv(bitvec_child(children, 0)?, bitvec_child(children, 1)?),
-            BitVecOp::URem(..) => ctx.urem(bitvec_child(children, 0)?, bitvec_child(children, 1)?),
-            BitVecOp::SRem(..) => ctx.srem(bitvec_child(children, 0)?, bitvec_child(children, 1)?),
-            BitVecOp::ShL(..) => ctx.shl(bitvec_child(children, 0)?, bitvec_child(children, 1)?),
-            BitVecOp::LShR(..) => ctx.lshr(bitvec_child(children, 0)?, bitvec_child(children, 1)?),
-            BitVecOp::AShR(..) => ctx.ashr(bitvec_child(children, 0)?, bitvec_child(children, 1)?),
-            BitVecOp::RotateLeft(..) => {
-                ctx.rotate_left(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
-            }
-            BitVecOp::RotateRight(..) => {
-                ctx.rotate_right(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
-            }
-            BitVecOp::ZeroExt(_, size) => ctx.zero_ext(bitvec_child(children, 0)?, *size),
-            BitVecOp::SignExt(_, size) => ctx.sign_ext(bitvec_child(children, 0)?, *size),
-            BitVecOp::Extract(_, hi, lo) => ctx.extract(bitvec_child(children, 0)?, *hi, *lo),
-            BitVecOp::Concat(args) => {
-                let new_args: Vec<_> = (0..args.len())
-                    .map(|i| bitvec_child(children, i))
-                    .collect::<Result<_, _>>()?;
-                ctx.concat(new_args)
-            }
-            BitVecOp::ByteReverse(..) => ctx.byte_reverse(bitvec_child(children, 0)?),
-            BitVecOp::FpToIEEEBV(..) => ctx.fp_to_ieeebv(float_child(children, 0)?),
-            BitVecOp::FpToUBV(_, size, fprm) => {
-                ctx.fp_to_ubv(float_child(children, 0)?, *size, *fprm)
-            }
-            BitVecOp::FpToSBV(_, size, fprm) => {
-                ctx.fp_to_sbv(float_child(children, 0)?, *size, *fprm)
-            }
-            BitVecOp::StrLen(..) => ctx.str_len(string_child(children, 0)?),
-            BitVecOp::StrIndexOf(..) => ctx.str_index_of(
-                string_child(children, 0)?,
-                string_child(children, 1)?,
-                bitvec_child(children, 2)?,
-            ),
-            BitVecOp::StrToBV(..) => ctx.str_to_bv(string_child(children, 0)?),
-            BitVecOp::ITE(..) => ctx.ite(
-                bool_child(children, 0)?,
-                bitvec_child(children, 1)?,
-                bitvec_child(children, 2)?,
-            ),
-            BitVecOp::Union(..) => {
-                ctx.union(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
-            }
-            BitVecOp::Intersection(..) => {
-                ctx.intersection(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
-            }
-            BitVecOp::Widen(..) => {
-                ctx.widen(bitvec_child(children, 0)?, bitvec_child(children, 1)?)
-            }
+
+        // === Cross-sort operations ===
+        AstOp::Not(..) => ctx.not(children[0].clone()),
+        AstOp::And(..) => ctx.and(children.to_vec()),
+        AstOp::Or(..) => ctx.or(children.to_vec()),
+        AstOp::Xor(..) => ctx.bv_xor_many(children.to_vec()),
+        AstOp::Eq(..) => ctx.eq_(children[0].clone(), children[1].clone()),
+        AstOp::Neq(..) => ctx.neq(children[0].clone(), children[1].clone()),
+        AstOp::If(..) => ctx.ite(
+            children[0].clone(),
+            children[1].clone(),
+            children[2].clone(),
+        ),
+
+        // === BV arithmetic ===
+        AstOp::Neg(..) => ctx.neg(children[0].clone()),
+        AstOp::Add(..) => ctx.add_many(children.to_vec()),
+        AstOp::Sub(..) => ctx.sub(children[0].clone(), children[1].clone()),
+        AstOp::Mul(..) => ctx.mul_many(children.to_vec()),
+        AstOp::UDiv(..) => ctx.udiv(children[0].clone(), children[1].clone()),
+        AstOp::SDiv(..) => ctx.sdiv(children[0].clone(), children[1].clone()),
+        AstOp::URem(..) => ctx.urem(children[0].clone(), children[1].clone()),
+        AstOp::SRem(..) => ctx.srem(children[0].clone(), children[1].clone()),
+
+        // === BV shifts/rotates ===
+        AstOp::ShL(..) => ctx.shl(children[0].clone(), children[1].clone()),
+        AstOp::LShR(..) => ctx.lshr(children[0].clone(), children[1].clone()),
+        AstOp::AShR(..) => ctx.ashr(children[0].clone(), children[1].clone()),
+        AstOp::RotateLeft(..) => ctx.rotate_left(children[0].clone(), children[1].clone()),
+        AstOp::RotateRight(..) => ctx.rotate_right(children[0].clone(), children[1].clone()),
+
+        // === BV extraction/extension ===
+        AstOp::ZeroExt(_, size) => ctx.zero_ext(children[0].clone(), *size),
+        AstOp::SignExt(_, size) => ctx.sign_ext(children[0].clone(), *size),
+        AstOp::Extract(_, hi, lo) => ctx.extract(children[0].clone(), *hi, *lo),
+        AstOp::Concat(..) => ctx.concat(children.to_vec()),
+        AstOp::ByteReverse(..) => ctx.byte_reverse(children[0].clone()),
+
+        // === BV comparisons ===
+        AstOp::ULT(..) => ctx.ult(children[0].clone(), children[1].clone()),
+        AstOp::ULE(..) => ctx.ule(children[0].clone(), children[1].clone()),
+        AstOp::UGT(..) => ctx.ugt(children[0].clone(), children[1].clone()),
+        AstOp::UGE(..) => ctx.uge(children[0].clone(), children[1].clone()),
+        AstOp::SLT(..) => ctx.slt(children[0].clone(), children[1].clone()),
+        AstOp::SLE(..) => ctx.sle(children[0].clone(), children[1].clone()),
+        AstOp::SGT(..) => ctx.sgt(children[0].clone(), children[1].clone()),
+        AstOp::SGE(..) => ctx.sge(children[0].clone(), children[1].clone()),
+
+        // === Float operations ===
+        AstOp::FpNeg(..) => ctx.fp_neg(children[0].clone()),
+        AstOp::FpAbs(..) => ctx.fp_abs(children[0].clone()),
+        AstOp::FpAdd(_, _, fprm) => ctx.fp_add(children[0].clone(), children[1].clone(), *fprm),
+        AstOp::FpSub(_, _, fprm) => ctx.fp_sub(children[0].clone(), children[1].clone(), *fprm),
+        AstOp::FpMul(_, _, fprm) => ctx.fp_mul(children[0].clone(), children[1].clone(), *fprm),
+        AstOp::FpDiv(_, _, fprm) => ctx.fp_div(children[0].clone(), children[1].clone(), *fprm),
+        AstOp::FpSqrt(_, fprm) => ctx.fp_sqrt(children[0].clone(), *fprm),
+        AstOp::FpToFp(_, fsort, fprm) => ctx.fp_to_fp(children[0].clone(), *fsort, *fprm),
+        AstOp::FpFP(..) => ctx.fp_fp(
+            children[0].clone(),
+            children[1].clone(),
+            children[2].clone(),
+        ),
+        AstOp::BvToFp(_, fsort) => ctx.bv_to_fp(children[0].clone(), *fsort),
+        AstOp::BvToFpSigned(_, fsort, fprm) => {
+            ctx.bv_to_fp_signed(children[0].clone(), *fsort, *fprm)
         }
-        .map(DynAst::BitVec),
-        DynAst::Float(float_ast) => match float_ast.op() {
-            FloatOp::FPS(..) | FloatOp::FPV(..) => Ok(float_ast.clone()),
-            FloatOp::FpNeg(..) => ctx.fp_neg(float_child(children, 0)?),
-            FloatOp::FpAbs(..) => ctx.fp_abs(float_child(children, 0)?),
-            FloatOp::FpAdd(_, _, fprm) => {
-                ctx.fp_add(float_child(children, 0)?, float_child(children, 1)?, *fprm)
-            }
-            FloatOp::FpSub(_, _, fprm) => {
-                ctx.fp_sub(float_child(children, 0)?, float_child(children, 1)?, *fprm)
-            }
-            FloatOp::FpMul(_, _, fprm) => {
-                ctx.fp_mul(float_child(children, 0)?, float_child(children, 1)?, *fprm)
-            }
-            FloatOp::FpDiv(_, _, fprm) => {
-                ctx.fp_div(float_child(children, 0)?, float_child(children, 1)?, *fprm)
-            }
-            FloatOp::FpSqrt(_, fprm) => ctx.fp_sqrt(float_child(children, 0)?, *fprm),
-            FloatOp::FpToFp(_, fsort, fprm) => {
-                ctx.fp_to_fp(float_child(children, 0)?, *fsort, *fprm)
-            }
-            FloatOp::FpFP(..) => ctx.fp_fp(
-                bitvec_child(children, 0)?,
-                bitvec_child(children, 1)?,
-                bitvec_child(children, 2)?,
-            ),
-            FloatOp::BvToFp(_, fsort) => ctx.bv_to_fp(bitvec_child(children, 0)?, *fsort),
-            FloatOp::BvToFpSigned(_, fsort, fprm) => {
-                ctx.bv_to_fp_signed(bitvec_child(children, 0)?, *fsort, *fprm)
-            }
-            FloatOp::BvToFpUnsigned(_, fsort, fprm) => {
-                ctx.bv_to_fp_unsigned(bitvec_child(children, 0)?, *fsort, *fprm)
-            }
-            FloatOp::ITE(..) => ctx.ite(
-                bool_child(children, 0)?,
-                float_child(children, 1)?,
-                float_child(children, 2)?,
-            ),
+        AstOp::BvToFpUnsigned(_, fsort, fprm) => {
+            ctx.bv_to_fp_unsigned(children[0].clone(), *fsort, *fprm)
         }
-        .map(DynAst::Float),
-        DynAst::String(string_ast) => match string_ast.op() {
-            StringOp::StringS(..) | StringOp::StringV(..) => Ok(string_ast.clone()),
-            StringOp::StrConcat(..) => {
-                ctx.str_concat(string_child(children, 0)?, string_child(children, 1)?)
-            }
-            StringOp::StrSubstr(..) => ctx.str_substr(
-                string_child(children, 0)?,
-                bitvec_child(children, 1)?,
-                bitvec_child(children, 2)?,
-            ),
-            StringOp::StrReplace(..) => ctx.str_replace(
-                string_child(children, 0)?,
-                string_child(children, 1)?,
-                string_child(children, 2)?,
-            ),
-            StringOp::BVToStr(..) => ctx.bv_to_str(bitvec_child(children, 0)?),
-            StringOp::ITE(..) => ctx.ite(
-                bool_child(children, 0)?,
-                string_child(children, 1)?,
-                string_child(children, 2)?,
-            ),
-        }
-        .map(DynAst::String),
+
+        // === Float comparisons ===
+        AstOp::FpLt(..) => ctx.fp_lt(children[0].clone(), children[1].clone()),
+        AstOp::FpLeq(..) => ctx.fp_leq(children[0].clone(), children[1].clone()),
+        AstOp::FpGt(..) => ctx.fp_gt(children[0].clone(), children[1].clone()),
+        AstOp::FpGeq(..) => ctx.fp_geq(children[0].clone(), children[1].clone()),
+        AstOp::FpIsNan(..) => ctx.fp_is_nan(children[0].clone()),
+        AstOp::FpIsInf(..) => ctx.fp_is_inf(children[0].clone()),
+
+        // === Float-BV conversions ===
+        AstOp::FpToIEEEBV(..) => ctx.fp_to_ieeebv(children[0].clone()),
+        AstOp::FpToUBV(_, size, fprm) => ctx.fp_to_ubv(children[0].clone(), *size, *fprm),
+        AstOp::FpToSBV(_, size, fprm) => ctx.fp_to_sbv(children[0].clone(), *size, *fprm),
+
+        // === String operations ===
+        AstOp::StrConcat(..) => ctx.str_concat(children[0].clone(), children[1].clone()),
+        AstOp::StrSubstr(..) => ctx.str_substr(
+            children[0].clone(),
+            children[1].clone(),
+            children[2].clone(),
+        ),
+        AstOp::StrReplace(..) => ctx.str_replace(
+            children[0].clone(),
+            children[1].clone(),
+            children[2].clone(),
+        ),
+        AstOp::BVToStr(..) => ctx.bv_to_str(children[0].clone()),
+        AstOp::StrLen(..) => ctx.str_len(children[0].clone()),
+        AstOp::StrIndexOf(..) => ctx.str_index_of(
+            children[0].clone(),
+            children[1].clone(),
+            children[2].clone(),
+        ),
+        AstOp::StrToBV(..) => ctx.str_to_bv(children[0].clone()),
+
+        // === String comparisons ===
+        AstOp::StrContains(..) => ctx.str_contains(children[0].clone(), children[1].clone()),
+        AstOp::StrPrefixOf(..) => ctx.str_prefix_of(children[0].clone(), children[1].clone()),
+        AstOp::StrSuffixOf(..) => ctx.str_suffix_of(children[0].clone(), children[1].clone()),
+        AstOp::StrIsDigit(..) => ctx.str_is_digit(children[0].clone()),
+
+        // === VSA operations ===
+        AstOp::Union(..) => ctx.union(children[0].clone(), children[1].clone()),
+        AstOp::Intersection(..) => ctx.intersection(children[0].clone(), children[1].clone()),
+        AstOp::Widen(..) => ctx.widen(children[0].clone(), children[1].clone()),
     }
 }

@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-pub fn find_variable<'c>(ast: DynAst<'c>, name: &InternedString) -> Option<DynAst<'c>> {
+pub fn find_variable<'c>(ast: AstRef<'c>, name: &InternedString) -> Option<AstRef<'c>> {
     if !ast.variables().contains(name) {
         return None;
     }
@@ -20,7 +20,7 @@ mod tests {
         let ctx = Context::new();
         let x = ctx.bvs("x", 32)?;
         let y_name = ctx.intern_string("y");
-        let result = find_variable(x.into(), &y_name);
+        let result = find_variable(x, &y_name);
         assert!(result.is_none());
         Ok(())
     }
@@ -30,9 +30,9 @@ mod tests {
         let ctx = Context::new();
         let x = ctx.bvs("x", 32)?;
         let x_name = ctx.intern_string("x");
-        let result = find_variable(x.clone().into(), &x_name);
+        let result = find_variable(x.clone(), &x_name);
         assert!(result.is_some());
-        assert_eq!(&result.unwrap().variables(), x.variables());
+        assert_eq!(result.unwrap().variables(), x.variables());
         Ok(())
     }
 
@@ -44,7 +44,7 @@ mod tests {
         let expr = ctx.add(&x, &y)?;
 
         let x_name = ctx.intern_string("x");
-        let result = find_variable(expr.into(), &x_name);
+        let result = find_variable(expr, &x_name);
         assert!(result.is_some());
         let found = result.unwrap();
         assert!(found.variables().contains("x"));
@@ -60,7 +60,7 @@ mod tests {
         let expr = ctx.mul(&ctx.add(&x, &y)?, &z)?;
 
         let x_name = ctx.intern_string("x");
-        let result = find_variable(expr.into(), &x_name);
+        let result = find_variable(expr, &x_name);
         assert!(result.is_some());
         let found = result.unwrap();
         assert!(found.variables().contains("x"));

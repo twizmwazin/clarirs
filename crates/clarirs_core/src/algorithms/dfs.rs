@@ -13,16 +13,16 @@ pub enum DfsResult {
 /// returns `DfsResult::SkipChildren`, the children of the node are not visited.
 /// If the callback returns `DfsResult::Stop`, the traversal is stopped.
 pub fn walk_dfs<'c>(
-    ast: &DynAst<'c>,
-    mut callback: impl FnMut(&DynAst<'c>) -> DfsResult,
+    ast: &AstRef<'c>,
+    mut callback: impl FnMut(&AstRef<'c>) -> DfsResult,
 ) -> Result<(), ClarirsError> {
     let mut stack = vec![ast.clone()];
 
     while let Some(current) = stack.pop() {
         match callback(&current) {
             DfsResult::Continue => {
-                for child in current.child_iter() {
-                    stack.push(child.clone());
+                for child in current.op().children() {
+                    stack.push(child);
                 }
             }
             DfsResult::SkipChildren => continue,
@@ -45,10 +45,9 @@ mod tests {
             &ctx.bvs("a", 64)?,
             &ctx.mul(&ctx.bvs("b", 64)?, &ctx.bvs("c", 64)?)?,
         )?;
-        let var_ast = DynAst::from(&ast);
         let mut visited = Vec::new();
 
-        walk_dfs(&var_ast, |node| {
+        walk_dfs(&ast, |node| {
             visited.push(node.clone());
             DfsResult::Continue
         })

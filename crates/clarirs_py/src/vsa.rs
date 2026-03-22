@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 
 use clarirs_vsa::StridedInterval;
-use clarirs_vsa::reduce::Reduce;
+use clarirs_vsa::reduce::{Reduce, ReduceResult};
 use clarirs_vsa::strided_interval::ComparisonResult;
 use num_bigint::{BigInt, BigUint};
 
@@ -23,12 +23,13 @@ pub fn reduce<'py>(
     if let Ok(bool_expr) = expr.clone().into_any().cast::<Bool>() {
         let reduced = bool_expr.get().inner.reduce()?;
         let result = match reduced {
-            ComparisonResult::True => Bool::new(py, &GLOBAL_CONTEXT.true_()?)?,
-            ComparisonResult::False => Bool::new(py, &GLOBAL_CONTEXT.false_()?)?,
-            ComparisonResult::Maybe => {
+            ReduceResult::Bool(ComparisonResult::True) => Bool::new(py, &GLOBAL_CONTEXT.true_()?)?,
+            ReduceResult::Bool(ComparisonResult::False) => Bool::new(py, &GLOBAL_CONTEXT.false_()?)?,
+            ReduceResult::Bool(ComparisonResult::Maybe) => {
                 use crate::ast::bool::BoolS;
                 BoolS(py, "maybe", false)?
             }
+            _ => return Err(ClaripyError::TypeError("Expected Bool reduce result".to_string())),
         };
         return Ok(result.into_any().cast::<Base>()?.clone());
     }
@@ -36,13 +37,13 @@ pub fn reduce<'py>(
     if let Ok(bv_expr) = expr.clone().into_any().cast::<BV>() {
         let reduced = bv_expr.get().inner.reduce()?;
         let result = match reduced {
-            StridedInterval::Empty { .. } => bv_expr.clone(),
-            StridedInterval::Normal {
+            ReduceResult::BitVec(StridedInterval::Empty { .. }) => bv_expr.clone(),
+            ReduceResult::BitVec(StridedInterval::Normal {
                 bits,
                 stride,
                 lower_bound,
                 upper_bound,
-            } => {
+            }) => {
                 if lower_bound == upper_bound {
                     BV::new(
                         py,
@@ -55,6 +56,7 @@ pub fn reduce<'py>(
                     )?
                 }
             }
+            _ => return Err(ClaripyError::TypeError("Expected BitVec reduce result".to_string())),
         };
         return Ok(result.into_any().cast::<Base>()?.clone());
     }
@@ -69,7 +71,7 @@ pub fn reduce<'py>(
 pub fn is_true(expr: Bound<'_, Bool>) -> Result<bool, ClaripyError> {
     Ok(matches!(
         expr.get().inner.simplify()?.reduce()?,
-        ComparisonResult::True
+        ReduceResult::Bool(ComparisonResult::True)
     ))
 }
 
@@ -78,7 +80,7 @@ pub fn is_true(expr: Bound<'_, Bool>) -> Result<bool, ClaripyError> {
 pub fn is_false(expr: Bound<'_, Bool>) -> Result<bool, ClaripyError> {
     Ok(matches!(
         expr.get().inner.simplify()?.reduce()?,
-        ComparisonResult::False
+        ReduceResult::Bool(ComparisonResult::False)
     ))
 }
 
@@ -87,7 +89,7 @@ pub fn is_false(expr: Bound<'_, Bool>) -> Result<bool, ClaripyError> {
 pub fn has_true(expr: Bound<'_, Bool>) -> Result<bool, ClaripyError> {
     Ok(matches!(
         expr.get().inner.simplify()?.reduce()?,
-        ComparisonResult::True | ComparisonResult::Maybe
+        ReduceResult::Bool(ComparisonResult::True) | ReduceResult::Bool(ComparisonResult::Maybe)
     ))
 }
 
@@ -96,7 +98,7 @@ pub fn has_true(expr: Bound<'_, Bool>) -> Result<bool, ClaripyError> {
 pub fn has_false(expr: Bound<'_, Bool>) -> Result<bool, ClaripyError> {
     Ok(matches!(
         expr.get().inner.simplify()?.reduce()?,
-        ComparisonResult::False | ComparisonResult::Maybe
+        ReduceResult::Bool(ComparisonResult::False) | ReduceResult::Bool(ComparisonResult::Maybe)
     ))
 }
 
@@ -104,7 +106,11 @@ pub fn has_false(expr: Bound<'_, Bool>) -> Result<bool, ClaripyError> {
 #[pyfunction]
 #[pyo3(signature = (expr, signed = false))]
 pub fn min(expr: Bound<'_, BV>, signed: bool) -> Result<BigInt, ClaripyError> {
-    let si = expr.get().inner.simplify()?.reduce()?;
+    let reduced = expr.get().inner.simplify()?.reduce()?;
+    let si = match reduced {
+        ReduceResult::BitVec(si) => si,
+        _ => return Err(ClaripyError::TypeError("Expected BitVec reduce result".to_string())),
+    };
     if signed {
         let (min_bound, _) = si.get_signed_bounds();
         Ok(min_bound)
@@ -118,7 +124,11 @@ pub fn min(expr: Bound<'_, BV>, signed: bool) -> Result<BigInt, ClaripyError> {
 #[pyfunction]
 #[pyo3(signature = (expr, signed = false))]
 pub fn max(expr: Bound<'_, BV>, signed: bool) -> Result<BigInt, ClaripyError> {
-    let si = expr.get().inner.simplify()?.reduce()?;
+    let reduced = expr.get().inner.simplify()?.reduce()?;
+    let si = match reduced {
+        ReduceResult::BitVec(si) => si,
+        _ => return Err(ClaripyError::TypeError("Expected BitVec reduce result".to_string())),
+    };
     if signed {
         let (_, max_bound) = si.get_signed_bounds();
         Ok(max_bound)
@@ -131,14 +141,22 @@ pub fn max(expr: Bound<'_, BV>, signed: bool) -> Result<BigInt, ClaripyError> {
 /// Evaluate a BV expression via VSA, returning up to `n` concrete values as Python ints.
 #[pyfunction]
 pub fn eval<'py>(expr: Bound<'py, BV>, n: u32) -> Result<Vec<BigUint>, ClaripyError> {
-    let si = expr.get().inner.simplify()?.reduce()?;
+    let reduced = expr.get().inner.simplify()?.reduce()?;
+    let si = match reduced {
+        ReduceResult::BitVec(si) => si,
+        _ => return Err(ClaripyError::TypeError("Expected BitVec reduce result".to_string())),
+    };
     Ok(si.eval(n))
 }
 
 /// Get the cardinality (number of possible concrete values) of a BV expression via VSA.
 #[pyfunction]
 pub fn cardinality(expr: Bound<'_, BV>) -> Result<num_bigint::BigUint, ClaripyError> {
-    let si = expr.get().inner.simplify()?.reduce()?;
+    let reduced = expr.get().inner.simplify()?.reduce()?;
+    let si = match reduced {
+        ReduceResult::BitVec(si) => si,
+        _ => return Err(ClaripyError::TypeError("Expected BitVec reduce result".to_string())),
+    };
     Ok(si.cardinality())
 }
 
@@ -153,7 +171,10 @@ pub fn identical(a: Bound<'_, Base>, b: Bound<'_, Base>) -> Result<bool, Claripy
     {
         let reduced_a = a_bv.get().inner.reduce()?;
         let reduced_b = b_bv.get().inner.reduce()?;
-        return Ok(reduced_a == reduced_b);
+        return match (reduced_a, reduced_b) {
+            (ReduceResult::BitVec(a_si), ReduceResult::BitVec(b_si)) => Ok(a_si == b_si),
+            _ => Ok(false),
+        };
     }
 
     // Try as Bool
@@ -162,7 +183,10 @@ pub fn identical(a: Bound<'_, Base>, b: Bound<'_, Base>) -> Result<bool, Claripy
     {
         let reduced_a = a_bool.get().inner.reduce()?;
         let reduced_b = b_bool.get().inner.reduce()?;
-        return Ok(reduced_a == reduced_b);
+        return match (reduced_a, reduced_b) {
+            (ReduceResult::Bool(a_cr), ReduceResult::Bool(b_cr)) => Ok(a_cr == b_cr),
+            _ => Ok(false),
+        };
     }
 
     Err(ClaripyError::TypeError(
