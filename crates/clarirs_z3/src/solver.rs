@@ -1,4 +1,4 @@
-use crate::astext::AstExtZ3;
+use crate::astext::{AstExtZ3, DynamicExt};
 use clarirs_core::ast::bitvec::BitVecOpExt;
 use clarirs_core::prelude::*;
 use std::collections::HashMap;
@@ -138,10 +138,10 @@ impl<'c> Z3Solver<'c> {
             .ctx
             .bvs(&format!("{label}_signed_target_{size}"), size)?;
         let eq_z3 = self.ctx.eq_(&target, expr)?.to_z3()?;
-        z3_optimize.assert(&eq_z3.as_bool().unwrap());
+        z3_optimize.assert(&eq_z3.to_bool()?);
 
         let sign_z3 = self.ctx.eq_(&sign_bit, &target_bit)?.to_z3()?;
-        z3_optimize.assert_soft(&sign_z3.as_bool().unwrap(), 1000000, None);
+        z3_optimize.assert_soft(&sign_z3.to_bool()?, 1000000, None);
 
         let target_z3 = target.to_z3()?;
         if minimize {
@@ -162,7 +162,7 @@ impl<'c> Z3Solver<'c> {
         let z3_expr = expr.to_z3()?;
         let z3_solver = z3::Solver::new();
         for assertion in &self.assertions {
-            z3_solver.assert(&assertion.to_z3()?.as_bool().unwrap());
+            z3_solver.assert(&assertion.to_z3()?.to_bool()?);
         }
 
         let mut results = Vec::new();
@@ -182,7 +182,7 @@ impl<'c> Z3Solver<'c> {
                 (DynAst::String(a), DynAst::String(b)) => self.ctx.neq(a, b)?,
                 _ => unreachable!(),
             };
-            z3_solver.assert(&neq_constraint.to_z3()?.as_bool().unwrap());
+            z3_solver.assert(&neq_constraint.to_z3()?.to_bool()?);
         }
         Ok(results)
     }
@@ -201,13 +201,11 @@ impl<'c> Z3Solver<'c> {
 
         for (idx, assertion) in self.assertions.iter().enumerate() {
             let converted = assertion.to_z3()?;
-            let bool_ast = converted.as_bool().ok_or_else(|| {
-                ClarirsError::ConversionError("expected bool for assertion".to_string())
-            })?;
+            let bool_ast = converted.to_bool()?;
             if self.unsat_core {
                 if let Some(track_var) = self.tracking_vars.get(&idx) {
                     let track_z3 = track_var.to_z3()?;
-                    let track_bool = track_z3.as_bool().unwrap();
+                    let track_bool = track_z3.to_bool()?;
                     z3_solver.assert_and_track(&bool_ast, &track_bool);
                 } else {
                     z3_solver.assert(&bool_ast);
@@ -225,9 +223,7 @@ impl<'c> Z3Solver<'c> {
 
         for assertion in &self.assertions {
             let converted = assertion.to_z3()?;
-            let bool_ast = converted.as_bool().ok_or_else(|| {
-                ClarirsError::ConversionError("expected bool for assertion".to_string())
-            })?;
+            let bool_ast = converted.to_bool()?;
             z3_optimize.assert(&bool_ast);
         }
 

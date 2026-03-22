@@ -1,9 +1,63 @@
-fn child(children: &[z3::ast::Dynamic], index: usize) -> Result<&z3::ast::Dynamic, ClarirsError> {
+use clarirs_core::{algorithms::walk_post_order, prelude::*};
+use z3::ast::{Ast, Dynamic};
+
+use crate::Z3_AST_CACHE;
+
+fn child(children: &[Dynamic], index: usize) -> Result<&Dynamic, ClarirsError> {
     children
         .get(index)
         .ok_or(ClarirsError::InvalidArguments(format!(
             "missing child at index {index}"
         )))
+}
+
+/// Extension trait for `z3::ast::Dynamic` to convert to specific Z3 AST types
+/// with proper error propagation instead of panicking.
+pub(crate) trait DynamicExt {
+    fn to_bool(&self) -> Result<z3::ast::Bool, ClarirsError>;
+    fn to_bv(&self) -> Result<z3::ast::BV, ClarirsError>;
+    fn to_float(&self) -> Result<z3::ast::Float, ClarirsError>;
+    fn to_string_ast(&self) -> Result<z3::ast::String, ClarirsError>;
+    fn to_int(&self) -> Result<z3::ast::Int, ClarirsError>;
+    fn nth(&self, index: usize) -> Result<Dynamic, ClarirsError>;
+    fn get_decl(&self) -> Result<z3::FuncDeclRef, ClarirsError>;
+}
+
+impl DynamicExt for Dynamic {
+    fn to_bool(&self) -> Result<z3::ast::Bool, ClarirsError> {
+        self.as_bool()
+            .ok_or_else(|| ClarirsError::ConversionError("expected bool sort".into()))
+    }
+
+    fn to_bv(&self) -> Result<z3::ast::BV, ClarirsError> {
+        self.as_bv()
+            .ok_or_else(|| ClarirsError::ConversionError("expected bv sort".into()))
+    }
+
+    fn to_float(&self) -> Result<z3::ast::Float, ClarirsError> {
+        self.as_float()
+            .ok_or_else(|| ClarirsError::ConversionError("expected float sort".into()))
+    }
+
+    fn to_string_ast(&self) -> Result<z3::ast::String, ClarirsError> {
+        self.as_string()
+            .ok_or_else(|| ClarirsError::ConversionError("expected string sort".into()))
+    }
+
+    fn to_int(&self) -> Result<z3::ast::Int, ClarirsError> {
+        self.as_int()
+            .ok_or_else(|| ClarirsError::ConversionError("expected int sort".into()))
+    }
+
+    fn nth(&self, index: usize) -> Result<Dynamic, ClarirsError> {
+        self.nth_child(index)
+            .ok_or_else(|| ClarirsError::ConversionError(format!("missing child at index {index}")))
+    }
+
+    fn get_decl(&self) -> Result<z3::FuncDeclRef, ClarirsError> {
+        self.safe_decl()
+            .map_err(|_| ClarirsError::ConversionError("not an app".into()))
+    }
 }
 
 mod bool;
@@ -19,11 +73,6 @@ mod test_bv;
 mod test_float;
 #[cfg(test)]
 mod test_string;
-
-use clarirs_core::{algorithms::walk_post_order, prelude::*};
-use z3::ast::{Ast, Dynamic};
-
-use crate::Z3_AST_CACHE;
 
 pub(crate) trait AstExtZ3<'c>: HasContext<'c> + Simplify<'c> + Sized {
     fn to_z3(&self) -> Result<Dynamic, ClarirsError>;
