@@ -6,13 +6,9 @@ use crate::Z3_AST_CACHE;
 fn child(children: &[Dynamic], index: usize) -> Result<&Dynamic, ClarirsError> {
     children
         .get(index)
-        .ok_or(ClarirsError::InvalidArguments(format!(
-            "missing child at index {index}"
-        )))
+        .ok_or_else(|| ClarirsError::InvalidArguments(format!("missing child at index {index}")))
 }
 
-/// Extension trait for `z3::ast::Dynamic` to convert to specific Z3 AST types
-/// with proper error propagation instead of panicking.
 pub(crate) trait DynamicExt {
     fn to_bool(&self) -> Result<z3::ast::Bool, ClarirsError>;
     fn to_bv(&self) -> Result<z3::ast::BV, ClarirsError>;
@@ -142,20 +138,15 @@ impl<'c> AstExtZ3<'c> for DynAst<'c> {
     }
 
     fn from_z3(ctx: &'c Context<'c>, ast: Dynamic) -> Result<Self, ClarirsError> {
-        if let Ok(ast) = BoolAst::from_z3(ctx, ast.clone()) {
-            return Ok(DynAst::Boolean(ast));
+        match ast.sort_kind() {
+            z3::SortKind::Bool => Ok(DynAst::Boolean(BoolAst::from_z3(ctx, ast)?)),
+            z3::SortKind::BV => Ok(DynAst::BitVec(BitVecAst::from_z3(ctx, ast)?)),
+            z3::SortKind::FloatingPoint => Ok(DynAst::Float(FloatAst::from_z3(ctx, ast)?)),
+            z3::SortKind::Seq => Ok(DynAst::String(StringAst::from_z3(ctx, ast)?)),
+            _ => Err(ClarirsError::ConversionError(format!(
+                "unknown sort kind: {:?}",
+                ast.sort_kind()
+            ))),
         }
-        if let Ok(ast) = BitVecAst::from_z3(ctx, ast.clone()) {
-            return Ok(DynAst::BitVec(ast));
-        }
-        if let Ok(ast) = FloatAst::from_z3(ctx, ast.clone()) {
-            return Ok(DynAst::Float(ast));
-        }
-        if let Ok(ast) = StringAst::from_z3(ctx, ast.clone()) {
-            return Ok(DynAst::String(ast));
-        }
-        Err(ClarirsError::ConversionError(
-            "Unknown AST type".to_string(),
-        ))
     }
 }

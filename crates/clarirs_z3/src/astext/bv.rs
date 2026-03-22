@@ -6,9 +6,7 @@ use z3::ast::{Ast, Dynamic};
 use super::AstExtZ3;
 use crate::astext::{DynamicExt, child};
 
-/// Helper to get an integer parameter from a Z3 func_decl.
-/// This is the only place we need z3-sys directly, as the z3 crate
-/// does not expose func_decl parameters.
+/// z3 crate does not expose func_decl parameters, so we use z3-sys directly.
 fn get_decl_int_parameter(ast: &Dynamic, param_index: u32) -> u32 {
     let ctx = ast.get_ctx();
     unsafe {
@@ -20,7 +18,6 @@ fn get_decl_int_parameter(ast: &Dynamic, param_index: u32) -> u32 {
     }
 }
 
-/// Fold a binary BV operation across all children.
 fn fold_bv(
     children: &[Dynamic],
     op: fn(&z3::ast::BV, &z3::ast::BV) -> z3::ast::BV,
@@ -30,17 +27,6 @@ fn fold_bv(
         result = op(&result, &c.to_bv()?);
     }
     Ok(Dynamic::from(result))
-}
-
-/// Apply a binary BV operation to two children.
-fn binop_bv(
-    children: &[Dynamic],
-    op: fn(&z3::ast::BV, &z3::ast::BV) -> z3::ast::BV,
-) -> Result<Dynamic, ClarirsError> {
-    Ok(Dynamic::from(op(
-        &children[0].to_bv()?,
-        &children[1].to_bv()?,
-    )))
 }
 
 pub(crate) fn to_z3(ast: &BitVecAst, children: &[Dynamic]) -> Result<Dynamic, ClarirsError> {
@@ -61,17 +47,17 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[Dynamic]) -> Result<Dynamic, Cl
         BitVecOp::Or(..) => fold_bv(children, z3::ast::BV::bvor)?,
         BitVecOp::Xor(..) => fold_bv(children, z3::ast::BV::bvxor)?,
         BitVecOp::Add(..) => fold_bv(children, z3::ast::BV::bvadd)?,
-        BitVecOp::Sub(..) => binop_bv(children, z3::ast::BV::bvsub)?,
+        BitVecOp::Sub(..) => fold_bv(children, z3::ast::BV::bvsub)?,
         BitVecOp::Mul(..) => fold_bv(children, z3::ast::BV::bvmul)?,
-        BitVecOp::UDiv(..) => binop_bv(children, z3::ast::BV::bvudiv)?,
-        BitVecOp::SDiv(..) => binop_bv(children, z3::ast::BV::bvsdiv)?,
-        BitVecOp::URem(..) => binop_bv(children, z3::ast::BV::bvurem)?,
-        BitVecOp::SRem(..) => binop_bv(children, z3::ast::BV::bvsrem)?,
-        BitVecOp::ShL(..) => binop_bv(children, z3::ast::BV::bvshl)?,
-        BitVecOp::LShR(..) => binop_bv(children, z3::ast::BV::bvlshr)?,
-        BitVecOp::AShR(..) => binop_bv(children, z3::ast::BV::bvashr)?,
-        BitVecOp::RotateLeft(..) => binop_bv(children, z3::ast::BV::bvrotl)?,
-        BitVecOp::RotateRight(..) => binop_bv(children, z3::ast::BV::bvrotr)?,
+        BitVecOp::UDiv(..) => fold_bv(children, z3::ast::BV::bvudiv)?,
+        BitVecOp::SDiv(..) => fold_bv(children, z3::ast::BV::bvsdiv)?,
+        BitVecOp::URem(..) => fold_bv(children, z3::ast::BV::bvurem)?,
+        BitVecOp::SRem(..) => fold_bv(children, z3::ast::BV::bvsrem)?,
+        BitVecOp::ShL(..) => fold_bv(children, z3::ast::BV::bvshl)?,
+        BitVecOp::LShR(..) => fold_bv(children, z3::ast::BV::bvlshr)?,
+        BitVecOp::AShR(..) => fold_bv(children, z3::ast::BV::bvashr)?,
+        BitVecOp::RotateLeft(..) => fold_bv(children, z3::ast::BV::bvrotl)?,
+        BitVecOp::RotateRight(..) => fold_bv(children, z3::ast::BV::bvrotr)?,
         BitVecOp::ZeroExt(_, i) => Dynamic::from(child(children, 0)?.to_bv()?.zero_ext(*i)),
         BitVecOp::SignExt(_, i) => Dynamic::from(child(children, 0)?.to_bv()?.sign_ext(*i)),
         BitVecOp::Extract(a, high, low) => {
@@ -199,11 +185,12 @@ pub(crate) fn from_z3<'c>(
         z3::AstKind::App => {
             let decl = ast.get_decl()?;
             let decl_kind = decl.kind();
-            let bv = ast.to_bv()?;
-            let width = bv.get_size();
 
             match decl_kind {
-                z3::DeclKind::UNINTERPRETED => ctx.bvs(&decl.name(), width),
+                z3::DeclKind::UNINTERPRETED => {
+                    let bv = ast.to_bv()?;
+                    ctx.bvs(&decl.name(), bv.get_size())
+                }
                 z3::DeclKind::BNOT => ctx.not(BitVecAst::from_z3(ctx, ast.nth(0)?)?),
                 z3::DeclKind::BNEG => ctx.neg(BitVecAst::from_z3(ctx, ast.nth(0)?)?),
                 z3::DeclKind::BAND
@@ -286,6 +273,7 @@ pub(crate) fn from_z3<'c>(
                     ctx.ite(cond, then, else_)
                 }
                 z3::DeclKind::INT2BV => {
+                    let width = ast.to_bv()?.get_size();
                     let inner_int = ast.nth(0)?;
                     match inner_int.kind() {
                         z3::AstKind::Numeral => {

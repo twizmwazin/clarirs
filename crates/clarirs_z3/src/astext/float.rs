@@ -14,7 +14,6 @@ pub(crate) fn fprm_to_z3(rm: FPRM) -> Result<RoundingMode, ClarirsError> {
     })
 }
 
-/// Create a float from sign, exponent, and significand bitvectors using z3-sys.
 pub(crate) fn float_from_sign_exp_sig(
     sign: &z3::ast::BV,
     exp: &z3::ast::BV,
@@ -36,13 +35,11 @@ pub(crate) fn float_from_sign_exp_sig(
     }
 }
 
-/// Create a Z3 floating-point sort with the given exponent and significand bit widths.
 unsafe fn mk_fpa_sort(z3_ctx: z3_sys::Z3_context, ebits: u32, sbits: u32) -> z3_sys::Z3_sort {
     // unwrap is safe: valid Z3 context with valid bit widths
     z3_sys::Z3_mk_fpa_sort(z3_ctx, ebits, sbits).unwrap()
 }
 
-/// Interpret a bitvector as a float of the given sort using z3-sys.
 fn float_from_bv(bv: &z3::ast::BV, ebits: u32, sbits: u32) -> Dynamic {
     let ctx = bv.get_ctx();
     unsafe {
@@ -55,7 +52,6 @@ fn float_from_bv(bv: &z3::ast::BV, ebits: u32, sbits: u32) -> Dynamic {
     }
 }
 
-/// Convert a signed bitvector to float with rounding mode using z3-sys.
 fn signed_bv_to_float(bv: &z3::ast::BV, rm: &RoundingMode, ebits: u32, sbits: u32) -> Dynamic {
     let ctx = bv.get_ctx();
     unsafe {
@@ -73,7 +69,6 @@ fn signed_bv_to_float(bv: &z3::ast::BV, rm: &RoundingMode, ebits: u32, sbits: u3
     }
 }
 
-/// Convert an unsigned bitvector to float with rounding mode using z3-sys.
 fn unsigned_bv_to_float(bv: &z3::ast::BV, rm: &RoundingMode, ebits: u32, sbits: u32) -> Dynamic {
     let ctx = bv.get_ctx();
     unsafe {
@@ -165,7 +160,6 @@ pub(crate) fn to_z3(ast: &FloatAst, children: &[Dynamic]) -> Result<Dynamic, Cla
     })
 }
 
-/// Extract FSort from a Z3 float sort.
 fn get_fsort(fp: &Float) -> Result<FSort, ClarirsError> {
     let sort = fp.get_sort();
     let ebits = sort
@@ -202,11 +196,11 @@ pub(crate) fn from_z3<'c>(
         z3::AstKind::App => {
             let decl = ast.get_decl()?;
             let decl_kind = decl.kind();
-            let fp = ast.to_float()?;
-            let fsort = get_fsort(&fp)?;
 
             match decl_kind {
                 z3::DeclKind::FPA_NUM => {
+                    let fp = ast.to_float()?;
+                    let fsort = get_fsort(&fp)?;
                     let val = fp.as_f64();
                     if fsort == FSort::f32() {
                         ctx.fpv(clarirs_core::prelude::Float::F32(val as f32))
@@ -215,12 +209,16 @@ pub(crate) fn from_z3<'c>(
                     }
                 }
                 z3::DeclKind::FPA_NAN => {
+                    let fsort = get_fsort(&ast.to_float()?)?;
                     if fsort == FSort::f32() {
                         return ctx.fpv(clarirs_core::prelude::Float::F32(f32::NAN));
                     }
                     ctx.fpv(clarirs_core::prelude::Float::F64(f64::NAN))
                 }
-                z3::DeclKind::UNINTERPRETED => ctx.fps(&decl.name(), fsort),
+                z3::DeclKind::UNINTERPRETED => {
+                    let fsort = get_fsort(&ast.to_float()?)?;
+                    ctx.fps(&decl.name(), fsort)
+                }
                 z3::DeclKind::FPA_NEG => ctx.fp_neg(FloatAst::from_z3(ctx, ast.nth(0)?)?),
                 z3::DeclKind::FPA_ABS => ctx.fp_abs(FloatAst::from_z3(ctx, ast.nth(0)?)?),
                 z3::DeclKind::FPA_ADD

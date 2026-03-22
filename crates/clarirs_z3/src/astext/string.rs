@@ -1,20 +1,23 @@
 use crate::astext::{DynamicExt, child};
 use clarirs_core::prelude::*;
 use regex::Regex;
+use std::sync::LazyLock;
 use z3::ast::{Ast, Dynamic};
 
 use super::AstExtZ3;
 
+static UNICODE_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\\u\{([0-9a-fA-F]+)\}").unwrap());
+
 fn decode_custom_unicode(input: &str) -> String {
-    let re = Regex::new(r"\\u\{([0-9a-fA-F]+)\}").unwrap();
-    re.replace_all(input, |caps: &regex::Captures| {
-        let num = u32::from_str_radix(&caps[1], 16).unwrap();
-        std::char::from_u32(num).unwrap().to_string()
-    })
-    .into_owned()
+    UNICODE_RE
+        .replace_all(input, |caps: &regex::Captures| {
+            let num = u32::from_str_radix(&caps[1], 16).unwrap();
+            std::char::from_u32(num).unwrap().to_string()
+        })
+        .into_owned()
 }
 
-/// Convert a string to an integer using z3-sys (Z3_mk_str_to_int).
 /// Not exposed by the z3 crate's String type.
 pub(crate) fn str_to_int(s: &z3::ast::String) -> z3::ast::Int {
     let ctx = s.get_ctx();
@@ -27,7 +30,6 @@ pub(crate) fn str_to_int(s: &z3::ast::String) -> z3::ast::Int {
     }
 }
 
-/// Convert an integer to a string using z3-sys (Z3_mk_int_to_str).
 fn int_to_str(i: &z3::ast::Int) -> z3::ast::String {
     let ctx = i.get_ctx();
     unsafe {
@@ -39,7 +41,6 @@ fn int_to_str(i: &z3::ast::Int) -> z3::ast::String {
     }
 }
 
-/// Find the index of a pattern in a string using z3-sys (Z3_mk_seq_index).
 pub(crate) fn str_index_of_z3(
     haystack: &z3::ast::String,
     needle: &z3::ast::String,
@@ -61,7 +62,6 @@ pub(crate) fn str_index_of_z3(
     }
 }
 
-/// Replace occurrences of a pattern in a string using z3-sys (Z3_mk_seq_replace).
 pub(crate) fn str_replace_z3(
     s: &z3::ast::String,
     from: &z3::ast::String,

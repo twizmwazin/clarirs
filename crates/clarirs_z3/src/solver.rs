@@ -15,23 +15,11 @@ pub struct Z3Solver<'c> {
 
 impl<'c> Z3Solver<'c> {
     pub fn new(ctx: &'c Context<'c>) -> Self {
-        Self {
-            ctx,
-            assertions: vec![],
-            timeout: None,
-            unsat_core: false,
-            tracking_vars: HashMap::new(),
-        }
+        Self::new_with_options(ctx, None, false)
     }
 
     pub fn new_with_timeout(ctx: &'c Context<'c>, timeout: Option<u32>) -> Self {
-        Self {
-            ctx,
-            assertions: vec![],
-            timeout,
-            unsat_core: false,
-            tracking_vars: HashMap::new(),
-        }
+        Self::new_with_options(ctx, timeout, false)
     }
 
     pub fn new_with_options(ctx: &'c Context<'c>, timeout: Option<u32>, unsat_core: bool) -> Self {
@@ -174,7 +162,6 @@ impl<'c> Z3Solver<'c> {
                 ClarirsError::BackendError("Z3", "failed to get model".to_string())
             })?;
             let solution = DynAst::from_z3(self.ctx, Self::eval_model(&model, &z3_expr)?)?;
-            results.push(solution.clone());
             let neq_constraint = match (&expr, &solution) {
                 (DynAst::Boolean(a), DynAst::Boolean(b)) => self.ctx.neq(a, b)?,
                 (DynAst::BitVec(a), DynAst::BitVec(b)) => self.ctx.neq(a, b)?,
@@ -183,6 +170,7 @@ impl<'c> Z3Solver<'c> {
                 _ => unreachable!(),
             };
             z3_solver.assert(&neq_constraint.to_z3()?.to_bool()?);
+            results.push(solution);
         }
         Ok(results)
     }
