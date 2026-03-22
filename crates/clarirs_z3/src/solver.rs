@@ -124,7 +124,7 @@ impl<'c> Z3Solver<'c> {
         let label = if minimize { "min" } else { "max" };
         let target = self
             .ctx
-            .bvs(&format!("{label}_signed_target_{size}"), size)?;
+            .bvs(format!("{label}_signed_target_{size}"), size)?;
         let eq_z3 = self.ctx.eq_(&target, expr)?.to_z3()?;
         z3_optimize.assert(&eq_z3.to_bool()?);
 

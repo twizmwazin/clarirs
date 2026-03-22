@@ -20,7 +20,7 @@ fn get_decl_int_parameter(ast: &Dynamic, param_index: u32) -> u32 {
 
 fn fold_bv(
     children: &[Dynamic],
-    op: fn(&z3::ast::BV, &z3::ast::BV) -> z3::ast::BV,
+    op: impl Fn(&z3::ast::BV, &z3::ast::BV) -> z3::ast::BV,
 ) -> Result<Dynamic, ClarirsError> {
     let mut result = children[0].to_bv()?;
     for c in &children[1..] {
@@ -43,21 +43,21 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[Dynamic]) -> Result<Dynamic, Cl
         }
         BitVecOp::Not(..) => Dynamic::from(child(children, 0)?.to_bv()?.bvnot()),
         BitVecOp::Neg(..) => Dynamic::from(child(children, 0)?.to_bv()?.bvneg()),
-        BitVecOp::And(..) => fold_bv(children, z3::ast::BV::bvand)?,
-        BitVecOp::Or(..) => fold_bv(children, z3::ast::BV::bvor)?,
-        BitVecOp::Xor(..) => fold_bv(children, z3::ast::BV::bvxor)?,
-        BitVecOp::Add(..) => fold_bv(children, z3::ast::BV::bvadd)?,
-        BitVecOp::Sub(..) => fold_bv(children, z3::ast::BV::bvsub)?,
-        BitVecOp::Mul(..) => fold_bv(children, z3::ast::BV::bvmul)?,
-        BitVecOp::UDiv(..) => fold_bv(children, z3::ast::BV::bvudiv)?,
-        BitVecOp::SDiv(..) => fold_bv(children, z3::ast::BV::bvsdiv)?,
-        BitVecOp::URem(..) => fold_bv(children, z3::ast::BV::bvurem)?,
-        BitVecOp::SRem(..) => fold_bv(children, z3::ast::BV::bvsrem)?,
-        BitVecOp::ShL(..) => fold_bv(children, z3::ast::BV::bvshl)?,
-        BitVecOp::LShR(..) => fold_bv(children, z3::ast::BV::bvlshr)?,
-        BitVecOp::AShR(..) => fold_bv(children, z3::ast::BV::bvashr)?,
-        BitVecOp::RotateLeft(..) => fold_bv(children, z3::ast::BV::bvrotl)?,
-        BitVecOp::RotateRight(..) => fold_bv(children, z3::ast::BV::bvrotr)?,
+        BitVecOp::And(..) => fold_bv(children, |a, b| a.bvand(b))?,
+        BitVecOp::Or(..) => fold_bv(children, |a, b| a.bvor(b))?,
+        BitVecOp::Xor(..) => fold_bv(children, |a, b| a.bvxor(b))?,
+        BitVecOp::Add(..) => fold_bv(children, |a, b| a.bvadd(b))?,
+        BitVecOp::Sub(..) => fold_bv(children, |a, b| a.bvsub(b))?,
+        BitVecOp::Mul(..) => fold_bv(children, |a, b| a.bvmul(b))?,
+        BitVecOp::UDiv(..) => fold_bv(children, |a, b| a.bvudiv(b))?,
+        BitVecOp::SDiv(..) => fold_bv(children, |a, b| a.bvsdiv(b))?,
+        BitVecOp::URem(..) => fold_bv(children, |a, b| a.bvurem(b))?,
+        BitVecOp::SRem(..) => fold_bv(children, |a, b| a.bvsrem(b))?,
+        BitVecOp::ShL(..) => fold_bv(children, |a, b| a.bvshl(b))?,
+        BitVecOp::LShR(..) => fold_bv(children, |a, b| a.bvlshr(b))?,
+        BitVecOp::AShR(..) => fold_bv(children, |a, b| a.bvashr(b))?,
+        BitVecOp::RotateLeft(..) => fold_bv(children, |a, b| a.bvrotl(b))?,
+        BitVecOp::RotateRight(..) => fold_bv(children, |a, b| a.bvrotr(b))?,
         BitVecOp::ZeroExt(_, i) => Dynamic::from(child(children, 0)?.to_bv()?.zero_ext(*i)),
         BitVecOp::SignExt(_, i) => Dynamic::from(child(children, 0)?.to_bv()?.sign_ext(*i)),
         BitVecOp::Extract(a, high, low) => {
@@ -101,7 +101,7 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[Dynamic]) -> Result<Dynamic, Cl
             let num_bytes = size / 8;
             let mut result = child_z3.extract(7, 0);
             for i in 1..num_bytes {
-                result = result.concat(&child_z3.extract((i + 1) * 8 - 1, i * 8));
+                result = result.concat(child_z3.extract((i + 1) * 8 - 1, i * 8));
             }
             Dynamic::from(result)
         }
@@ -189,7 +189,7 @@ pub(crate) fn from_z3<'c>(
             match decl_kind {
                 z3::DeclKind::UNINTERPRETED => {
                     let bv = ast.to_bv()?;
-                    ctx.bvs(&decl.name(), bv.get_size())
+                    ctx.bvs(decl.name(), bv.get_size())
                 }
                 z3::DeclKind::BNOT => ctx.not(BitVecAst::from_z3(ctx, ast.nth(0)?)?),
                 z3::DeclKind::BNEG => ctx.neg(BitVecAst::from_z3(ctx, ast.nth(0)?)?),

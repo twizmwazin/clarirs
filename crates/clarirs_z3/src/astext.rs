@@ -16,7 +16,7 @@ pub(crate) trait DynamicExt {
     fn to_string_ast(&self) -> Result<z3::ast::String, ClarirsError>;
     fn to_int(&self) -> Result<z3::ast::Int, ClarirsError>;
     fn nth(&self, index: usize) -> Result<Dynamic, ClarirsError>;
-    fn get_decl(&self) -> Result<z3::FuncDeclRef, ClarirsError>;
+    fn get_decl(&self) -> Result<z3::FuncDecl, ClarirsError>;
 }
 
 impl DynamicExt for Dynamic {
@@ -50,7 +50,7 @@ impl DynamicExt for Dynamic {
             .ok_or_else(|| ClarirsError::ConversionError(format!("missing child at index {index}")))
     }
 
-    fn get_decl(&self) -> Result<z3::FuncDeclRef, ClarirsError> {
+    fn get_decl(&self) -> Result<z3::FuncDecl, ClarirsError> {
         self.safe_decl()
             .map_err(|_| ClarirsError::ConversionError("not an app".into()))
     }

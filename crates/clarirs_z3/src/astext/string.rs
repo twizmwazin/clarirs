@@ -128,7 +128,7 @@ pub(crate) fn from_z3<'c>(
                     if ast.sort_kind() != z3::SortKind::Seq {
                         return Err(ClarirsError::ConversionError("expected a string".into()));
                     }
-                    ctx.strings(&decl.name())
+                    ctx.strings(decl.name())
                 }
                 z3::DeclKind::SEQ_CONCAT => {
                     let a = StringAst::from_z3(ctx, ast.nth(0)?)?;

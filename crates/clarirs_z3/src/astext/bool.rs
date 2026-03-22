@@ -6,7 +6,7 @@ use super::AstExtZ3;
 
 fn binop_bv_cmp(
     children: &[Dynamic],
-    op: fn(&z3::ast::BV, &z3::ast::BV) -> Bool,
+    op: impl Fn(&z3::ast::BV, &z3::ast::BV) -> Bool,
 ) -> Result<Dynamic, ClarirsError> {
     Ok(Dynamic::from(op(
         &child(children, 0)?.to_bv()?,
@@ -16,7 +16,7 @@ fn binop_bv_cmp(
 
 fn binop_float_cmp(
     children: &[Dynamic],
-    op: fn(&z3::ast::Float, &z3::ast::Float) -> Bool,
+    op: impl Fn(&z3::ast::Float, &z3::ast::Float) -> Bool,
 ) -> Result<Dynamic, ClarirsError> {
     Ok(Dynamic::from(op(
         &child(children, 0)?.to_float()?,
@@ -26,7 +26,7 @@ fn binop_float_cmp(
 
 fn binop_str(
     children: &[Dynamic],
-    op: fn(&z3::ast::String, &z3::ast::String) -> Bool,
+    op: impl Fn(&z3::ast::String, &z3::ast::String) -> Bool,
 ) -> Result<Dynamic, ClarirsError> {
     Ok(Dynamic::from(op(
         &child(children, 0)?.to_string_ast()?,
@@ -34,7 +34,7 @@ fn binop_str(
     )))
 }
 
-fn bool_fold(children: &[Dynamic], op: fn(&[&Bool]) -> Bool) -> Result<Dynamic, ClarirsError> {
+fn bool_fold(children: &[Dynamic], op: impl Fn(&[&Bool]) -> Bool) -> Result<Dynamic, ClarirsError> {
     let args: Vec<Bool> = children
         .iter()
         .map(|c| c.to_bool())
@@ -48,8 +48,8 @@ pub(crate) fn to_z3(ast: &BoolAst, children: &[Dynamic]) -> Result<Dynamic, Clar
         BooleanOp::BoolS(s) => Dynamic::from(Bool::new_const(s.as_str())),
         BooleanOp::BoolV(b) => Dynamic::from(Bool::from_bool(*b)),
         BooleanOp::Not(..) => Dynamic::from(child(children, 0)?.to_bool()?.not()),
-        BooleanOp::And(..) => bool_fold(children, Bool::and)?,
-        BooleanOp::Or(..) => bool_fold(children, Bool::or)?,
+        BooleanOp::And(..) => bool_fold(children, |args| Bool::and(args))?,
+        BooleanOp::Or(..) => bool_fold(children, |args| Bool::or(args))?,
         BooleanOp::Xor(..) => Dynamic::from(
             child(children, 0)?
                 .to_bool()?
@@ -73,28 +73,28 @@ pub(crate) fn to_z3(ast: &BoolAst, children: &[Dynamic]) -> Result<Dynamic, Clar
         ])),
 
         // BV comparisons
-        BooleanOp::ULT(..) => binop_bv_cmp(children, z3::ast::BV::bvult)?,
-        BooleanOp::ULE(..) => binop_bv_cmp(children, z3::ast::BV::bvule)?,
-        BooleanOp::UGT(..) => binop_bv_cmp(children, z3::ast::BV::bvugt)?,
-        BooleanOp::UGE(..) => binop_bv_cmp(children, z3::ast::BV::bvuge)?,
-        BooleanOp::SLT(..) => binop_bv_cmp(children, z3::ast::BV::bvslt)?,
-        BooleanOp::SLE(..) => binop_bv_cmp(children, z3::ast::BV::bvsle)?,
-        BooleanOp::SGT(..) => binop_bv_cmp(children, z3::ast::BV::bvsgt)?,
-        BooleanOp::SGE(..) => binop_bv_cmp(children, z3::ast::BV::bvsge)?,
+        BooleanOp::ULT(..) => binop_bv_cmp(children, |a, b| a.bvult(b))?,
+        BooleanOp::ULE(..) => binop_bv_cmp(children, |a, b| a.bvule(b))?,
+        BooleanOp::UGT(..) => binop_bv_cmp(children, |a, b| a.bvugt(b))?,
+        BooleanOp::UGE(..) => binop_bv_cmp(children, |a, b| a.bvuge(b))?,
+        BooleanOp::SLT(..) => binop_bv_cmp(children, |a, b| a.bvslt(b))?,
+        BooleanOp::SLE(..) => binop_bv_cmp(children, |a, b| a.bvsle(b))?,
+        BooleanOp::SGT(..) => binop_bv_cmp(children, |a, b| a.bvsgt(b))?,
+        BooleanOp::SGE(..) => binop_bv_cmp(children, |a, b| a.bvsge(b))?,
 
         // FP comparisons
-        BooleanOp::FpEq(..) => binop_float_cmp(children, z3::ast::Float::eq_fpa)?,
-        BooleanOp::FpLt(..) => binop_float_cmp(children, z3::ast::Float::lt)?,
-        BooleanOp::FpLeq(..) => binop_float_cmp(children, z3::ast::Float::le)?,
-        BooleanOp::FpGt(..) => binop_float_cmp(children, z3::ast::Float::gt)?,
-        BooleanOp::FpGeq(..) => binop_float_cmp(children, z3::ast::Float::ge)?,
+        BooleanOp::FpEq(..) => binop_float_cmp(children, |a, b| a.eq_fpa(b))?,
+        BooleanOp::FpLt(..) => binop_float_cmp(children, |a, b| a.lt(b))?,
+        BooleanOp::FpLeq(..) => binop_float_cmp(children, |a, b| a.le(b))?,
+        BooleanOp::FpGt(..) => binop_float_cmp(children, |a, b| a.gt(b))?,
+        BooleanOp::FpGeq(..) => binop_float_cmp(children, |a, b| a.ge(b))?,
         BooleanOp::FpIsNan(..) => Dynamic::from(child(children, 0)?.to_float()?.is_nan()),
         BooleanOp::FpIsInf(..) => Dynamic::from(child(children, 0)?.to_float()?.is_infinite()),
 
         // String comparisons
-        BooleanOp::StrContains(..) => binop_str(children, z3::ast::String::contains)?,
-        BooleanOp::StrPrefixOf(..) => binop_str(children, z3::ast::String::prefix)?,
-        BooleanOp::StrSuffixOf(..) => binop_str(children, z3::ast::String::suffix)?,
+        BooleanOp::StrContains(..) => binop_str(children, |a, b| a.contains(b))?,
+        BooleanOp::StrPrefixOf(..) => binop_str(children, |a, b| a.prefix(b))?,
+        BooleanOp::StrSuffixOf(..) => binop_str(children, |a, b| a.suffix(b))?,
         BooleanOp::StrIsDigit(..) => {
             let a = child(children, 0)?.to_string_ast()?;
             let zero = z3::ast::Int::from_i64(0);
@@ -247,7 +247,7 @@ pub(crate) fn from_z3<'c>(ctx: &'c Context<'c>, ast: Dynamic) -> Result<BoolAst<
                     if ast.sort_kind() != z3::SortKind::Bool {
                         return Err(ClarirsError::ConversionError("expected a boolean".into()));
                     }
-                    ctx.bools(&decl.name())
+                    ctx.bools(decl.name())
                 }
                 _ => Err(ClarirsError::ConversionError(format!(
                     "Failed converting from z3: unknown decl kind for bool: {decl}"

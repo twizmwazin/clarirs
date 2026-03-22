@@ -37,7 +37,7 @@ pub(crate) fn float_from_sign_exp_sig(
 
 unsafe fn mk_fpa_sort(z3_ctx: z3_sys::Z3_context, ebits: u32, sbits: u32) -> z3_sys::Z3_sort {
     // unwrap is safe: valid Z3 context with valid bit widths
-    z3_sys::Z3_mk_fpa_sort(z3_ctx, ebits, sbits).unwrap()
+    unsafe { z3_sys::Z3_mk_fpa_sort(z3_ctx, ebits, sbits).unwrap() }
 }
 
 fn float_from_bv(bv: &z3::ast::BV, ebits: u32, sbits: u32) -> Dynamic {
@@ -217,7 +217,7 @@ pub(crate) fn from_z3<'c>(
                 }
                 z3::DeclKind::UNINTERPRETED => {
                     let fsort = get_fsort(&ast.to_float()?)?;
-                    ctx.fps(&decl.name(), fsort)
+                    ctx.fps(decl.name(), fsort)
                 }
                 z3::DeclKind::FPA_NEG => ctx.fp_neg(FloatAst::from_z3(ctx, ast.nth(0)?)?),
                 z3::DeclKind::FPA_ABS => ctx.fp_abs(FloatAst::from_z3(ctx, ast.nth(0)?)?),
@@ -241,20 +241,21 @@ pub(crate) fn from_z3<'c>(
                     ctx.fp_sqrt(FloatAst::from_z3(ctx, ast.nth(1)?)?, rm)
                 }
                 z3::DeclKind::FPA_TO_FP => {
+                    let target_fsort = get_fsort(&ast.to_float()?)?;
                     let num_args = ast.num_children();
                     if num_args == 1 {
                         let bv = crate::astext::bv::from_z3(ctx, ast.nth(0)?)?;
-                        ctx.bv_to_fp(bv, fsort)
+                        ctx.bv_to_fp(bv, target_fsort)
                     } else if num_args == 2 {
                         let rm = parse_fprm_from_z3(&ast.nth(0)?)?;
                         let arg = ast.nth(1)?;
                         match arg.sort_kind() {
                             z3::SortKind::FloatingPoint => {
-                                ctx.fp_to_fp(FloatAst::from_z3(ctx, arg)?, fsort, rm)
+                                ctx.fp_to_fp(FloatAst::from_z3(ctx, arg)?, target_fsort, rm)
                             }
                             z3::SortKind::BV => ctx.bv_to_fp_signed(
                                 crate::astext::bv::from_z3(ctx, arg)?,
-                                fsort,
+                                target_fsort,
                                 rm,
                             ),
                             _ => Err(ClarirsError::ConversionError(
