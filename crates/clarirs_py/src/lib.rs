@@ -76,9 +76,7 @@ fn py_replace<'py>(
     let new_coerced = match (old_ast.op().base_theories(), new_ast.op().base_theories()) {
         (Theories::BITVEC, Theories::FLOAT) => new_ast.context().fp_to_ieeebv(&new_ast)?,
         (Theories::FLOAT, Theories::BITVEC) => {
-            new_ast
-                .context()
-                .bv_to_fp(&new_ast, old_ast.op().sort())?
+            new_ast.context().bv_to_fp(&new_ast, old_ast.op().sort())?
         }
         _ => new_ast.clone(),
     };

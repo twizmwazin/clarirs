@@ -58,11 +58,7 @@ pub(crate) fn simplify_string<'c>(
                 state.get_string_simplified(2)?,
             );
             match (arc.op(), arc1.op(), arc2.op()) {
-                (
-                    AstOp::StringV(initial),
-                    AstOp::StringV(pattern),
-                    AstOp::StringV(replacement),
-                ) => {
+                (AstOp::StringV(initial), AstOp::StringV(pattern), AstOp::StringV(replacement)) => {
                     // Case: Replace first occurrence of `pattern` with `replacement` in `initial` as per ClariPy DONE
                     let new_value = initial.replacen(pattern, replacement, 1);
                     // Case: Replace all occurrences of `pattern` with `replacement` in `initial` LEFT

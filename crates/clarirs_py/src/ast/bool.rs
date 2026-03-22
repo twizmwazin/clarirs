@@ -534,7 +534,10 @@ impl Bool {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.and2(&self.inner, <CoerceBool as Into<AstRef<'static>>>::into(other))?,
+            &GLOBAL_CONTEXT.and2(
+                &self.inner,
+                <CoerceBool as Into<AstRef<'static>>>::into(other),
+            )?,
         )
     }
 
@@ -545,7 +548,10 @@ impl Bool {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.or2(&self.inner, <CoerceBool as Into<AstRef<'static>>>::into(other))?,
+            &GLOBAL_CONTEXT.or2(
+                &self.inner,
+                <CoerceBool as Into<AstRef<'static>>>::into(other),
+            )?,
         )
     }
 
@@ -556,7 +562,10 @@ impl Bool {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.xor(&self.inner, <CoerceBool as Into<AstRef<'static>>>::into(other))?,
+            &GLOBAL_CONTEXT.xor(
+                &self.inner,
+                <CoerceBool as Into<AstRef<'static>>>::into(other),
+            )?,
         )
     }
 
@@ -567,7 +576,10 @@ impl Bool {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.eq_(&self.inner, <CoerceBool as Into<AstRef<'static>>>::into(other))?,
+            &GLOBAL_CONTEXT.eq_(
+                &self.inner,
+                <CoerceBool as Into<AstRef<'static>>>::into(other),
+            )?,
         )
     }
 
@@ -578,7 +590,10 @@ impl Bool {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.neq(&self.inner, <CoerceBool as Into<AstRef<'static>>>::into(other))?,
+            &GLOBAL_CONTEXT.neq(
+                &self.inner,
+                <CoerceBool as Into<AstRef<'static>>>::into(other),
+            )?,
         )
     }
 
@@ -588,7 +603,9 @@ impl Bool {
             ReduceResult::Bool(ComparisonResult::True) => Ok(1),
             ReduceResult::Bool(ComparisonResult::False) => Ok(1),
             ReduceResult::Bool(ComparisonResult::Maybe) => Ok(2),
-            _ => Err(ClaripyError::TypeError("Expected Bool reduce result".to_string())),
+            _ => Err(ClaripyError::TypeError(
+                "Expected Bool reduce result".to_string(),
+            )),
         }
     }
 

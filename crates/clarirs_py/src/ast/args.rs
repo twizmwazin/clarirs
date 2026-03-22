@@ -56,15 +56,9 @@ impl ExtractPyArgs for AstRef<'static> {
                         Bool::new(py, rhs)?.into_any(),
                     ]
                 } else if child_theory == Theories::BITVEC {
-                    vec![
-                        BV::new(py, lhs)?.into_any(),
-                        BV::new(py, rhs)?.into_any(),
-                    ]
+                    vec![BV::new(py, lhs)?.into_any(), BV::new(py, rhs)?.into_any()]
                 } else if child_theory == Theories::FLOAT {
-                    vec![
-                        FP::new(py, lhs)?.into_any(),
-                        FP::new(py, rhs)?.into_any(),
-                    ]
+                    vec![FP::new(py, lhs)?.into_any(), FP::new(py, rhs)?.into_any()]
                 } else {
                     vec![
                         PyAstString::new(py, lhs)?.into_any(),

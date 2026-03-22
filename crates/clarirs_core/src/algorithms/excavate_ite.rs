@@ -2,10 +2,7 @@ use crate::prelude::*;
 
 use super::walk_post_order;
 
-fn extract_child<'c>(
-    children: &[AstRef<'c>],
-    index: usize,
-) -> Result<AstRef<'c>, ClarirsError> {
+fn extract_child<'c>(children: &[AstRef<'c>], index: usize) -> Result<AstRef<'c>, ClarirsError> {
     children
         .get(index)
         .cloned()

@@ -109,7 +109,6 @@ impl<'c> SimplifyState<'c> {
         Ok(self.get_child_available(index))
     }
 
-
     fn rerun(&self, new_ast: AstRef<'c>) -> Result<AstRef<'c>, SimplifyError<'c>> {
         Err(SimplifyError::ReRun(new_ast))
     }

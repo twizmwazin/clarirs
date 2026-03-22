@@ -155,16 +155,15 @@ impl<'c> AstFactory<'c> for Context<'c> {
 
         let size = op.size();
 
-        self.ast_cache
-            .get_or_insert::<ClarirsError>(hash, || {
-                Ok(Arc::new(AstNode::new(
-                    self,
-                    op.clone(),
-                    annotations.clone(),
-                    hash,
-                    size,
-                )))
-            })
+        self.ast_cache.get_or_insert::<ClarirsError>(hash, || {
+            Ok(Arc::new(AstNode::new(
+                self,
+                op.clone(),
+                annotations.clone(),
+                hash,
+                size,
+            )))
+        })
     }
 }
 

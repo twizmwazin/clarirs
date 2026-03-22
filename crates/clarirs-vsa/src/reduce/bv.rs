@@ -74,9 +74,7 @@ pub(crate) fn reduce_bv(
         AstOp::LShR(..) => child_si(children, 0)?.lshr(&child_si(children, 1)?)?,
         AstOp::AShR(..) => child_si(children, 0)?.ashr(&child_si(children, 1)?)?,
         AstOp::RotateLeft(..) => child_si(children, 0)?.rotate_left(&child_si(children, 1)?)?,
-        AstOp::RotateRight(..) => {
-            child_si(children, 0)?.rotate_right(&child_si(children, 1)?)?
-        }
+        AstOp::RotateRight(..) => child_si(children, 0)?.rotate_right(&child_si(children, 1)?)?,
         AstOp::ZeroExt(_, amount) => child_si(children, 0)?.zero_extend(*amount),
         AstOp::SignExt(_, amount) => child_si(children, 0)?.sign_extend(*amount),
         AstOp::Extract(_, high, low) => child_si(children, 0)?.extract(*high, *low),

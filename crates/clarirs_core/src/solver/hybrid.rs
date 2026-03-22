@@ -159,27 +159,21 @@ impl<'c, A: Solver<'c>, E: Solver<'c>> Solver<'c> for HybridSolver<'c, A, E> {
         self.exact.max_signed(expr)
     }
 
-    fn eval_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+    fn eval_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         if n == 0 {
             return Ok(Vec::new());
         }
-        if !expr.symbolic() {
-            if let Ok(result) = self.approximate.eval_n(expr, n) {
-                return Ok(result);
-            }
+        if !expr.symbolic()
+            && let Ok(result) = self.approximate.eval_n(expr, n)
+        {
+            return Ok(result);
         }
         // Try approximate first, fall back to exact for symbolic
         match self.approximate.eval_n(expr, n) {
-            Ok(approx_results) if !approx_results.is_empty() => {
-                match self.exact.eval_n(expr, n) {
-                    Ok(exact) => Ok(exact),
-                    Err(_) => Ok(approx_results),
-                }
-            }
+            Ok(approx_results) if !approx_results.is_empty() => match self.exact.eval_n(expr, n) {
+                Ok(exact) => Ok(exact),
+                Err(_) => Ok(approx_results),
+            },
             _ => self.exact.eval_n(expr, n),
         }
     }

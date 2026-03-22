@@ -273,10 +273,7 @@ impl BV {
     }
 
     pub fn identical(&self, other: Bound<'_, Base>) -> Result<bool, ClaripyError> {
-        let structural = structurally_match(
-            &self.inner,
-            &Base::to_astref(other.clone())?,
-        )?;
+        let structural = structurally_match(&self.inner, &Base::to_astref(other.clone())?)?;
         if structural {
             return Ok(true);
         }

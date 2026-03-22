@@ -82,13 +82,14 @@ impl<'c> Reduce<'c> for AstRef<'c> {
                 | AstOp::StrToBV(..)
                 | AstOp::Union(..)
                 | AstOp::Intersection(..)
-                | AstOp::Widen(..) => {
-                    bv::reduce_bv(&node, children).map(ReduceResult::BitVec)
-                }
+                | AstOp::Widen(..) => bv::reduce_bv(&node, children).map(ReduceResult::BitVec),
                 // Polymorphic ops: dispatch based on what children produce
                 AstOp::And(..) | AstOp::Or(..) | AstOp::Xor(..) => {
                     // Check first child to determine sort
-                    if children.first().is_some_and(|c| matches!(c, ReduceResult::Bool(..))) {
+                    if children
+                        .first()
+                        .is_some_and(|c| matches!(c, ReduceResult::Bool(..)))
+                    {
                         bool::reduce_bool(&node, children).map(ReduceResult::Bool)
                     } else {
                         bv::reduce_bv(&node, children).map(ReduceResult::BitVec)
@@ -99,7 +100,10 @@ impl<'c> Reduce<'c> for AstRef<'c> {
                 }
                 AstOp::If(..) => {
                     // Check second child (the "then" branch) to determine result sort
-                    if children.get(1).is_some_and(|c| matches!(c, ReduceResult::Bool(..))) {
+                    if children
+                        .get(1)
+                        .is_some_and(|c| matches!(c, ReduceResult::Bool(..)))
+                    {
                         bool::reduce_bool(&node, children).map(ReduceResult::Bool)
                     } else {
                         bv::reduce_bv(&node, children).map(ReduceResult::BitVec)

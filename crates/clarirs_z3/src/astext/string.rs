@@ -3,7 +3,6 @@ use clarirs_core::prelude::*;
 use clarirs_z3_sys::{self as z3};
 use regex::Regex;
 
-
 fn mk_bv2int(bv: &RcAst) -> Result<RcAst, ClarirsError> {
     Z3_CONTEXT.with(|&z3_ctx| unsafe { RcAst::try_from(z3::mk_bv2int(z3_ctx, **bv, false)) })
 }

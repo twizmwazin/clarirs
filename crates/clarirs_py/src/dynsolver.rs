@@ -146,31 +146,19 @@ impl Solver<'static> for DynSolver {
         dispatch!(self, has_false, expr)
     }
 
-    fn min_unsigned(
-        &mut self,
-        expr: &AstRef<'static>,
-    ) -> Result<AstRef<'static>, ClarirsError> {
+    fn min_unsigned(&mut self, expr: &AstRef<'static>) -> Result<AstRef<'static>, ClarirsError> {
         dispatch!(self, min_unsigned, expr)
     }
 
-    fn max_unsigned(
-        &mut self,
-        expr: &AstRef<'static>,
-    ) -> Result<AstRef<'static>, ClarirsError> {
+    fn max_unsigned(&mut self, expr: &AstRef<'static>) -> Result<AstRef<'static>, ClarirsError> {
         dispatch!(self, max_unsigned, expr)
     }
 
-    fn min_signed(
-        &mut self,
-        expr: &AstRef<'static>,
-    ) -> Result<AstRef<'static>, ClarirsError> {
+    fn min_signed(&mut self, expr: &AstRef<'static>) -> Result<AstRef<'static>, ClarirsError> {
         dispatch!(self, min_signed, expr)
     }
 
-    fn max_signed(
-        &mut self,
-        expr: &AstRef<'static>,
-    ) -> Result<AstRef<'static>, ClarirsError> {
+    fn max_signed(&mut self, expr: &AstRef<'static>) -> Result<AstRef<'static>, ClarirsError> {
         dispatch!(self, max_signed, expr)
     }
 

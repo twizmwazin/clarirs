@@ -415,7 +415,11 @@ pub trait AstFactory<'c>: Sized {
         exponent: impl IntoAstRef<'c>,
         significand: impl IntoAstRef<'c>,
     ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpFP(sign.into_ast_ref(), exponent.into_ast_ref(), significand.into_ast_ref()))
+        self.make_ast(AstOp::FpFP(
+            sign.into_ast_ref(),
+            exponent.into_ast_ref(),
+            significand.into_ast_ref(),
+        ))
     }
 
     fn bv_to_fp_signed<RM: Into<FPRM>, FS: Into<FSort>>(
@@ -424,7 +428,11 @@ pub trait AstFactory<'c>: Sized {
         sort: FS,
         rm: RM,
     ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::BvToFpSigned(lhs.into_ast_ref(), sort.into(), rm.into()))
+        self.make_ast(AstOp::BvToFpSigned(
+            lhs.into_ast_ref(),
+            sort.into(),
+            rm.into(),
+        ))
     }
 
     fn bv_to_fp_unsigned<RM: Into<FPRM>, FS: Into<FSort>>(
@@ -433,7 +441,11 @@ pub trait AstFactory<'c>: Sized {
         sort: FS,
         rm: RM,
     ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::BvToFpUnsigned(lhs.into_ast_ref(), sort.into(), rm.into()))
+        self.make_ast(AstOp::BvToFpUnsigned(
+            lhs.into_ast_ref(),
+            sort.into(),
+            rm.into(),
+        ))
     }
 
     fn fp_to_ieeebv(&'c self, lhs: impl IntoAstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
@@ -472,7 +484,11 @@ pub trait AstFactory<'c>: Sized {
         rhs: impl IntoAstRef<'c>,
         rm: RM,
     ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpAdd(lhs.into_ast_ref(), rhs.into_ast_ref(), rm.into()))
+        self.make_ast(AstOp::FpAdd(
+            lhs.into_ast_ref(),
+            rhs.into_ast_ref(),
+            rm.into(),
+        ))
     }
 
     fn fp_sub<RM: Into<FPRM>>(
@@ -481,7 +497,11 @@ pub trait AstFactory<'c>: Sized {
         rhs: impl IntoAstRef<'c>,
         rm: RM,
     ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpSub(lhs.into_ast_ref(), rhs.into_ast_ref(), rm.into()))
+        self.make_ast(AstOp::FpSub(
+            lhs.into_ast_ref(),
+            rhs.into_ast_ref(),
+            rm.into(),
+        ))
     }
 
     fn fp_mul<RM: Into<FPRM>>(
@@ -490,7 +510,11 @@ pub trait AstFactory<'c>: Sized {
         rhs: impl IntoAstRef<'c>,
         rm: RM,
     ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpMul(lhs.into_ast_ref(), rhs.into_ast_ref(), rm.into()))
+        self.make_ast(AstOp::FpMul(
+            lhs.into_ast_ref(),
+            rhs.into_ast_ref(),
+            rm.into(),
+        ))
     }
 
     fn fp_div<RM: Into<FPRM>>(
@@ -499,7 +523,11 @@ pub trait AstFactory<'c>: Sized {
         rhs: impl IntoAstRef<'c>,
         rm: RM,
     ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::FpDiv(lhs.into_ast_ref(), rhs.into_ast_ref(), rm.into()))
+        self.make_ast(AstOp::FpDiv(
+            lhs.into_ast_ref(),
+            rhs.into_ast_ref(),
+            rm.into(),
+        ))
     }
 
     fn fp_sqrt<RM: Into<FPRM>>(
@@ -584,7 +612,11 @@ pub trait AstFactory<'c>: Sized {
         start: impl IntoAstRef<'c>,
         size: impl IntoAstRef<'c>,
     ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::StrSubstr(lhs.into_ast_ref(), start.into_ast_ref(), size.into_ast_ref()))
+        self.make_ast(AstOp::StrSubstr(
+            lhs.into_ast_ref(),
+            start.into_ast_ref(),
+            size.into_ast_ref(),
+        ))
     }
 
     fn str_contains(
@@ -601,7 +633,11 @@ pub trait AstFactory<'c>: Sized {
         substr: impl IntoAstRef<'c>,
         offset: impl IntoAstRef<'c>,
     ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::StrIndexOf(base.into_ast_ref(), substr.into_ast_ref(), offset.into_ast_ref()))
+        self.make_ast(AstOp::StrIndexOf(
+            base.into_ast_ref(),
+            substr.into_ast_ref(),
+            offset.into_ast_ref(),
+        ))
     }
 
     fn str_replace(
@@ -610,7 +646,11 @@ pub trait AstFactory<'c>: Sized {
         rhs: impl IntoAstRef<'c>,
         start: impl IntoAstRef<'c>,
     ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::StrReplace(lhs.into_ast_ref(), rhs.into_ast_ref(), start.into_ast_ref()))
+        self.make_ast(AstOp::StrReplace(
+            lhs.into_ast_ref(),
+            rhs.into_ast_ref(),
+            start.into_ast_ref(),
+        ))
     }
 
     fn str_prefix_of(
@@ -663,7 +703,11 @@ pub trait AstFactory<'c>: Sized {
         then: impl IntoAstRef<'c>,
         else_: impl IntoAstRef<'c>,
     ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_ast(AstOp::If(cond.into_ast_ref(), then.into_ast_ref(), else_.into_ast_ref()))
+        self.make_ast(AstOp::If(
+            cond.into_ast_ref(),
+            then.into_ast_ref(),
+            else_.into_ast_ref(),
+        ))
     }
 
     fn annotate(

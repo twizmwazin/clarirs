@@ -24,12 +24,18 @@ pub fn reduce<'py>(
         let reduced = bool_expr.get().inner.reduce()?;
         let result = match reduced {
             ReduceResult::Bool(ComparisonResult::True) => Bool::new(py, &GLOBAL_CONTEXT.true_()?)?,
-            ReduceResult::Bool(ComparisonResult::False) => Bool::new(py, &GLOBAL_CONTEXT.false_()?)?,
+            ReduceResult::Bool(ComparisonResult::False) => {
+                Bool::new(py, &GLOBAL_CONTEXT.false_()?)?
+            }
             ReduceResult::Bool(ComparisonResult::Maybe) => {
                 use crate::ast::bool::BoolS;
                 BoolS(py, "maybe", false)?
             }
-            _ => return Err(ClaripyError::TypeError("Expected Bool reduce result".to_string())),
+            _ => {
+                return Err(ClaripyError::TypeError(
+                    "Expected Bool reduce result".to_string(),
+                ));
+            }
         };
         return Ok(result.into_any().cast::<Base>()?.clone());
     }
@@ -56,7 +62,11 @@ pub fn reduce<'py>(
                     )?
                 }
             }
-            _ => return Err(ClaripyError::TypeError("Expected BitVec reduce result".to_string())),
+            _ => {
+                return Err(ClaripyError::TypeError(
+                    "Expected BitVec reduce result".to_string(),
+                ));
+            }
         };
         return Ok(result.into_any().cast::<Base>()?.clone());
     }
@@ -109,7 +119,11 @@ pub fn min(expr: Bound<'_, BV>, signed: bool) -> Result<BigInt, ClaripyError> {
     let reduced = expr.get().inner.simplify()?.reduce()?;
     let si = match reduced {
         ReduceResult::BitVec(si) => si,
-        _ => return Err(ClaripyError::TypeError("Expected BitVec reduce result".to_string())),
+        _ => {
+            return Err(ClaripyError::TypeError(
+                "Expected BitVec reduce result".to_string(),
+            ));
+        }
     };
     if signed {
         let (min_bound, _) = si.get_signed_bounds();
@@ -127,7 +141,11 @@ pub fn max(expr: Bound<'_, BV>, signed: bool) -> Result<BigInt, ClaripyError> {
     let reduced = expr.get().inner.simplify()?.reduce()?;
     let si = match reduced {
         ReduceResult::BitVec(si) => si,
-        _ => return Err(ClaripyError::TypeError("Expected BitVec reduce result".to_string())),
+        _ => {
+            return Err(ClaripyError::TypeError(
+                "Expected BitVec reduce result".to_string(),
+            ));
+        }
     };
     if signed {
         let (_, max_bound) = si.get_signed_bounds();
@@ -144,7 +162,11 @@ pub fn eval<'py>(expr: Bound<'py, BV>, n: u32) -> Result<Vec<BigUint>, ClaripyEr
     let reduced = expr.get().inner.simplify()?.reduce()?;
     let si = match reduced {
         ReduceResult::BitVec(si) => si,
-        _ => return Err(ClaripyError::TypeError("Expected BitVec reduce result".to_string())),
+        _ => {
+            return Err(ClaripyError::TypeError(
+                "Expected BitVec reduce result".to_string(),
+            ));
+        }
     };
     Ok(si.eval(n))
 }
@@ -155,7 +177,11 @@ pub fn cardinality(expr: Bound<'_, BV>) -> Result<num_bigint::BigUint, ClaripyEr
     let reduced = expr.get().inner.simplify()?.reduce()?;
     let si = match reduced {
         ReduceResult::BitVec(si) => si,
-        _ => return Err(ClaripyError::TypeError("Expected BitVec reduce result".to_string())),
+        _ => {
+            return Err(ClaripyError::TypeError(
+                "Expected BitVec reduce result".to_string(),
+            ));
+        }
     };
     Ok(si.cardinality())
 }

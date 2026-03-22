@@ -48,12 +48,8 @@ impl Base {
             Theories::BOOLEAN => {
                 Bool::new(py, ast).map(|b| b.into_any().cast_into::<Base>().unwrap())
             }
-            Theories::BITVEC => {
-                BV::new(py, ast).map(|b| b.into_any().cast_into::<Base>().unwrap())
-            }
-            Theories::FLOAT => {
-                FP::new(py, ast).map(|b| b.into_any().cast_into::<Base>().unwrap())
-            }
+            Theories::BITVEC => BV::new(py, ast).map(|b| b.into_any().cast_into::<Base>().unwrap()),
+            Theories::FLOAT => FP::new(py, ast).map(|b| b.into_any().cast_into::<Base>().unwrap()),
             Theories::STRING => {
                 PyAstString::new(py, ast).map(|b| b.into_any().cast_into::<Base>().unwrap())
             }

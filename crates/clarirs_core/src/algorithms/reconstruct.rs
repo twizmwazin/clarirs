@@ -14,10 +14,14 @@ pub fn reconstruct_node<'c>(
 ) -> Result<AstRef<'c>, ClarirsError> {
     match ast.op() {
         // === Leaf nodes ===
-        AstOp::BoolS(..) | AstOp::BoolV(..) | AstOp::BVS(..) | AstOp::BVV(..)
-        | AstOp::FPS(..) | AstOp::FPV(..) | AstOp::StringS(..) | AstOp::StringV(..) => {
-            Ok(ast.clone())
-        }
+        AstOp::BoolS(..)
+        | AstOp::BoolV(..)
+        | AstOp::BVS(..)
+        | AstOp::BVV(..)
+        | AstOp::FPS(..)
+        | AstOp::FPV(..)
+        | AstOp::StringS(..)
+        | AstOp::StringV(..) => Ok(ast.clone()),
 
         // === Cross-sort operations ===
         AstOp::Not(..) => ctx.not(children[0].clone()),

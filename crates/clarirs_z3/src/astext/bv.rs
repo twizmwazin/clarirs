@@ -1,7 +1,6 @@
 use clarirs_core::prelude::*;
 use clarirs_z3_sys as z3;
 
-
 use crate::{Z3_CONTEXT, astext::child, check_z3_error, rc::RcAst};
 
 pub(crate) fn to_z3(ast: &AstRef, children: &[RcAst]) -> Result<RcAst, ClarirsError> {

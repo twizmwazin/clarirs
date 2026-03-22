@@ -83,11 +83,7 @@ impl<'c> Solver<'c> for ConcreteSolver<'c> {
         self.eval(expr)
     }
 
-    fn eval_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+    fn eval_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         if n == 0 {
             return Ok(Vec::new());
         }

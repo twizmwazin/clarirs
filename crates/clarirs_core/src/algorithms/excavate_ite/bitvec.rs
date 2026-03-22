@@ -369,11 +369,7 @@ pub(crate) fn excavate_ite<'c>(
 fn excavate_binary_bv<'c>(
     ctx: &'c Context<'c>,
     children: &[AstRef<'c>],
-    op_fn: impl Fn(
-        &'c Context<'c>,
-        &AstRef<'c>,
-        &AstRef<'c>,
-    ) -> Result<AstRef<'c>, ClarirsError>,
+    op_fn: impl Fn(&'c Context<'c>, &AstRef<'c>, &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError>,
 ) -> Result<AstRef<'c>, ClarirsError> {
     let lhs = extract_child(children, 0)?;
     let rhs = extract_child(children, 1)?;

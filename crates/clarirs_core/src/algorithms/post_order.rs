@@ -188,10 +188,7 @@ mod tests {
         )?;
 
         // Compute expected counts:
-        assert_eq!(
-            first_visited,
-            vec![x, y, add1, mul],
-        );
+        assert_eq!(first_visited, vec![x, y, add1, mul],);
 
         // Second run should process nothing new
         assert!(second_visited.is_empty());

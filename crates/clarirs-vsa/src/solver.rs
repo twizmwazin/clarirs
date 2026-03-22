@@ -46,11 +46,7 @@ impl<'c> Solver<'c> for VSASolver<'c> {
         Ok(true)
     }
 
-    fn eval_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+    fn eval_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         let simplified = expr.simplify()?;
         match simplified.reduce()? {
             ReduceResult::Bool(comp_result) => match comp_result {
@@ -71,10 +67,7 @@ impl<'c> Solver<'c> for VSASolver<'c> {
                 }
                 si.eval(n)
                     .into_iter()
-                    .map(|bv| {
-                        self.context()
-                            .bvv_from_biguint_with_size(&bv, expr.size())
-                    })
+                    .map(|bv| self.context().bvv_from_biguint_with_size(&bv, expr.size()))
                     .collect()
             }
         }

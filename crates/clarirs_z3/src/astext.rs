@@ -42,6 +42,7 @@ mod test_bool;
 #[cfg(test)]
 mod test_bv;
 #[cfg(test)]
+#[allow(clippy::approx_constant)]
 mod test_float;
 #[cfg(test)]
 mod test_string;

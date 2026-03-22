@@ -125,11 +125,7 @@ impl<'c, S: Solver<'c>> Solver<'c> for ConcreteEarlyResolutionMixin<'c, S> {
         self.inner.max_signed(expr)
     }
 
-    fn eval_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+    fn eval_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         if expr.concrete() {
             if n == 0 {
                 return Ok(Vec::new());
@@ -218,11 +214,7 @@ mod tests {
             panic!("PanickingSolver::max_signed should not be called");
         }
 
-        fn eval_n(
-            &mut self,
-            _: &AstRef<'c>,
-            _: u32,
-        ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+        fn eval_n(&mut self, _: &AstRef<'c>, _: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
             panic!("PanickingSolver::eval_n should not be called");
         }
 

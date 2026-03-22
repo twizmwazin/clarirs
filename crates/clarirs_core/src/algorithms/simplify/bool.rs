@@ -1188,7 +1188,6 @@ pub(crate) fn simplify_bool<'c>(
             }
         }
 
-
         AstOp::If(..) => {
             let cond = state.get_bool_simplified(0)?;
             let early_then = state.get_bool_available(1)?;
@@ -1207,18 +1206,10 @@ pub(crate) fn simplify_bool<'c>(
                 (_, AstOp::BoolV(false), AstOp::BoolV(true)) => Ok(ctx.not(cond)?),
 
                 // When condition equals one branch with concrete other branch
-                (cond_op, AstOp::BoolV(true), else_op) if else_op == cond_op => {
-                    Ok(cond.clone())
-                }
-                (cond_op, AstOp::BoolV(false), else_op) if else_op == cond_op => {
-                    Ok(ctx.false_()?)
-                }
-                (cond_op, then_op, AstOp::BoolV(true)) if then_op == cond_op => {
-                    Ok(ctx.true_()?)
-                }
-                (cond_op, then_op, AstOp::BoolV(false)) if then_op == cond_op => {
-                    Ok(cond.clone())
-                }
+                (cond_op, AstOp::BoolV(true), else_op) if else_op == cond_op => Ok(cond.clone()),
+                (cond_op, AstOp::BoolV(false), else_op) if else_op == cond_op => Ok(ctx.false_()?),
+                (cond_op, then_op, AstOp::BoolV(true)) if then_op == cond_op => Ok(ctx.true_()?),
+                (cond_op, then_op, AstOp::BoolV(false)) if then_op == cond_op => Ok(cond.clone()),
 
                 // Default case
                 _ => Ok(ctx.ite(
@@ -1310,16 +1301,17 @@ fn simplify_eq<'c>(
         | (AstOp::BVV(val), AstOp::If(cond, then_val, else_val))
             if val.is_zero() =>
         {
-            if let (AstOp::BVV(then_bvv), AstOp::BVV(else_bvv)) =
-                (then_val.op(), else_val.op())
-            {
+            if let (AstOp::BVV(then_bvv), AstOp::BVV(else_bvv)) = (then_val.op(), else_val.op()) {
                 if then_bvv.is_one() && else_bvv.is_zero() {
                     return state.rerun(ctx.not(cond.clone())?);
                 } else if then_bvv.is_zero() && else_bvv.is_one() {
                     return state.rerun(cond.clone());
                 }
             }
-            Ok(ctx.eq_(state.get_child_simplified(0)?, state.get_child_simplified(1)?)?)
+            Ok(ctx.eq_(
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+            )?)
         }
 
         // BV: (ite cond 1 0) == 1  ==>  cond
@@ -1327,16 +1319,17 @@ fn simplify_eq<'c>(
         | (AstOp::BVV(val), AstOp::If(cond, then_val, else_val))
             if val.is_one() =>
         {
-            if let (AstOp::BVV(then_bvv), AstOp::BVV(else_bvv)) =
-                (then_val.op(), else_val.op())
-            {
+            if let (AstOp::BVV(then_bvv), AstOp::BVV(else_bvv)) = (then_val.op(), else_val.op()) {
                 if then_bvv.is_one() && else_bvv.is_zero() {
                     return state.rerun(cond.clone());
                 } else if then_bvv.is_zero() && else_bvv.is_one() {
                     return state.rerun(ctx.not(cond.clone())?);
                 }
             }
-            Ok(ctx.eq_(state.get_child_simplified(0)?, state.get_child_simplified(1)?)?)
+            Ok(ctx.eq_(
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+            )?)
         }
 
         // BV: (x - C) == 0  ==>  x == C
@@ -1348,10 +1341,8 @@ fn simplify_eq<'c>(
         }
 
         // BV: (sum + C) == 0  ==>  sum == -C
-        (AstOp::Add(add_args), AstOp::BVV(val))
-        | (AstOp::BVV(val), AstOp::Add(add_args))
-            if val.is_zero()
-                && add_args.iter().any(|a| matches!(a.op(), AstOp::BVV(..))) =>
+        (AstOp::Add(add_args), AstOp::BVV(val)) | (AstOp::BVV(val), AstOp::Add(add_args))
+            if val.is_zero() && add_args.iter().any(|a| matches!(a.op(), AstOp::BVV(..))) =>
         {
             if let Some(bvv_idx) = add_args
                 .iter()
@@ -1380,7 +1371,10 @@ fn simplify_eq<'c>(
             Ok(ctx.true_()?)
         }
 
-        _ => Ok(ctx.eq_(state.get_child_simplified(0)?, state.get_child_simplified(1)?)?),
+        _ => Ok(ctx.eq_(
+            state.get_child_simplified(0)?,
+            state.get_child_simplified(1)?,
+        )?),
     }
 }
 
@@ -1462,16 +1456,17 @@ fn simplify_neq<'c>(
         | (AstOp::BVV(val), AstOp::If(cond, then_val, else_val))
             if val.is_zero() =>
         {
-            if let (AstOp::BVV(then_bvv), AstOp::BVV(else_bvv)) =
-                (then_val.op(), else_val.op())
-            {
+            if let (AstOp::BVV(then_bvv), AstOp::BVV(else_bvv)) = (then_val.op(), else_val.op()) {
                 if then_bvv.is_one() && else_bvv.is_zero() {
                     return state.rerun(cond.clone());
                 } else if then_bvv.is_zero() && else_bvv.is_one() {
                     return state.rerun(ctx.not(cond.clone())?);
                 }
             }
-            Ok(ctx.neq(state.get_child_simplified(0)?, state.get_child_simplified(1)?)?)
+            Ok(ctx.neq(
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+            )?)
         }
 
         // BV: (ite cond 1 0) != 1  ==>  !cond
@@ -1479,16 +1474,17 @@ fn simplify_neq<'c>(
         | (AstOp::BVV(val), AstOp::If(cond, then_val, else_val))
             if val.is_one() =>
         {
-            if let (AstOp::BVV(then_bvv), AstOp::BVV(else_bvv)) =
-                (then_val.op(), else_val.op())
-            {
+            if let (AstOp::BVV(then_bvv), AstOp::BVV(else_bvv)) = (then_val.op(), else_val.op()) {
                 if then_bvv.is_one() && else_bvv.is_zero() {
                     return state.rerun(ctx.not(cond.clone())?);
                 } else if then_bvv.is_zero() && else_bvv.is_one() {
                     return state.rerun(cond.clone());
                 }
             }
-            Ok(ctx.neq(state.get_child_simplified(0)?, state.get_child_simplified(1)?)?)
+            Ok(ctx.neq(
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+            )?)
         }
 
         // BV: (x - C) != 0  ==>  x != C
@@ -1500,10 +1496,8 @@ fn simplify_neq<'c>(
         }
 
         // BV: (sum + C) != 0  ==>  sum != -C
-        (AstOp::Add(add_args), AstOp::BVV(val))
-        | (AstOp::BVV(val), AstOp::Add(add_args))
-            if val.is_zero()
-                && add_args.iter().any(|a| matches!(a.op(), AstOp::BVV(..))) =>
+        (AstOp::Add(add_args), AstOp::BVV(val)) | (AstOp::BVV(val), AstOp::Add(add_args))
+            if val.is_zero() && add_args.iter().any(|a| matches!(a.op(), AstOp::BVV(..))) =>
         {
             if let Some(bvv_idx) = add_args
                 .iter()
@@ -1532,6 +1526,9 @@ fn simplify_neq<'c>(
             Ok(ctx.false_()?)
         }
 
-        _ => Ok(ctx.neq(state.get_child_simplified(0)?, state.get_child_simplified(1)?)?),
+        _ => Ok(ctx.neq(
+            state.get_child_simplified(0)?,
+            state.get_child_simplified(1)?,
+        )?),
     }
 }

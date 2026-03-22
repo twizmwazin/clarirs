@@ -427,9 +427,7 @@ pub(crate) fn simplify_bv<'c>(
                     let (a, b) = (&sym_args[0], &sym_args[1]);
                     match (a.op(), b.op()) {
                         // ¬a ^ ¬b = a ^ b
-                        (AstOp::Not(lhs), AstOp::Not(rhs)) => {
-                            state.rerun(ctx.bv_xor(lhs, rhs)?)
-                        }
+                        (AstOp::Not(lhs), AstOp::Not(rhs)) => state.rerun(ctx.bv_xor(lhs, rhs)?),
                         // Distribute XOR over CONCAT when one operand is constant
                         (AstOp::BVV(const_val), AstOp::Concat(concat_args))
                         | (AstOp::Concat(concat_args), AstOp::BVV(const_val)) => {
@@ -446,12 +444,8 @@ pub(crate) fn simplify_bv<'c>(
                             state.rerun(ctx.concat(parts)?)
                         }
                         // XOR with all-ones = NOT
-                        (AstOp::BVV(v), _) if v.is_all_ones() => {
-                            state.rerun(ctx.not(b.clone())?)
-                        }
-                        (_, AstOp::BVV(v)) if v.is_all_ones() => {
-                            state.rerun(ctx.not(a.clone())?)
-                        }
+                        (AstOp::BVV(v), _) if v.is_all_ones() => state.rerun(ctx.not(b.clone())?),
+                        (_, AstOp::BVV(v)) if v.is_all_ones() => state.rerun(ctx.not(a.clone())?),
                         _ => {
                             if changed {
                                 state.rerun(ctx.bv_xor_many(sym_args)?)
@@ -724,9 +718,7 @@ pub(crate) fn simplify_bv<'c>(
                 (_, AstOp::BVV(v)) if error_on_dbz && v.is_zero() => {
                     Err(SimplifyError::Error(ClarirsError::DivisionByZero))
                 }
-                (AstOp::BVV(dividend_val), AstOp::BVV(divisor_val))
-                    if !divisor_val.is_zero() =>
-                {
+                (AstOp::BVV(dividend_val), AstOp::BVV(divisor_val)) if !divisor_val.is_zero() => {
                     Ok(ctx.bvv((dividend_val.sdiv(divisor_val))?)?)
                 }
                 (_, AstOp::BVV(v)) if v.to_u64() == Some(1) => Ok(dividend_ast.clone()),

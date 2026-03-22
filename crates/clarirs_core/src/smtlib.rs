@@ -290,10 +290,11 @@ fn to_smtlib_impl(ast: &AstRef<'_>) -> String {
         if let Some(cached) = cache.get(&state.node.hash()) {
             result_queue.push_back(cached.clone());
             // If we just finished processing a child, add its result to its parent
-            if let Some(parent) = stack.last_mut() {
-                if parent.children_processed > 0 && !result_queue.is_empty() {
-                    parent.child_results.push(result_queue.pop_front().unwrap());
-                }
+            if let Some(parent) = stack.last_mut()
+                && parent.children_processed > 0
+                && !result_queue.is_empty()
+            {
+                parent.child_results.push(result_queue.pop_front().unwrap());
             }
             continue;
         }
@@ -325,12 +326,10 @@ fn to_smtlib_impl(ast: &AstRef<'_>) -> String {
         // If we just finished processing a child, add its result to its parent
         if !result_queue.is_empty()
             && !stack.is_empty()
+            && let Some(parent) = stack.last_mut()
+            && parent.children_processed > 0
         {
-            if let Some(parent) = stack.last_mut() {
-                if parent.children_processed > 0 {
-                    parent.child_results.push(result_queue.pop_front().unwrap());
-                }
-            }
+            parent.child_results.push(result_queue.pop_front().unwrap());
         }
     }
 

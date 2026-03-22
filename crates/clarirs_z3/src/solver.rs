@@ -329,11 +329,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         AstRef::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)
     }
 
-    fn eval_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+    fn eval_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         let mut results = Vec::new();
 
         // Simplify and check if concrete

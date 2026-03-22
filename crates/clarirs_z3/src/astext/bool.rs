@@ -4,7 +4,6 @@ use crate::{Z3_CONTEXT, astext::child, check_z3_error, rc::RcAst};
 use clarirs_core::prelude::*;
 use clarirs_z3_sys as z3;
 
-
 pub(crate) fn to_z3(ast: &AstRef, children: &[RcAst]) -> Result<RcAst, ClarirsError> {
     Z3_CONTEXT.with(|&z3_ctx| unsafe {
         Ok(match ast.op() {

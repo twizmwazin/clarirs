@@ -468,11 +468,7 @@ impl<'c> AstOp<'c> {
     }
 
     pub fn depth(&self) -> u32 {
-        1 + self
-            .children()
-            .map(|c| c.depth())
-            .max()
-            .unwrap_or(0)
+        1 + self.children().map(|c| c.depth()).max().unwrap_or(0)
     }
 
     pub fn is_leaf(&self) -> bool {
@@ -635,9 +631,7 @@ impl<'c> AstOp<'c> {
         match self {
             AstOp::BVS(_, size) => *size,
             AstOp::BVV(bv) => bv.len(),
-            AstOp::Not(a)
-            | AstOp::Neg(a)
-            | AstOp::ByteReverse(a) => a.size(),
+            AstOp::Not(a) | AstOp::Neg(a) | AstOp::ByteReverse(a) => a.size(),
             AstOp::And(args)
             | AstOp::Or(args)
             | AstOp::Xor(args)

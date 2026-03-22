@@ -7,7 +7,7 @@ pub trait BitVecAstExt<'c> {
 
 impl<'c> BitVecAstExt<'c> for AstRef<'c> {
     fn chop(&self, bits: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        if self.size() % bits != 0 {
+        if !self.size().is_multiple_of(bits) {
             return Err(ClarirsError::InvalidChopSize {
                 size: self.size(),
                 bits,
