@@ -970,21 +970,32 @@ mod tests {
             let ctx = Context::new();
             let mut solver = Z3Solver::new(&ctx);
 
+            // Create variables
             let x = ctx.bvs("x", 8)?;
             let y = ctx.bvs("y", 8)?;
 
+            // Add constraints:
+            // x must be greater than -5 (signed)
+            // y must be less than 10 (signed)
+            // x + y must be even (lowest bit is 0)
+
+            // -5 in 8-bit two's complement is 0xfb (251 in unsigned)
             let neg_five = ctx.bvv_prim(0xfbu8)?;
             let ten = ctx.bvv_prim(10u8)?;
 
             solver.add(&ctx.sgt(&x, &neg_five)?)?;
             solver.add(&ctx.slt(&y, &ten)?)?;
 
+            // x + y must be even
             let sum = ctx.add(&x, &y)?;
             let zero = ctx.bvv_prim_with_size(0u64, 1)?;
             solver.add(&ctx.eq_(&ctx.extract(&sum, 0, 0)?, &zero)?)?;
 
+            // Find min value of x
             let result = solver.min_signed(&x)?;
 
+            // Min value should be -4 (0xfc in 8-bit two's complement)
+            // Because x > -5, and if x = -4 and y = 0, then -4+0=-4 which is even
             let neg_four = ctx.bvv_prim(0xfcu8)?;
             assert_eq!(result, neg_four);
 
@@ -996,18 +1007,27 @@ mod tests {
             let ctx = Context::new();
             let mut solver = Z3Solver::new(&ctx);
 
+            // Create variables
             let x = ctx.bvs("x", 8)?;
             let y = ctx.bvs("y", 8)?;
 
+            // Add constraints:
+            // x must be less than 100 (signed)
+            // y must be greater than -20 (signed)
+            // x must be greater than y (signed)
             let hundred = ctx.bvv_prim(100u8)?;
+
+            // -20 in 8-bit two's complement is 0xec (236 in unsigned)
             let neg_twenty = ctx.bvv_prim(0xecu8)?;
 
             solver.add(&ctx.slt(&x, &hundred)?)?;
             solver.add(&ctx.sgt(&y, &neg_twenty)?)?;
             solver.add(&ctx.sgt(&x, &y)?)?;
 
+            // Find max value of x
             let result = solver.max_signed(&x)?;
 
+            // Max value should be 99 (since x < 100)
             let ninety_nine = ctx.bvv_prim(99u8)?;
             assert_eq!(result, ninety_nine);
 
@@ -1019,14 +1039,19 @@ mod tests {
             let ctx = Context::new();
             let mut solver = Z3Solver::new(&ctx);
 
+            // Create a variable with constraints
             let x = ctx.bvs("x", 8)?;
 
+            // Add constraints: -100 <= x <= -10 (in signed interpretation)
+            // -100 in 8-bit two's complement is 0x9c (156 in unsigned)
+            // -10 in 8-bit two's complement is 0xf6 (246 in unsigned)
             let lower_bound = ctx.bvv_prim(0x9cu8)?;
             let upper_bound = ctx.bvv_prim(0xf6u8)?;
 
             solver.add(&ctx.sge(&x, &lower_bound)?)?;
             solver.add(&ctx.sle(&x, &upper_bound)?)?;
 
+            // Min value should be -100
             let result = solver.min_signed(&x)?;
             assert_eq!(result, lower_bound);
 
@@ -1038,14 +1063,19 @@ mod tests {
             let ctx = Context::new();
             let mut solver = Z3Solver::new(&ctx);
 
+            // Create a variable with constraints
             let x = ctx.bvs("x", 8)?;
 
+            // Add constraints: -100 <= x <= -10 (in signed interpretation)
+            // -100 in 8-bit two's complement is 0x9c (156 in unsigned)
+            // -10 in 8-bit two's complement is 0xf6 (246 in unsigned)
             let lower_bound = ctx.bvv_prim(0x9cu8)?;
             let upper_bound = ctx.bvv_prim(0xf6u8)?;
 
             solver.add(&ctx.sge(&x, &lower_bound)?)?;
             solver.add(&ctx.sle(&x, &upper_bound)?)?;
 
+            // Max value should be -10
             let result = solver.max_signed(&x)?;
             assert_eq!(result, upper_bound);
 
@@ -1061,17 +1091,22 @@ mod tests {
         let x = ctx.bools("x")?;
         let y = ctx.bools("y")?;
 
-        solver.add(&ctx.eq_(&x, &ctx.true_()?)?)?;
-        solver.add(&ctx.eq_(&y, &ctx.true_()?)?)?;
-        solver.add(&ctx.eq_(&x, &y)?)?;
-        solver.add(&ctx.neq(&x, &y)?)?;
+        // Add contradictory constraints
+        solver.add(&ctx.eq_(&x, &ctx.true_()?)?)?; // constraint 0
+        solver.add(&ctx.eq_(&y, &ctx.true_()?)?)?; // constraint 1
+        solver.add(&ctx.eq_(&x, &y)?)?; // constraint 2
+        solver.add(&ctx.neq(&x, &y)?)?; // constraint 3 - contradicts with 0, 1, and 2
 
+        // Should be unsat
         assert!(!solver.satisfiable()?);
 
+        // Get unsat core
         let core = solver.unsat_core()?;
 
+        // The core should contain the contradictory constraints
+        // At minimum, it should contain constraint 2 and 3 (or 0, 1, and 3)
         assert!(!core.is_empty());
-        assert!(core.len() <= 4);
+        assert!(core.len() <= 4); // Should be a subset of all constraints
 
         Ok(())
     }
@@ -1083,18 +1118,22 @@ mod tests {
 
         let x = ctx.bvs("x", 8)?;
 
-        let c0 = ctx.ugt(&x, &ctx.bvv_prim(10u8)?)?;
-        let c1 = ctx.ult(&x, &ctx.bvv_prim(5u8)?)?;
-        let c2 = ctx.ugt(&x, &ctx.bvv_prim(0u8)?)?;
+        // Add constraints
+        let c0 = ctx.ugt(&x, &ctx.bvv_prim(10u8)?)?; // x > 10
+        let c1 = ctx.ult(&x, &ctx.bvv_prim(5u8)?)?; // x < 5 - contradicts c0
+        let c2 = ctx.ugt(&x, &ctx.bvv_prim(0u8)?)?; // x > 0 - doesn't contribute to unsat
 
-        solver.add(&c0)?;
-        solver.add(&c1)?;
-        solver.add(&c2)?;
+        solver.add(&c0)?; // constraint 0
+        solver.add(&c1)?; // constraint 1
+        solver.add(&c2)?; // constraint 2
 
+        // Should be unsat
         assert!(!solver.satisfiable()?);
 
+        // Get unsat core
         let core = solver.unsat_core()?;
 
+        // The core should contain constraints 0 and 1, but not necessarily 2
         assert!(!core.is_empty());
         assert!(core.contains(&0));
         assert!(core.contains(&1));
@@ -1105,15 +1144,17 @@ mod tests {
     #[test]
     fn test_unsat_core_not_enabled() -> Result<(), ClarirsError> {
         let ctx = Context::new();
-        let mut solver = Z3Solver::new(&ctx);
+        let mut solver = Z3Solver::new(&ctx); // unsat_core not enabled
 
         let x = ctx.bools("x")?;
 
         solver.add(&x)?;
         solver.add(&ctx.not(&x)?)?;
 
+        // Should be unsat
         assert!(!solver.satisfiable()?);
 
+        // Getting unsat core should fail because it's not enabled
         assert!(solver.unsat_core().is_err());
 
         Ok(())
@@ -1127,8 +1168,10 @@ mod tests {
         let x = ctx.bools("x")?;
         solver.add(&x)?;
 
+        // Should be sat
         assert!(solver.satisfiable()?);
 
+        // Getting unsat core on a SAT result should fail
         assert!(solver.unsat_core().is_err());
 
         Ok(())
