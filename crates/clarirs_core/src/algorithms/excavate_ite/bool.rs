@@ -162,6 +162,13 @@ pub(crate) fn excavate_ite<'c>(
                 Ok(ctx.eq_(lhs, rhs)?)
             }
         }
+        BooleanOp::BoolNeq(args) if args.len() != 2 => {
+            let result_args: Vec<_> = children
+                .iter()
+                .map(|c| extract_bool_child(std::slice::from_ref(c), 0))
+                .collect::<Result<_, _>>()?;
+            ctx.distinct(result_args)
+        }
         BooleanOp::BoolNeq(..) => {
             let lhs = extract_bool_child(children, 0)?;
             let rhs = extract_bool_child(children, 1)?;
@@ -221,6 +228,13 @@ pub(crate) fn excavate_ite<'c>(
             } else {
                 Ok(ctx.eq_(lhs, rhs)?)
             }
+        }
+        BooleanOp::Neq(args) if args.len() != 2 => {
+            let result_args: Vec<_> = children
+                .iter()
+                .map(|c| extract_bitvec_child(std::slice::from_ref(c), 0))
+                .collect::<Result<_, _>>()?;
+            ctx.distinct(result_args)
         }
         BooleanOp::Neq(..) => {
             let lhs = extract_bitvec_child(children, 0)?;
@@ -519,6 +533,13 @@ pub(crate) fn excavate_ite<'c>(
             } else {
                 Ok(ctx.fp_eq(lhs, rhs)?)
             }
+        }
+        BooleanOp::FpNeq(args) if args.len() != 2 => {
+            let result_args: Vec<_> = children
+                .iter()
+                .map(|c| extract_float_child(std::slice::from_ref(c), 0))
+                .collect::<Result<_, _>>()?;
+            ctx.distinct(result_args)
         }
         BooleanOp::FpNeq(..) => {
             let lhs = extract_float_child(children, 0)?;
@@ -822,6 +843,13 @@ pub(crate) fn excavate_ite<'c>(
             } else {
                 Ok(ctx.str_eq(lhs, rhs)?)
             }
+        }
+        BooleanOp::StrNeq(args) if args.len() != 2 => {
+            let result_args: Vec<_> = children
+                .iter()
+                .map(|c| extract_string_child(std::slice::from_ref(c), 0))
+                .collect::<Result<_, _>>()?;
+            ctx.distinct(result_args)
         }
         BooleanOp::StrNeq(..) => {
             let lhs = extract_string_child(children, 0)?;

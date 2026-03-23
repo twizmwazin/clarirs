@@ -35,9 +35,21 @@ pub fn reconstruct_node<'c>(
             }
             BooleanOp::Xor(..) => ctx.xor(bool_child(children, 0)?, bool_child(children, 1)?),
             BooleanOp::BoolEq(..) => ctx.eq_(bool_child(children, 0)?, bool_child(children, 1)?),
-            BooleanOp::BoolNeq(..) => ctx.neq(bool_child(children, 0)?, bool_child(children, 1)?),
+            BooleanOp::BoolNeq(..) => {
+                let args: Vec<_> = children
+                    .iter()
+                    .map(|c| bool_child(std::slice::from_ref(c), 0))
+                    .collect::<Result<_, _>>()?;
+                ctx.distinct(args)
+            }
             BooleanOp::Eq(..) => ctx.eq_(bitvec_child(children, 0)?, bitvec_child(children, 1)?),
-            BooleanOp::Neq(..) => ctx.neq(bitvec_child(children, 0)?, bitvec_child(children, 1)?),
+            BooleanOp::Neq(..) => {
+                let args: Vec<_> = children
+                    .iter()
+                    .map(|c| bitvec_child(std::slice::from_ref(c), 0))
+                    .collect::<Result<_, _>>()?;
+                ctx.distinct(args)
+            }
             BooleanOp::ULT(..) => ctx.ult(bitvec_child(children, 0)?, bitvec_child(children, 1)?),
             BooleanOp::ULE(..) => ctx.ule(bitvec_child(children, 0)?, bitvec_child(children, 1)?),
             BooleanOp::UGT(..) => ctx.ugt(bitvec_child(children, 0)?, bitvec_child(children, 1)?),
@@ -48,7 +60,11 @@ pub fn reconstruct_node<'c>(
             BooleanOp::SGE(..) => ctx.sge(bitvec_child(children, 0)?, bitvec_child(children, 1)?),
             BooleanOp::FpEq(..) => ctx.fp_eq(float_child(children, 0)?, float_child(children, 1)?),
             BooleanOp::FpNeq(..) => {
-                ctx.fp_neq(float_child(children, 0)?, float_child(children, 1)?)
+                let args: Vec<_> = children
+                    .iter()
+                    .map(|c| float_child(std::slice::from_ref(c), 0))
+                    .collect::<Result<_, _>>()?;
+                ctx.distinct(args)
             }
             BooleanOp::FpLt(..) => ctx.fp_lt(float_child(children, 0)?, float_child(children, 1)?),
             BooleanOp::FpLeq(..) => {
@@ -74,7 +90,11 @@ pub fn reconstruct_node<'c>(
                 ctx.str_eq(string_child(children, 0)?, string_child(children, 1)?)
             }
             BooleanOp::StrNeq(..) => {
-                ctx.str_neq(string_child(children, 0)?, string_child(children, 1)?)
+                let args: Vec<_> = children
+                    .iter()
+                    .map(|c| string_child(std::slice::from_ref(c), 0))
+                    .collect::<Result<_, _>>()?;
+                ctx.distinct(args)
             }
             BooleanOp::ITE(..) => ctx.ite(
                 bool_child(children, 0)?,

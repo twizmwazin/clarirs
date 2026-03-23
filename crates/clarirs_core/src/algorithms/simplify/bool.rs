@@ -17,7 +17,9 @@ pub(crate) fn simplify_bool<'c>(
                 BooleanOp::BoolV(v) => Ok(ctx.boolv(!v)?),
 
                 BooleanOp::Eq(lhs, rhs) => Ok(ctx.neq(lhs.clone(), rhs.clone())?),
-                BooleanOp::Neq(lhs, rhs) => Ok(ctx.eq_(lhs.clone(), rhs.clone())?),
+                BooleanOp::Neq(args) if args.len() == 2 => {
+                    Ok(ctx.eq_(args[0].clone(), args[1].clone())?)
+                }
 
                 // !(a > b)  ==>  a <= b
                 BooleanOp::UGT(lhs, rhs) => state.rerun(ctx.ule(lhs.clone(), rhs.clone())?),
@@ -101,9 +103,15 @@ pub(crate) fn simplify_bool<'c>(
             for i in 0..absorbed_args.len() {
                 for j in (i + 1)..absorbed_args.len() {
                     match (absorbed_args[i].op(), absorbed_args[j].op()) {
-                        (BooleanOp::Eq(var1, val1), BooleanOp::Neq(var2, val2))
-                        | (BooleanOp::Neq(var2, val2), BooleanOp::Eq(var1, val1))
-                        | (BooleanOp::ULT(var1, val1), BooleanOp::UGE(var2, val2))
+                        (BooleanOp::Eq(var1, val1), BooleanOp::Neq(neq_args))
+                        | (BooleanOp::Neq(neq_args), BooleanOp::Eq(var1, val1))
+                            if neq_args.len() == 2
+                                && ((var1 == &neq_args[0] && val1 == &neq_args[1])
+                                    || (var1 == &neq_args[1] && val1 == &neq_args[0])) =>
+                        {
+                            return Ok(ctx.false_()?);
+                        }
+                        (BooleanOp::ULT(var1, val1), BooleanOp::UGE(var2, val2))
                         | (BooleanOp::UGE(var2, val2), BooleanOp::ULT(var1, val1))
                         | (BooleanOp::ULE(var1, val1), BooleanOp::UGT(var2, val2))
                         | (BooleanOp::UGT(var2, val2), BooleanOp::ULE(var1, val1))
@@ -191,9 +199,15 @@ pub(crate) fn simplify_bool<'c>(
             for i in 0..absorbed_args.len() {
                 for j in (i + 1)..absorbed_args.len() {
                     match (absorbed_args[i].op(), absorbed_args[j].op()) {
-                        (BooleanOp::Eq(var1, val1), BooleanOp::Neq(var2, val2))
-                        | (BooleanOp::Neq(var2, val2), BooleanOp::Eq(var1, val1))
-                        | (BooleanOp::ULT(var1, val1), BooleanOp::UGE(var2, val2))
+                        (BooleanOp::Eq(var1, val1), BooleanOp::Neq(neq_args))
+                        | (BooleanOp::Neq(neq_args), BooleanOp::Eq(var1, val1))
+                            if neq_args.len() == 2
+                                && ((var1 == &neq_args[0] && val1 == &neq_args[1])
+                                    || (var1 == &neq_args[1] && val1 == &neq_args[0])) =>
+                        {
+                            return Ok(ctx.true_()?);
+                        }
+                        (BooleanOp::ULT(var1, val1), BooleanOp::UGE(var2, val2))
                         | (BooleanOp::UGE(var2, val2), BooleanOp::ULT(var1, val1))
                         | (BooleanOp::ULE(var1, val1), BooleanOp::UGT(var2, val2))
                         | (BooleanOp::UGT(var2, val2), BooleanOp::ULE(var1, val1))
@@ -253,7 +267,7 @@ pub(crate) fn simplify_bool<'c>(
                 _ => Ok(ctx.eq_(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
             }
         }
-        BooleanOp::BoolNeq(..) => {
+        BooleanOp::BoolNeq(args) if args.len() == 2 => {
             let early_lhs = state.get_bool_available(0)?;
             let early_rhs = state.get_bool_available(1)?;
 
@@ -269,6 +283,12 @@ pub(crate) fn simplify_bool<'c>(
                 }
                 _ => Ok(ctx.neq(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
             }
+        }
+        BooleanOp::BoolNeq(..) => {
+            let args: Vec<_> = (0..bool_ast.op().child_iter().len())
+                .map(|i| state.get_bool_simplified(i))
+                .collect::<Result<_, _>>()?;
+            ctx.distinct(args).map_err(SimplifyError::from)
         }
         BooleanOp::Eq(..) => {
             let early_lhs = state.get_bv_available(0)?;
@@ -408,7 +428,7 @@ pub(crate) fn simplify_bool<'c>(
                 _ => Ok(ctx.eq_(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
             }
         }
-        BooleanOp::Neq(..) => {
+        BooleanOp::Neq(args) if args.len() == 2 => {
             let early_lhs = state.get_bv_available(0)?;
             let early_rhs = state.get_bv_available(1)?;
 
@@ -545,6 +565,12 @@ pub(crate) fn simplify_bool<'c>(
 
                 _ => Ok(ctx.neq(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
             }
+        }
+        BooleanOp::Neq(..) => {
+            let args: Vec<_> = (0..bool_ast.op().child_iter().len())
+                .map(|i| state.get_bv_simplified(i))
+                .collect::<Result<_, _>>()?;
+            ctx.distinct(args).map_err(SimplifyError::from)
         }
         BooleanOp::ULT(..) => {
             let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
@@ -1408,7 +1434,7 @@ pub(crate) fn simplify_bool<'c>(
                 _ => Ok(ctx.fp_eq(state.get_fp_simplified(0)?, state.get_fp_simplified(1)?)?),
             }
         }
-        BooleanOp::FpNeq(..) => {
+        BooleanOp::FpNeq(args) if args.len() == 2 => {
             let early_lhs = state.get_fp_available(0)?;
             let early_rhs = state.get_fp_available(1)?;
 
@@ -1416,6 +1442,12 @@ pub(crate) fn simplify_bool<'c>(
                 (FloatOp::FPV(arc), FloatOp::FPV(arc1)) => Ok(ctx.boolv(!arc.compare_fp(arc1))?),
                 _ => Ok(ctx.fp_neq(state.get_fp_simplified(0)?, state.get_fp_simplified(1)?)?),
             }
+        }
+        BooleanOp::FpNeq(..) => {
+            let args: Vec<_> = (0..bool_ast.op().child_iter().len())
+                .map(|i| state.get_fp_simplified(i))
+                .collect::<Result<_, _>>()?;
+            ctx.distinct(args).map_err(SimplifyError::from)
         }
         BooleanOp::FpLt(..) => {
             let (arc, arc1) = (state.get_fp_simplified(0)?, state.get_fp_simplified(1)?);
@@ -1523,7 +1555,7 @@ pub(crate) fn simplify_bool<'c>(
                 )?),
             }
         }
-        BooleanOp::StrNeq(..) => {
+        BooleanOp::StrNeq(args) if args.len() == 2 => {
             let early_lhs = state.get_string_available(0)?;
             let early_rhs = state.get_string_available(1)?;
 
@@ -1534,6 +1566,12 @@ pub(crate) fn simplify_bool<'c>(
                     state.get_string_simplified(1)?,
                 )?),
             }
+        }
+        BooleanOp::StrNeq(..) => {
+            let args: Vec<_> = (0..bool_ast.op().child_iter().len())
+                .map(|i| state.get_string_simplified(i))
+                .collect::<Result<_, _>>()?;
+            ctx.distinct(args).map_err(SimplifyError::from)
         }
 
         BooleanOp::ITE(..) => {

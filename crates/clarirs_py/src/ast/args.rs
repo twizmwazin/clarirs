@@ -21,13 +21,15 @@ impl ExtractPyArgs for BoolAst<'static> {
                 .map(|a| Bool::new(py, a).map(|b| b.into_any()))
                 .collect::<Result<Vec<_>, _>>()?,
             BooleanOp::Xor(lhs, rhs)
-            | BooleanOp::BoolEq(lhs, rhs)
-            | BooleanOp::BoolNeq(lhs, rhs) => vec![
+            | BooleanOp::BoolEq(lhs, rhs) => vec![
                 Bool::new(py, lhs)?.into_any(),
                 Bool::new(py, rhs)?.into_any(),
             ],
+            BooleanOp::BoolNeq(args) => args
+                .iter()
+                .map(|a| Bool::new(py, a).map(|b| b.into_any()))
+                .collect::<Result<Vec<_>, _>>()?,
             BooleanOp::Eq(lhs, rhs)
-            | BooleanOp::Neq(lhs, rhs)
             | BooleanOp::ULT(lhs, rhs)
             | BooleanOp::ULE(lhs, rhs)
             | BooleanOp::UGT(lhs, rhs)
@@ -38,25 +40,35 @@ impl ExtractPyArgs for BoolAst<'static> {
             | BooleanOp::SGE(lhs, rhs) => {
                 vec![BV::new(py, lhs)?.into_any(), BV::new(py, rhs)?.into_any()]
             }
+            BooleanOp::Neq(args) => args
+                .iter()
+                .map(|a| BV::new(py, a).map(|b| b.into_any()))
+                .collect::<Result<Vec<_>, _>>()?,
             BooleanOp::FpEq(lhs, rhs)
-            | BooleanOp::FpNeq(lhs, rhs)
             | BooleanOp::FpLt(lhs, rhs)
             | BooleanOp::FpLeq(lhs, rhs)
             | BooleanOp::FpGt(lhs, rhs)
             | BooleanOp::FpGeq(lhs, rhs) => {
                 vec![FP::new(py, lhs)?.into_any(), FP::new(py, rhs)?.into_any()]
             }
+            BooleanOp::FpNeq(args) => args
+                .iter()
+                .map(|a| FP::new(py, a).map(|b| b.into_any()))
+                .collect::<Result<Vec<_>, _>>()?,
             BooleanOp::FpIsNan(expr) | BooleanOp::FpIsInf(expr) => {
                 vec![FP::new(py, expr)?.into_any()]
             }
             BooleanOp::StrContains(lhs, rhs)
             | BooleanOp::StrPrefixOf(lhs, rhs)
             | BooleanOp::StrSuffixOf(lhs, rhs)
-            | BooleanOp::StrEq(lhs, rhs)
-            | BooleanOp::StrNeq(lhs, rhs) => vec![
+            | BooleanOp::StrEq(lhs, rhs) => vec![
                 PyAstString::new(py, lhs)?.into_any(),
                 PyAstString::new(py, rhs)?.into_any(),
             ],
+            BooleanOp::StrNeq(args) => args
+                .iter()
+                .map(|a| PyAstString::new(py, a).map(|b| b.into_any()))
+                .collect::<Result<Vec<_>, _>>()?,
             BooleanOp::StrIsDigit(expr) => vec![PyAstString::new(py, expr)?.into_any()],
             BooleanOp::ITE(cond, then_, else_) => vec![
                 Bool::new(py, cond)?.into_any(),

@@ -33,9 +33,8 @@ pub(crate) fn to_z3(ast: &BoolAst, children: &[RcAst]) -> Result<RcAst, ClarirsE
             BooleanOp::Xor(..) => binop!(z3_ctx, children, mk_xor),
             BooleanOp::BoolEq(..) => binop!(z3_ctx, children, mk_eq),
             BooleanOp::BoolNeq(..) => {
-                let a = child(children, 0)?;
-                let b = child(children, 1)?;
-                z3::mk_distinct(z3_ctx, 2, [**a, **b].as_ptr()).try_into()?
+                let args: Vec<_> = children.iter().map(|c| **c).collect();
+                z3::mk_distinct(z3_ctx, args.len() as u32, args.as_ptr()).try_into()?
             }
             BooleanOp::ITE(..) => {
                 let cond = child(children, 0)?;
@@ -47,9 +46,8 @@ pub(crate) fn to_z3(ast: &BoolAst, children: &[RcAst]) -> Result<RcAst, ClarirsE
             // BV operations
             BooleanOp::Eq(..) => binop!(z3_ctx, children, mk_eq),
             BooleanOp::Neq(..) => {
-                let a = child(children, 0)?;
-                let b = child(children, 1)?;
-                z3::mk_distinct(z3_ctx, 2, [**a, **b].as_ptr()).try_into()?
+                let args: Vec<_> = children.iter().map(|c| **c).collect();
+                z3::mk_distinct(z3_ctx, args.len() as u32, args.as_ptr()).try_into()?
             }
             BooleanOp::ULT(..) => binop!(z3_ctx, children, mk_bvult),
             BooleanOp::ULE(..) => binop!(z3_ctx, children, mk_bvule),
@@ -63,9 +61,8 @@ pub(crate) fn to_z3(ast: &BoolAst, children: &[RcAst]) -> Result<RcAst, ClarirsE
             // FP operations
             BooleanOp::FpEq(..) => binop!(z3_ctx, children, mk_fpa_eq),
             BooleanOp::FpNeq(..) => {
-                let a = child(children, 0)?;
-                let b = child(children, 1)?;
-                z3::mk_distinct(z3_ctx, 2, [**a, **b].as_ptr()).try_into()?
+                let args: Vec<_> = children.iter().map(|c| **c).collect();
+                z3::mk_distinct(z3_ctx, args.len() as u32, args.as_ptr()).try_into()?
             }
             BooleanOp::FpLt(..) => binop!(z3_ctx, children, mk_fpa_lt),
             BooleanOp::FpLeq(..) => binop!(z3_ctx, children, mk_fpa_leq),
@@ -96,9 +93,8 @@ pub(crate) fn to_z3(ast: &BoolAst, children: &[RcAst]) -> Result<RcAst, ClarirsE
             }
             BooleanOp::StrEq(..) => binop!(z3_ctx, children, mk_eq),
             BooleanOp::StrNeq(..) => {
-                let a = child(children, 0)?;
-                let b = child(children, 1)?;
-                z3::mk_distinct(z3_ctx, 2, [**a, **b].as_ptr()).try_into()?
+                let args: Vec<_> = children.iter().map(|c| **c).collect();
+                z3::mk_distinct(z3_ctx, args.len() as u32, args.as_ptr()).try_into()?
             }
         })
         .and_then(|maybe_null| {
@@ -188,36 +184,47 @@ pub(crate) fn from_z3<'c>(
                         }
                     }
                     z3::DeclKind::Distinct => {
-                        if z3::get_app_num_args(*z3_ctx, app) != 2 {
-                            return Err(ClarirsError::ConversionError(
-                                "Distinct with != 2 args not supported".to_string(),
-                            ));
-                        }
+                        let num_args = z3::get_app_num_args(*z3_ctx, app);
                         let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
-                        let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
                         let sort = z3::get_sort(*z3_ctx, *arg0);
                         let sort_kind = z3::get_sort_kind(*z3_ctx, sort);
 
                         match sort_kind {
                             z3::SortKind::Bool => {
-                                let lhs = BoolAst::from_z3(ctx, arg0)?;
-                                let rhs = BoolAst::from_z3(ctx, arg1)?;
-                                ctx.neq(lhs, rhs)
+                                let mut args = Vec::with_capacity(num_args as usize);
+                                args.push(BoolAst::from_z3(ctx, arg0)?);
+                                for i in 1..num_args {
+                                    let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, i))?;
+                                    args.push(BoolAst::from_z3(ctx, arg)?);
+                                }
+                                ctx.distinct(args)
                             }
                             z3::SortKind::Bv => {
-                                let lhs = BitVecAst::from_z3(ctx, arg0)?;
-                                let rhs = BitVecAst::from_z3(ctx, arg1)?;
-                                ctx.neq(lhs, rhs)
+                                let mut args = Vec::with_capacity(num_args as usize);
+                                args.push(BitVecAst::from_z3(ctx, arg0)?);
+                                for i in 1..num_args {
+                                    let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, i))?;
+                                    args.push(BitVecAst::from_z3(ctx, arg)?);
+                                }
+                                ctx.distinct(args)
                             }
                             z3::SortKind::FloatingPoint => {
-                                let lhs = FloatAst::from_z3(ctx, arg0)?;
-                                let rhs = FloatAst::from_z3(ctx, arg1)?;
-                                ctx.fp_neq(lhs, rhs)
+                                let mut args = Vec::with_capacity(num_args as usize);
+                                args.push(FloatAst::from_z3(ctx, arg0)?);
+                                for i in 1..num_args {
+                                    let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, i))?;
+                                    args.push(FloatAst::from_z3(ctx, arg)?);
+                                }
+                                ctx.distinct(args)
                             }
                             z3::SortKind::Seq => {
-                                let lhs = StringAst::from_z3(ctx, arg0)?;
-                                let rhs = StringAst::from_z3(ctx, arg1)?;
-                                ctx.str_neq(lhs, rhs)
+                                let mut args = Vec::with_capacity(num_args as usize);
+                                args.push(StringAst::from_z3(ctx, arg0)?);
+                                for i in 1..num_args {
+                                    let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, i))?;
+                                    args.push(StringAst::from_z3(ctx, arg)?);
+                                }
+                                ctx.distinct(args)
                             }
                             _ => Err(ClarirsError::ConversionError(
                                 "Distinct operand has unrecognized sort".to_string(),

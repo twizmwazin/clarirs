@@ -13,9 +13,9 @@ pub enum BooleanOp<'c> {
     Or(Vec<BoolAst<'c>>),
     Xor(BoolAst<'c>, BoolAst<'c>),
     BoolEq(BoolAst<'c>, BoolAst<'c>),
-    BoolNeq(BoolAst<'c>, BoolAst<'c>),
+    BoolNeq(Vec<BoolAst<'c>>),
     Eq(BitVecAst<'c>, BitVecAst<'c>),
-    Neq(BitVecAst<'c>, BitVecAst<'c>),
+    Neq(Vec<BitVecAst<'c>>),
     ULT(BitVecAst<'c>, BitVecAst<'c>),
     ULE(BitVecAst<'c>, BitVecAst<'c>),
     UGT(BitVecAst<'c>, BitVecAst<'c>),
@@ -25,7 +25,7 @@ pub enum BooleanOp<'c> {
     SGT(BitVecAst<'c>, BitVecAst<'c>),
     SGE(BitVecAst<'c>, BitVecAst<'c>),
     FpEq(FloatAst<'c>, FloatAst<'c>),
-    FpNeq(FloatAst<'c>, FloatAst<'c>),
+    FpNeq(Vec<FloatAst<'c>>),
     FpLt(FloatAst<'c>, FloatAst<'c>),
     FpLeq(FloatAst<'c>, FloatAst<'c>),
     FpGt(FloatAst<'c>, FloatAst<'c>),
@@ -37,7 +37,7 @@ pub enum BooleanOp<'c> {
     StrSuffixOf(StringAst<'c>, StringAst<'c>),
     StrIsDigit(StringAst<'c>),
     StrEq(StringAst<'c>, StringAst<'c>),
-    StrNeq(StringAst<'c>, StringAst<'c>),
+    StrNeq(Vec<StringAst<'c>>),
     ITE(BoolAst<'c>, BoolAst<'c>, BoolAst<'c>),
 }
 
@@ -69,11 +69,9 @@ impl<'a, 'c> Iterator for BooleanOpChildIter<'a, 'c> {
 
             // 2 child variants - index 0 (first child)
             (BooleanOp::Xor(a, _), 0)
-            | (BooleanOp::BoolEq(a, _), 0)
-            | (BooleanOp::BoolNeq(a, _), 0) => Some(a.into()),
+            | (BooleanOp::BoolEq(a, _), 0) => Some(a.into()),
 
             (BooleanOp::Eq(a, _), 0)
-            | (BooleanOp::Neq(a, _), 0)
             | (BooleanOp::ULT(a, _), 0)
             | (BooleanOp::ULE(a, _), 0)
             | (BooleanOp::UGT(a, _), 0)
@@ -84,7 +82,6 @@ impl<'a, 'c> Iterator for BooleanOpChildIter<'a, 'c> {
             | (BooleanOp::SGE(a, _), 0) => Some(a.into()),
 
             (BooleanOp::FpEq(a, _), 0)
-            | (BooleanOp::FpNeq(a, _), 0)
             | (BooleanOp::FpLt(a, _), 0)
             | (BooleanOp::FpLeq(a, _), 0)
             | (BooleanOp::FpGt(a, _), 0)
@@ -93,16 +90,13 @@ impl<'a, 'c> Iterator for BooleanOpChildIter<'a, 'c> {
             (BooleanOp::StrContains(a, _), 0)
             | (BooleanOp::StrPrefixOf(a, _), 0)
             | (BooleanOp::StrSuffixOf(a, _), 0)
-            | (BooleanOp::StrEq(a, _), 0)
-            | (BooleanOp::StrNeq(a, _), 0) => Some(a.into()),
+            | (BooleanOp::StrEq(a, _), 0) => Some(a.into()),
 
             // 2 child variants - index 1 (second child)
             (BooleanOp::Xor(_, b), 1)
-            | (BooleanOp::BoolEq(_, b), 1)
-            | (BooleanOp::BoolNeq(_, b), 1) => Some(b.into()),
+            | (BooleanOp::BoolEq(_, b), 1) => Some(b.into()),
 
             (BooleanOp::Eq(_, b), 1)
-            | (BooleanOp::Neq(_, b), 1)
             | (BooleanOp::ULT(_, b), 1)
             | (BooleanOp::ULE(_, b), 1)
             | (BooleanOp::UGT(_, b), 1)
@@ -113,7 +107,6 @@ impl<'a, 'c> Iterator for BooleanOpChildIter<'a, 'c> {
             | (BooleanOp::SGE(_, b), 1) => Some(b.into()),
 
             (BooleanOp::FpEq(_, b), 1)
-            | (BooleanOp::FpNeq(_, b), 1)
             | (BooleanOp::FpLt(_, b), 1)
             | (BooleanOp::FpLeq(_, b), 1)
             | (BooleanOp::FpGt(_, b), 1)
@@ -122,17 +115,20 @@ impl<'a, 'c> Iterator for BooleanOpChildIter<'a, 'c> {
             (BooleanOp::StrContains(_, b), 1)
             | (BooleanOp::StrPrefixOf(_, b), 1)
             | (BooleanOp::StrSuffixOf(_, b), 1)
-            | (BooleanOp::StrEq(_, b), 1)
-            | (BooleanOp::StrNeq(_, b), 1) => Some(b.into()),
+            | (BooleanOp::StrEq(_, b), 1) => Some(b.into()),
 
             // 3 child variants
             (BooleanOp::ITE(a, _, _), 0) => Some(a.into()),
             (BooleanOp::ITE(_, b, _), 1) => Some(b.into()),
             (BooleanOp::ITE(_, _, c), 2) => Some(c.into()),
 
-            // N-ary variants (And/Or with Vec)
+            // N-ary variants
             (BooleanOp::And(args), i) if i < args.len() => Some((&args[i]).into()),
             (BooleanOp::Or(args), i) if i < args.len() => Some((&args[i]).into()),
+            (BooleanOp::BoolNeq(args), i) if i < args.len() => Some((&args[i]).into()),
+            (BooleanOp::Neq(args), i) if i < args.len() => Some((&args[i]).into()),
+            (BooleanOp::FpNeq(args), i) if i < args.len() => Some((&args[i]).into()),
+            (BooleanOp::StrNeq(args), i) if i < args.len() => Some((&args[i]).into()),
 
             _ => None,
         };
@@ -162,9 +158,7 @@ impl<'a, 'c> ExactSizeIterator for BooleanOpChildIter<'a, 'c> {
 
             BooleanOp::Xor(..)
             | BooleanOp::BoolEq(..)
-            | BooleanOp::BoolNeq(..)
             | BooleanOp::Eq(..)
-            | BooleanOp::Neq(..)
             | BooleanOp::ULT(..)
             | BooleanOp::ULE(..)
             | BooleanOp::UGT(..)
@@ -174,7 +168,6 @@ impl<'a, 'c> ExactSizeIterator for BooleanOpChildIter<'a, 'c> {
             | BooleanOp::SGT(..)
             | BooleanOp::SGE(..)
             | BooleanOp::FpEq(..)
-            | BooleanOp::FpNeq(..)
             | BooleanOp::FpLt(..)
             | BooleanOp::FpLeq(..)
             | BooleanOp::FpGt(..)
@@ -182,13 +175,16 @@ impl<'a, 'c> ExactSizeIterator for BooleanOpChildIter<'a, 'c> {
             | BooleanOp::StrContains(..)
             | BooleanOp::StrPrefixOf(..)
             | BooleanOp::StrSuffixOf(..)
-            | BooleanOp::StrEq(..)
-            | BooleanOp::StrNeq(..) => 2,
+            | BooleanOp::StrEq(..) => 2,
 
             BooleanOp::ITE(..) => 3,
 
             BooleanOp::And(args) => args.len(),
             BooleanOp::Or(args) => args.len(),
+            BooleanOp::BoolNeq(args) => args.len(),
+            BooleanOp::Neq(args) => args.len(),
+            BooleanOp::FpNeq(args) => args.len(),
+            BooleanOp::StrNeq(args) => args.len(),
         };
         total.saturating_sub(self.index)
     }
@@ -222,17 +218,15 @@ impl std::hash::Hash for BooleanOp<'_> {
                 a.hash(state);
                 b.hash(state);
             }
-            BooleanOp::BoolNeq(a, b) => {
-                a.hash(state);
-                b.hash(state);
+            BooleanOp::BoolNeq(args) => {
+                args.hash(state);
             }
             BooleanOp::Eq(a, b) => {
                 a.hash(state);
                 b.hash(state);
             }
-            BooleanOp::Neq(a, b) => {
-                a.hash(state);
-                b.hash(state);
+            BooleanOp::Neq(args) => {
+                args.hash(state);
             }
             BooleanOp::ULT(a, b) => {
                 a.hash(state);
@@ -270,9 +264,8 @@ impl std::hash::Hash for BooleanOp<'_> {
                 a.hash(state);
                 b.hash(state);
             }
-            BooleanOp::FpNeq(a, b) => {
-                a.hash(state);
-                b.hash(state);
+            BooleanOp::FpNeq(args) => {
+                args.hash(state);
             }
             BooleanOp::FpLt(a, b) => {
                 a.hash(state);
@@ -315,9 +308,8 @@ impl std::hash::Hash for BooleanOp<'_> {
                 a.hash(state);
                 b.hash(state);
             }
-            BooleanOp::StrNeq(a, b) => {
-                a.hash(state);
-                b.hash(state);
+            BooleanOp::StrNeq(args) => {
+                args.hash(state);
             }
             BooleanOp::ITE(a, b, c) => {
                 a.hash(state);

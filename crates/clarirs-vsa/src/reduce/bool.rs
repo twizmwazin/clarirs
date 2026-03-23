@@ -66,9 +66,26 @@ pub(crate) fn reduce_bool(
         }
         BooleanOp::Xor(..) => child(children, 0)? ^ child(children, 1)?,
         BooleanOp::BoolEq(..) => child(children, 0)?.eq_(child(children, 1)?),
-        BooleanOp::BoolNeq(..) => !child(children, 0)?.eq_(child(children, 1)?),
+        BooleanOp::BoolNeq(..) => {
+            // For n-ary distinct, all pairs must be not-equal
+            let mut result = ComparisonResult::True;
+            for i in 0..children.len() {
+                for j in (i + 1)..children.len() {
+                    result = result & !child(children, i)?.eq_(child(children, j)?);
+                }
+            }
+            result
+        }
         BooleanOp::Eq(..) => child_si(children, 0)?.eq_(&child_si(children, 1)?),
-        BooleanOp::Neq(..) => child_si(children, 0)?.ne_(&child_si(children, 1)?),
+        BooleanOp::Neq(..) => {
+            let mut result = ComparisonResult::True;
+            for i in 0..children.len() {
+                for j in (i + 1)..children.len() {
+                    result = result & child_si(children, i)?.ne_(&child_si(children, j)?);
+                }
+            }
+            result
+        }
         BooleanOp::ULT(..) => child_si(children, 0)?.ult(&child_si(children, 1)?),
         BooleanOp::ULE(..) => child_si(children, 0)?.ule(&child_si(children, 1)?),
         BooleanOp::UGT(..) => child_si(children, 0)?.ugt(&child_si(children, 1)?),

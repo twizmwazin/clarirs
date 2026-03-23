@@ -150,6 +150,13 @@ pub trait AstFactory<'c>: Sized {
         Op::neq(self, lhs, rhs)
     }
 
+    fn distinct<Op: SupportsNeq<'c>>(
+        &'c self,
+        args: impl IntoIterator<Item = AstRef<'c, Op>>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        Op::distinct(self, args)
+    }
+
     fn neg(&'c self, ast: impl IntoOwned<BitVecAst<'c>>) -> Result<BitVecAst<'c>, ClarirsError> {
         self.make_bitvec(BitVecOp::Neg(ast.into_owned()))
     }
@@ -593,7 +600,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<FloatAst<'c>>,
         rhs: impl IntoOwned<FloatAst<'c>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::FpNeq(lhs.into_owned(), rhs.into_owned()))
+        self.make_bool(BooleanOp::FpNeq(vec![lhs.into_owned(), rhs.into_owned()]))
     }
 
     fn fp_lt(
@@ -748,7 +755,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<StringAst<'c>>,
         rhs: impl IntoOwned<StringAst<'c>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::StrNeq(lhs.into_owned(), rhs.into_owned()))
+        self.make_bool(BooleanOp::StrNeq(vec![lhs.into_owned(), rhs.into_owned()]))
     }
 
     fn ite<Op: SupportsIf<'c>>(

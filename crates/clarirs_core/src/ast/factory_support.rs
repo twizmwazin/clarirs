@@ -192,6 +192,11 @@ pub trait SupportsNeq<'c>: Op<'c> + Sized {
         lhs: impl IntoOwned<AstRef<'c, Self>>,
         rhs: impl IntoOwned<AstRef<'c, Self>>,
     ) -> Result<BoolAst<'c>, ClarirsError>;
+
+    fn distinct(
+        factory: &'c impl AstFactory<'c>,
+        args: impl IntoIterator<Item = AstRef<'c, Self>>,
+    ) -> Result<BoolAst<'c>, ClarirsError>;
 }
 
 impl<'c> SupportsNeq<'c> for BooleanOp<'c> {
@@ -200,7 +205,14 @@ impl<'c> SupportsNeq<'c> for BooleanOp<'c> {
         lhs: impl IntoOwned<AstRef<'c, Self>>,
         rhs: impl IntoOwned<AstRef<'c, Self>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        factory.make_bool(BooleanOp::BoolNeq(lhs.into_owned(), rhs.into_owned()))
+        factory.make_bool(BooleanOp::BoolNeq(vec![lhs.into_owned(), rhs.into_owned()]))
+    }
+
+    fn distinct(
+        factory: &'c impl AstFactory<'c>,
+        args: impl IntoIterator<Item = AstRef<'c, Self>>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        factory.make_bool(BooleanOp::BoolNeq(args.into_iter().collect()))
     }
 }
 
@@ -210,7 +222,14 @@ impl<'c> SupportsNeq<'c> for BitVecOp<'c> {
         lhs: impl IntoOwned<AstRef<'c, Self>>,
         rhs: impl IntoOwned<AstRef<'c, Self>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        factory.make_bool(BooleanOp::Neq(lhs.into_owned(), rhs.into_owned()))
+        factory.make_bool(BooleanOp::Neq(vec![lhs.into_owned(), rhs.into_owned()]))
+    }
+
+    fn distinct(
+        factory: &'c impl AstFactory<'c>,
+        args: impl IntoIterator<Item = AstRef<'c, Self>>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        factory.make_bool(BooleanOp::Neq(args.into_iter().collect()))
     }
 }
 
@@ -220,7 +239,14 @@ impl<'c> SupportsNeq<'c> for FloatOp<'c> {
         lhs: impl IntoOwned<AstRef<'c, Self>>,
         rhs: impl IntoOwned<AstRef<'c, Self>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        factory.make_bool(BooleanOp::FpNeq(lhs.into_owned(), rhs.into_owned()))
+        factory.make_bool(BooleanOp::FpNeq(vec![lhs.into_owned(), rhs.into_owned()]))
+    }
+
+    fn distinct(
+        factory: &'c impl AstFactory<'c>,
+        args: impl IntoIterator<Item = AstRef<'c, Self>>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        factory.make_bool(BooleanOp::FpNeq(args.into_iter().collect()))
     }
 }
 
@@ -230,6 +256,13 @@ impl<'c> SupportsNeq<'c> for StringOp<'c> {
         lhs: impl IntoOwned<AstRef<'c, Self>>,
         rhs: impl IntoOwned<AstRef<'c, Self>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        factory.make_bool(BooleanOp::StrNeq(lhs.into_owned(), rhs.into_owned()))
+        factory.make_bool(BooleanOp::StrNeq(vec![lhs.into_owned(), rhs.into_owned()]))
+    }
+
+    fn distinct(
+        factory: &'c impl AstFactory<'c>,
+        args: impl IntoIterator<Item = AstRef<'c, Self>>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        factory.make_bool(BooleanOp::StrNeq(args.into_iter().collect()))
     }
 }
