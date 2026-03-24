@@ -1,5 +1,5 @@
 use clarirs_core::prelude::*;
-use clarirs_z3_sys as z3;
+use crate::z3_compat as z3;
 
 use super::AstExtZ3;
 use crate::{Z3_CONTEXT, astext::child, check_z3_error, rc::RcAst};
@@ -165,7 +165,7 @@ pub(crate) fn from_z3<'c>(
 
                 match decl_kind {
                     // Z3 represents float numerals as FpaNum
-                    z3::DeclKind::FpaNum => {
+                    z3::DeclKind::FPA_NUM => {
                         // Extract the float value from Z3
                         // For f32/f64, we can use get_numeral_double
                         if fsort == FSort::f32() {
@@ -180,32 +180,32 @@ pub(crate) fn from_z3<'c>(
                             ctx.fpv(Float::F64(val))
                         }
                     }
-                    z3::DeclKind::FpaNan => {
+                    z3::DeclKind::FPA_NAN => {
                         if fsort == FSort::f32() {
                             return ctx.fpv(Float::F32(f32::NAN));
                         }
                         ctx.fpv(Float::F64(f64::NAN))
                     }
-                    z3::DeclKind::Uninterpreted => {
+                    z3::DeclKind::UNINTERPRETED => {
                         let sym = z3::get_decl_name(*z3_ctx, decl);
                         let name = z3::get_symbol_string(*z3_ctx, sym);
                         let name = std::ffi::CStr::from_ptr(name).to_str().unwrap();
                         ctx.fps(name, fsort)
                     }
-                    z3::DeclKind::FpaNeg => {
+                    z3::DeclKind::FPA_NEG => {
                         let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
                         let inner = FloatAst::from_z3(ctx, arg)?;
                         ctx.fp_neg(inner)
                     }
-                    z3::DeclKind::FpaAbs => {
+                    z3::DeclKind::FPA_ABS => {
                         let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
                         let inner = FloatAst::from_z3(ctx, arg)?;
                         ctx.fp_abs(inner)
                     }
-                    z3::DeclKind::FpaAdd
-                    | z3::DeclKind::FpaSub
-                    | z3::DeclKind::FpaMul
-                    | z3::DeclKind::FpaDiv => {
+                    z3::DeclKind::FPA_ADD
+                    | z3::DeclKind::FPA_SUB
+                    | z3::DeclKind::FPA_MUL
+                    | z3::DeclKind::FPA_DIV => {
                         let rm_arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
                         let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
                         let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 2))?;
@@ -215,14 +215,14 @@ pub(crate) fn from_z3<'c>(
                         let b = FloatAst::from_z3(ctx, arg1)?;
 
                         match decl_kind {
-                            z3::DeclKind::FpaAdd => ctx.fp_add(a, b, rm),
-                            z3::DeclKind::FpaSub => ctx.fp_sub(a, b, rm),
-                            z3::DeclKind::FpaMul => ctx.fp_mul(a, b, rm),
-                            z3::DeclKind::FpaDiv => ctx.fp_div(a, b, rm),
+                            z3::DeclKind::FPA_ADD => ctx.fp_add(a, b, rm),
+                            z3::DeclKind::FPA_SUB => ctx.fp_sub(a, b, rm),
+                            z3::DeclKind::FPA_MUL => ctx.fp_mul(a, b, rm),
+                            z3::DeclKind::FPA_DIV => ctx.fp_div(a, b, rm),
                             _ => unreachable!(),
                         }
                     }
-                    z3::DeclKind::FpaSqrt => {
+                    z3::DeclKind::FPA_SQRT => {
                         let rm_arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
                         let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
 
@@ -230,7 +230,7 @@ pub(crate) fn from_z3<'c>(
                         let inner = FloatAst::from_z3(ctx, arg)?;
                         ctx.fp_sqrt(inner, rm)
                     }
-                    z3::DeclKind::FpaToFp => {
+                    z3::DeclKind::FPA_TO_FP => {
                         // Z3 uses FpaToFp for several conversions:
                         //   1 arg:  BvToFp(bv)           — reinterpret BV bits as FP
                         //   2 args: [rm, fp] → FpToFp    — convert between FP sorts
@@ -256,7 +256,7 @@ pub(crate) fn from_z3<'c>(
                                     let fp = FloatAst::from_z3(ctx, arg)?;
                                     ctx.fp_to_fp(fp, fsort, rm)
                                 }
-                                z3::SortKind::Bv => {
+                                z3::SortKind::BV => {
                                     let bv = crate::astext::bv::from_z3(ctx, arg)?;
                                     ctx.bv_to_fp_signed(bv, fsort, rm)
                                 }
@@ -270,7 +270,7 @@ pub(crate) fn from_z3<'c>(
                             ))
                         }
                     }
-                    z3::DeclKind::FpaFp => {
+                    z3::DeclKind::FPA_FP => {
                         let sign = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
                         let exp = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
                         let sig = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 2))?;
@@ -281,7 +281,7 @@ pub(crate) fn from_z3<'c>(
 
                         ctx.fp_fp(sign_bv, exp_bv, sig_bv)
                     }
-                    z3::DeclKind::Ite => {
+                    z3::DeclKind::ITE => {
                         let cond = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
                         let then = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
                         let else_ = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 2))?;
@@ -309,11 +309,11 @@ fn parse_fprm_from_z3(z3_ctx: z3::Context, ast: z3::Ast) -> Result<FPRM, Clarirs
         let decl_kind = z3::get_decl_kind(z3_ctx, decl);
 
         match decl_kind {
-            z3::DeclKind::FpaRmNearestTiesToEven => Ok(FPRM::NearestTiesToEven),
-            z3::DeclKind::FpaRmTowardPositive => Ok(FPRM::TowardPositive),
-            z3::DeclKind::FpaRmTowardNegative => Ok(FPRM::TowardNegative),
-            z3::DeclKind::FpaRmTowardZero => Ok(FPRM::TowardZero),
-            z3::DeclKind::FpaRmNearestTiesToAway => Ok(FPRM::NearestTiesToAway),
+            z3::DeclKind::FPA_RM_NEAREST_TIES_TO_EVEN => Ok(FPRM::NearestTiesToEven),
+            z3::DeclKind::FPA_RM_TOWARD_POSITIVE => Ok(FPRM::TowardPositive),
+            z3::DeclKind::FPA_RM_TOWARD_NEGATIVE => Ok(FPRM::TowardNegative),
+            z3::DeclKind::FPA_RM_TOWARD_ZERO => Ok(FPRM::TowardZero),
+            z3::DeclKind::FPA_RM_NEAREST_TIES_TO_AWAY => Ok(FPRM::NearestTiesToAway),
             _ => Err(ClarirsError::ConversionError(
                 "Unknown rounding mode".to_string(),
             )),

@@ -2,7 +2,7 @@ use std::ffi::CStr;
 
 use crate::{Z3_CONTEXT, astext::child, check_z3_error, rc::RcAst};
 use clarirs_core::prelude::*;
-use clarirs_z3_sys as z3;
+use crate::z3_compat as z3;
 
 use super::AstExtZ3;
 
@@ -122,9 +122,9 @@ pub(crate) fn from_z3<'c>(
                 let decl_kind = z3::get_decl_kind(*z3_ctx, decl);
 
                 match decl_kind {
-                    z3::DeclKind::True => ctx.true_(),
-                    z3::DeclKind::False => ctx.false_(),
-                    z3::DeclKind::Not => {
+                    z3::DeclKind::TRUE => ctx.true_(),
+                    z3::DeclKind::FALSE => ctx.false_(),
+                    z3::DeclKind::NOT => {
                         let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
                         let inner = BoolAst::from_z3(ctx, arg)?;
 
@@ -135,7 +135,7 @@ pub(crate) fn from_z3<'c>(
                             ctx.not(inner)
                         }
                     }
-                    z3::DeclKind::And | z3::DeclKind::Or => {
+                    z3::DeclKind::AND | z3::DeclKind::OR => {
                         let num_args = z3::get_app_num_args(*z3_ctx, app);
                         let mut args = Vec::with_capacity(num_args as usize);
                         for i in 0..num_args {
@@ -143,19 +143,19 @@ pub(crate) fn from_z3<'c>(
                             args.push(BoolAst::from_z3(ctx, arg)?);
                         }
                         match decl_kind {
-                            z3::DeclKind::And => ctx.and(args),
-                            z3::DeclKind::Or => ctx.or(args),
+                            z3::DeclKind::AND => ctx.and(args),
+                            z3::DeclKind::OR => ctx.or(args),
                             _ => unreachable!(),
                         }
                     }
-                    z3::DeclKind::Xor => {
+                    z3::DeclKind::XOR => {
                         let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
                         let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
                         let a = BoolAst::from_z3(ctx, arg0)?;
                         let b = BoolAst::from_z3(ctx, arg1)?;
                         ctx.xor(a, b)
                     }
-                    z3::DeclKind::Eq => {
+                    z3::DeclKind::EQ => {
                         let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
                         let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
                         let sort = z3::get_sort(*z3_ctx, *arg0);
@@ -167,7 +167,7 @@ pub(crate) fn from_z3<'c>(
                                 let rhs = BoolAst::from_z3(ctx, arg1)?;
                                 ctx.eq_(lhs, rhs)
                             }
-                            z3::SortKind::Bv => {
+                            z3::SortKind::BV => {
                                 let lhs = BitVecAst::from_z3(ctx, arg0)?;
                                 let rhs = BitVecAst::from_z3(ctx, arg1)?;
                                 ctx.eq_(lhs, rhs)
@@ -187,7 +187,7 @@ pub(crate) fn from_z3<'c>(
                             )),
                         }
                     }
-                    z3::DeclKind::Distinct => {
+                    z3::DeclKind::DISTINCT => {
                         if z3::get_app_num_args(*z3_ctx, app) != 2 {
                             return Err(ClarirsError::ConversionError(
                                 "Distinct with != 2 args not supported".to_string(),
@@ -204,7 +204,7 @@ pub(crate) fn from_z3<'c>(
                                 let rhs = BoolAst::from_z3(ctx, arg1)?;
                                 ctx.neq(lhs, rhs)
                             }
-                            z3::SortKind::Bv => {
+                            z3::SortKind::BV => {
                                 let lhs = BitVecAst::from_z3(ctx, arg0)?;
                                 let rhs = BitVecAst::from_z3(ctx, arg1)?;
                                 ctx.neq(lhs, rhs)
@@ -224,14 +224,14 @@ pub(crate) fn from_z3<'c>(
                             )),
                         }
                     }
-                    z3::DeclKind::Ult
-                    | z3::DeclKind::Uleq
-                    | z3::DeclKind::Ugt
-                    | z3::DeclKind::Ugeq
-                    | z3::DeclKind::Slt
-                    | z3::DeclKind::Sleq
-                    | z3::DeclKind::Sgt
-                    | z3::DeclKind::Sgeq => {
+                    z3::DeclKind::ULT
+                    | z3::DeclKind::ULEQ
+                    | z3::DeclKind::UGT
+                    | z3::DeclKind::UGEQ
+                    | z3::DeclKind::SLT
+                    | z3::DeclKind::SLEQ
+                    | z3::DeclKind::SGT
+                    | z3::DeclKind::SGEQ => {
                         let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
                         let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
 
@@ -241,23 +241,23 @@ pub(crate) fn from_z3<'c>(
 
                         // Create the appropriate operation
                         match decl_kind {
-                            z3::DeclKind::Ult => ctx.ult(a, b),
-                            z3::DeclKind::Uleq => ctx.ule(a, b),
-                            z3::DeclKind::Ugt => ctx.ugt(a, b),
-                            z3::DeclKind::Ugeq => ctx.uge(a, b),
-                            z3::DeclKind::Slt => ctx.slt(a, b),
-                            z3::DeclKind::Sleq => ctx.sle(a, b),
-                            z3::DeclKind::Sgt => ctx.sgt(a, b),
-                            z3::DeclKind::Sgeq => ctx.sge(a, b),
+                            z3::DeclKind::ULT => ctx.ult(a, b),
+                            z3::DeclKind::ULEQ => ctx.ule(a, b),
+                            z3::DeclKind::UGT => ctx.ugt(a, b),
+                            z3::DeclKind::UGEQ => ctx.uge(a, b),
+                            z3::DeclKind::SLT => ctx.slt(a, b),
+                            z3::DeclKind::SLEQ => ctx.sle(a, b),
+                            z3::DeclKind::SGT => ctx.sgt(a, b),
+                            z3::DeclKind::SGEQ => ctx.sge(a, b),
                             _ => unreachable!(),
                         }
                     }
                     // FP comparisons
-                    z3::DeclKind::FpaEq
-                    | z3::DeclKind::FpaLt
-                    | z3::DeclKind::FpaLe
-                    | z3::DeclKind::FpaGt
-                    | z3::DeclKind::FpaGe => {
+                    z3::DeclKind::FPA_EQ
+                    | z3::DeclKind::FPA_LT
+                    | z3::DeclKind::FPA_LE
+                    | z3::DeclKind::FPA_GT
+                    | z3::DeclKind::FPA_GE => {
                         let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
                         let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
 
@@ -265,29 +265,29 @@ pub(crate) fn from_z3<'c>(
                         let b = FloatAst::from_z3(ctx, arg1)?;
 
                         match decl_kind {
-                            z3::DeclKind::FpaEq => ctx.fp_eq(a, b),
-                            z3::DeclKind::FpaLt => ctx.fp_lt(a, b),
-                            z3::DeclKind::FpaLe => ctx.fp_leq(a, b),
-                            z3::DeclKind::FpaGt => ctx.fp_gt(a, b),
-                            z3::DeclKind::FpaGe => ctx.fp_geq(a, b),
+                            z3::DeclKind::FPA_EQ => ctx.fp_eq(a, b),
+                            z3::DeclKind::FPA_LT => ctx.fp_lt(a, b),
+                            z3::DeclKind::FPA_LE => ctx.fp_leq(a, b),
+                            z3::DeclKind::FPA_GT => ctx.fp_gt(a, b),
+                            z3::DeclKind::FPA_GE => ctx.fp_geq(a, b),
                             _ => unreachable!(),
                         }
                     }
-                    z3::DeclKind::FpaIsNan => {
+                    z3::DeclKind::FPA_IS_NAN => {
                         let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
                         let a = FloatAst::from_z3(ctx, arg0)?;
                         ctx.fp_is_nan(a)
                     }
-                    z3::DeclKind::FpaIsInf => {
+                    z3::DeclKind::FPA_IS_INF => {
                         let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
                         let a = FloatAst::from_z3(ctx, arg0)?;
                         ctx.fp_is_inf(a)
                     }
 
                     // String predicates
-                    z3::DeclKind::SeqContains
-                    | z3::DeclKind::SeqPrefix
-                    | z3::DeclKind::SeqSuffix => {
+                    z3::DeclKind::SEQ_CONTAINS
+                    | z3::DeclKind::SEQ_PREFIX
+                    | z3::DeclKind::SEQ_SUFFIX => {
                         let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
                         let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
 
@@ -295,14 +295,14 @@ pub(crate) fn from_z3<'c>(
                         let b = StringAst::from_z3(ctx, arg1)?;
 
                         match decl_kind {
-                            z3::DeclKind::SeqContains => ctx.str_contains(a, b),
-                            z3::DeclKind::SeqPrefix => ctx.str_prefix_of(a, b),
-                            z3::DeclKind::SeqSuffix => ctx.str_suffix_of(a, b),
+                            z3::DeclKind::SEQ_CONTAINS => ctx.str_contains(a, b),
+                            z3::DeclKind::SEQ_PREFIX => ctx.str_prefix_of(a, b),
+                            z3::DeclKind::SEQ_SUFFIX => ctx.str_suffix_of(a, b),
                             _ => unreachable!(),
                         }
                     }
 
-                    z3::DeclKind::Ite => {
+                    z3::DeclKind::ITE => {
                         let cond = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
                         let then = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
                         let else_ = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 2))?;
@@ -311,7 +311,7 @@ pub(crate) fn from_z3<'c>(
                         let else_ = BoolAst::from_z3(ctx, else_)?;
                         ctx.ite(cond, then, else_)
                     }
-                    z3::DeclKind::Uninterpreted => {
+                    z3::DeclKind::UNINTERPRETED => {
                         // Verify it's a boolean
                         let sort = z3::get_sort(*z3_ctx, *ast);
                         let bool_sort = z3::mk_bool_sort(*z3_ctx);

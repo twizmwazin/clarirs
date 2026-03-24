@@ -47,7 +47,7 @@ mod test_float;
 mod test_string;
 
 use clarirs_core::{algorithms::walk_post_order, prelude::*};
-use clarirs_z3_sys as z3;
+use crate::z3_compat as z3;
 
 use crate::{Z3_AST_CACHE, Z3_CONTEXT, rc::RcAst};
 
