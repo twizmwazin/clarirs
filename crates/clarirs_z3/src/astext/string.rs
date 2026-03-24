@@ -3,7 +3,7 @@ use clarirs_core::prelude::*;
 use regex::Regex;
 
 use super::AstExtZ3;
-use *;
+use z3_sys::*;
 
 fn mk_bv2int(bv: &RcAst) -> Result<RcAst, ClarirsError> {
     Z3_CONTEXT.with(|&z3_ctx| unsafe {
