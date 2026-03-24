@@ -2,7 +2,7 @@ use crate::astext::AstExtZ3;
 use crate::rc::{RcModel, RcOptimize, RcParamSet, RcSolver};
 use clarirs_core::ast::bitvec::BitVecOpExt;
 use clarirs_core::prelude::*;
-use crate::z3_compat as z3;
+use crate::rc::Lbool;
 use std::collections::HashMap;
 
 #[derive(Clone, Debug)]
@@ -62,7 +62,7 @@ impl<'c> Z3Solver<'c> {
         let mut z3_solver = self.make_filled_solver()?;
 
         // Check if UNSAT
-        if z3_solver.check()? != z3::Lbool::False {
+        if z3_solver.check()? != Lbool::False {
             return Err(ClarirsError::UnsupportedOperation(
                 "Can only get unsat core after an UNSAT result".to_string(),
             ));
@@ -147,7 +147,7 @@ impl<'c> Z3Solver<'c> {
 
     fn make_model(&self) -> Result<RcModel, ClarirsError> {
         let mut z3_solver = self.make_filled_solver()?;
-        if z3_solver.check()? != z3::Lbool::True {
+        if z3_solver.check()? != Lbool::True {
             return Err(ClarirsError::Unsat);
         }
 
@@ -222,7 +222,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
 
     fn satisfiable(&mut self) -> Result<bool, ClarirsError> {
         let mut z3_solver = self.make_filled_solver()?;
-        Ok(z3_solver.check()? == z3::Lbool::True)
+        Ok(z3_solver.check()? == Lbool::True)
     }
 
     fn eval_bool(&mut self, expr: &BoolAst<'c>) -> Result<BoolAst<'c>, ClarirsError> {
@@ -282,7 +282,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
     fn min_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
         let mut optimize = self.mk_filled_optimize()?;
         optimize.minimize(&expr.to_z3()?)?;
-        if optimize.check()? != z3::Lbool::True {
+        if optimize.check()? != Lbool::True {
             return Err(ClarirsError::Unsat);
         }
 
@@ -298,7 +298,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
     fn max_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
         let mut optimize = self.mk_filled_optimize()?;
         optimize.maximize(&expr.to_z3()?)?;
-        if optimize.check()? != z3::Lbool::True {
+        if optimize.check()? != Lbool::True {
             return Err(ClarirsError::Unsat);
         }
 
@@ -336,7 +336,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         // This will find the smallest value among those with the preferred sign bit
         optimize.minimize(&target.to_z3()?)?;
 
-        if optimize.check()? != z3::Lbool::True {
+        if optimize.check()? != Lbool::True {
             return Err(ClarirsError::Unsat);
         }
 
@@ -373,7 +373,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         // This will find the largest value among those with the preferred sign bit
         optimize.maximize(&target.to_z3()?)?;
 
-        if optimize.check()? != z3::Lbool::True {
+        if optimize.check()? != Lbool::True {
             return Err(ClarirsError::Unsat);
         }
 
@@ -410,7 +410,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         }
 
         for _ in 0..n {
-            if z3_solver.check()? != z3::Lbool::True {
+            if z3_solver.check()? != Lbool::True {
                 break;
             }
 
@@ -454,7 +454,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         }
 
         for _ in 0..n {
-            if z3_solver.check()? != z3::Lbool::True {
+            if z3_solver.check()? != Lbool::True {
                 break;
             }
 
@@ -498,7 +498,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         }
 
         for _ in 0..n {
-            if z3_solver.check()? != z3::Lbool::True {
+            if z3_solver.check()? != Lbool::True {
                 break;
             }
 
@@ -542,7 +542,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         }
 
         for _ in 0..n {
-            if z3_solver.check()? != z3::Lbool::True {
+            if z3_solver.check()? != Lbool::True {
                 break;
             }
 

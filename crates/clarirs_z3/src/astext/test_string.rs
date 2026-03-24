@@ -1,5 +1,4 @@
 use clarirs_core::prelude::*;
-use crate::z3_compat as z3;
 
 use super::AstExtZ3;
 use crate::{Z3_CONTEXT, rc::RcAst};
@@ -15,10 +14,10 @@ fn round_trip<'c>(
 fn assert_z3_string_value(ast: &RcAst, expected: &str) {
     Z3_CONTEXT.with(|&z3_ctx| unsafe {
         assert!(
-            z3::is_string(z3_ctx, **ast),
+            z3_sys::Z3_is_string(z3_ctx, **ast),
             "expected a Z3 string constant"
         );
-        let ptr = z3::get_string(z3_ctx, **ast);
+        let ptr = z3_sys::Z3_get_string(z3_ctx, **ast);
         let got = std::ffi::CStr::from_ptr(ptr).to_str().unwrap();
         assert_eq!(got, expected);
     });
@@ -38,7 +37,7 @@ mod to_z3 {
         let s = ctx.strings("x").unwrap();
         let z3_ast = s.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::UNINTERPRETED);
+        assert_eq!(z3_ast.decl_kind(), z3_sys::DeclKind::UNINTERPRETED);
         assert_eq!(z3_ast.symbol_name().as_deref(), Some("x"));
     }
 
@@ -49,7 +48,7 @@ mod to_z3 {
         let z3_ast = s.to_z3().unwrap();
 
         Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            assert!(z3::is_string(z3_ctx, *z3_ast));
+            assert!(z3_sys::Z3_is_string(z3_ctx, *z3_ast));
         });
         assert_z3_string_value(&z3_ast, "hello");
     }
@@ -61,7 +60,7 @@ mod to_z3 {
         let z3_ast = s.to_z3().unwrap();
 
         Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            assert!(z3::is_string(z3_ctx, *z3_ast));
+            assert!(z3_sys::Z3_is_string(z3_ctx, *z3_ast));
         });
         assert_z3_string_value(&z3_ast, "");
     }
@@ -84,7 +83,7 @@ mod to_z3 {
         let cat = ctx.str_concat(s1, s2).unwrap();
         let z3_ast = cat.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::SEQ_CONCAT);
+        assert_eq!(z3_ast.decl_kind(), z3_sys::DeclKind::SEQ_CONCAT);
         assert_eq!(z3_ast.num_args(), 2);
         assert_z3_string_value(&z3_ast.arg(0).unwrap(), "hello");
         assert_z3_string_value(&z3_ast.arg(1).unwrap(), " world");
@@ -98,7 +97,7 @@ mod to_z3 {
         let cat = ctx.str_concat(s1, s2).unwrap();
         let z3_ast = cat.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::SEQ_CONCAT);
+        assert_eq!(z3_ast.decl_kind(), z3_sys::DeclKind::SEQ_CONCAT);
         assert_eq!(z3_ast.num_args(), 2);
         assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("a"));
         assert_eq!(z3_ast.arg(1).unwrap().symbol_name().as_deref(), Some("b"));
@@ -115,7 +114,7 @@ mod to_z3 {
         let sub = ctx.str_substr(s, start, length).unwrap();
         let z3_ast = sub.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::SEQ_EXTRACT);
+        assert_eq!(z3_ast.decl_kind(), z3_sys::DeclKind::SEQ_EXTRACT);
         assert_eq!(z3_ast.num_args(), 3);
         assert_z3_string_value(&z3_ast.arg(0).unwrap(), "hello world");
     }
@@ -131,7 +130,7 @@ mod to_z3 {
         let replaced = ctx.str_replace(s, pat, rep).unwrap();
         let z3_ast = replaced.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::SEQ_REPLACE);
+        assert_eq!(z3_ast.decl_kind(), z3_sys::DeclKind::SEQ_REPLACE);
         assert_eq!(z3_ast.num_args(), 3);
         assert_z3_string_value(&z3_ast.arg(0).unwrap(), "hello world");
         assert_z3_string_value(&z3_ast.arg(1).unwrap(), "world");
@@ -149,7 +148,7 @@ mod to_z3 {
         let ite = ctx.ite(c, then, else_).unwrap();
         let z3_ast = ite.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::ITE);
+        assert_eq!(z3_ast.decl_kind(), z3_sys::DeclKind::ITE);
         assert_eq!(z3_ast.num_args(), 3);
         assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("c"));
         assert_z3_string_value(&z3_ast.arg(1).unwrap(), "then");
@@ -165,7 +164,7 @@ mod to_z3 {
         let ite = ctx.ite(c, a, b).unwrap();
         let z3_ast = ite.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::ITE);
+        assert_eq!(z3_ast.decl_kind(), z3_sys::DeclKind::ITE);
         assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("c"));
         assert_eq!(z3_ast.arg(1).unwrap().symbol_name().as_deref(), Some("a"));
         assert_eq!(z3_ast.arg(2).unwrap().symbol_name().as_deref(), Some("b"));
@@ -216,7 +215,7 @@ mod from_z3 {
         let s2 = RcAst::mk_string_val(" world");
         let z3_cat = Z3_CONTEXT.with(|&z3_ctx| unsafe {
             let args = [*s1, *s2];
-            RcAst::try_from(z3::mk_seq_concat(z3_ctx, 2, args.as_ptr())).unwrap()
+            RcAst::try_from(z3_sys::Z3_mk_seq_concat(z3_ctx, 2, args.as_ptr()).expect("Z3_mk_seq_concat returned null")).unwrap()
         });
         let result = StringAst::from_z3(&ctx, z3_cat).unwrap();
         let expected = ctx
@@ -235,7 +234,7 @@ mod from_z3 {
         let s2 = RcAst::mk_string("b");
         let z3_cat = Z3_CONTEXT.with(|&z3_ctx| unsafe {
             let args = [*s1, *s2];
-            RcAst::try_from(z3::mk_seq_concat(z3_ctx, 2, args.as_ptr())).unwrap()
+            RcAst::try_from(z3_sys::Z3_mk_seq_concat(z3_ctx, 2, args.as_ptr()).expect("Z3_mk_seq_concat returned null")).unwrap()
         });
         let result = StringAst::from_z3(&ctx, z3_cat).unwrap();
         let expected = ctx
@@ -251,12 +250,12 @@ mod from_z3 {
         let ctx = Context::new();
         let s = RcAst::mk_string_val("hello world");
         let z3_sub = Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            let int_sort = z3::mk_int_sort(z3_ctx);
+            let int_sort = z3_sys::Z3_mk_int_sort(z3_ctx).expect("Z3_mk_int_sort returned null");
             let start_cstr = std::ffi::CString::new("6").unwrap();
-            let start = z3::mk_numeral(z3_ctx, start_cstr.as_ptr(), int_sort);
+            let start = z3_sys::Z3_mk_numeral(z3_ctx, start_cstr.as_ptr(), int_sort).expect("Z3_mk_numeral returned null");
             let len_cstr = std::ffi::CString::new("5").unwrap();
-            let len = z3::mk_numeral(z3_ctx, len_cstr.as_ptr(), int_sort);
-            RcAst::try_from(z3::mk_seq_extract(z3_ctx, *s, start, len)).unwrap()
+            let len = z3_sys::Z3_mk_numeral(z3_ctx, len_cstr.as_ptr(), int_sort).expect("Z3_mk_numeral returned null");
+            RcAst::try_from(z3_sys::Z3_mk_seq_extract(z3_ctx, *s, start, len).expect("Z3_mk_seq_extract returned null")).unwrap()
         });
         let result = StringAst::from_z3(&ctx, z3_sub).unwrap();
         let expected = ctx
@@ -278,7 +277,7 @@ mod from_z3 {
         let pat = RcAst::mk_string_val("world");
         let rep = RcAst::mk_string_val("there");
         let z3_rep = Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            RcAst::try_from(z3::mk_seq_replace(z3_ctx, *s, *pat, *rep)).unwrap()
+            RcAst::try_from(z3_sys::Z3_mk_seq_replace(z3_ctx, *s, *pat, *rep).expect("Z3_mk_seq_replace returned null")).unwrap()
         });
         let result = StringAst::from_z3(&ctx, z3_rep).unwrap();
         let expected = ctx
@@ -300,7 +299,7 @@ mod from_z3 {
         let then = RcAst::mk_string_val("then");
         let else_ = RcAst::mk_string_val("else");
         let z3_ite = Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            RcAst::try_from(z3::mk_ite(z3_ctx, *c, *then, *else_)).unwrap()
+            RcAst::try_from(z3_sys::Z3_mk_ite(z3_ctx, *c, *then, *else_).expect("Z3_mk_ite returned null")).unwrap()
         });
         let result = StringAst::from_z3(&ctx, z3_ite).unwrap();
         let expected = ctx
@@ -320,7 +319,7 @@ mod from_z3 {
         let a = RcAst::mk_string("a");
         let b = RcAst::mk_string("b");
         let z3_ite = Z3_CONTEXT
-            .with(|&z3_ctx| unsafe { RcAst::try_from(z3::mk_ite(z3_ctx, *c, *a, *b)).unwrap() });
+            .with(|&z3_ctx| unsafe { RcAst::try_from(z3_sys::Z3_mk_ite(z3_ctx, *c, *a, *b).expect("Z3_mk_ite returned null")).unwrap() });
         let result = StringAst::from_z3(&ctx, z3_ite).unwrap();
         let expected = ctx
             .ite(
