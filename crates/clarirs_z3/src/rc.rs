@@ -3,6 +3,7 @@ use std::ops::{Deref, DerefMut};
 
 use crate::{Z3_CONTEXT, check_z3_error};
 use clarirs_core::error::ClarirsError;
+use z3_sys::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Lbool {
@@ -11,34 +12,34 @@ pub enum Lbool {
     Undef,
 }
 
-impl From<z3_sys::Z3_lbool> for Lbool {
-    fn from(val: z3_sys::Z3_lbool) -> Self {
+impl From<Z3_lbool> for Lbool {
+    fn from(val: Z3_lbool) -> Self {
         match val {
-            z3_sys::Z3_L_TRUE => Lbool::True,
-            z3_sys::Z3_L_FALSE => Lbool::False,
+            Z3_L_TRUE => Lbool::True,
+            Z3_L_FALSE => Lbool::False,
             _ => Lbool::Undef,
         }
     }
 }
 
 #[repr(transparent)]
-pub struct RcAst(z3_sys::Z3_ast);
+pub struct RcAst(Z3_ast);
 
 impl RcAst {
     /// Returns the `DeclKind` of this AST node (assumes it is an application).
-    pub fn decl_kind(&self) -> z3_sys::DeclKind {
+    pub fn decl_kind(&self) -> DeclKind {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            let app = z3_sys::Z3_to_app(ctx, self.0).expect("Z3_to_app returned null");
-            let decl = z3_sys::Z3_get_app_decl(ctx, app).expect("Z3_get_app_decl returned null");
-            z3_sys::Z3_get_decl_kind(ctx, decl)
+            let app = Z3_to_app(ctx, self.0).expect("Z3_to_app returned null");
+            let decl = Z3_get_app_decl(ctx, app).expect("Z3_get_app_decl returned null");
+            Z3_get_decl_kind(ctx, decl)
         })
     }
 
     /// Returns the number of arguments (assumes it is an application).
     pub fn num_args(&self) -> u32 {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            let app = z3_sys::Z3_to_app(ctx, self.0).expect("Z3_to_app returned null");
-            z3_sys::Z3_get_app_num_args(ctx, app)
+            let app = Z3_to_app(ctx, self.0).expect("Z3_to_app returned null");
+            Z3_get_app_num_args(ctx, app)
         })
     }
 
@@ -46,16 +47,17 @@ impl RcAst {
     /// bounds or the node is not an application.
     pub fn arg(&self, index: u32) -> Option<RcAst> {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            let ast_kind = z3_sys::Z3_get_ast_kind(ctx, self.0);
-            if ast_kind != z3_sys::AstKind::App {
+            let ast_kind = Z3_get_ast_kind(ctx, self.0);
+            if ast_kind != AstKind::App {
                 return None;
             }
-            let app = z3_sys::Z3_to_app(ctx, self.0).expect("Z3_to_app returned null");
-            let num_args = z3_sys::Z3_get_app_num_args(ctx, app);
+            let app = Z3_to_app(ctx, self.0).expect("Z3_to_app returned null");
+            let num_args = Z3_get_app_num_args(ctx, app);
             if index >= num_args {
                 return None;
             }
-            RcAst::try_from(z3_sys::Z3_get_app_arg(ctx, app, index).expect("Z3_get_app_arg returned null")).ok()
+            RcAst::try_from(Z3_get_app_arg(ctx, app, index).expect("Z3_get_app_arg returned null"))
+                .ok()
         })
     }
 
@@ -63,41 +65,56 @@ impl RcAst {
     /// otherwise.
     pub fn symbol_name(&self) -> Option<String> {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            if z3_sys::Z3_get_ast_kind(ctx, self.0) != z3_sys::AstKind::App {
+            if Z3_get_ast_kind(ctx, self.0) != AstKind::App {
                 return None;
             }
-            let app = z3_sys::Z3_to_app(ctx, self.0).expect("Z3_to_app returned null");
-            let decl = z3_sys::Z3_get_app_decl(ctx, app).expect("Z3_get_app_decl returned null");
-            if z3_sys::Z3_get_decl_kind(ctx, decl) != z3_sys::DeclKind::UNINTERPRETED {
+            let app = Z3_to_app(ctx, self.0).expect("Z3_to_app returned null");
+            let decl = Z3_get_app_decl(ctx, app).expect("Z3_get_app_decl returned null");
+            if Z3_get_decl_kind(ctx, decl) != DeclKind::UNINTERPRETED {
                 return None;
             }
-            let sym = z3_sys::Z3_get_decl_name(ctx, decl).expect("Z3_get_decl_name returned null");
-            let name = z3_sys::Z3_get_symbol_string(ctx, sym);
+            let sym = Z3_get_decl_name(ctx, decl).expect("Z3_get_decl_name returned null");
+            let name = Z3_get_symbol_string(ctx, sym);
             CStr::from_ptr(name).to_str().ok().map(|s| s.to_owned())
         })
     }
 
     /// Creates an uninterpreted constant with the given name and sort.
     #[cfg(test)]
-    pub fn mk_symbol(name: &str, sort: z3_sys::Z3_sort) -> RcAst {
+    pub fn mk_symbol(name: &str, sort: Z3_sort) -> RcAst {
         Z3_CONTEXT.with(|&ctx| unsafe {
             let c_name = std::ffi::CString::new(name).unwrap();
-            let sym = z3_sys::Z3_mk_string_symbol(ctx, c_name.as_ptr()).expect("Z3_mk_string_symbol returned null");
-            let decl = z3_sys::Z3_mk_func_decl(ctx, sym, 0, std::ptr::null(), sort).expect("Z3_mk_func_decl returned null");
-            RcAst::try_from(z3_sys::Z3_mk_app(ctx, decl, 0, std::ptr::null()).expect("Z3_mk_app returned null")).unwrap()
+            let sym = Z3_mk_string_symbol(ctx, c_name.as_ptr())
+                .expect("Z3_mk_string_symbol returned null");
+            let decl = Z3_mk_func_decl(ctx, sym, 0, std::ptr::null(), sort)
+                .expect("Z3_mk_func_decl returned null");
+            RcAst::try_from(
+                Z3_mk_app(ctx, decl, 0, std::ptr::null()).expect("Z3_mk_app returned null"),
+            )
+            .unwrap()
         })
     }
 
     /// Creates a Z3 boolean symbol.
     #[cfg(test)]
     pub fn mk_bool(name: &str) -> RcAst {
-        Z3_CONTEXT.with(|&ctx| unsafe { Self::mk_symbol(name, z3_sys::Z3_mk_bool_sort(ctx).expect("Z3_mk_bool_sort returned null")) })
+        Z3_CONTEXT.with(|&ctx| unsafe {
+            Self::mk_symbol(
+                name,
+                Z3_mk_bool_sort(ctx).expect("Z3_mk_bool_sort returned null"),
+            )
+        })
     }
 
     /// Creates a Z3 bitvector symbol.
     #[cfg(test)]
     pub fn mk_bv(name: &str, width: u32) -> RcAst {
-        Z3_CONTEXT.with(|&ctx| unsafe { Self::mk_symbol(name, z3_sys::Z3_mk_bv_sort(ctx, width).expect("Z3_mk_bv_sort returned null")) })
+        Z3_CONTEXT.with(|&ctx| unsafe {
+            Self::mk_symbol(
+                name,
+                Z3_mk_bv_sort(ctx, width).expect("Z3_mk_bv_sort returned null"),
+            )
+        })
     }
 
     /// Creates a Z3 floating-point symbol. Z3's sbits includes the implicit
@@ -105,7 +122,11 @@ impl RcAst {
     #[cfg(test)]
     pub fn mk_fp(name: &str, sort: clarirs_core::prelude::FSort) -> RcAst {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            Self::mk_symbol(name, z3_sys::Z3_mk_fpa_sort(ctx, sort.exponent, sort.mantissa + 1).expect("Z3_mk_fpa_sort returned null"))
+            Self::mk_symbol(
+                name,
+                Z3_mk_fpa_sort(ctx, sort.exponent, sort.mantissa + 1)
+                    .expect("Z3_mk_fpa_sort returned null"),
+            )
         })
     }
 
@@ -113,9 +134,12 @@ impl RcAst {
     #[cfg(test)]
     pub fn mk_bv_val(value: &str, width: u32) -> RcAst {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            let sort = z3_sys::Z3_mk_bv_sort(ctx, width).expect("Z3_mk_bv_sort returned null");
+            let sort = Z3_mk_bv_sort(ctx, width).expect("Z3_mk_bv_sort returned null");
             let c_val = std::ffi::CString::new(value).unwrap();
-            RcAst::try_from(z3_sys::Z3_mk_numeral(ctx, c_val.as_ptr(), sort).expect("Z3_mk_numeral returned null")).unwrap()
+            RcAst::try_from(
+                Z3_mk_numeral(ctx, c_val.as_ptr(), sort).expect("Z3_mk_numeral returned null"),
+            )
+            .unwrap()
         })
     }
 
@@ -123,8 +147,12 @@ impl RcAst {
     #[cfg(test)]
     pub fn mk_fp_val_f32(value: f32) -> RcAst {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            let sort = z3_sys::Z3_mk_fpa_sort(ctx, 8, 24).expect("Z3_mk_fpa_sort returned null"); // f32: 8 exponent, 24 sbits (23 mantissa + 1)
-            RcAst::try_from(z3_sys::Z3_mk_fpa_numeral_float(ctx, value, sort).expect("Z3_mk_fpa_numeral_float returned null")).unwrap()
+            let sort = Z3_mk_fpa_sort(ctx, 8, 24).expect("Z3_mk_fpa_sort returned null"); // f32: 8 exponent, 24 sbits (23 mantissa + 1)
+            RcAst::try_from(
+                Z3_mk_fpa_numeral_float(ctx, value, sort)
+                    .expect("Z3_mk_fpa_numeral_float returned null"),
+            )
+            .unwrap()
         })
     }
 
@@ -132,8 +160,12 @@ impl RcAst {
     #[cfg(test)]
     pub fn mk_fp_val_f64(value: f64) -> RcAst {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            let sort = z3_sys::Z3_mk_fpa_sort(ctx, 11, 53).expect("Z3_mk_fpa_sort returned null"); // f64: 11 exponent, 53 sbits (52 mantissa + 1)
-            RcAst::try_from(z3_sys::Z3_mk_fpa_numeral_double(ctx, value, sort).expect("Z3_mk_fpa_numeral_double returned null")).unwrap()
+            let sort = Z3_mk_fpa_sort(ctx, 11, 53).expect("Z3_mk_fpa_sort returned null"); // f64: 11 exponent, 53 sbits (52 mantissa + 1)
+            RcAst::try_from(
+                Z3_mk_fpa_numeral_double(ctx, value, sort)
+                    .expect("Z3_mk_fpa_numeral_double returned null"),
+            )
+            .unwrap()
         })
     }
 
@@ -143,11 +175,11 @@ impl RcAst {
         use clarirs_core::prelude::FPRM;
         Z3_CONTEXT.with(|&ctx| unsafe {
             RcAst::try_from(match rm {
-                FPRM::NearestTiesToEven => z3_sys::Z3_mk_fpa_rne(ctx).expect("Z3_mk_fpa_rne returned null"),
-                FPRM::TowardPositive => z3_sys::Z3_mk_fpa_rtp(ctx).expect("Z3_mk_fpa_rtp returned null"),
-                FPRM::TowardNegative => z3_sys::Z3_mk_fpa_rtn(ctx).expect("Z3_mk_fpa_rtn returned null"),
-                FPRM::TowardZero => z3_sys::Z3_mk_fpa_rtz(ctx).expect("Z3_mk_fpa_rtz returned null"),
-                FPRM::NearestTiesToAway => z3_sys::Z3_mk_fpa_rna(ctx).expect("Z3_mk_fpa_rna returned null"),
+                FPRM::NearestTiesToEven => Z3_mk_fpa_rne(ctx).expect("Z3_mk_fpa_rne returned null"),
+                FPRM::TowardPositive => Z3_mk_fpa_rtp(ctx).expect("Z3_mk_fpa_rtp returned null"),
+                FPRM::TowardNegative => Z3_mk_fpa_rtn(ctx).expect("Z3_mk_fpa_rtn returned null"),
+                FPRM::TowardZero => Z3_mk_fpa_rtz(ctx).expect("Z3_mk_fpa_rtz returned null"),
+                FPRM::NearestTiesToAway => Z3_mk_fpa_rna(ctx).expect("Z3_mk_fpa_rna returned null"),
             })
             .unwrap()
         })
@@ -157,7 +189,10 @@ impl RcAst {
     #[cfg(test)]
     pub fn mk_string(name: &str) -> RcAst {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            Self::mk_symbol(name, z3_sys::Z3_mk_string_sort(ctx).expect("Z3_mk_string_sort returned null"))
+            Self::mk_symbol(
+                name,
+                Z3_mk_string_sort(ctx).expect("Z3_mk_string_sort returned null"),
+            )
         })
     }
 
@@ -166,14 +201,15 @@ impl RcAst {
     pub fn mk_string_val(value: &str) -> RcAst {
         Z3_CONTEXT.with(|&ctx| unsafe {
             let c_val = std::ffi::CString::new(value).unwrap();
-            RcAst::try_from(z3_sys::Z3_mk_string(ctx, c_val.as_ptr()).expect("Z3_mk_string returned null")).unwrap()
+            RcAst::try_from(Z3_mk_string(ctx, c_val.as_ptr()).expect("Z3_mk_string returned null"))
+                .unwrap()
         })
     }
 }
 
 impl Clone for RcAst {
     fn clone(&self) -> Self {
-        Z3_CONTEXT.with(|&ctx| unsafe { z3_sys::Z3_inc_ref(ctx, self.0) });
+        Z3_CONTEXT.with(|&ctx| unsafe { Z3_inc_ref(ctx, self.0) });
         RcAst(self.0)
     }
 }
@@ -186,28 +222,28 @@ impl From<&RcAst> for RcAst {
 
 impl Drop for RcAst {
     fn drop(&mut self) {
-        Z3_CONTEXT.with(|&ctx| unsafe { z3_sys::Z3_dec_ref(ctx, self.0) });
+        Z3_CONTEXT.with(|&ctx| unsafe { Z3_dec_ref(ctx, self.0) });
     }
 }
 
-impl TryFrom<z3_sys::Z3_ast> for RcAst {
+impl TryFrom<Z3_ast> for RcAst {
     type Error = ClarirsError;
 
-    fn try_from(ast: z3_sys::Z3_ast) -> Result<Self, Self::Error> {
+    fn try_from(ast: Z3_ast) -> Result<Self, Self::Error> {
         check_z3_error()?;
-        Z3_CONTEXT.with(|&ctx| unsafe { z3_sys::Z3_inc_ref(ctx, ast) });
+        Z3_CONTEXT.with(|&ctx| unsafe { Z3_inc_ref(ctx, ast) });
         Ok(RcAst(ast))
     }
 }
 
-impl From<RcAst> for z3_sys::Z3_ast {
+impl From<RcAst> for Z3_ast {
     fn from(ast: RcAst) -> Self {
         ast.0
     }
 }
 
 impl Deref for RcAst {
-    type Target = z3_sys::Z3_ast;
+    type Target = Z3_ast;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -221,13 +257,13 @@ impl DerefMut for RcAst {
 }
 
 #[repr(transparent)]
-pub struct RcParamSet(z3_sys::Z3_params);
+pub struct RcParamSet(Z3_params);
 
 impl RcParamSet {
     pub fn new() -> Result<Self, ClarirsError> {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            let params = RcParamSet(z3_sys::Z3_mk_params(ctx).expect("Z3_mk_params returned null"));
-            z3_sys::Z3_params_inc_ref(ctx, params.0);
+            let params = RcParamSet(Z3_mk_params(ctx).expect("Z3_mk_params returned null"));
+            Z3_params_inc_ref(ctx, params.0);
             check_z3_error()?;
             Ok(params)
         })
@@ -238,8 +274,9 @@ impl RcParamSet {
             ClarirsError::BackendError("Z3", "Failed to convert key to CString".into())
         })?;
         Z3_CONTEXT.with(|&ctx| unsafe {
-            let symbol = z3_sys::Z3_mk_string_symbol(ctx, key_cstr.as_ptr()).expect("Z3_mk_string_symbol returned null");
-            z3_sys::Z3_params_set_bool(ctx, self.0, symbol, value);
+            let symbol = Z3_mk_string_symbol(ctx, key_cstr.as_ptr())
+                .expect("Z3_mk_string_symbol returned null");
+            Z3_params_set_bool(ctx, self.0, symbol, value);
         });
         check_z3_error()
     }
@@ -249,8 +286,9 @@ impl RcParamSet {
             ClarirsError::BackendError("Z3", "Failed to convert key to CString".into())
         })?;
         Z3_CONTEXT.with(|&ctx| unsafe {
-            let symbol = z3_sys::Z3_mk_string_symbol(ctx, key_cstr.as_ptr()).expect("Z3_mk_string_symbol returned null");
-            z3_sys::Z3_params_set_uint(ctx, self.0, symbol, value);
+            let symbol = Z3_mk_string_symbol(ctx, key_cstr.as_ptr())
+                .expect("Z3_mk_string_symbol returned null");
+            Z3_params_set_uint(ctx, self.0, symbol, value);
         });
         check_z3_error()
     }
@@ -258,13 +296,13 @@ impl RcParamSet {
 
 impl Clone for RcParamSet {
     fn clone(&self) -> Self {
-        Z3_CONTEXT.with(|&ctx| unsafe { z3_sys::Z3_params_inc_ref(ctx, self.0) });
+        Z3_CONTEXT.with(|&ctx| unsafe { Z3_params_inc_ref(ctx, self.0) });
         RcParamSet(self.0)
     }
 }
 
 impl Deref for RcParamSet {
-    type Target = z3_sys::Z3_params;
+    type Target = Z3_params;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -273,40 +311,40 @@ impl Deref for RcParamSet {
 
 impl Drop for RcParamSet {
     fn drop(&mut self) {
-        Z3_CONTEXT.with(|&ctx| unsafe { z3_sys::Z3_params_dec_ref(ctx, self.0) });
+        Z3_CONTEXT.with(|&ctx| unsafe { Z3_params_dec_ref(ctx, self.0) });
     }
 }
 
 #[repr(transparent)]
-pub struct RcSolver(z3_sys::Z3_solver);
+pub struct RcSolver(Z3_solver);
 
 impl RcSolver {
     pub fn new() -> Result<Self, ClarirsError> {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            let solver = RcSolver::from(z3_sys::Z3_mk_solver(ctx).expect("Z3_mk_solver returned null"));
+            let solver = RcSolver::from(Z3_mk_solver(ctx).expect("Z3_mk_solver returned null"));
             check_z3_error()?;
             Ok(solver)
         })
     }
 
     pub fn set_params(&mut self, param: RcParamSet) -> Result<(), ClarirsError> {
-        Z3_CONTEXT.with(|&ctx| unsafe { z3_sys::Z3_solver_set_params(ctx, self.0, *param) });
+        Z3_CONTEXT.with(|&ctx| unsafe { Z3_solver_set_params(ctx, self.0, *param) });
         check_z3_error()
     }
 
     pub fn assert(&mut self, ast: &RcAst) -> Result<(), ClarirsError> {
-        Z3_CONTEXT.with(|&ctx| unsafe { z3_sys::Z3_solver_assert(ctx, self.0, **ast) });
+        Z3_CONTEXT.with(|&ctx| unsafe { Z3_solver_assert(ctx, self.0, **ast) });
         check_z3_error()
     }
 
     pub fn assert_and_track(&mut self, ast: &RcAst, track: &RcAst) -> Result<(), ClarirsError> {
-        Z3_CONTEXT.with(|&ctx| unsafe { z3_sys::Z3_solver_assert_and_track(ctx, self.0, **ast, **track) });
+        Z3_CONTEXT.with(|&ctx| unsafe { Z3_solver_assert_and_track(ctx, self.0, **ast, **track) });
         check_z3_error()
     }
 
     pub fn check(&mut self) -> Result<Lbool, ClarirsError> {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            let result = Lbool::from(z3_sys::Z3_solver_check(ctx, self.0));
+            let result = Lbool::from(Z3_solver_check(ctx, self.0));
             check_z3_error()?;
             Ok(result)
         })
@@ -314,8 +352,8 @@ impl RcSolver {
 
     pub fn check_assumptions(&mut self, assumptions: &[RcAst]) -> Result<Lbool, ClarirsError> {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            let ast_array: Vec<z3_sys::Z3_ast> = assumptions.iter().map(|a| **a).collect();
-            let result = Lbool::from(z3_sys::Z3_solver_check_assumptions(
+            let ast_array: Vec<Z3_ast> = assumptions.iter().map(|a| **a).collect();
+            let result = Lbool::from(Z3_solver_check_assumptions(
                 ctx,
                 self.0,
                 ast_array.len() as u32,
@@ -328,7 +366,8 @@ impl RcSolver {
 
     pub fn get_unsat_core(&mut self) -> Result<RcAstVector, ClarirsError> {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            let core = z3_sys::Z3_solver_get_unsat_core(ctx, self.0).expect("Z3_solver_get_unsat_core returned null");
+            let core = Z3_solver_get_unsat_core(ctx, self.0)
+                .expect("Z3_solver_get_unsat_core returned null");
             check_z3_error()?;
             Ok(RcAstVector::from(core))
         })
@@ -336,7 +375,9 @@ impl RcSolver {
 
     pub fn model(&mut self) -> Result<RcModel, ClarirsError> {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            let model = RcModel::from(z3_sys::Z3_solver_get_model(ctx, self.0).expect("Z3_solver_get_model returned null"));
+            let model = RcModel::from(
+                Z3_solver_get_model(ctx, self.0).expect("Z3_solver_get_model returned null"),
+            );
             check_z3_error()?;
             Ok(model)
         })
@@ -345,32 +386,32 @@ impl RcSolver {
 
 impl Clone for RcSolver {
     fn clone(&self) -> Self {
-        Z3_CONTEXT.with(|&ctx| unsafe { z3_sys::Z3_solver_inc_ref(ctx, self.0) });
+        Z3_CONTEXT.with(|&ctx| unsafe { Z3_solver_inc_ref(ctx, self.0) });
         RcSolver(self.0)
     }
 }
 
 impl Drop for RcSolver {
     fn drop(&mut self) {
-        Z3_CONTEXT.with(|&ctx| unsafe { z3_sys::Z3_solver_dec_ref(ctx, self.0) });
+        Z3_CONTEXT.with(|&ctx| unsafe { Z3_solver_dec_ref(ctx, self.0) });
     }
 }
 
-impl From<z3_sys::Z3_solver> for RcSolver {
-    fn from(solver: z3_sys::Z3_solver) -> Self {
-        Z3_CONTEXT.with(|&ctx| unsafe { z3_sys::Z3_solver_inc_ref(ctx, solver) });
+impl From<Z3_solver> for RcSolver {
+    fn from(solver: Z3_solver) -> Self {
+        Z3_CONTEXT.with(|&ctx| unsafe { Z3_solver_inc_ref(ctx, solver) });
         RcSolver(solver)
     }
 }
 
-impl From<RcSolver> for z3_sys::Z3_solver {
+impl From<RcSolver> for Z3_solver {
     fn from(solver: RcSolver) -> Self {
         solver.0
     }
 }
 
 impl Deref for RcSolver {
-    type Target = z3_sys::Z3_solver;
+    type Target = Z3_solver;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -384,19 +425,20 @@ impl DerefMut for RcSolver {
 }
 
 #[repr(transparent)]
-pub struct RcOptimize(z3_sys::Z3_optimize);
+pub struct RcOptimize(Z3_optimize);
 
 impl RcOptimize {
     pub fn new() -> Result<Self, ClarirsError> {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            let optimize = RcOptimize::from(z3_sys::Z3_mk_optimize(ctx).expect("Z3_mk_optimize returned null"));
+            let optimize =
+                RcOptimize::from(Z3_mk_optimize(ctx).expect("Z3_mk_optimize returned null"));
             check_z3_error()?;
             Ok(optimize)
         })
     }
 
     pub fn assert(&mut self, ast: &RcAst) -> Result<(), ClarirsError> {
-        Z3_CONTEXT.with(|&ctx| unsafe { z3_sys::Z3_optimize_assert(ctx, self.0, **ast) });
+        Z3_CONTEXT.with(|&ctx| unsafe { Z3_optimize_assert(ctx, self.0, **ast) });
         check_z3_error()
     }
 
@@ -405,30 +447,28 @@ impl RcOptimize {
             ClarirsError::BackendError("Z3", "Failed to convert weight to CString".into())
         })?;
         Z3_CONTEXT.with(|&ctx| unsafe {
-            z3_sys::Z3_optimize_assert_soft(
-                ctx,
-                self.0,
-                **ast,
-                weight_string.as_ptr(),
-                None,
-            );
+            Z3_optimize_assert_soft(ctx, self.0, **ast, weight_string.as_ptr(), None);
         });
         check_z3_error()
     }
 
     pub fn minimize(&mut self, ast: &RcAst) -> Result<(), ClarirsError> {
-        Z3_CONTEXT.with(|&ctx| unsafe { let _ = z3_sys::Z3_optimize_minimize(ctx, self.0, **ast); });
+        Z3_CONTEXT.with(|&ctx| unsafe {
+            let _ = Z3_optimize_minimize(ctx, self.0, **ast);
+        });
         check_z3_error()
     }
 
     pub fn maximize(&mut self, ast: &RcAst) -> Result<(), ClarirsError> {
-        Z3_CONTEXT.with(|&ctx| unsafe { let _ = z3_sys::Z3_optimize_maximize(ctx, self.0, **ast); });
+        Z3_CONTEXT.with(|&ctx| unsafe {
+            let _ = Z3_optimize_maximize(ctx, self.0, **ast);
+        });
         check_z3_error()
     }
 
     pub fn check(&mut self) -> Result<Lbool, ClarirsError> {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            let result = Lbool::from(z3_sys::Z3_optimize_check(ctx, self.0, 0, std::ptr::null()));
+            let result = Lbool::from(Z3_optimize_check(ctx, self.0, 0, std::ptr::null()));
             check_z3_error()?;
             Ok(result)
         })
@@ -436,7 +476,8 @@ impl RcOptimize {
 
     pub fn get_model(&mut self) -> Result<RcModel, ClarirsError> {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            let model = z3_sys::Z3_optimize_get_model(ctx, self.0).expect("Z3_optimize_get_model returned null");
+            let model =
+                Z3_optimize_get_model(ctx, self.0).expect("Z3_optimize_get_model returned null");
             check_z3_error()?;
             Ok(RcModel::from(model))
         })
@@ -445,32 +486,32 @@ impl RcOptimize {
 
 impl Clone for RcOptimize {
     fn clone(&self) -> Self {
-        Z3_CONTEXT.with(|&ctx| unsafe { z3_sys::Z3_optimize_inc_ref(ctx, self.0) });
+        Z3_CONTEXT.with(|&ctx| unsafe { Z3_optimize_inc_ref(ctx, self.0) });
         RcOptimize(self.0)
     }
 }
 
 impl Drop for RcOptimize {
     fn drop(&mut self) {
-        Z3_CONTEXT.with(|&ctx| unsafe { z3_sys::Z3_optimize_dec_ref(ctx, self.0) });
+        Z3_CONTEXT.with(|&ctx| unsafe { Z3_optimize_dec_ref(ctx, self.0) });
     }
 }
 
-impl From<z3_sys::Z3_optimize> for RcOptimize {
-    fn from(optimize: z3_sys::Z3_optimize) -> Self {
-        Z3_CONTEXT.with(|&ctx| unsafe { z3_sys::Z3_optimize_inc_ref(ctx, optimize) });
+impl From<Z3_optimize> for RcOptimize {
+    fn from(optimize: Z3_optimize) -> Self {
+        Z3_CONTEXT.with(|&ctx| unsafe { Z3_optimize_inc_ref(ctx, optimize) });
         RcOptimize(optimize)
     }
 }
 
-impl From<RcOptimize> for z3_sys::Z3_optimize {
+impl From<RcOptimize> for Z3_optimize {
     fn from(optimize: RcOptimize) -> Self {
         optimize.0
     }
 }
 
 impl Deref for RcOptimize {
-    type Target = z3_sys::Z3_optimize;
+    type Target = Z3_optimize;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -484,14 +525,13 @@ impl DerefMut for RcOptimize {
 }
 
 #[repr(transparent)]
-pub struct RcModel(z3_sys::Z3_model);
+pub struct RcModel(Z3_model);
 
 impl RcModel {
     pub fn eval(&self, ast: &RcAst) -> Result<RcAst, ClarirsError> {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            let mut eval_result = std::mem::MaybeUninit::<z3_sys::Z3_ast>::uninit();
-            let eval_ret =
-                z3_sys::Z3_model_eval(ctx, self.0, **ast, true, eval_result.as_mut_ptr());
+            let mut eval_result = std::mem::MaybeUninit::<Z3_ast>::uninit();
+            let eval_ret = Z3_model_eval(ctx, self.0, **ast, true, eval_result.as_mut_ptr());
             check_z3_error()?;
             if !eval_ret {
                 return Err(ClarirsError::BackendError(
@@ -506,32 +546,32 @@ impl RcModel {
 
 impl Clone for RcModel {
     fn clone(&self) -> Self {
-        Z3_CONTEXT.with(|&ctx| unsafe { z3_sys::Z3_model_inc_ref(ctx, self.0) });
+        Z3_CONTEXT.with(|&ctx| unsafe { Z3_model_inc_ref(ctx, self.0) });
         RcModel(self.0)
     }
 }
 
 impl Drop for RcModel {
     fn drop(&mut self) {
-        Z3_CONTEXT.with(|&ctx| unsafe { z3_sys::Z3_model_dec_ref(ctx, self.0) });
+        Z3_CONTEXT.with(|&ctx| unsafe { Z3_model_dec_ref(ctx, self.0) });
     }
 }
 
-impl From<z3_sys::Z3_model> for RcModel {
-    fn from(model: z3_sys::Z3_model) -> Self {
-        Z3_CONTEXT.with(|&ctx| unsafe { z3_sys::Z3_model_inc_ref(ctx, model) });
+impl From<Z3_model> for RcModel {
+    fn from(model: Z3_model) -> Self {
+        Z3_CONTEXT.with(|&ctx| unsafe { Z3_model_inc_ref(ctx, model) });
         RcModel(model)
     }
 }
 
-impl From<RcModel> for z3_sys::Z3_model {
+impl From<RcModel> for Z3_model {
     fn from(model: RcModel) -> Self {
         model.0
     }
 }
 
 impl Deref for RcModel {
-    type Target = z3_sys::Z3_model;
+    type Target = Z3_model;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -545,16 +585,16 @@ impl DerefMut for RcModel {
 }
 
 #[repr(transparent)]
-pub struct RcAstVector(z3_sys::Z3_ast_vector);
+pub struct RcAstVector(Z3_ast_vector);
 
 impl RcAstVector {
     pub fn size(&self) -> u32 {
-        Z3_CONTEXT.with(|&ctx| unsafe { z3_sys::Z3_ast_vector_size(ctx, self.0) })
+        Z3_CONTEXT.with(|&ctx| unsafe { Z3_ast_vector_size(ctx, self.0) })
     }
 
     pub fn get(&self, i: u32) -> Result<RcAst, ClarirsError> {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            let ast = z3_sys::Z3_ast_vector_get(ctx, self.0, i).expect("Z3_ast_vector_get returned null");
+            let ast = Z3_ast_vector_get(ctx, self.0, i).expect("Z3_ast_vector_get returned null");
             check_z3_error()?;
             RcAst::try_from(ast)
         })
@@ -563,32 +603,32 @@ impl RcAstVector {
 
 impl Clone for RcAstVector {
     fn clone(&self) -> Self {
-        Z3_CONTEXT.with(|&ctx| unsafe { z3_sys::Z3_ast_vector_inc_ref(ctx, self.0) });
+        Z3_CONTEXT.with(|&ctx| unsafe { Z3_ast_vector_inc_ref(ctx, self.0) });
         RcAstVector(self.0)
     }
 }
 
 impl Drop for RcAstVector {
     fn drop(&mut self) {
-        Z3_CONTEXT.with(|&ctx| unsafe { z3_sys::Z3_ast_vector_dec_ref(ctx, self.0) });
+        Z3_CONTEXT.with(|&ctx| unsafe { Z3_ast_vector_dec_ref(ctx, self.0) });
     }
 }
 
-impl From<z3_sys::Z3_ast_vector> for RcAstVector {
-    fn from(ast_vector: z3_sys::Z3_ast_vector) -> Self {
-        Z3_CONTEXT.with(|&ctx| unsafe { z3_sys::Z3_ast_vector_inc_ref(ctx, ast_vector) });
+impl From<Z3_ast_vector> for RcAstVector {
+    fn from(ast_vector: Z3_ast_vector) -> Self {
+        Z3_CONTEXT.with(|&ctx| unsafe { Z3_ast_vector_inc_ref(ctx, ast_vector) });
         RcAstVector(ast_vector)
     }
 }
 
-impl From<RcAstVector> for z3_sys::Z3_ast_vector {
+impl From<RcAstVector> for Z3_ast_vector {
     fn from(ast_vector: RcAstVector) -> Self {
         ast_vector.0
     }
 }
 
 impl Deref for RcAstVector {
-    type Target = z3_sys::Z3_ast_vector;
+    type Target = Z3_ast_vector;
 
     fn deref(&self) -> &Self::Target {
         &self.0

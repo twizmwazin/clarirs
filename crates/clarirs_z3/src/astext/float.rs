@@ -2,21 +2,25 @@ use clarirs_core::prelude::*;
 
 use super::AstExtZ3;
 use crate::{Z3_CONTEXT, astext::child, check_z3_error, rc::RcAst};
+use z3_sys::*;
 
 pub(crate) fn fprm_to_z3(rm: FPRM) -> Result<RcAst, ClarirsError> {
     RcAst::try_from(Z3_CONTEXT.with(|&z3_ctx| unsafe {
         match rm {
-            FPRM::NearestTiesToEven => z3_sys::Z3_mk_fpa_rne(z3_ctx).expect("Z3_mk_fpa_rne returned null"),
-            FPRM::TowardPositive => z3_sys::Z3_mk_fpa_rtp(z3_ctx).expect("Z3_mk_fpa_rtp returned null"),
-            FPRM::TowardNegative => z3_sys::Z3_mk_fpa_rtn(z3_ctx).expect("Z3_mk_fpa_rtn returned null"),
-            FPRM::TowardZero => z3_sys::Z3_mk_fpa_rtz(z3_ctx).expect("Z3_mk_fpa_rtz returned null"),
-            FPRM::NearestTiesToAway => z3_sys::Z3_mk_fpa_rna(z3_ctx).expect("Z3_mk_fpa_rna returned null"),
+            FPRM::NearestTiesToEven => Z3_mk_fpa_rne(z3_ctx).expect("Z3_mk_fpa_rne returned null"),
+            FPRM::TowardPositive => Z3_mk_fpa_rtp(z3_ctx).expect("Z3_mk_fpa_rtp returned null"),
+            FPRM::TowardNegative => Z3_mk_fpa_rtn(z3_ctx).expect("Z3_mk_fpa_rtn returned null"),
+            FPRM::TowardZero => Z3_mk_fpa_rtz(z3_ctx).expect("Z3_mk_fpa_rtz returned null"),
+            FPRM::NearestTiesToAway => Z3_mk_fpa_rna(z3_ctx).expect("Z3_mk_fpa_rna returned null"),
         }
     }))
 }
 
-fn fsort_to_z3(sort: FSort) -> z3_sys::Z3_sort {
-    Z3_CONTEXT.with(|&z3_ctx| unsafe { z3_sys::Z3_mk_fpa_sort(z3_ctx, sort.exponent, sort.mantissa + 1).expect("Z3_mk_fpa_sort returned null") })
+fn fsort_to_z3(sort: FSort) -> Z3_sort {
+    Z3_CONTEXT.with(|&z3_ctx| unsafe {
+        Z3_mk_fpa_sort(z3_ctx, sort.exponent, sort.mantissa + 1)
+            .expect("Z3_mk_fpa_sort returned null")
+    })
 }
 
 pub(crate) fn to_z3(ast: &FloatAst, children: &[RcAst]) -> Result<RcAst, ClarirsError> {
@@ -24,19 +28,24 @@ pub(crate) fn to_z3(ast: &FloatAst, children: &[RcAst]) -> Result<RcAst, Clarirs
         Ok(match ast.op() {
             FloatOp::FPS(s, sort) => {
                 let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
-                let sym = z3_sys::Z3_mk_string_symbol(z3_ctx, s_cstr.as_ptr()).expect("Z3_mk_string_symbol returned null");
+                let sym = Z3_mk_string_symbol(z3_ctx, s_cstr.as_ptr())
+                    .expect("Z3_mk_string_symbol returned null");
                 let z3_sort = fsort_to_z3(*sort);
-                RcAst::try_from(z3_sys::Z3_mk_const(z3_ctx, sym, z3_sort).expect("Z3_mk_const returned null"))?
+                RcAst::try_from(
+                    Z3_mk_const(z3_ctx, sym, z3_sort).expect("Z3_mk_const returned null"),
+                )?
             }
             FloatOp::FPV(f) => {
                 let sort = fsort_to_z3(f.fsort());
                 match f {
-                    Float::F32(val) => {
-                        RcAst::try_from(z3_sys::Z3_mk_fpa_numeral_float(z3_ctx, *val, sort).expect("Z3_mk_fpa_numeral_float returned null"))?
-                    }
-                    Float::F64(val) => {
-                        RcAst::try_from(z3_sys::Z3_mk_fpa_numeral_double(z3_ctx, *val, sort).expect("Z3_mk_fpa_numeral_double returned null"))?
-                    }
+                    Float::F32(val) => RcAst::try_from(
+                        Z3_mk_fpa_numeral_float(z3_ctx, *val, sort)
+                            .expect("Z3_mk_fpa_numeral_float returned null"),
+                    )?,
+                    Float::F64(val) => RcAst::try_from(
+                        Z3_mk_fpa_numeral_double(z3_ctx, *val, sort)
+                            .expect("Z3_mk_fpa_numeral_double returned null"),
+                    )?,
                 }
             }
             FloatOp::FpNeg(..) => unop!(z3_ctx, children, Z3_mk_fpa_neg),
@@ -45,65 +54,91 @@ pub(crate) fn to_z3(ast: &FloatAst, children: &[RcAst]) -> Result<RcAst, Clarirs
                 let rm_ast = fprm_to_z3(*rm)?;
                 let a = child(children, 0)?;
                 let b = child(children, 1)?;
-                RcAst::try_from(z3_sys::Z3_mk_fpa_add(z3_ctx, *rm_ast, **a, **b).expect("Z3_mk_fpa_add returned null"))?
+                RcAst::try_from(
+                    Z3_mk_fpa_add(z3_ctx, *rm_ast, **a, **b).expect("Z3_mk_fpa_add returned null"),
+                )?
             }
             FloatOp::FpSub(_, _, rm) => {
                 let rm_ast = fprm_to_z3(*rm)?;
                 let a = child(children, 0)?;
                 let b = child(children, 1)?;
-                RcAst::try_from(z3_sys::Z3_mk_fpa_sub(z3_ctx, *rm_ast, **a, **b).expect("Z3_mk_fpa_sub returned null"))?
+                RcAst::try_from(
+                    Z3_mk_fpa_sub(z3_ctx, *rm_ast, **a, **b).expect("Z3_mk_fpa_sub returned null"),
+                )?
             }
             FloatOp::FpMul(_, _, rm) => {
                 let rm_ast = fprm_to_z3(*rm)?;
                 let a = child(children, 0)?;
                 let b = child(children, 1)?;
-                RcAst::try_from(z3_sys::Z3_mk_fpa_mul(z3_ctx, *rm_ast, **a, **b).expect("Z3_mk_fpa_mul returned null"))?
+                RcAst::try_from(
+                    Z3_mk_fpa_mul(z3_ctx, *rm_ast, **a, **b).expect("Z3_mk_fpa_mul returned null"),
+                )?
             }
             FloatOp::FpDiv(_, _, rm) => {
                 let rm_ast = fprm_to_z3(*rm)?;
                 let a = child(children, 0)?;
                 let b = child(children, 1)?;
-                RcAst::try_from(z3_sys::Z3_mk_fpa_div(z3_ctx, *rm_ast, **a, **b).expect("Z3_mk_fpa_div returned null"))?
+                RcAst::try_from(
+                    Z3_mk_fpa_div(z3_ctx, *rm_ast, **a, **b).expect("Z3_mk_fpa_div returned null"),
+                )?
             }
             FloatOp::FpSqrt(_, rm) => {
                 let rm_ast = fprm_to_z3(*rm)?;
                 let a = child(children, 0)?;
-                RcAst::try_from(z3_sys::Z3_mk_fpa_sqrt(z3_ctx, *rm_ast, **a).expect("Z3_mk_fpa_sqrt returned null"))?
+                RcAst::try_from(
+                    Z3_mk_fpa_sqrt(z3_ctx, *rm_ast, **a).expect("Z3_mk_fpa_sqrt returned null"),
+                )?
             }
             FloatOp::FpToFp(_, sort, rm) => {
                 let rm_ast = fprm_to_z3(*rm)?;
                 let a = child(children, 0)?;
                 let z3_sort = fsort_to_z3(*sort);
-                RcAst::try_from(z3_sys::Z3_mk_fpa_to_fp_float(z3_ctx, *rm_ast, **a, z3_sort).expect("Z3_mk_fpa_to_fp_float returned null"))?
+                RcAst::try_from(
+                    Z3_mk_fpa_to_fp_float(z3_ctx, *rm_ast, **a, z3_sort)
+                        .expect("Z3_mk_fpa_to_fp_float returned null"),
+                )?
             }
             FloatOp::FpFP(..) => {
                 let sign = child(children, 0)?;
                 let exp = child(children, 1)?;
                 let sig = child(children, 2)?;
-                RcAst::try_from(z3_sys::Z3_mk_fpa_fp(z3_ctx, **sign, **exp, **sig).expect("Z3_mk_fpa_fp returned null"))?
+                RcAst::try_from(
+                    Z3_mk_fpa_fp(z3_ctx, **sign, **exp, **sig).expect("Z3_mk_fpa_fp returned null"),
+                )?
             }
             FloatOp::BvToFp(_, sort) => {
                 let a = child(children, 0)?;
                 let z3_sort = fsort_to_z3(*sort);
-                RcAst::try_from(z3_sys::Z3_mk_fpa_to_fp_bv(z3_ctx, **a, z3_sort).expect("Z3_mk_fpa_to_fp_bv returned null"))?
+                RcAst::try_from(
+                    Z3_mk_fpa_to_fp_bv(z3_ctx, **a, z3_sort)
+                        .expect("Z3_mk_fpa_to_fp_bv returned null"),
+                )?
             }
             FloatOp::BvToFpSigned(_, sort, rm) => {
                 let rm_ast = fprm_to_z3(*rm)?;
                 let a = child(children, 0)?;
                 let z3_sort = fsort_to_z3(*sort);
-                RcAst::try_from(z3_sys::Z3_mk_fpa_to_fp_signed(z3_ctx, *rm_ast, **a, z3_sort).expect("Z3_mk_fpa_to_fp_signed returned null"))?
+                RcAst::try_from(
+                    Z3_mk_fpa_to_fp_signed(z3_ctx, *rm_ast, **a, z3_sort)
+                        .expect("Z3_mk_fpa_to_fp_signed returned null"),
+                )?
             }
             FloatOp::BvToFpUnsigned(_, sort, rm) => {
                 let rm_ast = fprm_to_z3(*rm)?;
                 let a = child(children, 0)?;
                 let z3_sort = fsort_to_z3(*sort);
-                RcAst::try_from(z3_sys::Z3_mk_fpa_to_fp_unsigned(z3_ctx, *rm_ast, **a, z3_sort).expect("Z3_mk_fpa_to_fp_unsigned returned null"))?
+                RcAst::try_from(
+                    Z3_mk_fpa_to_fp_unsigned(z3_ctx, *rm_ast, **a, z3_sort)
+                        .expect("Z3_mk_fpa_to_fp_unsigned returned null"),
+                )?
             }
             FloatOp::ITE(..) => {
                 let cond = child(children, 0)?;
                 let then = child(children, 1)?;
                 let else_ = child(children, 2)?;
-                RcAst::try_from(z3_sys::Z3_mk_ite(z3_ctx, **cond, **then, **else_).expect("Z3_mk_ite returned null"))?
+                RcAst::try_from(
+                    Z3_mk_ite(z3_ctx, **cond, **then, **else_).expect("Z3_mk_ite returned null"),
+                )?
             }
         })
         .and_then(|maybe_null| {
@@ -119,19 +154,19 @@ pub(crate) fn from_z3<'c>(
 ) -> Result<FloatAst<'c>, ClarirsError> {
     Z3_CONTEXT.with(|z3_ctx| unsafe {
         let ast = ast.into();
-        let ast_kind = z3_sys::Z3_get_ast_kind(*z3_ctx, *ast);
+        let ast_kind = Z3_get_ast_kind(*z3_ctx, *ast);
         match ast_kind {
-            z3_sys::AstKind::Numeral => {
+            AstKind::Numeral => {
                 // Get the sort to determine if it's f32 or f64
-                let sort = z3_sys::Z3_get_sort(*z3_ctx, *ast).expect("Z3_get_sort returned null");
-                let ebits = z3_sys::Z3_fpa_get_ebits(*z3_ctx, sort);
-                let sbits = z3_sys::Z3_fpa_get_sbits(*z3_ctx, sort);
+                let sort = Z3_get_sort(*z3_ctx, *ast).expect("Z3_get_sort returned null");
+                let ebits = Z3_fpa_get_ebits(*z3_ctx, sort);
+                let sbits = Z3_fpa_get_sbits(*z3_ctx, sort);
 
                 // sbits includes the sign bit and significand, mantissa is sbits - 1
                 let fsort = FSort::new(ebits, sbits - 1);
 
                 // Get the numeral value as a string and parse it
-                let numeral_string = z3_sys::Z3_get_numeral_string(*z3_ctx, *ast);
+                let numeral_string = Z3_get_numeral_string(*z3_ctx, *ast);
                 let numeral_str = std::ffi::CStr::from_ptr(numeral_string).to_str().unwrap();
 
                 // Parse the float value based on the sort
@@ -153,109 +188,134 @@ pub(crate) fn from_z3<'c>(
                     ctx.fpv(Float::F64(val))
                 }
             }
-            z3_sys::AstKind::App => {
-                let app = z3_sys::Z3_to_app(*z3_ctx, *ast).expect("Z3_to_app returned null");
-                let decl = z3_sys::Z3_get_app_decl(*z3_ctx, app).expect("Z3_get_app_decl returned null");
-                let decl_kind = z3_sys::Z3_get_decl_kind(*z3_ctx, decl);
-                let sort = z3_sys::Z3_get_sort(*z3_ctx, *ast).expect("Z3_get_sort returned null");
-                let ebits = z3_sys::Z3_fpa_get_ebits(*z3_ctx, sort);
-                let sbits = z3_sys::Z3_fpa_get_sbits(*z3_ctx, sort);
+            AstKind::App => {
+                let app = Z3_to_app(*z3_ctx, *ast).expect("Z3_to_app returned null");
+                let decl = Z3_get_app_decl(*z3_ctx, app).expect("Z3_get_app_decl returned null");
+                let decl_kind = Z3_get_decl_kind(*z3_ctx, decl);
+                let sort = Z3_get_sort(*z3_ctx, *ast).expect("Z3_get_sort returned null");
+                let ebits = Z3_fpa_get_ebits(*z3_ctx, sort);
+                let sbits = Z3_fpa_get_sbits(*z3_ctx, sort);
                 let fsort = FSort::new(ebits, sbits - 1);
 
                 match decl_kind {
                     // Z3 represents float numerals as FpaNum
-                    z3_sys::DeclKind::FPA_NUM => {
+                    DeclKind::FPA_NUM => {
                         // Extract the float value from Z3
                         // For f32/f64, we can use get_numeral_double
                         if fsort == FSort::f32() {
-                            let val = z3_sys::Z3_get_numeral_double(*z3_ctx, *ast) as f32;
+                            let val = Z3_get_numeral_double(*z3_ctx, *ast) as f32;
                             ctx.fpv(Float::F32(val))
                         } else if fsort == FSort::f64() {
-                            let val = z3_sys::Z3_get_numeral_double(*z3_ctx, *ast);
+                            let val = Z3_get_numeral_double(*z3_ctx, *ast);
                             ctx.fpv(Float::F64(val))
                         } else {
                             // For other formats, use f64 as fallback
-                            let val = z3_sys::Z3_get_numeral_double(*z3_ctx, *ast);
+                            let val = Z3_get_numeral_double(*z3_ctx, *ast);
                             ctx.fpv(Float::F64(val))
                         }
                     }
-                    z3_sys::DeclKind::FPA_NAN => {
+                    DeclKind::FPA_NAN => {
                         if fsort == FSort::f32() {
                             return ctx.fpv(Float::F32(f32::NAN));
                         }
                         ctx.fpv(Float::F64(f64::NAN))
                     }
-                    z3_sys::DeclKind::UNINTERPRETED => {
-                        let sym = z3_sys::Z3_get_decl_name(*z3_ctx, decl).expect("Z3_get_decl_name returned null");
-                        let name = z3_sys::Z3_get_symbol_string(*z3_ctx, sym);
+                    DeclKind::UNINTERPRETED => {
+                        let sym = Z3_get_decl_name(*z3_ctx, decl)
+                            .expect("Z3_get_decl_name returned null");
+                        let name = Z3_get_symbol_string(*z3_ctx, sym);
                         let name = std::ffi::CStr::from_ptr(name).to_str().unwrap();
                         ctx.fps(name, fsort)
                     }
-                    z3_sys::DeclKind::FPA_NEG => {
-                        let arg = RcAst::try_from(z3_sys::Z3_get_app_arg(*z3_ctx, app, 0).expect("Z3_get_app_arg returned null"))?;
+                    DeclKind::FPA_NEG => {
+                        let arg = RcAst::try_from(
+                            Z3_get_app_arg(*z3_ctx, app, 0).expect("Z3_get_app_arg returned null"),
+                        )?;
                         let inner = FloatAst::from_z3(ctx, arg)?;
                         ctx.fp_neg(inner)
                     }
-                    z3_sys::DeclKind::FPA_ABS => {
-                        let arg = RcAst::try_from(z3_sys::Z3_get_app_arg(*z3_ctx, app, 0).expect("Z3_get_app_arg returned null"))?;
+                    DeclKind::FPA_ABS => {
+                        let arg = RcAst::try_from(
+                            Z3_get_app_arg(*z3_ctx, app, 0).expect("Z3_get_app_arg returned null"),
+                        )?;
                         let inner = FloatAst::from_z3(ctx, arg)?;
                         ctx.fp_abs(inner)
                     }
-                    z3_sys::DeclKind::FPA_ADD
-                    | z3_sys::DeclKind::FPA_SUB
-                    | z3_sys::DeclKind::FPA_MUL
-                    | z3_sys::DeclKind::FPA_DIV => {
-                        let rm_arg = RcAst::try_from(z3_sys::Z3_get_app_arg(*z3_ctx, app, 0).expect("Z3_get_app_arg returned null"))?;
-                        let arg0 = RcAst::try_from(z3_sys::Z3_get_app_arg(*z3_ctx, app, 1).expect("Z3_get_app_arg returned null"))?;
-                        let arg1 = RcAst::try_from(z3_sys::Z3_get_app_arg(*z3_ctx, app, 2).expect("Z3_get_app_arg returned null"))?;
+                    DeclKind::FPA_ADD
+                    | DeclKind::FPA_SUB
+                    | DeclKind::FPA_MUL
+                    | DeclKind::FPA_DIV => {
+                        let rm_arg = RcAst::try_from(
+                            Z3_get_app_arg(*z3_ctx, app, 0).expect("Z3_get_app_arg returned null"),
+                        )?;
+                        let arg0 = RcAst::try_from(
+                            Z3_get_app_arg(*z3_ctx, app, 1).expect("Z3_get_app_arg returned null"),
+                        )?;
+                        let arg1 = RcAst::try_from(
+                            Z3_get_app_arg(*z3_ctx, app, 2).expect("Z3_get_app_arg returned null"),
+                        )?;
 
                         let rm = parse_fprm_from_z3(*z3_ctx, *rm_arg)?;
                         let a = FloatAst::from_z3(ctx, arg0)?;
                         let b = FloatAst::from_z3(ctx, arg1)?;
 
                         match decl_kind {
-                            z3_sys::DeclKind::FPA_ADD => ctx.fp_add(a, b, rm),
-                            z3_sys::DeclKind::FPA_SUB => ctx.fp_sub(a, b, rm),
-                            z3_sys::DeclKind::FPA_MUL => ctx.fp_mul(a, b, rm),
-                            z3_sys::DeclKind::FPA_DIV => ctx.fp_div(a, b, rm),
+                            DeclKind::FPA_ADD => ctx.fp_add(a, b, rm),
+                            DeclKind::FPA_SUB => ctx.fp_sub(a, b, rm),
+                            DeclKind::FPA_MUL => ctx.fp_mul(a, b, rm),
+                            DeclKind::FPA_DIV => ctx.fp_div(a, b, rm),
                             _ => unreachable!(),
                         }
                     }
-                    z3_sys::DeclKind::FPA_SQRT => {
-                        let rm_arg = RcAst::try_from(z3_sys::Z3_get_app_arg(*z3_ctx, app, 0).expect("Z3_get_app_arg returned null"))?;
-                        let arg = RcAst::try_from(z3_sys::Z3_get_app_arg(*z3_ctx, app, 1).expect("Z3_get_app_arg returned null"))?;
+                    DeclKind::FPA_SQRT => {
+                        let rm_arg = RcAst::try_from(
+                            Z3_get_app_arg(*z3_ctx, app, 0).expect("Z3_get_app_arg returned null"),
+                        )?;
+                        let arg = RcAst::try_from(
+                            Z3_get_app_arg(*z3_ctx, app, 1).expect("Z3_get_app_arg returned null"),
+                        )?;
 
                         let rm = parse_fprm_from_z3(*z3_ctx, *rm_arg)?;
                         let inner = FloatAst::from_z3(ctx, arg)?;
                         ctx.fp_sqrt(inner, rm)
                     }
-                    z3_sys::DeclKind::FPA_TO_FP => {
+                    DeclKind::FPA_TO_FP => {
                         // Z3 uses FpaToFp for several conversions:
                         //   1 arg:  BvToFp(bv)           -- reinterpret BV bits as FP
                         //   2 args: [rm, fp] -> FpToFp    -- convert between FP sorts
                         //           [rm, bv] -> BvToFpSigned -- signed int to FP
-                        let num_args = z3_sys::Z3_get_app_num_args(*z3_ctx, app);
+                        let num_args = Z3_get_app_num_args(*z3_ctx, app);
 
                         if num_args == 1 {
                             // BvToFp: no rounding mode, single BV operand
-                            let arg = RcAst::try_from(z3_sys::Z3_get_app_arg(*z3_ctx, app, 0).expect("Z3_get_app_arg returned null"))?;
+                            let arg = RcAst::try_from(
+                                Z3_get_app_arg(*z3_ctx, app, 0)
+                                    .expect("Z3_get_app_arg returned null"),
+                            )?;
                             let bv = crate::astext::bv::from_z3(ctx, arg)?;
                             ctx.bv_to_fp(bv, fsort)
                         } else if num_args == 2 {
                             // Has rounding mode as arg0, operand as arg1
-                            let rm_arg = RcAst::try_from(z3_sys::Z3_get_app_arg(*z3_ctx, app, 0).expect("Z3_get_app_arg returned null"))?;
-                            let arg = RcAst::try_from(z3_sys::Z3_get_app_arg(*z3_ctx, app, 1).expect("Z3_get_app_arg returned null"))?;
+                            let rm_arg = RcAst::try_from(
+                                Z3_get_app_arg(*z3_ctx, app, 0)
+                                    .expect("Z3_get_app_arg returned null"),
+                            )?;
+                            let arg = RcAst::try_from(
+                                Z3_get_app_arg(*z3_ctx, app, 1)
+                                    .expect("Z3_get_app_arg returned null"),
+                            )?;
                             let rm = parse_fprm_from_z3(*z3_ctx, *rm_arg)?;
 
                             // Use sort-kind of the operand to determine FP vs BV
-                            let arg_sort = z3_sys::Z3_get_sort(*z3_ctx, *arg).expect("Z3_get_sort returned null");
-                            let sort_kind = z3_sys::Z3_get_sort_kind(*z3_ctx, arg_sort);
+                            let arg_sort =
+                                Z3_get_sort(*z3_ctx, *arg).expect("Z3_get_sort returned null");
+                            let sort_kind = Z3_get_sort_kind(*z3_ctx, arg_sort);
                             match sort_kind {
-                                z3_sys::SortKind::FloatingPoint => {
+                                SortKind::FloatingPoint => {
                                     let fp = FloatAst::from_z3(ctx, arg)?;
                                     ctx.fp_to_fp(fp, fsort, rm)
                                 }
-                                z3_sys::SortKind::BV => {
+                                SortKind::BV => {
                                     let bv = crate::astext::bv::from_z3(ctx, arg)?;
                                     ctx.bv_to_fp_signed(bv, fsort, rm)
                                 }
@@ -269,10 +329,16 @@ pub(crate) fn from_z3<'c>(
                             ))
                         }
                     }
-                    z3_sys::DeclKind::FPA_FP => {
-                        let sign = RcAst::try_from(z3_sys::Z3_get_app_arg(*z3_ctx, app, 0).expect("Z3_get_app_arg returned null"))?;
-                        let exp = RcAst::try_from(z3_sys::Z3_get_app_arg(*z3_ctx, app, 1).expect("Z3_get_app_arg returned null"))?;
-                        let sig = RcAst::try_from(z3_sys::Z3_get_app_arg(*z3_ctx, app, 2).expect("Z3_get_app_arg returned null"))?;
+                    DeclKind::FPA_FP => {
+                        let sign = RcAst::try_from(
+                            Z3_get_app_arg(*z3_ctx, app, 0).expect("Z3_get_app_arg returned null"),
+                        )?;
+                        let exp = RcAst::try_from(
+                            Z3_get_app_arg(*z3_ctx, app, 1).expect("Z3_get_app_arg returned null"),
+                        )?;
+                        let sig = RcAst::try_from(
+                            Z3_get_app_arg(*z3_ctx, app, 2).expect("Z3_get_app_arg returned null"),
+                        )?;
 
                         let sign_bv = crate::astext::bv::from_z3(ctx, sign)?;
                         let exp_bv = crate::astext::bv::from_z3(ctx, exp)?;
@@ -280,10 +346,16 @@ pub(crate) fn from_z3<'c>(
 
                         ctx.fp_fp(sign_bv, exp_bv, sig_bv)
                     }
-                    z3_sys::DeclKind::ITE => {
-                        let cond = RcAst::try_from(z3_sys::Z3_get_app_arg(*z3_ctx, app, 0).expect("Z3_get_app_arg returned null"))?;
-                        let then = RcAst::try_from(z3_sys::Z3_get_app_arg(*z3_ctx, app, 1).expect("Z3_get_app_arg returned null"))?;
-                        let else_ = RcAst::try_from(z3_sys::Z3_get_app_arg(*z3_ctx, app, 2).expect("Z3_get_app_arg returned null"))?;
+                    DeclKind::ITE => {
+                        let cond = RcAst::try_from(
+                            Z3_get_app_arg(*z3_ctx, app, 0).expect("Z3_get_app_arg returned null"),
+                        )?;
+                        let then = RcAst::try_from(
+                            Z3_get_app_arg(*z3_ctx, app, 1).expect("Z3_get_app_arg returned null"),
+                        )?;
+                        let else_ = RcAst::try_from(
+                            Z3_get_app_arg(*z3_ctx, app, 2).expect("Z3_get_app_arg returned null"),
+                        )?;
                         let cond = crate::astext::bool::from_z3(ctx, cond)?;
                         let then = FloatAst::from_z3(ctx, then)?;
                         let else_ = FloatAst::from_z3(ctx, else_)?;
@@ -301,18 +373,18 @@ pub(crate) fn from_z3<'c>(
     })
 }
 
-fn parse_fprm_from_z3(z3_ctx: z3_sys::Z3_context, ast: z3_sys::Z3_ast) -> Result<FPRM, ClarirsError> {
+fn parse_fprm_from_z3(z3_ctx: Z3_context, ast: Z3_ast) -> Result<FPRM, ClarirsError> {
     unsafe {
-        let app = z3_sys::Z3_to_app(z3_ctx, ast).expect("Z3_to_app returned null");
-        let decl = z3_sys::Z3_get_app_decl(z3_ctx, app).expect("Z3_get_app_decl returned null");
-        let decl_kind = z3_sys::Z3_get_decl_kind(z3_ctx, decl);
+        let app = Z3_to_app(z3_ctx, ast).expect("Z3_to_app returned null");
+        let decl = Z3_get_app_decl(z3_ctx, app).expect("Z3_get_app_decl returned null");
+        let decl_kind = Z3_get_decl_kind(z3_ctx, decl);
 
         match decl_kind {
-            z3_sys::DeclKind::FPA_RM_NEAREST_TIES_TO_EVEN => Ok(FPRM::NearestTiesToEven),
-            z3_sys::DeclKind::FPA_RM_TOWARD_POSITIVE => Ok(FPRM::TowardPositive),
-            z3_sys::DeclKind::FPA_RM_TOWARD_NEGATIVE => Ok(FPRM::TowardNegative),
-            z3_sys::DeclKind::FPA_RM_TOWARD_ZERO => Ok(FPRM::TowardZero),
-            z3_sys::DeclKind::FPA_RM_NEAREST_TIES_TO_AWAY => Ok(FPRM::NearestTiesToAway),
+            DeclKind::FPA_RM_NEAREST_TIES_TO_EVEN => Ok(FPRM::NearestTiesToEven),
+            DeclKind::FPA_RM_TOWARD_POSITIVE => Ok(FPRM::TowardPositive),
+            DeclKind::FPA_RM_TOWARD_NEGATIVE => Ok(FPRM::TowardNegative),
+            DeclKind::FPA_RM_TOWARD_ZERO => Ok(FPRM::TowardZero),
+            DeclKind::FPA_RM_NEAREST_TIES_TO_AWAY => Ok(FPRM::NearestTiesToAway),
             _ => Err(ClarirsError::ConversionError(
                 "Unknown rounding mode".to_string(),
             )),

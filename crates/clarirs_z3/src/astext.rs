@@ -17,7 +17,9 @@ macro_rules! binop {
     ($z3:ident, $children:ident, $op:ident) => {{
         let a = crate::astext::child($children, 0)?;
         let b = crate::astext::child($children, 1)?;
-        RcAst::try_from(z3_sys::$op($z3, **a, **b).expect(concat!(stringify!($op), " returned null")))?
+        RcAst::try_from(
+            z3_sys::$op($z3, **a, **b).expect(concat!(stringify!($op), " returned null")),
+        )?
     }};
 }
 
@@ -26,7 +28,9 @@ macro_rules! naryop {
         let mut result = crate::astext::child($children, 0)?.clone();
         for i in 1..$children.len() {
             let b = crate::astext::child($children, i)?;
-            result = RcAst::try_from(z3_sys::$op($z3, *result, **b).expect(concat!(stringify!($op), " returned null")))?;
+            result = RcAst::try_from(
+                z3_sys::$op($z3, *result, **b).expect(concat!(stringify!($op), " returned null")),
+            )?;
         }
         result
     }};
@@ -49,6 +53,7 @@ mod test_string;
 use clarirs_core::{algorithms::walk_post_order, prelude::*};
 
 use crate::{Z3_AST_CACHE, Z3_CONTEXT, rc::RcAst};
+use z3_sys::*;
 
 pub(crate) trait AstExtZ3<'c>: HasContext<'c> + Simplify<'c> + Sized {
     fn to_z3(&self) -> Result<RcAst, ClarirsError>;
@@ -57,7 +62,8 @@ pub(crate) trait AstExtZ3<'c>: HasContext<'c> + Simplify<'c> + Sized {
     fn simplify_z3(&self) -> Result<Self, ClarirsError> {
         let ast = self.simplify()?.to_z3()?;
         Z3_CONTEXT.with(|ctx| unsafe {
-            let simplified_ast = RcAst::try_from(z3_sys::Z3_simplify(*ctx, *ast).expect("Z3_simplify returned null"))?;
+            let simplified_ast =
+                RcAst::try_from(Z3_simplify(*ctx, *ast).expect("Z3_simplify returned null"))?;
             Self::from_z3(self.context(), simplified_ast)
         })
     }

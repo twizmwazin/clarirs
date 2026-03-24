@@ -1,8 +1,8 @@
 use crate::astext::AstExtZ3;
+use crate::rc::Lbool;
 use crate::rc::{RcModel, RcOptimize, RcParamSet, RcSolver};
 use clarirs_core::ast::bitvec::BitVecOpExt;
 use clarirs_core::prelude::*;
-use crate::rc::Lbool;
 use std::collections::HashMap;
 
 #[derive(Clone, Debug)]
