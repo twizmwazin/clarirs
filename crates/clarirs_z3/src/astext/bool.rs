@@ -186,7 +186,7 @@ pub(crate) fn from_z3<'c>(
                             z3::SortKind::Seq => {
                                 let lhs = AstRef::from_z3(ctx, arg0)?;
                                 let rhs = AstRef::from_z3(ctx, arg1)?;
-                                ctx.str_eq(lhs, rhs)
+                                ctx.eq_(lhs, rhs)
                             }
                             _ => Err(ClarirsError::ConversionError(
                                 "Eq operand has unrecognized sort".to_string(),
@@ -223,7 +223,7 @@ pub(crate) fn from_z3<'c>(
                             z3::SortKind::Seq => {
                                 let lhs = AstRef::from_z3(ctx, arg0)?;
                                 let rhs = AstRef::from_z3(ctx, arg1)?;
-                                ctx.str_neq(lhs, rhs)
+                                ctx.neq(lhs, rhs)
                             }
                             _ => Err(ClarirsError::ConversionError(
                                 "Distinct operand has unrecognized sort".to_string(),

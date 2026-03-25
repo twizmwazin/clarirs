@@ -385,7 +385,7 @@ mod to_z3 {
         let ctx = Context::new();
         let a = ctx.strings("a").unwrap();
         let b = ctx.strings("b").unwrap();
-        let r = ctx.str_eq(a, b).unwrap();
+        let r = ctx.eq_(a, b).unwrap();
         let z3_ast = r.to_z3().unwrap();
         assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Eq);
     }
@@ -395,7 +395,7 @@ mod to_z3 {
         let ctx = Context::new();
         let a = ctx.strings("a").unwrap();
         let b = ctx.strings("b").unwrap();
-        let r = ctx.str_neq(a, b).unwrap();
+        let r = ctx.neq(a, b).unwrap();
         let z3_ast = r.to_z3().unwrap();
         assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Distinct);
     }
@@ -1260,7 +1260,7 @@ mod roundtrip {
         let ctx = Context::new();
         let a = ctx.strings("a").unwrap();
         let b = ctx.strings("b").unwrap();
-        let ast = ctx.str_eq(a, b).unwrap();
+        let ast = ctx.eq_(a, b).unwrap();
         assert_eq!(ast, round_trip(&ctx, &ast).unwrap());
     }
 
@@ -1269,7 +1269,7 @@ mod roundtrip {
         let ctx = Context::new();
         let a = ctx.strings("a").unwrap();
         let b = ctx.strings("b").unwrap();
-        let ast = ctx.str_neq(a, b).unwrap();
+        let ast = ctx.neq(a, b).unwrap();
         assert_eq!(ast, round_trip(&ctx, &ast).unwrap());
     }
 

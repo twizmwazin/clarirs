@@ -45,39 +45,35 @@ fn excavate_ite_node<'c>(
         );
     }
 
-    // For any other op: split on ITE children one at a time until none remain.
-    let current_children: Vec<AstRef<'c>> = children.to_vec();
+    // Find the first ITE child and split on it.
+    let ite_idx = children
+        .iter()
+        .position(|c| matches!(c.op(), Op::ITE(..)));
 
-    loop {
-        let ite_idx = current_children
-            .iter()
-            .position(|c| matches!(c.op(), Op::ITE(..)));
+    let Some(idx) = ite_idx else {
+        // No ITE children — rebuild the node with transformed children
+        return reconstruct_node(ctx, ast, children);
+    };
 
-        let Some(idx) = ite_idx else {
-            // No more ITE children — rebuild the node
-            return reconstruct_node(ctx, ast, &current_children);
-        };
+    let Op::ITE(cond, then_, else_) = children[idx].op() else {
+        unreachable!()
+    };
 
-        let Op::ITE(cond, then_, else_) = current_children[idx].op() else {
-            unreachable!()
-        };
+    // Build then-branch: replace the ITE child with its then-value
+    let mut then_children = children.to_vec();
+    then_children[idx] = then_.clone();
+    let then_branch = reconstruct_node(ctx, ast, &then_children)?;
 
-        // Build then-branch: replace the ITE child with its then-value
-        let mut then_children = current_children.clone();
-        then_children[idx] = then_.clone();
-        let then_branch = reconstruct_node(ctx, ast, &then_children)?;
+    // Build else-branch: replace the ITE child with its else-value
+    let mut else_children = children.to_vec();
+    else_children[idx] = else_.clone();
+    let else_branch = reconstruct_node(ctx, ast, &else_children)?;
 
-        // Build else-branch: replace the ITE child with its else-value
-        let mut else_children = current_children.clone();
-        else_children[idx] = else_.clone();
-        let else_branch = reconstruct_node(ctx, ast, &else_children)?;
+    // Recursively excavate the branches (they may still contain ITE children)
+    let then_excavated = then_branch.excavate_ite()?;
+    let else_excavated = else_branch.excavate_ite()?;
 
-        // Recursively excavate the branches (they may contain more ITEs)
-        let then_excavated = then_branch.excavate_ite()?;
-        let else_excavated = else_branch.excavate_ite()?;
-
-        return ctx.ite(cond, then_excavated, else_excavated);
-    }
+    ctx.ite(cond, then_excavated, else_excavated)
 }
 
 #[cfg(test)]

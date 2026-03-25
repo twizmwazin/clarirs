@@ -417,7 +417,7 @@ impl PyAstString {
         py: Python<'py>,
         other: Bound<'py, PyAstString>,
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
-        Bool::new(py, &GLOBAL_CONTEXT.str_eq(&self.inner, &other.get().inner)?)
+        Bool::new(py, &GLOBAL_CONTEXT.eq_(&self.inner, &other.get().inner)?)
     }
 
     pub fn __ne__<'py>(
@@ -427,7 +427,7 @@ impl PyAstString {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.str_neq(&self.inner, &other.get().inner)?,
+            &GLOBAL_CONTEXT.neq(&self.inner, &other.get().inner)?,
         )
     }
 
@@ -609,7 +609,7 @@ pub fn StrEq<'py>(
 ) -> Result<Bound<'py, Bool>, ClaripyError> {
     Bool::new(
         py,
-        &GLOBAL_CONTEXT.str_eq(&s1.get().inner, &s2.get().inner)?,
+        &GLOBAL_CONTEXT.eq_(&s1.get().inner, &s2.get().inner)?,
     )
 }
 
@@ -621,7 +621,7 @@ pub fn StrNeq<'py>(
 ) -> Result<Bound<'py, Bool>, ClaripyError> {
     Bool::new(
         py,
-        &GLOBAL_CONTEXT.str_neq(&s1.get().inner, &s2.get().inner)?,
+        &GLOBAL_CONTEXT.neq(&s1.get().inner, &s2.get().inner)?,
     )
 }
 

@@ -133,6 +133,7 @@ impl<'c> AstFactory<'c> for Context<'c> {
         op: Op<'c>,
         mut annotations: BTreeSet<Annotation>,
     ) -> Result<AstRef<'c>, ClarirsError> {
+        #[cfg(debug_assertions)]
         op.validate()?;
 
         let child_annotations: Vec<Annotation> = op

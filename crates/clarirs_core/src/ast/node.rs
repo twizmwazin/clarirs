@@ -64,9 +64,10 @@ impl<'c> AstNode<'c> {
         let return_type = op.return_type();
         let variables = op.variables();
         let depth = op.depth();
-        let symbolic = !variables.is_empty()
-            || op.is_inherently_symbolic()
-            || op.child_iter().any(|c| c.symbolic());
+        // If we have variables, we're symbolic. Also check is_inherently_symbolic
+        // for VSA ops that are symbolic even without variables. No need to check
+        // children separately — their variables are already included in ours.
+        let symbolic = !variables.is_empty() || op.is_inherently_symbolic();
 
         Self {
             op,

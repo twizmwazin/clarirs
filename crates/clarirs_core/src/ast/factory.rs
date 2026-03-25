@@ -702,22 +702,6 @@ pub trait AstFactory<'c>: Sized {
         self.make(Op::StrIsDigit(lhs.into_owned()))
     }
 
-    fn str_eq(
-        &'c self,
-        lhs: impl IntoOwned<AstRef<'c>>,
-        rhs: impl IntoOwned<AstRef<'c>>,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make(Op::Eq(lhs.into_owned(), rhs.into_owned()))
-    }
-
-    fn str_neq(
-        &'c self,
-        lhs: impl IntoOwned<AstRef<'c>>,
-        rhs: impl IntoOwned<AstRef<'c>>,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make(Op::Distinct(lhs.into_owned(), rhs.into_owned()))
-    }
-
     fn ite(
         &'c self,
         cond: impl IntoOwned<AstRef<'c>>,

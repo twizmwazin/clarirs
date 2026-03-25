@@ -405,25 +405,19 @@ impl<'c> Op<'c> {
         let err = |msg: std::string::String| Err(ClarirsError::TypeError(msg));
 
         // Helper: check a single child has the expected type category
-        let expect = |child: &AstRef<'c>, expected: &str| -> Result<(), ClarirsError> {
-            let ty = child.return_type();
-            let ok = match expected {
-                "bool" => ty.is_bool(),
-                "bv" => ty.is_bitvec(),
-                "float" => ty.is_float(),
-                "string" => ty.is_string(),
-                _ => unreachable!(),
+        let expect =
+            |child: &AstRef<'c>, check: fn(&AstType) -> bool, label: &str| -> Result<(), ClarirsError> {
+                let ty = child.return_type();
+                if check(&ty) {
+                    Ok(())
+                } else {
+                    err(format!(
+                        "{:?}: expected {label} child, got {:?}",
+                        std::mem::discriminant(self),
+                        ty
+                    ))
+                }
             };
-            if ok {
-                Ok(())
-            } else {
-                err(format!(
-                    "{:?}: expected {expected} child, got {:?}",
-                    std::mem::discriminant(self),
-                    ty
-                ))
-            }
-        };
 
         // Helper: check two children have the same return type
         let expect_same =
@@ -443,7 +437,7 @@ impl<'c> Op<'c> {
         // Helper: check all elements in a vec have the same bitvec width
         let expect_all_same_bv = |args: &[AstRef<'c>]| -> Result<(), ClarirsError> {
             for arg in args {
-                expect(arg, "bv")?;
+                expect(arg, AstType::is_bitvec, "bv")?;
             }
             if let Some(first) = args.first() {
                 for arg in &args[1..] {
@@ -459,20 +453,20 @@ impl<'c> Op<'c> {
             | Op::StringS(_) | Op::StringV(_) => Ok(()),
 
             // ── Bool unary ───────────────────────────────────────────
-            Op::Not(a) => expect(a, "bool"),
+            Op::Not(a) => expect(a, AstType::is_bool, "bool"),
 
             // ── Bool n-ary ───────────────────────────────────────────
             Op::And(args) | Op::Or(args) => {
                 for a in args {
-                    expect(a, "bool")?;
+                    expect(a, AstType::is_bool, "bool")?;
                 }
                 Ok(())
             }
 
             // ── Bool binary ───────────────────────────────────────────
             Op::Xor(a, b) => {
-                expect(a, "bool")?;
-                expect(b, "bool")
+                expect(a, AstType::is_bool, "bool")?;
+                expect(b, AstType::is_bool, "bool")
             }
 
             // ── Eq / Distinct (bool, bv, or string — not float) ─────
@@ -491,37 +485,37 @@ impl<'c> Op<'c> {
             Op::ULT(a, b) | Op::ULE(a, b) | Op::UGT(a, b)
             | Op::UGE(a, b) | Op::SLT(a, b) | Op::SLE(a, b) | Op::SGT(a, b)
             | Op::SGE(a, b) => {
-                expect(a, "bv")?;
-                expect(b, "bv")?;
+                expect(a, AstType::is_bitvec, "bv")?;
+                expect(b, AstType::is_bitvec, "bv")?;
                 expect_same(a, b)
             }
 
             // ── Float comparisons (float, float) same sort ──────────
             Op::FpEq(a, b) | Op::FpNeq(a, b) | Op::FpLt(a, b) | Op::FpLeq(a, b)
             | Op::FpGt(a, b) | Op::FpGeq(a, b) => {
-                expect(a, "float")?;
-                expect(b, "float")?;
+                expect(a, AstType::is_float, "float")?;
+                expect(b, AstType::is_float, "float")?;
                 expect_same(a, b)
             }
 
             // ── Float unary predicates ───────────────────────────────
-            Op::FpIsNan(a) | Op::FpIsInf(a) => expect(a, "float"),
+            Op::FpIsNan(a) | Op::FpIsInf(a) => expect(a, AstType::is_float, "float"),
 
             // ── String comparisons (string, string) ──────────────────
             Op::StrContains(a, b) | Op::StrPrefixOf(a, b) | Op::StrSuffixOf(a, b) => {
-                expect(a, "string")?;
-                expect(b, "string")
+                expect(a, AstType::is_string, "string")?;
+                expect(b, AstType::is_string, "string")
             }
-            Op::StrIsDigit(a) => expect(a, "string"),
+            Op::StrIsDigit(a) => expect(a, AstType::is_string, "string"),
 
             // ── ITE: cond=bool, then/else same type ──────────────────
             Op::ITE(c, t, e) => {
-                expect(c, "bool")?;
+                expect(c, AstType::is_bool, "bool")?;
                 expect_same(t, e)
             }
 
             // ── BV unary ─────────────────────────────────────────────
-            Op::BVNot(a) | Op::Neg(a) | Op::ByteReverse(a) => expect(a, "bv"),
+            Op::BVNot(a) | Op::Neg(a) | Op::ByteReverse(a) => expect(a, AstType::is_bitvec, "bv"),
 
             // ── BV n-ary (all same width) ────────────────────────────
             Op::BVAnd(args) | Op::BVOr(args) | Op::BVXor(args) | Op::Add(args) | Op::Mul(args) => {
@@ -533,15 +527,15 @@ impl<'c> Op<'c> {
             | Op::ShL(a, b) | Op::LShR(a, b) | Op::AShR(a, b) | Op::RotateLeft(a, b)
             | Op::RotateRight(a, b) | Op::Union(a, b) | Op::Intersection(a, b)
             | Op::Widen(a, b) => {
-                expect(a, "bv")?;
-                expect(b, "bv")?;
+                expect(a, AstType::is_bitvec, "bv")?;
+                expect(b, AstType::is_bitvec, "bv")?;
                 expect_same(a, b)
             }
 
             // ── BV extend/extract ────────────────────────────────────
-            Op::ZeroExt(a, _) | Op::SignExt(a, _) => expect(a, "bv"),
+            Op::ZeroExt(a, _) | Op::SignExt(a, _) => expect(a, AstType::is_bitvec, "bv"),
             Op::Extract(a, high, low) => {
-                expect(a, "bv")?;
+                expect(a, AstType::is_bitvec, "bv")?;
                 let w = a.size();
                 if *high >= w || *low > *high {
                     err(format!(
@@ -553,7 +547,7 @@ impl<'c> Op<'c> {
             }
             Op::Concat(args) => {
                 for a in args {
-                    expect(a, "bv")?;
+                    expect(a, AstType::is_bitvec, "bv")?;
                 }
                 if args.is_empty() {
                     err("Concat: requires at least one argument".into())
@@ -564,38 +558,38 @@ impl<'c> Op<'c> {
 
             // ── BV ← Float conversions ───────────────────────────────
             Op::FpToIEEEBV(a) | Op::FpToUBV(a, _, _) | Op::FpToSBV(a, _, _) => {
-                expect(a, "float")
+                expect(a, AstType::is_float, "float")
             }
 
             // ── BV ← String conversions ──────────────────────────────
-            Op::StrLen(a) | Op::StrToBV(a) => expect(a, "string"),
+            Op::StrLen(a) | Op::StrToBV(a) => expect(a, AstType::is_string, "string"),
             Op::StrIndexOf(a, b, c) => {
-                expect(a, "string")?;
-                expect(b, "string")?;
-                expect(c, "bv")
+                expect(a, AstType::is_string, "string")?;
+                expect(b, AstType::is_string, "string")?;
+                expect(c, AstType::is_bitvec, "bv")
             }
 
             // ── Float unary ──────────────────────────────────────────
             Op::FpNeg(a) | Op::FpAbs(a) | Op::FpSqrt(a, _) | Op::FpToFp(a, _, _) => {
-                expect(a, "float")
+                expect(a, AstType::is_float, "float")
             }
 
             // ── Float binary (float, float) same sort ────────────────
             Op::FpAdd(a, b, _) | Op::FpSub(a, b, _) | Op::FpMul(a, b, _)
             | Op::FpDiv(a, b, _) => {
-                expect(a, "float")?;
-                expect(b, "float")?;
+                expect(a, AstType::is_float, "float")?;
+                expect(b, AstType::is_float, "float")?;
                 expect_same(a, b)
             }
 
             // ── Float ← BV conversions ───────────────────────────────
             Op::BvToFp(a, _) | Op::BvToFpSigned(a, _, _) | Op::BvToFpUnsigned(a, _, _) => {
-                expect(a, "bv")
+                expect(a, AstType::is_bitvec, "bv")
             }
             Op::FpFP(sign, exp, sig) => {
-                expect(sign, "bv")?;
-                expect(exp, "bv")?;
-                expect(sig, "bv")?;
+                expect(sign, AstType::is_bitvec, "bv")?;
+                expect(exp, AstType::is_bitvec, "bv")?;
+                expect(sig, AstType::is_bitvec, "bv")?;
                 if sign.size() != 1 {
                     err(format!("FpFP: sign bit must be 1 bit, got {}", sign.size()))
                 } else {
@@ -605,20 +599,20 @@ impl<'c> Op<'c> {
 
             // ── String ops ───────────────────────────────────────────
             Op::StrConcat(a, b) => {
-                expect(a, "string")?;
-                expect(b, "string")
+                expect(a, AstType::is_string, "string")?;
+                expect(b, AstType::is_string, "string")
             }
             Op::StrSubstr(a, b, c) => {
-                expect(a, "string")?;
-                expect(b, "bv")?;
-                expect(c, "bv")
+                expect(a, AstType::is_string, "string")?;
+                expect(b, AstType::is_bitvec, "bv")?;
+                expect(c, AstType::is_bitvec, "bv")
             }
             Op::StrReplace(a, b, c) => {
-                expect(a, "string")?;
-                expect(b, "string")?;
-                expect(c, "string")
+                expect(a, AstType::is_string, "string")?;
+                expect(b, AstType::is_string, "string")?;
+                expect(c, AstType::is_string, "string")
             }
-            Op::BVToStr(a) => expect(a, "bv"),
+            Op::BVToStr(a) => expect(a, AstType::is_bitvec, "bv"),
         }
     }
 }
