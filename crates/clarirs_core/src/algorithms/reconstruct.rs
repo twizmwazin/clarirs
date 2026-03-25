@@ -38,10 +38,10 @@ pub fn reconstruct_node<'c>(
             ctx.or(new_args)
         }
         Op::Xor(..) => ctx.xor(child(children, 0)?, child(children, 1)?),
-        Op::BoolEq(..) | Op::Eq(..) | Op::FpEq(..) | Op::StrEq(..) => {
+        Op::Eq(..) | Op::FpEq(..) => {
             ctx.eq_(child(children, 0)?, child(children, 1)?)
         }
-        Op::BoolNeq(..) | Op::Neq(..) | Op::FpNeq(..) | Op::StrNeq(..) => {
+        Op::Distinct(..) | Op::FpNeq(..) => {
             ctx.neq(child(children, 0)?, child(children, 1)?)
         }
         Op::ULT(..) => ctx.ult(child(children, 0)?, child(children, 1)?),

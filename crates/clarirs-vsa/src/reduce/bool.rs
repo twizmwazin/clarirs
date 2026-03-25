@@ -65,10 +65,8 @@ pub(crate) fn reduce_bool(
             result
         }
         Op::Xor(..) => child(children, 0)? ^ child(children, 1)?,
-        Op::BoolEq(..) => child(children, 0)?.eq_(child(children, 1)?),
-        Op::BoolNeq(..) => !child(children, 0)?.eq_(child(children, 1)?),
-        Op::Eq(..) => child_si(children, 0)?.eq_(&child_si(children, 1)?),
-        Op::Neq(..) => child_si(children, 0)?.ne_(&child_si(children, 1)?),
+        Op::Eq(..) => child(children, 0)?.eq_(child(children, 1)?),
+        Op::Distinct(..) => !child(children, 0)?.eq_(child(children, 1)?),
         Op::ULT(..) => child_si(children, 0)?.ult(&child_si(children, 1)?),
         Op::ULE(..) => child_si(children, 0)?.ule(&child_si(children, 1)?),
         Op::UGT(..) => child_si(children, 0)?.ugt(&child_si(children, 1)?),
@@ -92,9 +90,7 @@ pub(crate) fn reduce_bool(
         Op::StrContains(..)
         | Op::StrPrefixOf(..)
         | Op::StrSuffixOf(..)
-        | Op::StrIsDigit(..)
-        | Op::StrEq(..)
-        | Op::StrNeq(..) => {
+        | Op::StrIsDigit(..) => {
             return Err(ClarirsError::UnsupportedOperation(
                 "String operations are not supported".to_string(),
             ));

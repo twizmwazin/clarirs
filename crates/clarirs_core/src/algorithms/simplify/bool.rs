@@ -17,7 +17,7 @@ pub(crate) fn simplify_bool<'c>(
                 Op::BoolV(v) => Ok(ctx.boolv(!v)?),
 
                 Op::Eq(lhs, rhs) => Ok(ctx.neq(lhs.clone(), rhs.clone())?),
-                Op::Neq(lhs, rhs) => Ok(ctx.eq_(lhs.clone(), rhs.clone())?),
+                Op::Distinct(lhs, rhs) => Ok(ctx.eq_(lhs.clone(), rhs.clone())?),
 
                 // !(a > b)  ==>  a <= b
                 Op::UGT(lhs, rhs) => state.rerun(ctx.ule(lhs.clone(), rhs.clone())?),
@@ -101,8 +101,8 @@ pub(crate) fn simplify_bool<'c>(
             for i in 0..absorbed_args.len() {
                 for j in (i + 1)..absorbed_args.len() {
                     match (absorbed_args[i].op(), absorbed_args[j].op()) {
-                        (Op::Eq(var1, val1), Op::Neq(var2, val2))
-                        | (Op::Neq(var2, val2), Op::Eq(var1, val1))
+                        (Op::Eq(var1, val1), Op::Distinct(var2, val2))
+                        | (Op::Distinct(var2, val2), Op::Eq(var1, val1))
                         | (Op::ULT(var1, val1), Op::UGE(var2, val2))
                         | (Op::UGE(var2, val2), Op::ULT(var1, val1))
                         | (Op::ULE(var1, val1), Op::UGT(var2, val2))
@@ -191,8 +191,8 @@ pub(crate) fn simplify_bool<'c>(
             for i in 0..absorbed_args.len() {
                 for j in (i + 1)..absorbed_args.len() {
                     match (absorbed_args[i].op(), absorbed_args[j].op()) {
-                        (Op::Eq(var1, val1), Op::Neq(var2, val2))
-                        | (Op::Neq(var2, val2), Op::Eq(var1, val1))
+                        (Op::Eq(var1, val1), Op::Distinct(var2, val2))
+                        | (Op::Distinct(var2, val2), Op::Eq(var1, val1))
                         | (Op::ULT(var1, val1), Op::UGE(var2, val2))
                         | (Op::UGE(var2, val2), Op::ULT(var1, val1))
                         | (Op::ULE(var1, val1), Op::UGT(var2, val2))
@@ -236,41 +236,35 @@ pub(crate) fn simplify_bool<'c>(
                 _ => Ok(ctx.xor(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
             }
         }
-        Op::BoolEq(..) => {
-            let early_lhs = state.get_bool_available(0)?;
-            let early_rhs = state.get_bool_available(1)?;
+        Op::Eq(..) if state.get_child_available(0).return_type().is_bool() => {
+            let early_lhs = state.get_child_available(0);
+            let early_rhs = state.get_child_available(1);
 
             match (early_lhs.op(), early_rhs.op()) {
                 (Op::BoolV(arc), Op::BoolV(arc1)) => Ok(ctx.boolv(arc == arc1)?),
-                (Op::BoolV(true), _) => Ok(state.get_bool_simplified(1)?),
-                (_, Op::BoolV(true)) => Ok(state.get_bool_simplified(0)?),
-                (Op::BoolV(false), _) => Ok(ctx.not(state.get_bool_simplified(1)?)?),
-                (_, Op::BoolV(false)) => Ok(ctx.not(state.get_bool_simplified(0)?)?),
-                // a == a -> true (this is boolean equality, not fp==, so NaN is not a concern)
-                _ if early_lhs == early_rhs => {
-                    Ok(ctx.true_()?)
-                }
-                _ => Ok(ctx.eq_(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
+                (Op::BoolV(true), _) => Ok(state.get_child_simplified(1)?),
+                (_, Op::BoolV(true)) => Ok(state.get_child_simplified(0)?),
+                (Op::BoolV(false), _) => Ok(ctx.not(state.get_child_simplified(1)?)?),
+                (_, Op::BoolV(false)) => Ok(ctx.not(state.get_child_simplified(0)?)?),
+                _ if early_lhs == early_rhs => Ok(ctx.true_()?),
+                _ => Ok(ctx.eq_(state.get_child_simplified(0)?, state.get_child_simplified(1)?)?),
             }
         }
-        Op::BoolNeq(..) => {
-            let early_lhs = state.get_bool_available(0)?;
-            let early_rhs = state.get_bool_available(1)?;
+        Op::Distinct(..) if state.get_child_available(0).return_type().is_bool() => {
+            let early_lhs = state.get_child_available(0);
+            let early_rhs = state.get_child_available(1);
 
             match (early_lhs.op(), early_rhs.op()) {
                 (Op::BoolV(arc), Op::BoolV(arc1)) => Ok(ctx.boolv(arc != arc1)?),
-                (Op::BoolV(true), _) => Ok(ctx.not(state.get_bool_simplified(1)?)?),
-                (_, Op::BoolV(true)) => Ok(ctx.not(state.get_bool_simplified(0)?)?),
-                (Op::BoolV(false), _) => Ok(state.get_bool_simplified(1)?),
-                (_, Op::BoolV(false)) => Ok(state.get_bool_simplified(0)?),
-                // a != a -> false (this is boolean inequality, not fp!=, so NaN is not a concern)
-                _ if early_lhs == early_rhs => {
-                    Ok(ctx.false_()?)
-                }
-                _ => Ok(ctx.neq(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
+                (Op::BoolV(true), _) => Ok(ctx.not(state.get_child_simplified(1)?)?),
+                (_, Op::BoolV(true)) => Ok(ctx.not(state.get_child_simplified(0)?)?),
+                (Op::BoolV(false), _) => Ok(state.get_child_simplified(1)?),
+                (_, Op::BoolV(false)) => Ok(state.get_child_simplified(0)?),
+                _ if early_lhs == early_rhs => Ok(ctx.false_()?),
+                _ => Ok(ctx.neq(state.get_child_simplified(0)?, state.get_child_simplified(1)?)?),
             }
         }
-        Op::Eq(..) => {
+        Op::Eq(..) if state.get_child_available(0).return_type().is_bitvec() => {
             let early_lhs = state.get_bv_available(0)?;
             let early_rhs = state.get_bv_available(1)?;
 
@@ -408,7 +402,7 @@ pub(crate) fn simplify_bool<'c>(
                 _ => Ok(ctx.eq_(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
             }
         }
-        Op::Neq(..) => {
+        Op::Distinct(..) if state.get_child_available(0).return_type().is_bitvec() => {
             let early_lhs = state.get_bv_available(0)?;
             let early_rhs = state.get_bv_available(1)?;
 
@@ -1511,27 +1505,27 @@ pub(crate) fn simplify_bool<'c>(
                 _ => Ok(ctx.str_is_digit(arc)?),
             }
         }
-        Op::StrEq(..) => {
-            let early_lhs = state.get_string_available(0)?;
-            let early_rhs = state.get_string_available(1)?;
+        Op::Eq(..) if state.get_child_available(0).return_type().is_string() => {
+            let early_lhs = state.get_child_available(0);
+            let early_rhs = state.get_child_available(1);
 
             match (early_lhs.op(), early_rhs.op()) {
                 (Op::StringV(str1), Op::StringV(str2)) => Ok(ctx.boolv(str1 == str2)?),
-                _ => Ok(ctx.str_eq(
-                    state.get_string_simplified(0)?,
-                    state.get_string_simplified(1)?,
+                _ => Ok(ctx.eq_(
+                    state.get_child_simplified(0)?,
+                    state.get_child_simplified(1)?,
                 )?),
             }
         }
-        Op::StrNeq(..) => {
-            let early_lhs = state.get_string_available(0)?;
-            let early_rhs = state.get_string_available(1)?;
+        Op::Distinct(..) if state.get_child_available(0).return_type().is_string() => {
+            let early_lhs = state.get_child_available(0);
+            let early_rhs = state.get_child_available(1);
 
             match (early_lhs.op(), early_rhs.op()) {
                 (Op::StringV(str1), Op::StringV(str2)) => Ok(ctx.boolv(str1 != str2)?),
-                _ => Ok(ctx.str_neq(
-                    state.get_string_simplified(0)?,
-                    state.get_string_simplified(1)?,
+                _ => Ok(ctx.neq(
+                    state.get_child_simplified(0)?,
+                    state.get_child_simplified(1)?,
                 )?),
             }
         }

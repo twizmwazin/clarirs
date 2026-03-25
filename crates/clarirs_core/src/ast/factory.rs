@@ -115,11 +115,10 @@ pub trait AstFactory<'c>: Sized {
     ) -> Result<AstRef<'c>, ClarirsError> {
         let l = lhs.into_owned();
         let r = rhs.into_owned();
-        match l.return_type() {
-            AstType::Bool => self.make(Op::BoolEq(l, r)),
-            AstType::BitVec(_) => self.make(Op::Eq(l, r)),
-            AstType::Float(_) => self.make(Op::FpEq(l, r)),
-            AstType::String => self.make(Op::StrEq(l, r)),
+        if l.return_type().is_float() {
+            self.make(Op::FpEq(l, r))
+        } else {
+            self.make(Op::Eq(l, r))
         }
     }
 
@@ -130,11 +129,10 @@ pub trait AstFactory<'c>: Sized {
     ) -> Result<AstRef<'c>, ClarirsError> {
         let l = lhs.into_owned();
         let r = rhs.into_owned();
-        match l.return_type() {
-            AstType::Bool => self.make(Op::BoolNeq(l, r)),
-            AstType::BitVec(_) => self.make(Op::Neq(l, r)),
-            AstType::Float(_) => self.make(Op::FpNeq(l, r)),
-            AstType::String => self.make(Op::StrNeq(l, r)),
+        if l.return_type().is_float() {
+            self.make(Op::FpNeq(l, r))
+        } else {
+            self.make(Op::Distinct(l, r))
         }
     }
 
@@ -709,7 +707,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<AstRef<'c>>,
         rhs: impl IntoOwned<AstRef<'c>>,
     ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make(Op::StrEq(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::Eq(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn str_neq(
@@ -717,7 +715,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<AstRef<'c>>,
         rhs: impl IntoOwned<AstRef<'c>>,
     ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make(Op::StrNeq(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::Distinct(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn ite(

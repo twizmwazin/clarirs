@@ -98,13 +98,13 @@ fn to_z3_node(ast: &AstRef<'_>, children: &[RcAst]) -> Result<RcAst, ClarirsErro
     match ast.op() {
         // Boolean ops
         Op::BoolS(..) | Op::BoolV(..) | Op::Not(..) | Op::And(..) | Op::Or(..)
-        | Op::Xor(..) | Op::BoolEq(..) | Op::BoolNeq(..) | Op::ITE(..)
-        | Op::Eq(..) | Op::Neq(..) | Op::ULT(..) | Op::ULE(..) | Op::UGT(..)
+        | Op::Xor(..) | Op::Eq(..) | Op::Distinct(..) | Op::ITE(..)
+        | Op::Eq(..) | Op::Distinct(..) | Op::ULT(..) | Op::ULE(..) | Op::UGT(..)
         | Op::UGE(..) | Op::SLT(..) | Op::SLE(..) | Op::SGT(..) | Op::SGE(..)
         | Op::FpEq(..) | Op::FpNeq(..) | Op::FpLt(..) | Op::FpLeq(..)
         | Op::FpGt(..) | Op::FpGeq(..) | Op::FpIsNan(..) | Op::FpIsInf(..)
         | Op::StrContains(..) | Op::StrPrefixOf(..) | Op::StrSuffixOf(..)
-        | Op::StrIsDigit(..) | Op::StrEq(..) | Op::StrNeq(..) => {
+        | Op::StrIsDigit(..) | Op::Eq(..) | Op::Distinct(..) => {
             bool::to_z3(ast, children)
         }
 

@@ -22,13 +22,13 @@ impl ExtractPyArgs for AstRef<'static> {
                 .map(|a| Bool::new(py, a).map(|b| b.into_any()))
                 .collect::<Result<Vec<_>, _>>()?,
             Op::Xor(lhs, rhs)
-            | Op::BoolEq(lhs, rhs)
-            | Op::BoolNeq(lhs, rhs) => vec![
+            | Op::Eq(lhs, rhs)
+            | Op::Distinct(lhs, rhs) => vec![
                 Bool::new(py, lhs)?.into_any(),
                 Bool::new(py, rhs)?.into_any(),
             ],
             Op::Eq(lhs, rhs)
-            | Op::Neq(lhs, rhs)
+            | Op::Distinct(lhs, rhs)
             | Op::ULT(lhs, rhs)
             | Op::ULE(lhs, rhs)
             | Op::UGT(lhs, rhs)
@@ -53,8 +53,8 @@ impl ExtractPyArgs for AstRef<'static> {
             Op::StrContains(lhs, rhs)
             | Op::StrPrefixOf(lhs, rhs)
             | Op::StrSuffixOf(lhs, rhs)
-            | Op::StrEq(lhs, rhs)
-            | Op::StrNeq(lhs, rhs) => vec![
+            | Op::Eq(lhs, rhs)
+            | Op::Distinct(lhs, rhs) => vec![
                 PyAstString::new(py, lhs)?.into_any(),
                 PyAstString::new(py, rhs)?.into_any(),
             ],

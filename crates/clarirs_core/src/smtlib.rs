@@ -22,14 +22,8 @@ fn to_smtlib_node(ast: &AstRef, children: &[String]) -> String {
         Op::And(..) => format!("(and {})", children.join(" ")),
         Op::Or(..) => format!("(or {})", children.join(" ")),
         Op::Xor(..) => format!("(xor {} {})", children[0], children[1]),
-        Op::BoolEq(..) => format!("(= {} {})", children[0], children[1]),
-        Op::BoolNeq(..) => {
-            format!("(distinct {} {})", children[0], children[1])
-        }
         Op::Eq(..) => format!("(= {} {})", children[0], children[1]),
-        Op::Neq(..) => {
-            format!("(distinct {} {})", children[0], children[1])
-        }
+        Op::Distinct(..) => format!("(distinct {} {})", children[0], children[1]),
         Op::ULT(..) => format!("(bvult {} {})", children[0], children[1]),
         Op::ULE(..) => format!("(bvule {} {})", children[0], children[1]),
         Op::UGT(..) => format!("(bvugt {} {})", children[0], children[1]),
@@ -50,8 +44,6 @@ fn to_smtlib_node(ast: &AstRef, children: &[String]) -> String {
         Op::StrPrefixOf(..) => format!("(str.prefixof {} {})", children[0], children[1]),
         Op::StrSuffixOf(..) => format!("(str.suffixof {} {})", children[0], children[1]),
         Op::StrIsDigit(..) => format!("(str.is_digit {})", children[0]),
-        Op::StrEq(..) => format!("(= {} {})", children[0], children[1]),
-        Op::StrNeq(..) => format!("(not (= {} {}))", children[0], children[1]),
         Op::ITE(..) => format!("(ite {} {} {})", children[0], children[1], children[2]),
 
         // ── BitVec ops ──────────────────────────────────────────────

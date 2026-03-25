@@ -61,13 +61,11 @@ pub enum Op<'c> {
     Or(Vec<AstRef<'c>>),
     Xor(AstRef<'c>, AstRef<'c>),
 
-    // ── Boolean equality ─────────────────────────────────────────────
-    BoolEq(AstRef<'c>, AstRef<'c>),
-    BoolNeq(AstRef<'c>, AstRef<'c>),
+    // ── Equality / Distinctness (bool, bv, string — not float) ───
+    Eq(AstRef<'c>, AstRef<'c>),
+    Distinct(AstRef<'c>, AstRef<'c>),
 
     // ── BV comparisons (return Bool) ─────────────────────────────────
-    Eq(AstRef<'c>, AstRef<'c>),
-    Neq(AstRef<'c>, AstRef<'c>),
     ULT(AstRef<'c>, AstRef<'c>),
     ULE(AstRef<'c>, AstRef<'c>),
     UGT(AstRef<'c>, AstRef<'c>),
@@ -92,8 +90,6 @@ pub enum Op<'c> {
     StrPrefixOf(AstRef<'c>, AstRef<'c>),
     StrSuffixOf(AstRef<'c>, AstRef<'c>),
     StrIsDigit(AstRef<'c>),
-    StrEq(AstRef<'c>, AstRef<'c>),
-    StrNeq(AstRef<'c>, AstRef<'c>),
 
     // ── If-then-else (all types) ───────────────────────────────────
     ITE(AstRef<'c>, AstRef<'c>, AstRef<'c>),
@@ -183,14 +179,13 @@ impl<'c> Op<'c> {
             // ── Bool return ──────────────────────────────────────────
             Op::BoolS(_) | Op::BoolV(_) => AstType::Bool,
             Op::Not(_) | Op::And(_) | Op::Or(_) | Op::Xor(..) => AstType::Bool,
-            Op::BoolEq(..) | Op::BoolNeq(..) => AstType::Bool,
-            Op::Eq(..) | Op::Neq(..) => AstType::Bool,
+            Op::Eq(..) | Op::Distinct(..) => AstType::Bool,
             Op::ULT(..) | Op::ULE(..) | Op::UGT(..) | Op::UGE(..) => AstType::Bool,
             Op::SLT(..) | Op::SLE(..) | Op::SGT(..) | Op::SGE(..) => AstType::Bool,
             Op::FpEq(..) | Op::FpNeq(..) | Op::FpLt(..) | Op::FpLeq(..) => AstType::Bool,
             Op::FpGt(..) | Op::FpGeq(..) | Op::FpIsNan(_) | Op::FpIsInf(_) => AstType::Bool,
             Op::StrContains(..) | Op::StrPrefixOf(..) | Op::StrSuffixOf(..) => AstType::Bool,
-            Op::StrIsDigit(_) | Op::StrEq(..) | Op::StrNeq(..) => AstType::Bool,
+            Op::StrIsDigit(_) => AstType::Bool,
 
             // ── ITE — return type follows `then` branch ─────────────
             Op::ITE(_, t, _) => t.return_type(),
@@ -259,14 +254,12 @@ impl<'c> Op<'c> {
             | Op::FpIsNan(_) | Op::FpIsInf(_) | Op::StrIsDigit(_) => 1,
 
             // 2 children
-            Op::Xor(..) | Op::BoolEq(..) | Op::BoolNeq(..)
-            | Op::Eq(..) | Op::Neq(..)
+            Op::Xor(..) | Op::Eq(..) | Op::Distinct(..)
             | Op::ULT(..) | Op::ULE(..) | Op::UGT(..) | Op::UGE(..)
             | Op::SLT(..) | Op::SLE(..) | Op::SGT(..) | Op::SGE(..)
             | Op::FpEq(..) | Op::FpNeq(..) | Op::FpLt(..) | Op::FpLeq(..)
             | Op::FpGt(..) | Op::FpGeq(..)
             | Op::StrContains(..) | Op::StrPrefixOf(..) | Op::StrSuffixOf(..)
-            | Op::StrEq(..) | Op::StrNeq(..)
             | Op::Sub(..) | Op::UDiv(..) | Op::SDiv(..) | Op::URem(..) | Op::SRem(..)
             | Op::ShL(..) | Op::LShR(..) | Op::AShR(..)
             | Op::RotateLeft(..) | Op::RotateRight(..)
@@ -307,14 +300,12 @@ impl<'c> Op<'c> {
             }
 
             // 2 children
-            Op::Xor(a, b) | Op::BoolEq(a, b) | Op::BoolNeq(a, b)
-            | Op::Eq(a, b) | Op::Neq(a, b)
+            Op::Xor(a, b) | Op::Eq(a, b) | Op::Distinct(a, b)
             | Op::ULT(a, b) | Op::ULE(a, b) | Op::UGT(a, b) | Op::UGE(a, b)
             | Op::SLT(a, b) | Op::SLE(a, b) | Op::SGT(a, b) | Op::SGE(a, b)
             | Op::FpEq(a, b) | Op::FpNeq(a, b) | Op::FpLt(a, b) | Op::FpLeq(a, b)
             | Op::FpGt(a, b) | Op::FpGeq(a, b)
             | Op::StrContains(a, b) | Op::StrPrefixOf(a, b) | Op::StrSuffixOf(a, b)
-            | Op::StrEq(a, b) | Op::StrNeq(a, b)
             | Op::Sub(a, b) | Op::UDiv(a, b) | Op::SDiv(a, b)
             | Op::URem(a, b) | Op::SRem(a, b)
             | Op::ShL(a, b) | Op::LShR(a, b) | Op::AShR(a, b)
@@ -411,8 +402,6 @@ impl<'c> Op<'c> {
     /// Validate that all children have the expected types for this operation.
     /// Returns Ok(()) if valid, or a TypeError describing the mismatch.
     pub fn validate(&self) -> Result<(), ClarirsError> {
-        use AstType::*;
-
         let err = |msg: std::string::String| Err(ClarirsError::TypeError(msg));
 
         // Helper: check a single child has the expected type category
@@ -480,14 +469,26 @@ impl<'c> Op<'c> {
                 Ok(())
             }
 
-            // ── Bool binary (bool, bool) ─────────────────────────────
-            Op::Xor(a, b) | Op::BoolEq(a, b) | Op::BoolNeq(a, b) => {
+            // ── Bool binary ───────────────────────────────────────────
+            Op::Xor(a, b) => {
                 expect(a, "bool")?;
                 expect(b, "bool")
             }
 
+            // ── Eq / Distinct (bool, bv, or string — not float) ─────
+            Op::Eq(a, b) | Op::Distinct(a, b) => {
+                if a.return_type().is_float() || b.return_type().is_float() {
+                    err(format!(
+                        "{:?}: use FpEq/FpNeq for float equality, not Eq/Distinct",
+                        std::mem::discriminant(self),
+                    ))
+                } else {
+                    expect_same(a, b)
+                }
+            }
+
             // ── BV comparisons (bv, bv) same width ──────────────────
-            Op::Eq(a, b) | Op::Neq(a, b) | Op::ULT(a, b) | Op::ULE(a, b) | Op::UGT(a, b)
+            Op::ULT(a, b) | Op::ULE(a, b) | Op::UGT(a, b)
             | Op::UGE(a, b) | Op::SLT(a, b) | Op::SLE(a, b) | Op::SGT(a, b)
             | Op::SGE(a, b) => {
                 expect(a, "bv")?;
@@ -507,8 +508,7 @@ impl<'c> Op<'c> {
             Op::FpIsNan(a) | Op::FpIsInf(a) => expect(a, "float"),
 
             // ── String comparisons (string, string) ──────────────────
-            Op::StrContains(a, b) | Op::StrPrefixOf(a, b) | Op::StrSuffixOf(a, b)
-            | Op::StrEq(a, b) | Op::StrNeq(a, b) => {
+            Op::StrContains(a, b) | Op::StrPrefixOf(a, b) | Op::StrSuffixOf(a, b) => {
                 expect(a, "string")?;
                 expect(b, "string")
             }

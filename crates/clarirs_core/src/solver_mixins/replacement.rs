@@ -89,13 +89,6 @@ impl<'c, S: Solver<'c>> ReplacementSolver<'c, S> {
     /// Try to extract a replacement from an equality constraint like `sym == concrete`.
     fn try_extract_replacement(&mut self, constraint: &AstRef<'c>) {
         match constraint.op() {
-            Op::BoolEq(lhs, rhs) => {
-                if lhs.symbolic() && !rhs.symbolic() {
-                    self.add_replacement(lhs.clone(), rhs.clone());
-                } else if !lhs.symbolic() && rhs.symbolic() {
-                    self.add_replacement(rhs.clone(), lhs.clone());
-                }
-            }
             Op::Eq(lhs, rhs) => {
                 if lhs.symbolic() && !rhs.symbolic() {
                     self.add_replacement(lhs.clone(), rhs.clone());

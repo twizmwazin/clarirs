@@ -46,7 +46,7 @@ fn excavate_ite_node<'c>(
     }
 
     // For any other op: split on ITE children one at a time until none remain.
-    let mut current_children: Vec<AstRef<'c>> = children.to_vec();
+    let current_children: Vec<AstRef<'c>> = children.to_vec();
 
     loop {
         let ite_idx = current_children

@@ -31,8 +31,8 @@ pub(crate) fn to_z3(ast: &AstRef, children: &[RcAst]) -> Result<RcAst, ClarirsEr
                 z3::mk_or(z3_ctx, args.len() as u32, args.as_ptr()).try_into()?
             }
             Op::Xor(..) => binop!(z3_ctx, children, mk_xor),
-            Op::BoolEq(..) => binop!(z3_ctx, children, mk_eq),
-            Op::BoolNeq(..) => {
+            Op::Eq(..) => binop!(z3_ctx, children, mk_eq),
+            Op::Distinct(..) => {
                 let a = child(children, 0)?;
                 let b = child(children, 1)?;
                 z3::mk_distinct(z3_ctx, 2, [**a, **b].as_ptr()).try_into()?
@@ -46,7 +46,7 @@ pub(crate) fn to_z3(ast: &AstRef, children: &[RcAst]) -> Result<RcAst, ClarirsEr
 
             // BV operations
             Op::Eq(..) => binop!(z3_ctx, children, mk_eq),
-            Op::Neq(..) => {
+            Op::Distinct(..) => {
                 let a = child(children, 0)?;
                 let b = child(children, 1)?;
                 z3::mk_distinct(z3_ctx, 2, [**a, **b].as_ptr()).try_into()?
@@ -94,8 +94,8 @@ pub(crate) fn to_z3(ast: &AstRef, children: &[RcAst]) -> Result<RcAst, ClarirsEr
                 let args = [is_non_negative, is_non_empty];
                 z3::mk_and(z3_ctx, 2, args.as_ptr()).try_into()?
             }
-            Op::StrEq(..) => binop!(z3_ctx, children, mk_eq),
-            Op::StrNeq(..) => {
+            Op::Eq(..) => binop!(z3_ctx, children, mk_eq),
+            Op::Distinct(..) => {
                 let a = child(children, 0)?;
                 let b = child(children, 1)?;
                 z3::mk_distinct(z3_ctx, 2, [**a, **b].as_ptr()).try_into()?
@@ -135,7 +135,7 @@ pub(crate) fn from_z3<'c>(
                         let inner = AstRef::from_z3(ctx, arg)?;
 
                         // Special case: if the inner expression is a BoolEq, convert to BoolNeq
-                        if let Op::BoolEq(a, b) = inner.op() {
+                        if let Op::Eq(a, b) = inner.op() {
                             ctx.neq(a, b)
                         } else {
                             ctx.not(inner)
