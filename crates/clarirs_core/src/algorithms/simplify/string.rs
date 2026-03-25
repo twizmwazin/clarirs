@@ -7,7 +7,7 @@ pub(crate) fn simplify_string<'c>(
     let ctx = state.expr.context();
     
 
-    match state.expr.op() {
+    match state.expr.op().clone() {
         Op::StringS(_) | Op::StringV(_) => Ok(state.expr.clone()),
         Op::StrConcat(..) => {
             let (arc, arc1) = (

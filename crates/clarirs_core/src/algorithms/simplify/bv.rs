@@ -10,7 +10,7 @@ pub(crate) fn simplify_bv<'c>(
     let ctx = state.expr.context();
     
 
-    match state.expr.op() {
+    match state.expr.op().clone() {
         Op::BVS(..) | Op::BVV(..) => Ok(state.expr.clone()),
         Op::BVNot(..) => {
             let arc = state.get_bv_simplified(0)?;
@@ -847,12 +847,12 @@ pub(crate) fn simplify_bv<'c>(
                             if let Op::ZeroExt(inner_val, _) = inner.op() {
                                 let inner_size = inner_val.size();
 
-                                if *low >= inner_size {
+                                if low >= inner_size {
                                     // All extracted bits are from the zero-extended part
                                     Ok(ctx.bvv(BitVec::zeros(size))?)
-                                } else if *high < inner_size {
+                                } else if high < inner_size {
                                     // All extracted bits are from the original value
-                                    let extracted = ctx.extract(inner_val, *high, *low)?;
+                                    let extracted = ctx.extract(inner_val, high, low)?;
                                     // Need to zero-pad to get back to the expected size
                                     if extracted.size() < size {
                                         state.rerun(
@@ -864,13 +864,13 @@ pub(crate) fn simplify_bv<'c>(
                                 } else {
                                     // Extraction spans both original and zero-extended parts
                                     // Extract what we can from the original value
-                                    let extracted = ctx.extract(inner_val, inner_size - 1, *low)?;
+                                    let extracted = ctx.extract(inner_val, inner_size - 1, low)?;
                                     // Zero-extend to the final size
                                     state.rerun(ctx.zero_ext(&extracted, size - extracted.size())?)
                                 }
                             } else {
                                 // Regular extraction from non-zero-extended value
-                                let extracted = ctx.extract(inner, *high, *low)?;
+                                let extracted = ctx.extract(inner, high, low)?;
                                 // Need to zero-pad to get back to the expected size
                                 if extracted.size() < size {
                                     state.rerun(ctx.zero_ext(&extracted, size - extracted.size())?)
@@ -1031,75 +1031,75 @@ pub(crate) fn simplify_bv<'c>(
         }
         Op::ZeroExt(_, num_bits) => {
             let arc = state.get_bv_simplified(0)?;
-            match (arc.op(), *num_bits) {
+            match (arc.op(), num_bits) {
                 // Zero extension
                 (_, 0) => Ok(arc.clone()),
                 // Concrete BVV case
-                (Op::BVV(value), _) => Ok(ctx.bvv(value.zero_extend(*num_bits)?)?),
+                (Op::BVV(value), _) => Ok(ctx.bvv(value.zero_extend(num_bits)?)?),
                 // Nested ZeroExt - combine extensions
                 (Op::ZeroExt(inner, inner_num_bits), _) => {
-                    let total_ext = inner_num_bits + *num_bits;
+                    let total_ext = inner_num_bits + num_bits;
                     state.rerun(ctx.zero_ext(inner, total_ext)?)
                 }
                 // Propogate over ITE when the children are BVVs
                 (Op::BVITE(cond, then_bv, else_bv), _) => {
-                    let then_ext = ctx.zero_ext(then_bv, *num_bits)?;
-                    let else_ext = ctx.zero_ext(else_bv, *num_bits)?;
+                    let then_ext = ctx.zero_ext(then_bv, num_bits)?;
+                    let else_ext = ctx.zero_ext(else_bv, num_bits)?;
                     state.rerun(ctx.ite(cond, &then_ext, &else_ext)?)
                 }
                 // Symbolic case
-                (_, _) => Ok(ctx.zero_ext(arc, *num_bits)?),
+                (_, _) => Ok(ctx.zero_ext(arc, num_bits)?),
             }
         }
         Op::SignExt(_, num_bits) => {
             let arc = state.get_bv_simplified(0)?;
-            match (arc.op(), *num_bits) {
+            match (arc.op(), num_bits) {
                 // Sign extension
                 (_, 0) => Ok(arc.clone()),
                 // Concrete BVV case
-                (Op::BVV(value), _) => Ok(ctx.bvv(value.sign_extend(*num_bits)?)?),
+                (Op::BVV(value), _) => Ok(ctx.bvv(value.sign_extend(num_bits)?)?),
                 // Nested SignExt - combine extensions
                 (Op::SignExt(inner, inner_num_bits), _) => {
-                    let total_ext = inner_num_bits + *num_bits;
+                    let total_ext = inner_num_bits + num_bits;
                     state.rerun(ctx.sign_ext(inner, total_ext)?)
                 }
                 // Fallback case
-                (_, _) => Ok(ctx.sign_ext(arc, *num_bits)?),
+                (_, _) => Ok(ctx.sign_ext(arc, num_bits)?),
             }
         }
         Op::Extract(_, high, low) => {
             let arc = state.get_bv_simplified(0)?;
 
             // If the extract bounds are the entire BV, return the inner value as-is
-            if *high == arc.size() - 1 && low == &0 {
+            if high == arc.size() - 1 && low == 0 {
                 return Ok(arc);
             }
 
             match arc.op() {
                 // Concrete BVV case
-                Op::BVV(value) => Ok(ctx.bvv(value.extract(*low, *high)?)?),
+                Op::BVV(value) => Ok(ctx.bvv(value.extract(low, high)?)?),
 
                 // Nested Extract - combine extracts
                 Op::Extract(inner, _, inner_low) => {
-                    // Calculate new *high and *low for the inner extract
-                    let new_high = inner_low + *high;
-                    let new_low = inner_low + *low;
+                    // Calculate new high and low for the inner extract
+                    let new_high = inner_low + high;
+                    let new_low = inner_low + low;
                     state.rerun(ctx.extract(inner, new_high, new_low)?)
                 }
 
                 // Propagate extract(n, 0, ...) through add/sub
                 // extract(n, 0, a + b + ...) = extract(n, 0, a) + extract(n, 0, b) + ...
-                // This is valid because the *low bits of add/sub only depend on the *low bits of the operands
-                Op::Add(add_args) if low == &0 => {
+                // This is valid because the low bits of add/sub only depend on the low bits of the operands
+                Op::Add(add_args) if low == 0 => {
                     let extracted: Vec<AstRef<'c>> = add_args
                         .iter()
-                        .map(|a| ctx.extract(a, *high, 0))
+                        .map(|a| ctx.extract(a, high, 0))
                         .collect::<Result<_, _>>()?;
                     state.rerun(ctx.add_many(extracted)?)
                 }
-                Op::Sub(lhs, rhs) if low == &0 => {
-                    let lhs_extracted = ctx.extract(lhs, *high, 0)?;
-                    let rhs_extracted = ctx.extract(rhs, *high, 0)?;
+                Op::Sub(lhs, rhs) if low == 0 => {
+                    let lhs_extracted = ctx.extract(lhs, high, 0)?;
+                    let rhs_extracted = ctx.extract(rhs, high, 0)?;
                     state.rerun(ctx.sub(&lhs_extracted, &rhs_extracted)?)
                 }
 
@@ -1108,7 +1108,7 @@ pub(crate) fn simplify_bv<'c>(
                 Op::BVAnd(and_args) => {
                     let extracted: Vec<AstRef<'c>> = and_args
                         .iter()
-                        .map(|a| ctx.extract(a, *high, *low))
+                        .map(|a| ctx.extract(a, high, low))
                         .collect::<Result<_, _>>()?;
                     state.rerun(ctx.bv_and_many(extracted)?)
                 }
@@ -1116,7 +1116,7 @@ pub(crate) fn simplify_bv<'c>(
                 Op::BVOr(or_args) => {
                     let extracted: Vec<AstRef<'c>> = or_args
                         .iter()
-                        .map(|a| ctx.extract(a, *high, *low))
+                        .map(|a| ctx.extract(a, high, low))
                         .collect::<Result<_, _>>()?;
                     state.rerun(ctx.bv_or_many(extracted)?)
                 }
@@ -1124,51 +1124,51 @@ pub(crate) fn simplify_bv<'c>(
                 Op::BVXor(xor_args) => {
                     let extracted: Vec<AstRef<'c>> = xor_args
                         .iter()
-                        .map(|a| ctx.extract(a, *high, *low))
+                        .map(|a| ctx.extract(a, high, low))
                         .collect::<Result<_, _>>()?;
                     state.rerun(ctx.bv_xor_many(extracted)?)
                 }
                 // extract(n, m, ~a) = ~extract(n, m, a)
                 Op::BVNot(inner) => {
-                    let inner_extracted = ctx.extract(inner, *high, *low)?;
+                    let inner_extracted = ctx.extract(inner, high, low)?;
                     state.rerun(ctx.not(&inner_extracted)?)
                 }
 
                 // Propogate through ITE
                 Op::BVITE(cond, then_bv, else_bv) => {
-                    let then_extracted = ctx.extract(then_bv, *high, *low)?;
-                    let else_extracted = ctx.extract(else_bv, *high, *low)?;
+                    let then_extracted = ctx.extract(then_bv, high, low)?;
+                    let else_extracted = ctx.extract(else_bv, high, low)?;
                     state.rerun(ctx.ite(cond, &then_extracted, &else_extracted)?)
                 }
 
                 // ZeroExt cases
                 // If extracting from the original bits (not the extended zero bits)
-                Op::ZeroExt(inner, _) if *high < inner.size() => {
-                    state.rerun(ctx.extract(inner, *high, *low)?)
+                Op::ZeroExt(inner, _) if high < inner.size() => {
+                    state.rerun(ctx.extract(inner, high, low)?)
                 }
                 // If extracting only from the extended zero bits
-                Op::ZeroExt(inner, _) if *low >= inner.size() => {
-                    Ok(ctx.bvv(BitVec::zeros(*high - *low + 1))?)
+                Op::ZeroExt(inner, _) if low >= inner.size() => {
+                    Ok(ctx.bvv(BitVec::zeros(high - low + 1))?)
                 }
                 // If extracting bits that span original and extended parts
                 Op::ZeroExt(inner, _) => {
                     let inner_size = inner.size();
                     // Extract what we can from the original bits
-                    let extracted = ctx.extract(inner, inner_size - 1, *low)?;
+                    let extracted = ctx.extract(inner, inner_size - 1, low)?;
                     // Zero-extend to the final size
-                    state.rerun(ctx.zero_ext(&extracted, *high - inner_size + 1)?)
+                    state.rerun(ctx.zero_ext(&extracted, high - inner_size + 1)?)
                 }
 
                 // SignExt cases
                 // If extracting from the original bits (not the extended sign bits)
-                Op::SignExt(inner, _) if *high < inner.size() => {
-                    state.rerun(ctx.extract(inner, *high, *low)?)
+                Op::SignExt(inner, _) if high < inner.size() => {
+                    state.rerun(ctx.extract(inner, high, low)?)
                 }
                 // If extracting only from the extended sign bits
-                Op::SignExt(inner, _) if *low >= inner.size() => {
+                Op::SignExt(inner, _) if low >= inner.size() => {
                     let sign_bit = ctx.extract(inner, inner.size() - 1, inner.size() - 1)?;
                     // Replicate the sign bit for the extracted width
-                    let width = *high - *low + 1;
+                    let width = high - low + 1;
                     let sign_bits: Vec<_> = (0..width).map(|_| sign_bit.clone()).collect();
                     Ok(ctx.concat(sign_bits)?)
                 }
@@ -1188,7 +1188,7 @@ pub(crate) fn simplify_bv<'c>(
                     // Now cumulative_sizes[i] = total size of args[i..] (bits from position 0 to end of arg i)
 
                     // Find which args the extract spans
-                    // The extract covers bits [*low, *high] inclusive
+                    // The extract covers bits [low, high] inclusive
                     // arg[i] covers bits [cumulative_sizes[i+1], cumulative_sizes[i] - 1]
                     let mut first_idx = None;
                     let mut last_idx = None;
@@ -1196,7 +1196,7 @@ pub(crate) fn simplify_bv<'c>(
                         let arg_high = cumulative_sizes[i] - 1; // highest bit of this arg
                         let arg_low = cumulative_sizes[i + 1]; // lowest bit of this arg
 
-                        if *high >= arg_low && *low <= arg_high {
+                        if high >= arg_low && low <= arg_high {
                             if first_idx.is_none() {
                                 first_idx = Some(i);
                             }
@@ -1210,8 +1210,8 @@ pub(crate) fn simplify_bv<'c>(
                             let arg_low = cumulative_sizes[first + 1];
                             state.rerun(ctx.extract(
                                 &args[first],
-                                *high - arg_low,
-                                *low - arg_low,
+                                high - arg_low,
+                                low - arg_low,
                             )?)
                         }
                         (Some(first), Some(last)) => {
@@ -1222,16 +1222,16 @@ pub(crate) fn simplify_bv<'c>(
                                 let arg_high = cumulative_sizes[i] - 1;
                                 let arg_low = cumulative_sizes[i + 1];
 
-                                let extract_high = (*high).min(arg_high) - arg_low;
-                                let extract_low = (*low).max(arg_low) - arg_low;
+                                let extract_high = (high).min(arg_high) - arg_low;
+                                let extract_low = (low).max(arg_low) - arg_low;
                                 parts.push(ctx.extract(arg, extract_high, extract_low)?);
                             }
                             state.rerun(ctx.concat(parts)?)
                         }
-                        _ => Ok(ctx.extract(arc, *high, *low)?),
+                        _ => Ok(ctx.extract(arc, high, low)?),
                     }
                 }
-                _ => Ok(ctx.extract(arc, *high, *low)?),
+                _ => Ok(ctx.extract(arc, high, low)?),
             }
         }
         Op::Concat(args) => {
@@ -1326,11 +1326,11 @@ pub(crate) fn simplify_bv<'c>(
                     let unsigned_value = float.to_unsigned_biguint().unwrap_or(BigUint::zero());
 
                     // Truncate or extend the result to fit within the specified bit size
-                    let result_bitvec = BitVec::from_biguint_trunc(&unsigned_value, *bit_size);
+                    let result_bitvec = BitVec::from_biguint_trunc(&unsigned_value, bit_size);
 
                     Ok(ctx.bvv(result_bitvec)?)
                 }
-                _ => Ok(ctx.fp_to_ubv(arc, *bit_size, fprm)?), // Fallback for non-concrete values
+                _ => Ok(ctx.fp_to_ubv(arc, bit_size, fprm)?), // Fallback for non-concrete values
             }
         }
         Op::FpToSBV(_, bit_size, fprm) => {
@@ -1344,11 +1344,11 @@ pub(crate) fn simplify_bv<'c>(
                     let unsigned_value = signed_value.to_biguint().unwrap_or(BigUint::zero());
 
                     // Create a BitVec with the result, truncating or extending to fit within the specified bit size
-                    let result_bitvec = BitVec::from_biguint_trunc(&unsigned_value, *bit_size);
+                    let result_bitvec = BitVec::from_biguint_trunc(&unsigned_value, bit_size);
 
                     Ok(ctx.bvv(result_bitvec)?)
                 }
-                _ => Ok(ctx.fp_to_sbv(arc, *bit_size, fprm)?), // Fallback for non-concrete values
+                _ => Ok(ctx.fp_to_sbv(arc, bit_size, fprm)?), // Fallback for non-concrete values
             }
         }
         Op::StrLen(..) => {
@@ -1482,5 +1482,6 @@ pub(crate) fn simplify_bv<'c>(
             }
             Ok(ctx.widen(lhs, rhs)?)
         }
+        _ => Ok(state.expr.clone()),
     }
 }

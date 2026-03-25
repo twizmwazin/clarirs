@@ -7,7 +7,7 @@ pub(crate) fn simplify_bool<'c>(
     let ctx = state.expr.context();
     
 
-    match state.expr.op() {
+    match state.expr.op().clone() {
         Op::BoolS(_) | Op::BoolV(_) => Ok(state.expr.clone()),
         Op::Not(..) => {
             let arc = state.get_bool_simplified(0)?;
@@ -1575,6 +1575,6 @@ pub(crate) fn simplify_bool<'c>(
                 )?),
             }
         }
-    }
         _ => Ok(state.expr.clone()),
+    }
 }
