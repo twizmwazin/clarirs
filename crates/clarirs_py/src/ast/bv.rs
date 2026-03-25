@@ -6,7 +6,6 @@ use std::sync::LazyLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use clarirs_core::algorithms::{canonicalize, structurally_match};
-use clarirs_core::ast::bitvec::{BitVecAstExt, BitVecOpExt};
 use clarirs_vsa::cardinality::Cardinality;
 use clarirs_vsa::reduce::Reduce;
 use dashmap::DashMap;
@@ -260,15 +259,8 @@ impl BV {
         &self,
         py: Python<'py>,
     ) -> Result<(HashMap<u64, Bound<'py, PyAny>>, usize, Bound<'py, BV>), ClaripyError> {
-        let (replacement_map, counter, canonical) = canonicalize(&self.inner.clone().into())?;
-        let canonical_bv = BV::new(
-            py,
-            &canonical
-                .into_bitvec()
-                .ok_or(ClaripyError::InvalidOperation(
-                    "Canonicalization did not produce a BitVec".to_string(),
-                ))?,
-        )?;
+        let (replacement_map, counter, canonical) = canonicalize(&self.inner)?;
+        let canonical_bv = BV::new(py, &canonical)?;
 
         let mut py_map = HashMap::new();
         for (hash, dynast) in replacement_map {
@@ -281,7 +273,7 @@ impl BV {
 
     pub fn identical(&self, other: Bound<'_, Base>) -> Result<bool, ClaripyError> {
         let structural = structurally_match(
-            &DynAst::BitVec(self.inner.clone()),
+            &self.inner,
             &Base::to_dynast(other.clone())?,
         )?;
         if structural {
@@ -344,7 +336,7 @@ impl BV {
     #[getter]
     pub fn concrete_value(&self) -> Result<Option<BigUint>, ClaripyError> {
         Ok(match self.inner.simplify_ext(false, false)?.op() {
-            BitVecOp::BVV(bv) => Some(bv.to_biguint()),
+            Op::BVV(bv) => Some(bv.to_biguint()),
             _ => None,
         })
     }

@@ -1,45 +1,45 @@
 use super::SimplifyError;
-use crate::{ast::bitvec::BitVecOpExt, prelude::*};
+use crate::prelude::*;
 
 pub(crate) fn simplify_bool<'c>(
     state: &mut super::SimplifyState<'c>,
-) -> Result<BoolAst<'c>, SimplifyError<'c>> {
+) -> Result<AstRef<'c>, SimplifyError<'c>> {
     let ctx = state.expr.context();
-    let bool_ast = state.expr.clone().into_bool().unwrap();
+    
 
-    match bool_ast.op() {
-        BooleanOp::BoolS(_) | BooleanOp::BoolV(_) => Ok(bool_ast),
-        BooleanOp::Not(..) => {
+    match state.expr.op() {
+        Op::BoolS(_) | Op::BoolV(_) => Ok(state.expr.clone()),
+        Op::Not(..) => {
             let arc = state.get_bool_simplified(0)?;
 
             match arc.op() {
-                BooleanOp::Not(arc) => Ok(arc.clone()),
-                BooleanOp::BoolV(v) => Ok(ctx.boolv(!v)?),
+                Op::Not(arc) => Ok(arc.clone()),
+                Op::BoolV(v) => Ok(ctx.boolv(!v)?),
 
-                BooleanOp::Eq(lhs, rhs) => Ok(ctx.neq(lhs.clone(), rhs.clone())?),
-                BooleanOp::Neq(lhs, rhs) => Ok(ctx.eq_(lhs.clone(), rhs.clone())?),
+                Op::Eq(lhs, rhs) => Ok(ctx.neq(lhs.clone(), rhs.clone())?),
+                Op::Neq(lhs, rhs) => Ok(ctx.eq_(lhs.clone(), rhs.clone())?),
 
                 // !(a > b)  ==>  a <= b
-                BooleanOp::UGT(lhs, rhs) => state.rerun(ctx.ule(lhs.clone(), rhs.clone())?),
+                Op::UGT(lhs, rhs) => state.rerun(ctx.ule(lhs.clone(), rhs.clone())?),
                 // !(a >= b)  ==>  a < b
-                BooleanOp::UGE(lhs, rhs) => state.rerun(ctx.ult(lhs.clone(), rhs.clone())?),
+                Op::UGE(lhs, rhs) => state.rerun(ctx.ult(lhs.clone(), rhs.clone())?),
                 // !(a < b)  ==>  a >= b
-                BooleanOp::ULT(lhs, rhs) => state.rerun(ctx.uge(lhs.clone(), rhs.clone())?),
+                Op::ULT(lhs, rhs) => state.rerun(ctx.uge(lhs.clone(), rhs.clone())?),
                 // !(a <= b)  ==>  a > b
-                BooleanOp::ULE(lhs, rhs) => state.rerun(ctx.ugt(lhs.clone(), rhs.clone())?),
+                Op::ULE(lhs, rhs) => state.rerun(ctx.ugt(lhs.clone(), rhs.clone())?),
                 // !(a s> b)  ==>  a s<= b
-                BooleanOp::SGT(lhs, rhs) => state.rerun(ctx.sle(lhs.clone(), rhs.clone())?),
+                Op::SGT(lhs, rhs) => state.rerun(ctx.sle(lhs.clone(), rhs.clone())?),
                 // !(a s>= b)  ==>  a s< b
-                BooleanOp::SGE(lhs, rhs) => state.rerun(ctx.slt(lhs.clone(), rhs.clone())?),
+                Op::SGE(lhs, rhs) => state.rerun(ctx.slt(lhs.clone(), rhs.clone())?),
                 // !(a s< b)  ==>  a s>= b
-                BooleanOp::SLT(lhs, rhs) => state.rerun(ctx.sge(lhs.clone(), rhs.clone())?),
+                Op::SLT(lhs, rhs) => state.rerun(ctx.sge(lhs.clone(), rhs.clone())?),
                 // !(a s<= b)  ==>  a s> b
-                BooleanOp::SLE(lhs, rhs) => state.rerun(ctx.sgt(lhs.clone(), rhs.clone())?),
+                Op::SLE(lhs, rhs) => state.rerun(ctx.sgt(lhs.clone(), rhs.clone())?),
 
                 _ => Ok(ctx.not(arc)?),
             }
         }
-        BooleanOp::And(args) => {
+        Op::And(args) => {
             let available_args = (0..args.len())
                 .map(|i| state.get_bool_available(i))
                 .collect::<Result<Vec<_>, _>>()?;
@@ -48,13 +48,13 @@ pub(crate) fn simplify_bool<'c>(
             let absorbed_args = available_args
                 .into_iter()
                 .flat_map(|arg| {
-                    if let BooleanOp::And(nested_args) = arg.op() {
+                    if let Op::And(nested_args) = arg.op() {
                         nested_args.clone()
                     } else {
                         vec![arg]
                     }
                 })
-                .filter(|arg| !matches!(arg.op(), BooleanOp::BoolV(true)))
+                .filter(|arg| !matches!(arg.op(), Op::BoolV(true)))
                 .collect::<Vec<_>>();
             // Deduplicate using == comparison
             let mut deduped = Vec::with_capacity(absorbed_args.len());
@@ -75,7 +75,7 @@ pub(crate) fn simplify_bool<'c>(
             // Identity simplification
             if absorbed_args
                 .iter()
-                .any(|arg| matches!(arg.op(), BooleanOp::BoolV(false)))
+                .any(|arg| matches!(arg.op(), Op::BoolV(false)))
             {
                 return Ok(ctx.false_()?);
             }
@@ -83,12 +83,12 @@ pub(crate) fn simplify_bool<'c>(
             // x & !x == false
             for i in 0..absorbed_args.len() {
                 for j in (i + 1)..absorbed_args.len() {
-                    if let BooleanOp::Not(neg) = absorbed_args[i].op()
+                    if let Op::Not(neg) = absorbed_args[i].op()
                         && neg == &absorbed_args[j]
                     {
                         return Ok(ctx.false_()?);
                     }
-                    if let BooleanOp::Not(neg) = absorbed_args[j].op()
+                    if let Op::Not(neg) = absorbed_args[j].op()
                         && neg == &absorbed_args[i]
                     {
                         return Ok(ctx.false_()?);
@@ -101,16 +101,16 @@ pub(crate) fn simplify_bool<'c>(
             for i in 0..absorbed_args.len() {
                 for j in (i + 1)..absorbed_args.len() {
                     match (absorbed_args[i].op(), absorbed_args[j].op()) {
-                        (BooleanOp::Eq(var1, val1), BooleanOp::Neq(var2, val2))
-                        | (BooleanOp::Neq(var2, val2), BooleanOp::Eq(var1, val1))
-                        | (BooleanOp::ULT(var1, val1), BooleanOp::UGE(var2, val2))
-                        | (BooleanOp::UGE(var2, val2), BooleanOp::ULT(var1, val1))
-                        | (BooleanOp::ULE(var1, val1), BooleanOp::UGT(var2, val2))
-                        | (BooleanOp::UGT(var2, val2), BooleanOp::ULE(var1, val1))
-                        | (BooleanOp::SLT(var1, val1), BooleanOp::SGE(var2, val2))
-                        | (BooleanOp::SGE(var2, val2), BooleanOp::SLT(var1, val1))
-                        | (BooleanOp::SLE(var1, val1), BooleanOp::SGT(var2, val2))
-                        | (BooleanOp::SGT(var2, val2), BooleanOp::SLE(var1, val1))
+                        (Op::Eq(var1, val1), Op::Neq(var2, val2))
+                        | (Op::Neq(var2, val2), Op::Eq(var1, val1))
+                        | (Op::ULT(var1, val1), Op::UGE(var2, val2))
+                        | (Op::UGE(var2, val2), Op::ULT(var1, val1))
+                        | (Op::ULE(var1, val1), Op::UGT(var2, val2))
+                        | (Op::UGT(var2, val2), Op::ULE(var1, val1))
+                        | (Op::SLT(var1, val1), Op::SGE(var2, val2))
+                        | (Op::SGE(var2, val2), Op::SLT(var1, val1))
+                        | (Op::SLE(var1, val1), Op::SGT(var2, val2))
+                        | (Op::SGT(var2, val2), Op::SLE(var1, val1))
                             if var1 == var2 && val1 == val2 =>
                         {
                             return Ok(ctx.false_()?);
@@ -129,7 +129,7 @@ pub(crate) fn simplify_bool<'c>(
                 .collect::<Result<Vec<_>, _>>()?;
             Ok(ctx.and(simplified_args)?)
         }
-        BooleanOp::Or(args) => {
+        Op::Or(args) => {
             let available_args = (0..args.len())
                 .map(|i| state.get_bool_available(i))
                 .collect::<Result<Vec<_>, _>>()?;
@@ -138,13 +138,13 @@ pub(crate) fn simplify_bool<'c>(
             let absorbed_args = available_args
                 .into_iter()
                 .flat_map(|arg| {
-                    if let BooleanOp::Or(nested_args) = arg.op() {
+                    if let Op::Or(nested_args) = arg.op() {
                         nested_args.clone()
                     } else {
                         vec![arg]
                     }
                 })
-                .filter(|arg| !matches!(arg.op(), BooleanOp::BoolV(false)))
+                .filter(|arg| !matches!(arg.op(), Op::BoolV(false)))
                 .collect::<Vec<_>>();
             // Deduplicate using == comparison
             let mut deduped = Vec::with_capacity(absorbed_args.len());
@@ -158,7 +158,7 @@ pub(crate) fn simplify_bool<'c>(
             // Identity simplification
             if absorbed_args
                 .iter()
-                .any(|arg| matches!(arg.op(), BooleanOp::BoolV(true)))
+                .any(|arg| matches!(arg.op(), Op::BoolV(true)))
             {
                 return Ok(ctx.true_()?);
             }
@@ -173,12 +173,12 @@ pub(crate) fn simplify_bool<'c>(
             // x | !x == true
             for i in 0..absorbed_args.len() {
                 for j in (i + 1)..absorbed_args.len() {
-                    if let BooleanOp::Not(neg) = absorbed_args[i].op()
+                    if let Op::Not(neg) = absorbed_args[i].op()
                         && neg == &absorbed_args[j]
                     {
                         return Ok(ctx.true_()?);
                     }
-                    if let BooleanOp::Not(neg) = absorbed_args[j].op()
+                    if let Op::Not(neg) = absorbed_args[j].op()
                         && neg == &absorbed_args[i]
                     {
                         return Ok(ctx.true_()?);
@@ -191,16 +191,16 @@ pub(crate) fn simplify_bool<'c>(
             for i in 0..absorbed_args.len() {
                 for j in (i + 1)..absorbed_args.len() {
                     match (absorbed_args[i].op(), absorbed_args[j].op()) {
-                        (BooleanOp::Eq(var1, val1), BooleanOp::Neq(var2, val2))
-                        | (BooleanOp::Neq(var2, val2), BooleanOp::Eq(var1, val1))
-                        | (BooleanOp::ULT(var1, val1), BooleanOp::UGE(var2, val2))
-                        | (BooleanOp::UGE(var2, val2), BooleanOp::ULT(var1, val1))
-                        | (BooleanOp::ULE(var1, val1), BooleanOp::UGT(var2, val2))
-                        | (BooleanOp::UGT(var2, val2), BooleanOp::ULE(var1, val1))
-                        | (BooleanOp::SLT(var1, val1), BooleanOp::SGE(var2, val2))
-                        | (BooleanOp::SGE(var2, val2), BooleanOp::SLT(var1, val1))
-                        | (BooleanOp::SLE(var1, val1), BooleanOp::SGT(var2, val2))
-                        | (BooleanOp::SGT(var2, val2), BooleanOp::SLE(var1, val1))
+                        (Op::Eq(var1, val1), Op::Neq(var2, val2))
+                        | (Op::Neq(var2, val2), Op::Eq(var1, val1))
+                        | (Op::ULT(var1, val1), Op::UGE(var2, val2))
+                        | (Op::UGE(var2, val2), Op::ULT(var1, val1))
+                        | (Op::ULE(var1, val1), Op::UGT(var2, val2))
+                        | (Op::UGT(var2, val2), Op::ULE(var1, val1))
+                        | (Op::SLT(var1, val1), Op::SGE(var2, val2))
+                        | (Op::SGE(var2, val2), Op::SLT(var1, val1))
+                        | (Op::SLE(var1, val1), Op::SGT(var2, val2))
+                        | (Op::SGT(var2, val2), Op::SLE(var1, val1))
                             if var1 == var2 && val1 == val2 =>
                         {
                             return Ok(ctx.true_()?);
@@ -219,76 +219,76 @@ pub(crate) fn simplify_bool<'c>(
                 .collect::<Result<Vec<_>, _>>()?;
             Ok(ctx.or(simplified_args)?)
         }
-        BooleanOp::Xor(..) => {
+        Op::Xor(..) => {
             let early_lhs = state.get_bool_available(0)?;
             let early_rhs = state.get_bool_available(1)?;
 
             match (early_lhs.op(), early_rhs.op()) {
-                (BooleanOp::BoolV(lhs), BooleanOp::BoolV(rhs)) => Ok(ctx.boolv(*lhs ^ *rhs)?),
-                (BooleanOp::BoolV(true), _) => Ok(ctx.not(state.get_bool_simplified(1)?)?),
-                (_, BooleanOp::BoolV(true)) => Ok(ctx.not(state.get_bool_simplified(0)?)?),
-                (BooleanOp::BoolV(false), _) => Ok(state.get_bool_simplified(1)?),
-                (_, BooleanOp::BoolV(false)) => Ok(state.get_bool_simplified(0)?),
-                (BooleanOp::Not(lhs), rhs) if lhs.op() == rhs => Ok(ctx.true_()?),
-                (lhs, BooleanOp::Not(rhs)) if lhs == rhs.op() => Ok(ctx.true_()?),
-                (BooleanOp::Not(lhs), BooleanOp::Not(rhs)) => state.rerun(ctx.xor(lhs, rhs)?),
+                (Op::BoolV(lhs), Op::BoolV(rhs)) => Ok(ctx.boolv(*lhs ^ *rhs)?),
+                (Op::BoolV(true), _) => Ok(ctx.not(state.get_bool_simplified(1)?)?),
+                (_, Op::BoolV(true)) => Ok(ctx.not(state.get_bool_simplified(0)?)?),
+                (Op::BoolV(false), _) => Ok(state.get_bool_simplified(1)?),
+                (_, Op::BoolV(false)) => Ok(state.get_bool_simplified(0)?),
+                (Op::Not(lhs), rhs) if lhs.op() == rhs => Ok(ctx.true_()?),
+                (lhs, Op::Not(rhs)) if lhs == rhs.op() => Ok(ctx.true_()?),
+                (Op::Not(lhs), Op::Not(rhs)) => state.rerun(ctx.xor(lhs, rhs)?),
                 _ if early_lhs == early_rhs => Ok(ctx.false_()?),
                 _ => Ok(ctx.xor(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
             }
         }
-        BooleanOp::BoolEq(..) => {
+        Op::BoolEq(..) => {
             let early_lhs = state.get_bool_available(0)?;
             let early_rhs = state.get_bool_available(1)?;
 
             match (early_lhs.op(), early_rhs.op()) {
-                (BooleanOp::BoolV(arc), BooleanOp::BoolV(arc1)) => Ok(ctx.boolv(arc == arc1)?),
-                (BooleanOp::BoolV(true), _) => Ok(state.get_bool_simplified(1)?),
-                (_, BooleanOp::BoolV(true)) => Ok(state.get_bool_simplified(0)?),
-                (BooleanOp::BoolV(false), _) => Ok(ctx.not(state.get_bool_simplified(1)?)?),
-                (_, BooleanOp::BoolV(false)) => Ok(ctx.not(state.get_bool_simplified(0)?)?),
-                // a == a -> true. Even when floats are involved, this is a boolean
-                // identity: both sides are the same expression and evaluate to the same
-                // value (NaN only affects fp== itself, not bool== of two equal booleans).
-                _ if early_lhs == early_rhs => Ok(ctx.true_()?),
+                (Op::BoolV(arc), Op::BoolV(arc1)) => Ok(ctx.boolv(arc == arc1)?),
+                (Op::BoolV(true), _) => Ok(state.get_bool_simplified(1)?),
+                (_, Op::BoolV(true)) => Ok(state.get_bool_simplified(0)?),
+                (Op::BoolV(false), _) => Ok(ctx.not(state.get_bool_simplified(1)?)?),
+                (_, Op::BoolV(false)) => Ok(ctx.not(state.get_bool_simplified(0)?)?),
+                // a == a -> true (this is boolean equality, not fp==, so NaN is not a concern)
+                _ if early_lhs == early_rhs => {
+                    Ok(ctx.true_()?)
+                }
                 _ => Ok(ctx.eq_(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
             }
         }
-        BooleanOp::BoolNeq(..) => {
+        Op::BoolNeq(..) => {
             let early_lhs = state.get_bool_available(0)?;
             let early_rhs = state.get_bool_available(1)?;
 
             match (early_lhs.op(), early_rhs.op()) {
-                (BooleanOp::BoolV(arc), BooleanOp::BoolV(arc1)) => Ok(ctx.boolv(arc != arc1)?),
-                (BooleanOp::BoolV(true), _) => Ok(ctx.not(state.get_bool_simplified(1)?)?),
-                (_, BooleanOp::BoolV(true)) => Ok(ctx.not(state.get_bool_simplified(0)?)?),
-                (BooleanOp::BoolV(false), _) => Ok(state.get_bool_simplified(1)?),
-                (_, BooleanOp::BoolV(false)) => Ok(state.get_bool_simplified(0)?),
-                // a != a -> false. Even when floats are involved, this is a boolean
-                // identity: both sides are the same expression and evaluate to the same
-                // value (NaN only affects fp!= itself, not bool!= of two equal booleans).
-                _ if early_lhs == early_rhs => Ok(ctx.false_()?),
+                (Op::BoolV(arc), Op::BoolV(arc1)) => Ok(ctx.boolv(arc != arc1)?),
+                (Op::BoolV(true), _) => Ok(ctx.not(state.get_bool_simplified(1)?)?),
+                (_, Op::BoolV(true)) => Ok(ctx.not(state.get_bool_simplified(0)?)?),
+                (Op::BoolV(false), _) => Ok(state.get_bool_simplified(1)?),
+                (_, Op::BoolV(false)) => Ok(state.get_bool_simplified(0)?),
+                // a != a -> false (this is boolean inequality, not fp!=, so NaN is not a concern)
+                _ if early_lhs == early_rhs => {
+                    Ok(ctx.false_()?)
+                }
                 _ => Ok(ctx.neq(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
             }
         }
-        BooleanOp::Eq(..) => {
+        Op::Eq(..) => {
             let early_lhs = state.get_bv_available(0)?;
             let early_rhs = state.get_bv_available(1)?;
 
             match (early_lhs.op(), early_rhs.op()) {
                 (lhs, rhs) if lhs == rhs => Ok(ctx.true_()?),
-                (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => Ok(ctx.boolv(arc == arc1)?),
+                (Op::BVV(arc), Op::BVV(arc1)) => Ok(ctx.boolv(arc == arc1)?),
 
                 // If on one side there is an AND where one of the operands is a mask, and on the
                 // other side, there is a BVV which matches the masked part of the AND, we can
                 // extract the AND operand directly, and extract the other side and rerun
-                (BitVecOp::And(and_args), BitVecOp::BVV(bvv))
+                (Op::BVAnd(and_args), Op::BVV(bvv))
                     if and_args
                         .iter()
-                        .any(|a| matches!(a.op(), BitVecOp::BVV(v) if v.is_mask().is_some())) =>
+                        .any(|a| matches!(a.op(), Op::BVV(v) if v.is_mask().is_some())) =>
                 {
                     let mask_idx = and_args
                         .iter()
-                        .position(|a| matches!(a.op(), BitVecOp::BVV(v) if v.is_mask().is_some()))
+                        .position(|a| matches!(a.op(), Op::BVV(v) if v.is_mask().is_some()))
                         .unwrap();
                     let mask = &and_args[mask_idx];
                     let remaining: Vec<_> = and_args
@@ -302,7 +302,7 @@ pub(crate) fn simplify_bool<'c>(
                     } else {
                         ctx.bv_and_many(remaining)?
                     };
-                    let (mask_high, mask_low) = if let BitVecOp::BVV(mask_val) = mask.op() {
+                    let (mask_high, mask_low) = if let Op::BVV(mask_val) = mask.op() {
                         mask_val.is_mask()
                     } else {
                         None
@@ -316,8 +316,8 @@ pub(crate) fn simplify_bool<'c>(
 
                 // If one side is a = ZeroExt and the other side is a BVV with those bits set to zero,
                 // we can extract the relevant bits and compare directly
-                (BitVecOp::ZeroExt(innner, ext_size), BitVecOp::BVV(outer))
-                | (BitVecOp::BVV(outer), BitVecOp::ZeroExt(innner, ext_size))
+                (Op::ZeroExt(innner, ext_size), Op::BVV(outer))
+                | (Op::BVV(outer), Op::ZeroExt(innner, ext_size))
                     if outer.leading_zeros() as u32 >= *ext_size =>
                 {
                     state.rerun(ctx.eq_(
@@ -327,16 +327,16 @@ pub(crate) fn simplify_bool<'c>(
                 }
 
                 // If both sides are ZeroExt of the same size, we can compare the inner values directly
-                (BitVecOp::ZeroExt(inner_lhs, _), BitVecOp::ZeroExt(inner_rhs, _)) => {
+                (Op::ZeroExt(inner_lhs, _), Op::ZeroExt(inner_rhs, _)) => {
                     state.rerun(ctx.eq_(inner_lhs.clone(), inner_rhs.clone())?)
                 }
 
                 // (ite cond 1 0) == 0  ==>  !cond
-                (BitVecOp::ITE(cond, then_val, else_val), BitVecOp::BVV(val))
-                | (BitVecOp::BVV(val), BitVecOp::ITE(cond, then_val, else_val))
+                (Op::BVITE(cond, then_val, else_val), Op::BVV(val))
+                | (Op::BVV(val), Op::BVITE(cond, then_val, else_val))
                     if val.is_zero() =>
                 {
-                    if let (BitVecOp::BVV(then_bvv), BitVecOp::BVV(else_bvv)) =
+                    if let (Op::BVV(then_bvv), Op::BVV(else_bvv)) =
                         (then_val.op(), else_val.op())
                     {
                         if then_bvv.is_one() && else_bvv.is_zero() {
@@ -351,11 +351,11 @@ pub(crate) fn simplify_bool<'c>(
                 }
 
                 // (ite cond 1 0) == 1  ==>  cond
-                (BitVecOp::ITE(cond, then_val, else_val), BitVecOp::BVV(val))
-                | (BitVecOp::BVV(val), BitVecOp::ITE(cond, then_val, else_val))
+                (Op::BVITE(cond, then_val, else_val), Op::BVV(val))
+                | (Op::BVV(val), Op::BVITE(cond, then_val, else_val))
                     if val.is_one() =>
                 {
-                    if let (BitVecOp::BVV(then_bvv), BitVecOp::BVV(else_bvv)) =
+                    if let (Op::BVV(then_bvv), Op::BVV(else_bvv)) =
                         (then_val.op(), else_val.op())
                     {
                         if then_bvv.is_one() && else_bvv.is_zero() {
@@ -370,22 +370,22 @@ pub(crate) fn simplify_bool<'c>(
                 }
 
                 // (x - C) == 0  ==>  x == C
-                (BitVecOp::Sub(lhs_sub, rhs_sub), BitVecOp::BVV(val))
-                | (BitVecOp::BVV(val), BitVecOp::Sub(lhs_sub, rhs_sub))
-                    if val.is_zero() && matches!(rhs_sub.op(), BitVecOp::BVV(..)) =>
+                (Op::Sub(lhs_sub, rhs_sub), Op::BVV(val))
+                | (Op::BVV(val), Op::Sub(lhs_sub, rhs_sub))
+                    if val.is_zero() && matches!(rhs_sub.op(), Op::BVV(..)) =>
                 {
                     state.rerun(ctx.eq_(lhs_sub.clone(), rhs_sub.clone())?)
                 }
 
                 // (sum + C) == 0  ==>  sum == -C
-                (BitVecOp::Add(add_args), BitVecOp::BVV(val))
-                | (BitVecOp::BVV(val), BitVecOp::Add(add_args))
+                (Op::Add(add_args), Op::BVV(val))
+                | (Op::BVV(val), Op::Add(add_args))
                     if val.is_zero()
-                        && add_args.iter().any(|a| matches!(a.op(), BitVecOp::BVV(..))) =>
+                        && add_args.iter().any(|a| matches!(a.op(), Op::BVV(..))) =>
                 {
                     if let Some(bvv_idx) = add_args
                         .iter()
-                        .position(|a| matches!(a.op(), BitVecOp::BVV(..)))
+                        .position(|a| matches!(a.op(), Op::BVV(..)))
                     {
                         let neg_c = ctx.neg(&add_args[bvv_idx])?;
                         let remaining: Vec<_> = add_args
@@ -408,25 +408,25 @@ pub(crate) fn simplify_bool<'c>(
                 _ => Ok(ctx.eq_(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
             }
         }
-        BooleanOp::Neq(..) => {
+        Op::Neq(..) => {
             let early_lhs = state.get_bv_available(0)?;
             let early_rhs = state.get_bv_available(1)?;
 
             match (early_lhs.op(), early_rhs.op()) {
-                (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => Ok(ctx.boolv(arc != arc1)?),
+                (Op::BVV(arc), Op::BVV(arc1)) => Ok(ctx.boolv(arc != arc1)?),
                 (lhs, rhs) if lhs == rhs => Ok(ctx.false_()?),
 
                 // If on one side there is an AND where one of the operands is a mask, and on the
                 // other side, there is a BVV which matches the masked part of the AND, we can
                 // extract the AND operand directly, and extract the other side and rerun
-                (BitVecOp::And(and_args), BitVecOp::BVV(bvv))
+                (Op::BVAnd(and_args), Op::BVV(bvv))
                     if and_args
                         .iter()
-                        .any(|a| matches!(a.op(), BitVecOp::BVV(v) if v.is_mask().is_some())) =>
+                        .any(|a| matches!(a.op(), Op::BVV(v) if v.is_mask().is_some())) =>
                 {
                     let mask_idx = and_args
                         .iter()
-                        .position(|a| matches!(a.op(), BitVecOp::BVV(v) if v.is_mask().is_some()))
+                        .position(|a| matches!(a.op(), Op::BVV(v) if v.is_mask().is_some()))
                         .unwrap();
                     let mask = &and_args[mask_idx];
                     let remaining: Vec<_> = and_args
@@ -440,7 +440,7 @@ pub(crate) fn simplify_bool<'c>(
                     } else {
                         ctx.bv_and_many(remaining)?
                     };
-                    let (mask_high, mask_low) = if let BitVecOp::BVV(mask_val) = mask.op() {
+                    let (mask_high, mask_low) = if let Op::BVV(mask_val) = mask.op() {
                         mask_val.is_mask()
                     } else {
                         None
@@ -454,8 +454,8 @@ pub(crate) fn simplify_bool<'c>(
 
                 // If one side is a = ZeroExt and the other side is a BVV with those bits set to zero,
                 // we can extract the relevant bits and compare directly
-                (BitVecOp::ZeroExt(innner, ext_size), BitVecOp::BVV(outer))
-                | (BitVecOp::BVV(outer), BitVecOp::ZeroExt(innner, ext_size))
+                (Op::ZeroExt(innner, ext_size), Op::BVV(outer))
+                | (Op::BVV(outer), Op::ZeroExt(innner, ext_size))
                     if outer.leading_zeros() as u32 >= *ext_size =>
                 {
                     state.rerun(ctx.neq(
@@ -465,16 +465,16 @@ pub(crate) fn simplify_bool<'c>(
                 }
 
                 // If both sides are ZeroExt of the same size, we can compare the inner values directly
-                (BitVecOp::ZeroExt(inner_lhs, _), BitVecOp::ZeroExt(inner_rhs, _)) => {
+                (Op::ZeroExt(inner_lhs, _), Op::ZeroExt(inner_rhs, _)) => {
                     state.rerun(ctx.neq(inner_lhs.clone(), inner_rhs.clone())?)
                 }
 
                 // (ite cond 1 0) != 0  ==>  cond
-                (BitVecOp::ITE(cond, then_val, else_val), BitVecOp::BVV(val))
-                | (BitVecOp::BVV(val), BitVecOp::ITE(cond, then_val, else_val))
+                (Op::BVITE(cond, then_val, else_val), Op::BVV(val))
+                | (Op::BVV(val), Op::BVITE(cond, then_val, else_val))
                     if val.is_zero() =>
                 {
-                    if let (BitVecOp::BVV(then_bvv), BitVecOp::BVV(else_bvv)) =
+                    if let (Op::BVV(then_bvv), Op::BVV(else_bvv)) =
                         (then_val.op(), else_val.op())
                     {
                         if then_bvv.is_one() && else_bvv.is_zero() {
@@ -489,11 +489,11 @@ pub(crate) fn simplify_bool<'c>(
                 }
 
                 // (ite cond 1 0) != 1  ==>  !cond
-                (BitVecOp::ITE(cond, then_val, else_val), BitVecOp::BVV(val))
-                | (BitVecOp::BVV(val), BitVecOp::ITE(cond, then_val, else_val))
+                (Op::BVITE(cond, then_val, else_val), Op::BVV(val))
+                | (Op::BVV(val), Op::BVITE(cond, then_val, else_val))
                     if val.is_one() =>
                 {
-                    if let (BitVecOp::BVV(then_bvv), BitVecOp::BVV(else_bvv)) =
+                    if let (Op::BVV(then_bvv), Op::BVV(else_bvv)) =
                         (then_val.op(), else_val.op())
                     {
                         if then_bvv.is_one() && else_bvv.is_zero() {
@@ -508,22 +508,22 @@ pub(crate) fn simplify_bool<'c>(
                 }
 
                 // (x - C) != 0  ==>  x != C
-                (BitVecOp::Sub(lhs_sub, rhs_sub), BitVecOp::BVV(val))
-                | (BitVecOp::BVV(val), BitVecOp::Sub(lhs_sub, rhs_sub))
-                    if val.is_zero() && matches!(rhs_sub.op(), BitVecOp::BVV(..)) =>
+                (Op::Sub(lhs_sub, rhs_sub), Op::BVV(val))
+                | (Op::BVV(val), Op::Sub(lhs_sub, rhs_sub))
+                    if val.is_zero() && matches!(rhs_sub.op(), Op::BVV(..)) =>
                 {
                     state.rerun(ctx.neq(lhs_sub.clone(), rhs_sub.clone())?)
                 }
 
                 // (sum + C) != 0  ==>  sum != -C
-                (BitVecOp::Add(add_args), BitVecOp::BVV(val))
-                | (BitVecOp::BVV(val), BitVecOp::Add(add_args))
+                (Op::Add(add_args), Op::BVV(val))
+                | (Op::BVV(val), Op::Add(add_args))
                     if val.is_zero()
-                        && add_args.iter().any(|a| matches!(a.op(), BitVecOp::BVV(..))) =>
+                        && add_args.iter().any(|a| matches!(a.op(), Op::BVV(..))) =>
                 {
                     if let Some(bvv_idx) = add_args
                         .iter()
-                        .position(|a| matches!(a.op(), BitVecOp::BVV(..)))
+                        .position(|a| matches!(a.op(), Op::BVV(..)))
                     {
                         let neg_c = ctx.neg(&add_args[bvv_idx])?;
                         let remaining: Vec<_> = add_args
@@ -546,23 +546,23 @@ pub(crate) fn simplify_bool<'c>(
                 _ => Ok(ctx.neq(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
             }
         }
-        BooleanOp::ULT(..) => {
+        Op::ULT(..) => {
             let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => Ok(ctx.false_()?),
-                (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => Ok(ctx.boolv(arc < arc1)?),
+                (Op::BVV(arc), Op::BVV(arc1)) => Ok(ctx.boolv(arc < arc1)?),
 
                 // If on one side there is an AND where one of the operands is a mask, and on the
                 // other side, there is a BVV which matches the masked part of the AND, we can
                 // extract the AND operand directly, and extract the other side and rerun
-                (BitVecOp::And(and_args), BitVecOp::BVV(bvv))
+                (Op::BVAnd(and_args), Op::BVV(bvv))
                     if and_args
                         .iter()
-                        .any(|a| matches!(a.op(), BitVecOp::BVV(v) if v.is_mask().is_some())) =>
+                        .any(|a| matches!(a.op(), Op::BVV(v) if v.is_mask().is_some())) =>
                 {
                     let mask_idx = and_args
                         .iter()
-                        .position(|a| matches!(a.op(), BitVecOp::BVV(v) if v.is_mask().is_some()))
+                        .position(|a| matches!(a.op(), Op::BVV(v) if v.is_mask().is_some()))
                         .unwrap();
                     let mask = &and_args[mask_idx];
                     let remaining: Vec<_> = and_args
@@ -576,7 +576,7 @@ pub(crate) fn simplify_bool<'c>(
                     } else {
                         ctx.bv_and_many(remaining)?
                     };
-                    let (mask_high, mask_low) = if let BitVecOp::BVV(mask_val) = mask.op() {
+                    let (mask_high, mask_low) = if let Op::BVV(mask_val) = mask.op() {
                         mask_val.is_mask()
                     } else {
                         None
@@ -587,14 +587,14 @@ pub(crate) fn simplify_bool<'c>(
                         ctx.bvv(bvv.extract(mask_low, mask_high)?)?,
                     )?)
                 }
-                (BitVecOp::BVV(bvv), BitVecOp::And(and_args))
+                (Op::BVV(bvv), Op::BVAnd(and_args))
                     if and_args
                         .iter()
-                        .any(|a| matches!(a.op(), BitVecOp::BVV(v) if v.is_mask().is_some())) =>
+                        .any(|a| matches!(a.op(), Op::BVV(v) if v.is_mask().is_some())) =>
                 {
                     let mask_idx = and_args
                         .iter()
-                        .position(|a| matches!(a.op(), BitVecOp::BVV(v) if v.is_mask().is_some()))
+                        .position(|a| matches!(a.op(), Op::BVV(v) if v.is_mask().is_some()))
                         .unwrap();
                     let mask = &and_args[mask_idx];
                     let remaining: Vec<_> = and_args
@@ -608,7 +608,7 @@ pub(crate) fn simplify_bool<'c>(
                     } else {
                         ctx.bv_and_many(remaining)?
                     };
-                    let (mask_high, mask_low) = if let BitVecOp::BVV(mask_val) = mask.op() {
+                    let (mask_high, mask_low) = if let Op::BVV(mask_val) = mask.op() {
                         mask_val.is_mask()
                     } else {
                         None
@@ -622,7 +622,7 @@ pub(crate) fn simplify_bool<'c>(
 
                 // If one side is a ZeroExt and the other side is a BVV with those bits set to zero,
                 // we can extract the relevant bits and compare directly
-                (BitVecOp::ZeroExt(innner, ext_size), BitVecOp::BVV(outer))
+                (Op::ZeroExt(innner, ext_size), Op::BVV(outer))
                     if outer.leading_zeros() as u32 >= *ext_size =>
                 {
                     state.rerun(ctx.ult(
@@ -630,7 +630,7 @@ pub(crate) fn simplify_bool<'c>(
                         ctx.extract(ctx.bvv(outer.clone())?, innner.size() - 1, 0)?,
                     )?)
                 }
-                (BitVecOp::BVV(outer), BitVecOp::ZeroExt(innner, ext_size))
+                (Op::BVV(outer), Op::ZeroExt(innner, ext_size))
                     if outer.leading_zeros() as u32 >= *ext_size =>
                 {
                     state.rerun(ctx.ult(
@@ -640,12 +640,12 @@ pub(crate) fn simplify_bool<'c>(
                 }
 
                 // If both sides are ZeroExt of the same size, we can compare the inner values directly
-                (BitVecOp::ZeroExt(inner_lhs, _), BitVecOp::ZeroExt(inner_rhs, _)) => {
+                (Op::ZeroExt(inner_lhs, _), Op::ZeroExt(inner_rhs, _)) => {
                     state.rerun(ctx.ult(inner_lhs.clone(), inner_rhs.clone())?)
                 }
 
                 // ULT(Concat(rest..., BVV(0, n)), BVV(c)) where c has n trailing zeros
-                (BitVecOp::Concat(args), BitVecOp::BVV(c_val)) if matches!(args.last().map(|a| a.op()), Some(BitVecOp::BVV(v)) if v.is_zero()) =>
+                (Op::Concat(args), Op::BVV(c_val)) if matches!(args.last().map(|a| a.op()), Some(Op::BVV(v)) if v.is_zero()) =>
                 {
                     let low_bits = args.last().unwrap().size();
                     if c_val
@@ -667,7 +667,7 @@ pub(crate) fn simplify_bool<'c>(
                         Ok(ctx.ult(arc, arc1)?)
                     }
                 }
-                (BitVecOp::BVV(c_val), BitVecOp::Concat(args)) if matches!(args.last().map(|a| a.op()), Some(BitVecOp::BVV(v)) if v.is_zero()) =>
+                (Op::BVV(c_val), Op::Concat(args)) if matches!(args.last().map(|a| a.op()), Some(Op::BVV(v)) if v.is_zero()) =>
                 {
                     let low_bits = args.last().unwrap().size();
                     if c_val
@@ -692,12 +692,12 @@ pub(crate) fn simplify_bool<'c>(
 
                 // ULT(BVV(b), Sub(ZeroExt(n, inner), BVV(c))) where c and b fit in inner's size
                 // => ULT(extract(b), Sub(inner, extract(c)))
-                (BitVecOp::BVV(bound), BitVecOp::Sub(lhs_sub, rhs_sub))
-                    if matches!(lhs_sub.op(), BitVecOp::ZeroExt(_, ext_size)
+                (Op::BVV(bound), Op::Sub(lhs_sub, rhs_sub))
+                    if matches!(lhs_sub.op(), Op::ZeroExt(_, ext_size)
                         if bound.leading_zeros() as u32 >= *ext_size
-                        && matches!(rhs_sub.op(), BitVecOp::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
+                        && matches!(rhs_sub.op(), Op::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
                 {
-                    if let BitVecOp::ZeroExt(inner, _) = lhs_sub.op() {
+                    if let Op::ZeroExt(inner, _) = lhs_sub.op() {
                         let inner_size = inner.size();
                         state.rerun(ctx.ult(
                             ctx.bvv(bound.extract(0, inner_size - 1)?)?,
@@ -710,12 +710,12 @@ pub(crate) fn simplify_bool<'c>(
 
                 // ULT(Sub(ZeroExt(n, inner), BVV(c)), BVV(b)) where c and b fit in inner's size
                 // => ULT(Sub(inner, extract(c)), extract(b))
-                (BitVecOp::Sub(lhs_sub, rhs_sub), BitVecOp::BVV(bound))
-                    if matches!(lhs_sub.op(), BitVecOp::ZeroExt(_, ext_size)
+                (Op::Sub(lhs_sub, rhs_sub), Op::BVV(bound))
+                    if matches!(lhs_sub.op(), Op::ZeroExt(_, ext_size)
                         if bound.leading_zeros() as u32 >= *ext_size
-                        && matches!(rhs_sub.op(), BitVecOp::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
+                        && matches!(rhs_sub.op(), Op::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
                 {
-                    if let BitVecOp::ZeroExt(inner, _) = lhs_sub.op() {
+                    if let Op::ZeroExt(inner, _) = lhs_sub.op() {
                         let inner_size = inner.size();
                         state.rerun(ctx.ult(
                             ctx.sub(inner, &ctx.extract(rhs_sub, inner_size - 1, 0)?)?,
@@ -727,18 +727,18 @@ pub(crate) fn simplify_bool<'c>(
                 }
 
                 // ULT(BVV(b), Add(ZeroExt(n, inner), BVV(c))) where c and b fit in inner's size
-                (BitVecOp::BVV(bound), BitVecOp::Add(add_args)) => {
+                (Op::BVV(bound), Op::Add(add_args)) => {
                     let ze_idx = add_args
                         .iter()
-                        .position(|a| matches!(a.op(), BitVecOp::ZeroExt(..)));
+                        .position(|a| matches!(a.op(), Op::ZeroExt(..)));
                     let bvv_idx = add_args
                         .iter()
-                        .position(|a| matches!(a.op(), BitVecOp::BVV(..)));
+                        .position(|a| matches!(a.op(), Op::BVV(..)));
                     if let (Some(ze_i), Some(bvv_i)) = (ze_idx, bvv_idx)
                         && ze_i != bvv_i
                         && add_args.len() == 2
-                        && let BitVecOp::ZeroExt(inner, ext_size) = add_args[ze_i].op()
-                        && let BitVecOp::BVV(c) = add_args[bvv_i].op()
+                        && let Op::ZeroExt(inner, ext_size) = add_args[ze_i].op()
+                        && let Op::BVV(c) = add_args[bvv_i].op()
                         && bound.leading_zeros() as u32 >= *ext_size
                         && c.leading_zeros() as u32 >= *ext_size
                     {
@@ -754,23 +754,23 @@ pub(crate) fn simplify_bool<'c>(
                 _ => Ok(ctx.ult(arc, arc1)?),
             }
         }
-        BooleanOp::ULE(..) => {
+        Op::ULE(..) => {
             let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => Ok(ctx.true_()?),
-                (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => Ok(ctx.boolv(arc <= arc1)?),
+                (Op::BVV(arc), Op::BVV(arc1)) => Ok(ctx.boolv(arc <= arc1)?),
 
                 // If on one side there is an AND where one of the operands is a mask, and on the
                 // other side, there is a BVV which matches the masked part of the AND, we can
                 // extract the AND operand directly, and extract the other side and rerun
-                (BitVecOp::And(and_args), BitVecOp::BVV(bvv))
+                (Op::BVAnd(and_args), Op::BVV(bvv))
                     if and_args
                         .iter()
-                        .any(|a| matches!(a.op(), BitVecOp::BVV(v) if v.is_mask().is_some())) =>
+                        .any(|a| matches!(a.op(), Op::BVV(v) if v.is_mask().is_some())) =>
                 {
                     let mask_idx = and_args
                         .iter()
-                        .position(|a| matches!(a.op(), BitVecOp::BVV(v) if v.is_mask().is_some()))
+                        .position(|a| matches!(a.op(), Op::BVV(v) if v.is_mask().is_some()))
                         .unwrap();
                     let mask = &and_args[mask_idx];
                     let remaining: Vec<_> = and_args
@@ -784,7 +784,7 @@ pub(crate) fn simplify_bool<'c>(
                     } else {
                         ctx.bv_and_many(remaining)?
                     };
-                    let (mask_high, mask_low) = if let BitVecOp::BVV(mask_val) = mask.op() {
+                    let (mask_high, mask_low) = if let Op::BVV(mask_val) = mask.op() {
                         mask_val.is_mask()
                     } else {
                         None
@@ -795,14 +795,14 @@ pub(crate) fn simplify_bool<'c>(
                         ctx.bvv(bvv.extract(mask_low, mask_high)?)?,
                     )?)
                 }
-                (BitVecOp::BVV(bvv), BitVecOp::And(and_args))
+                (Op::BVV(bvv), Op::BVAnd(and_args))
                     if and_args
                         .iter()
-                        .any(|a| matches!(a.op(), BitVecOp::BVV(v) if v.is_mask().is_some())) =>
+                        .any(|a| matches!(a.op(), Op::BVV(v) if v.is_mask().is_some())) =>
                 {
                     let mask_idx = and_args
                         .iter()
-                        .position(|a| matches!(a.op(), BitVecOp::BVV(v) if v.is_mask().is_some()))
+                        .position(|a| matches!(a.op(), Op::BVV(v) if v.is_mask().is_some()))
                         .unwrap();
                     let mask = &and_args[mask_idx];
                     let remaining: Vec<_> = and_args
@@ -816,7 +816,7 @@ pub(crate) fn simplify_bool<'c>(
                     } else {
                         ctx.bv_and_many(remaining)?
                     };
-                    let (mask_high, mask_low) = if let BitVecOp::BVV(mask_val) = mask.op() {
+                    let (mask_high, mask_low) = if let Op::BVV(mask_val) = mask.op() {
                         mask_val.is_mask()
                     } else {
                         None
@@ -830,12 +830,12 @@ pub(crate) fn simplify_bool<'c>(
 
                 // If one side is a ZeroExt, and the other side is a BVV with a value larger than
                 // what can be represented in the inner bits, we can concretize the comparison
-                (BitVecOp::ZeroExt(inner, _), BitVecOp::BVV(outer))
+                (Op::ZeroExt(inner, _), Op::BVV(outer))
                     if outer.bits() > inner.size() as usize =>
                 {
                     Ok(ctx.true_()?)
                 }
-                (BitVecOp::BVV(outer), BitVecOp::ZeroExt(inner, _))
+                (Op::BVV(outer), Op::ZeroExt(inner, _))
                     if outer.bits() > inner.size() as usize =>
                 {
                     Ok(ctx.false_()?)
@@ -843,7 +843,7 @@ pub(crate) fn simplify_bool<'c>(
 
                 // If one side is a ZeroExt and the other side is a BVV with those bits set to zero,
                 // we can extract the relevant bits and compare directly
-                (BitVecOp::ZeroExt(innner, ext_size), BitVecOp::BVV(outer))
+                (Op::ZeroExt(innner, ext_size), Op::BVV(outer))
                     if outer.leading_zeros() as u32 >= *ext_size =>
                 {
                     state.rerun(ctx.ule(
@@ -851,7 +851,7 @@ pub(crate) fn simplify_bool<'c>(
                         ctx.extract(ctx.bvv(outer.clone())?, innner.size() - 1, 0)?,
                     )?)
                 }
-                (BitVecOp::BVV(outer), BitVecOp::ZeroExt(innner, ext_size))
+                (Op::BVV(outer), Op::ZeroExt(innner, ext_size))
                     if outer.leading_zeros() as u32 >= *ext_size =>
                 {
                     state.rerun(ctx.ule(
@@ -861,18 +861,18 @@ pub(crate) fn simplify_bool<'c>(
                 }
 
                 // If both sides are ZeroExt of the same size, we can compare the inner values directly
-                (BitVecOp::ZeroExt(inner_lhs, _), BitVecOp::ZeroExt(inner_rhs, _)) => {
+                (Op::ZeroExt(inner_lhs, _), Op::ZeroExt(inner_rhs, _)) => {
                     state.rerun(ctx.ule(inner_lhs.clone(), inner_rhs.clone())?)
                 }
 
                 // ULE(Sub(ZeroExt(n, inner), BVV(c)), BVV(b)) where c and b fit in inner's size
                 // => ULE(Sub(inner, extract(c)), extract(b))
-                (BitVecOp::Sub(lhs_sub, rhs_sub), BitVecOp::BVV(bound))
-                    if matches!(lhs_sub.op(), BitVecOp::ZeroExt(_, ext_size)
+                (Op::Sub(lhs_sub, rhs_sub), Op::BVV(bound))
+                    if matches!(lhs_sub.op(), Op::ZeroExt(_, ext_size)
                         if bound.leading_zeros() as u32 >= *ext_size
-                        && matches!(rhs_sub.op(), BitVecOp::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
+                        && matches!(rhs_sub.op(), Op::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
                 {
-                    if let BitVecOp::ZeroExt(inner, _) = lhs_sub.op() {
+                    if let Op::ZeroExt(inner, _) = lhs_sub.op() {
                         let inner_size = inner.size();
                         state.rerun(ctx.ule(
                             ctx.sub(inner, &ctx.extract(rhs_sub, inner_size - 1, 0)?)?,
@@ -884,18 +884,18 @@ pub(crate) fn simplify_bool<'c>(
                 }
 
                 // ULE(Add(ZeroExt(n, inner), BVV(c)), BVV(b)) where c and b fit in inner's size
-                (BitVecOp::Add(add_args), BitVecOp::BVV(bound)) => {
+                (Op::Add(add_args), Op::BVV(bound)) => {
                     let ze_idx = add_args
                         .iter()
-                        .position(|a| matches!(a.op(), BitVecOp::ZeroExt(..)));
+                        .position(|a| matches!(a.op(), Op::ZeroExt(..)));
                     let bvv_idx = add_args
                         .iter()
-                        .position(|a| matches!(a.op(), BitVecOp::BVV(..)));
+                        .position(|a| matches!(a.op(), Op::BVV(..)));
                     if let (Some(ze_i), Some(bvv_i)) = (ze_idx, bvv_idx)
                         && ze_i != bvv_i
                         && add_args.len() == 2
-                        && let BitVecOp::ZeroExt(inner, ext_size) = add_args[ze_i].op()
-                        && let BitVecOp::BVV(c) = add_args[bvv_i].op()
+                        && let Op::ZeroExt(inner, ext_size) = add_args[ze_i].op()
+                        && let Op::BVV(c) = add_args[bvv_i].op()
                         && bound.leading_zeros() as u32 >= *ext_size
                         && c.leading_zeros() as u32 >= *ext_size
                     {
@@ -909,7 +909,7 @@ pub(crate) fn simplify_bool<'c>(
                 }
 
                 // ULE(Concat(rest..., BVV(0, n)), BVV(c)) where c has n trailing zeros
-                (BitVecOp::Concat(args), BitVecOp::BVV(c_val)) if matches!(args.last().map(|a| a.op()), Some(BitVecOp::BVV(v)) if v.is_zero()) =>
+                (Op::Concat(args), Op::BVV(c_val)) if matches!(args.last().map(|a| a.op()), Some(Op::BVV(v)) if v.is_zero()) =>
                 {
                     let low_bits = args.last().unwrap().size();
                     if c_val
@@ -931,7 +931,7 @@ pub(crate) fn simplify_bool<'c>(
                         Ok(ctx.ule(arc, arc1)?)
                     }
                 }
-                (BitVecOp::BVV(c_val), BitVecOp::Concat(args)) if matches!(args.last().map(|a| a.op()), Some(BitVecOp::BVV(v)) if v.is_zero()) =>
+                (Op::BVV(c_val), Op::Concat(args)) if matches!(args.last().map(|a| a.op()), Some(Op::BVV(v)) if v.is_zero()) =>
                 {
                     let low_bits = args.last().unwrap().size();
                     if c_val
@@ -957,23 +957,23 @@ pub(crate) fn simplify_bool<'c>(
                 _ => Ok(ctx.ule(arc, arc1)?),
             }
         }
-        BooleanOp::UGT(..) => {
+        Op::UGT(..) => {
             let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => Ok(ctx.false_()?),
-                (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => Ok(ctx.boolv(arc > arc1)?),
+                (Op::BVV(arc), Op::BVV(arc1)) => Ok(ctx.boolv(arc > arc1)?),
 
                 // If on one side there is an AND where one of the operands is a mask, and on the
                 // other side, there is a BVV which matches the masked part of the AND, we can
                 // extract the AND operand directly, and extract the other side and rerun
-                (BitVecOp::And(and_args), BitVecOp::BVV(bvv))
+                (Op::BVAnd(and_args), Op::BVV(bvv))
                     if and_args
                         .iter()
-                        .any(|a| matches!(a.op(), BitVecOp::BVV(v) if v.is_mask().is_some())) =>
+                        .any(|a| matches!(a.op(), Op::BVV(v) if v.is_mask().is_some())) =>
                 {
                     let mask_idx = and_args
                         .iter()
-                        .position(|a| matches!(a.op(), BitVecOp::BVV(v) if v.is_mask().is_some()))
+                        .position(|a| matches!(a.op(), Op::BVV(v) if v.is_mask().is_some()))
                         .unwrap();
                     let mask = &and_args[mask_idx];
                     let remaining: Vec<_> = and_args
@@ -987,7 +987,7 @@ pub(crate) fn simplify_bool<'c>(
                     } else {
                         ctx.bv_and_many(remaining)?
                     };
-                    let (mask_high, mask_low) = if let BitVecOp::BVV(mask_val) = mask.op() {
+                    let (mask_high, mask_low) = if let Op::BVV(mask_val) = mask.op() {
                         mask_val.is_mask()
                     } else {
                         None
@@ -998,14 +998,14 @@ pub(crate) fn simplify_bool<'c>(
                         ctx.bvv(bvv.extract(mask_low, mask_high)?)?,
                     )?)
                 }
-                (BitVecOp::BVV(bvv), BitVecOp::And(and_args))
+                (Op::BVV(bvv), Op::BVAnd(and_args))
                     if and_args
                         .iter()
-                        .any(|a| matches!(a.op(), BitVecOp::BVV(v) if v.is_mask().is_some())) =>
+                        .any(|a| matches!(a.op(), Op::BVV(v) if v.is_mask().is_some())) =>
                 {
                     let mask_idx = and_args
                         .iter()
-                        .position(|a| matches!(a.op(), BitVecOp::BVV(v) if v.is_mask().is_some()))
+                        .position(|a| matches!(a.op(), Op::BVV(v) if v.is_mask().is_some()))
                         .unwrap();
                     let mask = &and_args[mask_idx];
                     let remaining: Vec<_> = and_args
@@ -1019,7 +1019,7 @@ pub(crate) fn simplify_bool<'c>(
                     } else {
                         ctx.bv_and_many(remaining)?
                     };
-                    let (mask_high, mask_low) = if let BitVecOp::BVV(mask_val) = mask.op() {
+                    let (mask_high, mask_low) = if let Op::BVV(mask_val) = mask.op() {
                         mask_val.is_mask()
                     } else {
                         None
@@ -1033,12 +1033,12 @@ pub(crate) fn simplify_bool<'c>(
 
                 // If one side is a ZeroExt, and the other side is a BVV with a value larger than
                 // what can be represented in the inner bits, we can concretize the comparison
-                (BitVecOp::ZeroExt(inner, _), BitVecOp::BVV(outer))
+                (Op::ZeroExt(inner, _), Op::BVV(outer))
                     if outer.bits() > inner.size() as usize =>
                 {
                     Ok(ctx.false_()?)
                 }
-                (BitVecOp::BVV(outer), BitVecOp::ZeroExt(inner, _))
+                (Op::BVV(outer), Op::ZeroExt(inner, _))
                     if outer.bits() > inner.size() as usize =>
                 {
                     Ok(ctx.true_()?)
@@ -1046,7 +1046,7 @@ pub(crate) fn simplify_bool<'c>(
 
                 // If one side is a ZeroExt and the other side is a BVV with those bits set to zero,
                 // we can extract the relevant bits and compare directly
-                (BitVecOp::ZeroExt(innner, ext_size), BitVecOp::BVV(outer))
+                (Op::ZeroExt(innner, ext_size), Op::BVV(outer))
                     if outer.leading_zeros() as u32 >= *ext_size =>
                 {
                     state.rerun(ctx.ugt(
@@ -1054,7 +1054,7 @@ pub(crate) fn simplify_bool<'c>(
                         ctx.extract(ctx.bvv(outer.clone())?, innner.size() - 1, 0)?,
                     )?)
                 }
-                (BitVecOp::BVV(outer), BitVecOp::ZeroExt(innner, ext_size))
+                (Op::BVV(outer), Op::ZeroExt(innner, ext_size))
                     if outer.leading_zeros() as u32 >= *ext_size =>
                 {
                     state.rerun(ctx.ugt(
@@ -1064,17 +1064,17 @@ pub(crate) fn simplify_bool<'c>(
                 }
 
                 // If both sides are ZeroExt of the same size, we can compare the inner values directly
-                (BitVecOp::ZeroExt(inner_lhs, _), BitVecOp::ZeroExt(inner_rhs, _)) => {
+                (Op::ZeroExt(inner_lhs, _), Op::ZeroExt(inner_rhs, _)) => {
                     state.rerun(ctx.ugt(inner_lhs.clone(), inner_rhs.clone())?)
                 }
 
                 // UGT(Sub(ZeroExt(n, inner), BVV(c)), BVV(b)) where c and b fit in inner's size
-                (BitVecOp::Sub(lhs_sub, rhs_sub), BitVecOp::BVV(bound))
-                    if matches!(lhs_sub.op(), BitVecOp::ZeroExt(_, ext_size)
+                (Op::Sub(lhs_sub, rhs_sub), Op::BVV(bound))
+                    if matches!(lhs_sub.op(), Op::ZeroExt(_, ext_size)
                         if bound.leading_zeros() as u32 >= *ext_size
-                        && matches!(rhs_sub.op(), BitVecOp::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
+                        && matches!(rhs_sub.op(), Op::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
                 {
-                    if let BitVecOp::ZeroExt(inner, _) = lhs_sub.op() {
+                    if let Op::ZeroExt(inner, _) = lhs_sub.op() {
                         let inner_size = inner.size();
                         state.rerun(ctx.ugt(
                             ctx.sub(inner, &ctx.extract(rhs_sub, inner_size - 1, 0)?)?,
@@ -1086,18 +1086,18 @@ pub(crate) fn simplify_bool<'c>(
                 }
 
                 // UGT(Add(ZeroExt(n, inner), BVV(c)), BVV(b)) where c and b fit in inner's size
-                (BitVecOp::Add(add_args), BitVecOp::BVV(bound)) => {
+                (Op::Add(add_args), Op::BVV(bound)) => {
                     let ze_idx = add_args
                         .iter()
-                        .position(|a| matches!(a.op(), BitVecOp::ZeroExt(..)));
+                        .position(|a| matches!(a.op(), Op::ZeroExt(..)));
                     let bvv_idx = add_args
                         .iter()
-                        .position(|a| matches!(a.op(), BitVecOp::BVV(..)));
+                        .position(|a| matches!(a.op(), Op::BVV(..)));
                     if let (Some(ze_i), Some(bvv_i)) = (ze_idx, bvv_idx)
                         && ze_i != bvv_i
                         && add_args.len() == 2
-                        && let BitVecOp::ZeroExt(inner, ext_size) = add_args[ze_i].op()
-                        && let BitVecOp::BVV(c) = add_args[bvv_i].op()
+                        && let Op::ZeroExt(inner, ext_size) = add_args[ze_i].op()
+                        && let Op::BVV(c) = add_args[bvv_i].op()
                         && bound.leading_zeros() as u32 >= *ext_size
                         && c.leading_zeros() as u32 >= *ext_size
                     {
@@ -1111,7 +1111,7 @@ pub(crate) fn simplify_bool<'c>(
                 }
 
                 // UGT(Concat(rest..., BVV(0, n)), BVV(c)) where c has n trailing zeros
-                (BitVecOp::Concat(args), BitVecOp::BVV(c_val)) if matches!(args.last().map(|a| a.op()), Some(BitVecOp::BVV(v)) if v.is_zero()) =>
+                (Op::Concat(args), Op::BVV(c_val)) if matches!(args.last().map(|a| a.op()), Some(Op::BVV(v)) if v.is_zero()) =>
                 {
                     let low_bits = args.last().unwrap().size();
                     if c_val
@@ -1133,7 +1133,7 @@ pub(crate) fn simplify_bool<'c>(
                         Ok(ctx.ugt(arc, arc1)?)
                     }
                 }
-                (BitVecOp::BVV(c_val), BitVecOp::Concat(args)) if matches!(args.last().map(|a| a.op()), Some(BitVecOp::BVV(v)) if v.is_zero()) =>
+                (Op::BVV(c_val), Op::Concat(args)) if matches!(args.last().map(|a| a.op()), Some(Op::BVV(v)) if v.is_zero()) =>
                 {
                     let low_bits = args.last().unwrap().size();
                     if c_val
@@ -1159,23 +1159,23 @@ pub(crate) fn simplify_bool<'c>(
                 _ => Ok(ctx.ugt(arc, arc1)?),
             }
         }
-        BooleanOp::UGE(..) => {
+        Op::UGE(..) => {
             let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => Ok(ctx.true_()?),
-                (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => Ok(ctx.boolv(arc >= arc1)?),
+                (Op::BVV(arc), Op::BVV(arc1)) => Ok(ctx.boolv(arc >= arc1)?),
 
                 // If on one side there is an AND where one of the operands is a mask, and on the
                 // other side, there is a BVV which matches the masked part of the AND, we can
                 // extract the AND operand directly, and extract the other side and rerun
-                (BitVecOp::And(and_args), BitVecOp::BVV(bvv))
+                (Op::BVAnd(and_args), Op::BVV(bvv))
                     if and_args
                         .iter()
-                        .any(|a| matches!(a.op(), BitVecOp::BVV(v) if v.is_mask().is_some())) =>
+                        .any(|a| matches!(a.op(), Op::BVV(v) if v.is_mask().is_some())) =>
                 {
                     let mask_idx = and_args
                         .iter()
-                        .position(|a| matches!(a.op(), BitVecOp::BVV(v) if v.is_mask().is_some()))
+                        .position(|a| matches!(a.op(), Op::BVV(v) if v.is_mask().is_some()))
                         .unwrap();
                     let mask = &and_args[mask_idx];
                     let remaining: Vec<_> = and_args
@@ -1189,7 +1189,7 @@ pub(crate) fn simplify_bool<'c>(
                     } else {
                         ctx.bv_and_many(remaining)?
                     };
-                    let (mask_high, mask_low) = if let BitVecOp::BVV(mask_val) = mask.op() {
+                    let (mask_high, mask_low) = if let Op::BVV(mask_val) = mask.op() {
                         mask_val.is_mask()
                     } else {
                         None
@@ -1200,14 +1200,14 @@ pub(crate) fn simplify_bool<'c>(
                         ctx.bvv(bvv.extract(mask_low, mask_high)?)?,
                     )?)
                 }
-                (BitVecOp::BVV(bvv), BitVecOp::And(and_args))
+                (Op::BVV(bvv), Op::BVAnd(and_args))
                     if and_args
                         .iter()
-                        .any(|a| matches!(a.op(), BitVecOp::BVV(v) if v.is_mask().is_some())) =>
+                        .any(|a| matches!(a.op(), Op::BVV(v) if v.is_mask().is_some())) =>
                 {
                     let mask_idx = and_args
                         .iter()
-                        .position(|a| matches!(a.op(), BitVecOp::BVV(v) if v.is_mask().is_some()))
+                        .position(|a| matches!(a.op(), Op::BVV(v) if v.is_mask().is_some()))
                         .unwrap();
                     let mask = &and_args[mask_idx];
                     let remaining: Vec<_> = and_args
@@ -1221,7 +1221,7 @@ pub(crate) fn simplify_bool<'c>(
                     } else {
                         ctx.bv_and_many(remaining)?
                     };
-                    let (mask_high, mask_low) = if let BitVecOp::BVV(mask_val) = mask.op() {
+                    let (mask_high, mask_low) = if let Op::BVV(mask_val) = mask.op() {
                         mask_val.is_mask()
                     } else {
                         None
@@ -1235,7 +1235,7 @@ pub(crate) fn simplify_bool<'c>(
 
                 // If one side is a ZeroExt and the other side is a BVV with those bits set to zero,
                 // we can extract the relevant bits and compare directly
-                (BitVecOp::ZeroExt(innner, ext_size), BitVecOp::BVV(outer))
+                (Op::ZeroExt(innner, ext_size), Op::BVV(outer))
                     if outer.leading_zeros() as u32 >= *ext_size =>
                 {
                     state.rerun(ctx.uge(
@@ -1243,7 +1243,7 @@ pub(crate) fn simplify_bool<'c>(
                         ctx.extract(ctx.bvv(outer.clone())?, innner.size() - 1, 0)?,
                     )?)
                 }
-                (BitVecOp::BVV(outer), BitVecOp::ZeroExt(innner, ext_size))
+                (Op::BVV(outer), Op::ZeroExt(innner, ext_size))
                     if outer.leading_zeros() as u32 >= *ext_size =>
                 {
                     state.rerun(ctx.uge(
@@ -1253,12 +1253,12 @@ pub(crate) fn simplify_bool<'c>(
                 }
 
                 // If both sides are ZeroExt of the same size, we can compare the inner values directly
-                (BitVecOp::ZeroExt(inner_lhs, _), BitVecOp::ZeroExt(inner_rhs, _)) => {
+                (Op::ZeroExt(inner_lhs, _), Op::ZeroExt(inner_rhs, _)) => {
                     state.rerun(ctx.uge(inner_lhs.clone(), inner_rhs.clone())?)
                 }
 
                 // UGE(Concat(rest..., BVV(0, n)), BVV(c)) where c has n trailing zeros
-                (BitVecOp::Concat(args), BitVecOp::BVV(c_val)) if matches!(args.last().map(|a| a.op()), Some(BitVecOp::BVV(v)) if v.is_zero()) =>
+                (Op::Concat(args), Op::BVV(c_val)) if matches!(args.last().map(|a| a.op()), Some(Op::BVV(v)) if v.is_zero()) =>
                 {
                     let low_bits = args.last().unwrap().size();
                     if c_val
@@ -1280,7 +1280,7 @@ pub(crate) fn simplify_bool<'c>(
                         Ok(ctx.uge(arc, arc1)?)
                     }
                 }
-                (BitVecOp::BVV(c_val), BitVecOp::Concat(args)) if matches!(args.last().map(|a| a.op()), Some(BitVecOp::BVV(v)) if v.is_zero()) =>
+                (Op::BVV(c_val), Op::Concat(args)) if matches!(args.last().map(|a| a.op()), Some(Op::BVV(v)) if v.is_zero()) =>
                 {
                     let low_bits = args.last().unwrap().size();
                     if c_val
@@ -1305,12 +1305,12 @@ pub(crate) fn simplify_bool<'c>(
 
                 // UGE(BVV(b), Sub(ZeroExt(n, inner), BVV(c))) where c and b fit in inner's size
                 // => UGE(extract(b), Sub(inner, extract(c)))
-                (BitVecOp::BVV(bound), BitVecOp::Sub(lhs_sub, rhs_sub))
-                    if matches!(lhs_sub.op(), BitVecOp::ZeroExt(_, ext_size)
+                (Op::BVV(bound), Op::Sub(lhs_sub, rhs_sub))
+                    if matches!(lhs_sub.op(), Op::ZeroExt(_, ext_size)
                         if bound.leading_zeros() as u32 >= *ext_size
-                        && matches!(rhs_sub.op(), BitVecOp::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
+                        && matches!(rhs_sub.op(), Op::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
                 {
-                    if let BitVecOp::ZeroExt(inner, _) = lhs_sub.op() {
+                    if let Op::ZeroExt(inner, _) = lhs_sub.op() {
                         let inner_size = inner.size();
                         state.rerun(ctx.uge(
                             ctx.bvv(bound.extract(0, inner_size - 1)?)?,
@@ -1323,12 +1323,12 @@ pub(crate) fn simplify_bool<'c>(
 
                 // UGE(Sub(ZeroExt(n, inner), BVV(c)), BVV(b)) where c and b fit in inner's size
                 // => UGE(Sub(inner, extract(c)), extract(b))
-                (BitVecOp::Sub(lhs_sub, rhs_sub), BitVecOp::BVV(bound))
-                    if matches!(lhs_sub.op(), BitVecOp::ZeroExt(_, ext_size)
+                (Op::Sub(lhs_sub, rhs_sub), Op::BVV(bound))
+                    if matches!(lhs_sub.op(), Op::ZeroExt(_, ext_size)
                         if bound.leading_zeros() as u32 >= *ext_size
-                        && matches!(rhs_sub.op(), BitVecOp::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
+                        && matches!(rhs_sub.op(), Op::BVV(c) if c.leading_zeros() as u32 >= *ext_size)) =>
                 {
-                    if let BitVecOp::ZeroExt(inner, _) = lhs_sub.op() {
+                    if let Op::ZeroExt(inner, _) = lhs_sub.op() {
                         let inner_size = inner.size();
                         state.rerun(ctx.uge(
                             ctx.sub(inner, &ctx.extract(rhs_sub, inner_size - 1, 0)?)?,
@@ -1340,18 +1340,18 @@ pub(crate) fn simplify_bool<'c>(
                 }
 
                 // UGE(BVV(b), Add(ZeroExt(n, inner), BVV(c))) where c and b fit in inner's size
-                (BitVecOp::BVV(bound), BitVecOp::Add(add_args)) => {
+                (Op::BVV(bound), Op::Add(add_args)) => {
                     let ze_idx = add_args
                         .iter()
-                        .position(|a| matches!(a.op(), BitVecOp::ZeroExt(..)));
+                        .position(|a| matches!(a.op(), Op::ZeroExt(..)));
                     let bvv_idx = add_args
                         .iter()
-                        .position(|a| matches!(a.op(), BitVecOp::BVV(..)));
+                        .position(|a| matches!(a.op(), Op::BVV(..)));
                     if let (Some(ze_i), Some(bvv_i)) = (ze_idx, bvv_idx)
                         && ze_i != bvv_i
                         && add_args.len() == 2
-                        && let BitVecOp::ZeroExt(inner, ext_size) = add_args[ze_i].op()
-                        && let BitVecOp::BVV(c) = add_args[bvv_i].op()
+                        && let Op::ZeroExt(inner, ext_size) = add_args[ze_i].op()
+                        && let Op::BVV(c) = add_args[bvv_i].op()
                         && bound.leading_zeros() as u32 >= *ext_size
                         && c.leading_zeros() as u32 >= *ext_size
                     {
@@ -1367,141 +1367,141 @@ pub(crate) fn simplify_bool<'c>(
                 _ => Ok(ctx.uge(arc, arc1)?),
             }
         }
-        BooleanOp::SLT(..) => {
+        Op::SLT(..) => {
             let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => Ok(ctx.false_()?),
-                (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => Ok(ctx.boolv(arc.signed_lt(arc1))?),
+                (Op::BVV(arc), Op::BVV(arc1)) => Ok(ctx.boolv(arc.signed_lt(arc1))?),
                 _ => Ok(ctx.slt(arc, arc1)?),
             }
         }
-        BooleanOp::SLE(..) => {
+        Op::SLE(..) => {
             let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => Ok(ctx.true_()?),
-                (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => Ok(ctx.boolv(arc.signed_le(arc1))?),
+                (Op::BVV(arc), Op::BVV(arc1)) => Ok(ctx.boolv(arc.signed_le(arc1))?),
                 _ => Ok(ctx.sle(arc, arc1)?),
             }
         }
-        BooleanOp::SGT(..) => {
+        Op::SGT(..) => {
             let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => Ok(ctx.false_()?),
-                (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => Ok(ctx.boolv(arc.signed_gt(arc1))?),
+                (Op::BVV(arc), Op::BVV(arc1)) => Ok(ctx.boolv(arc.signed_gt(arc1))?),
                 _ => Ok(ctx.sgt(arc, arc1)?),
             }
         }
-        BooleanOp::SGE(..) => {
+        Op::SGE(..) => {
             let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => Ok(ctx.true_()?),
-                (BitVecOp::BVV(arc), BitVecOp::BVV(arc1)) => Ok(ctx.boolv(arc.signed_ge(arc1))?),
+                (Op::BVV(arc), Op::BVV(arc1)) => Ok(ctx.boolv(arc.signed_ge(arc1))?),
                 _ => Ok(ctx.sge(arc, arc1)?),
             }
         }
-        BooleanOp::FpEq(..) => {
+        Op::FpEq(..) => {
             let early_lhs = state.get_fp_available(0)?;
             let early_rhs = state.get_fp_available(1)?;
 
             match (early_lhs.op(), early_rhs.op()) {
-                (FloatOp::FPV(arc), FloatOp::FPV(arc1)) => Ok(ctx.boolv(arc.compare_fp(arc1))?),
+                (Op::FPV(arc), Op::FPV(arc1)) => Ok(ctx.boolv(arc.compare_fp(arc1))?),
                 _ => Ok(ctx.fp_eq(state.get_fp_simplified(0)?, state.get_fp_simplified(1)?)?),
             }
         }
-        BooleanOp::FpNeq(..) => {
+        Op::FpNeq(..) => {
             let early_lhs = state.get_fp_available(0)?;
             let early_rhs = state.get_fp_available(1)?;
 
             match (early_lhs.op(), early_rhs.op()) {
-                (FloatOp::FPV(arc), FloatOp::FPV(arc1)) => Ok(ctx.boolv(!arc.compare_fp(arc1))?),
+                (Op::FPV(arc), Op::FPV(arc1)) => Ok(ctx.boolv(!arc.compare_fp(arc1))?),
                 _ => Ok(ctx.fp_neq(state.get_fp_simplified(0)?, state.get_fp_simplified(1)?)?),
             }
         }
-        BooleanOp::FpLt(..) => {
+        Op::FpLt(..) => {
             let (arc, arc1) = (state.get_fp_simplified(0)?, state.get_fp_simplified(1)?);
             match (arc.op(), arc1.op()) {
-                (FloatOp::FPV(arc), FloatOp::FPV(arc1)) => Ok(ctx.boolv(arc.lt(arc1))?),
+                (Op::FPV(arc), Op::FPV(arc1)) => Ok(ctx.boolv(arc.lt(arc1))?),
                 _ => Ok(ctx.fp_lt(arc, arc1)?),
             }
         }
-        BooleanOp::FpLeq(..) => {
+        Op::FpLeq(..) => {
             let (arc, arc1) = (state.get_fp_simplified(0)?, state.get_fp_simplified(1)?);
             match (arc.op(), arc1.op()) {
-                (FloatOp::FPV(arc), FloatOp::FPV(arc1)) => Ok(ctx.boolv(arc.leq(arc1))?),
+                (Op::FPV(arc), Op::FPV(arc1)) => Ok(ctx.boolv(arc.leq(arc1))?),
                 _ => Ok(ctx.fp_leq(arc, arc1)?),
             }
         }
-        BooleanOp::FpGt(..) => {
+        Op::FpGt(..) => {
             let (arc, arc1) = (state.get_fp_simplified(0)?, state.get_fp_simplified(1)?);
             match (arc.op(), arc1.op()) {
-                (FloatOp::FPV(arc), FloatOp::FPV(arc1)) => Ok(ctx.boolv(arc.gt(arc1))?),
+                (Op::FPV(arc), Op::FPV(arc1)) => Ok(ctx.boolv(arc.gt(arc1))?),
                 _ => Ok(ctx.fp_gt(arc, arc1)?),
             }
         }
-        BooleanOp::FpGeq(..) => {
+        Op::FpGeq(..) => {
             let (arc, arc1) = (state.get_fp_simplified(0)?, state.get_fp_simplified(1)?);
             match (arc.op(), arc1.op()) {
-                (FloatOp::FPV(arc), FloatOp::FPV(arc1)) => Ok(ctx.boolv(arc.geq(arc1))?),
+                (Op::FPV(arc), Op::FPV(arc1)) => Ok(ctx.boolv(arc.geq(arc1))?),
                 _ => Ok(ctx.fp_geq(arc, arc1)?),
             }
         }
-        BooleanOp::FpIsNan(..) => {
+        Op::FpIsNan(..) => {
             let arc = state.get_fp_simplified(0)?;
             match arc.op() {
-                FloatOp::FPV(arc) => Ok(ctx.boolv(arc.is_nan())?),
+                Op::FPV(arc) => Ok(ctx.boolv(arc.is_nan())?),
                 _ => Ok(ctx.fp_is_nan(arc)?),
             }
         }
-        BooleanOp::FpIsInf(..) => {
+        Op::FpIsInf(..) => {
             let arc = state.get_fp_simplified(0)?;
             match arc.op() {
-                FloatOp::FPV(arc) => Ok(ctx.boolv(arc.is_infinity())?),
+                Op::FPV(arc) => Ok(ctx.boolv(arc.is_infinity())?),
                 _ => Ok(ctx.fp_is_inf(arc)?),
             }
         }
-        BooleanOp::StrContains(..) => {
+        Op::StrContains(..) => {
             let (arc, arc1) = (
                 state.get_string_simplified(0)?,
                 state.get_string_simplified(1)?,
             );
             match (arc.op(), arc1.op()) {
                 // Check if `input_string` contains `substring`
-                (StringOp::StringV(input_string), StringOp::StringV(substring)) => {
+                (Op::StringV(input_string), Op::StringV(substring)) => {
                     Ok(ctx.boolv(input_string.contains(substring))?)
                 }
                 _ => Ok(ctx.str_contains(arc, arc1)?),
             }
         }
-        BooleanOp::StrPrefixOf(..) => {
+        Op::StrPrefixOf(..) => {
             let (arc, arc1) = (
                 state.get_string_simplified(0)?,
                 state.get_string_simplified(1)?,
             );
             match (arc.op(), arc1.op()) {
                 // Check if `input_string` starts with `prefix substring`
-                (StringOp::StringV(prefix), StringOp::StringV(input_string)) => {
+                (Op::StringV(prefix), Op::StringV(input_string)) => {
                     Ok(ctx.boolv(input_string.starts_with(prefix))?)
                 }
                 _ => Ok(ctx.str_prefix_of(arc, arc1)?),
             }
         }
-        BooleanOp::StrSuffixOf(..) => {
+        Op::StrSuffixOf(..) => {
             let (arc, arc1) = (
                 state.get_string_simplified(0)?,
                 state.get_string_simplified(1)?,
             );
             match (arc.op(), arc1.op()) {
                 // Check if `input_string` ends with `suffix substring`
-                (StringOp::StringV(suffix), StringOp::StringV(input_string)) => {
+                (Op::StringV(suffix), Op::StringV(input_string)) => {
                     Ok(ctx.boolv(input_string.ends_with(suffix))?)
                 }
                 _ => Ok(ctx.str_suffix_of(arc, arc1)?),
             }
         }
-        BooleanOp::StrIsDigit(..) => {
+        Op::StrIsDigit(..) => {
             let arc = state.get_string_simplified(0)?;
             match arc.op() {
-                StringOp::StringV(input_string) => {
+                Op::StringV(input_string) => {
                     if input_string.is_empty() {
                         return Ok(ctx.boolv(false)?);
                     }
@@ -1511,24 +1511,24 @@ pub(crate) fn simplify_bool<'c>(
                 _ => Ok(ctx.str_is_digit(arc)?),
             }
         }
-        BooleanOp::StrEq(..) => {
+        Op::StrEq(..) => {
             let early_lhs = state.get_string_available(0)?;
             let early_rhs = state.get_string_available(1)?;
 
             match (early_lhs.op(), early_rhs.op()) {
-                (StringOp::StringV(str1), StringOp::StringV(str2)) => Ok(ctx.boolv(str1 == str2)?),
+                (Op::StringV(str1), Op::StringV(str2)) => Ok(ctx.boolv(str1 == str2)?),
                 _ => Ok(ctx.str_eq(
                     state.get_string_simplified(0)?,
                     state.get_string_simplified(1)?,
                 )?),
             }
         }
-        BooleanOp::StrNeq(..) => {
+        Op::StrNeq(..) => {
             let early_lhs = state.get_string_available(0)?;
             let early_rhs = state.get_string_available(1)?;
 
             match (early_lhs.op(), early_rhs.op()) {
-                (StringOp::StringV(str1), StringOp::StringV(str2)) => Ok(ctx.boolv(str1 != str2)?),
+                (Op::StringV(str1), Op::StringV(str2)) => Ok(ctx.boolv(str1 != str2)?),
                 _ => Ok(ctx.str_neq(
                     state.get_string_simplified(0)?,
                     state.get_string_simplified(1)?,
@@ -1536,34 +1536,34 @@ pub(crate) fn simplify_bool<'c>(
             }
         }
 
-        BooleanOp::ITE(..) => {
+        Op::BoolITE(..) => {
             let cond = state.get_bool_simplified(0)?;
             let early_then = state.get_bool_available(1)?;
             let early_else = state.get_bool_available(2)?;
 
             match (cond.op(), early_then.op(), early_else.op()) {
                 // Concrete condition cases
-                (BooleanOp::BoolV(true), _, _) => state.get_bool_simplified(1),
-                (BooleanOp::BoolV(false), _, _) => state.get_bool_simplified(2),
+                (Op::BoolV(true), _, _) => state.get_bool_simplified(1),
+                (Op::BoolV(false), _, _) => state.get_bool_simplified(2),
 
                 // Same branch cases
                 (_, _, _) if early_then == early_else => state.get_bool_simplified(1),
 
                 // Known then/else cases
-                (_, BooleanOp::BoolV(true), BooleanOp::BoolV(false)) => Ok(cond.clone()),
-                (_, BooleanOp::BoolV(false), BooleanOp::BoolV(true)) => Ok(ctx.not(cond)?),
+                (_, Op::BoolV(true), Op::BoolV(false)) => Ok(cond.clone()),
+                (_, Op::BoolV(false), Op::BoolV(true)) => Ok(ctx.not(cond)?),
 
                 // When condition equals one branch with concrete other branch
-                (cond_op, BooleanOp::BoolV(true), else_op) if else_op == cond_op => {
+                (cond_op, Op::BoolV(true), else_op) if else_op == cond_op => {
                     Ok(cond.clone())
                 }
-                (cond_op, BooleanOp::BoolV(false), else_op) if else_op == cond_op => {
+                (cond_op, Op::BoolV(false), else_op) if else_op == cond_op => {
                     Ok(ctx.false_()?)
                 }
-                (cond_op, then_op, BooleanOp::BoolV(true)) if then_op == cond_op => {
+                (cond_op, then_op, Op::BoolV(true)) if then_op == cond_op => {
                     Ok(ctx.true_()?)
                 }
-                (cond_op, then_op, BooleanOp::BoolV(false)) if then_op == cond_op => {
+                (cond_op, then_op, Op::BoolV(false)) if then_op == cond_op => {
                     Ok(cond.clone())
                 }
 
@@ -1576,4 +1576,5 @@ pub(crate) fn simplify_bool<'c>(
             }
         }
     }
+        _ => Ok(state.expr.clone()),
 }

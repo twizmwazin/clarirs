@@ -2,51 +2,15 @@ use crate::prelude::*;
 
 use super::walk_post_order;
 
-fn extract_bool_child<'c>(
-    children: &[DynAst<'c>],
+fn extract_child<'c>(
+    children: &[AstRef<'c>],
     index: usize,
-) -> Result<BoolAst<'c>, ClarirsError> {
+) -> Result<AstRef<'c>, ClarirsError> {
     children
         .get(index)
-        .and_then(|child| child.clone().into_bool())
+        .cloned()
         .ok_or(ClarirsError::InvalidArguments(format!(
-            "missing or invalid bool child at index {index}"
-        )))
-}
-
-fn extract_bitvec_child<'c>(
-    children: &[DynAst<'c>],
-    index: usize,
-) -> Result<BitVecAst<'c>, ClarirsError> {
-    children
-        .get(index)
-        .and_then(|child| child.clone().into_bitvec())
-        .ok_or(ClarirsError::InvalidArguments(format!(
-            "missing or invalid bitvec child at index {index}"
-        )))
-}
-
-fn extract_float_child<'c>(
-    children: &[DynAst<'c>],
-    index: usize,
-) -> Result<FloatAst<'c>, ClarirsError> {
-    children
-        .get(index)
-        .and_then(|child| child.clone().into_float())
-        .ok_or(ClarirsError::InvalidArguments(format!(
-            "missing or invalid float child at index {index}"
-        )))
-}
-
-fn extract_string_child<'c>(
-    children: &[DynAst<'c>],
-    index: usize,
-) -> Result<StringAst<'c>, ClarirsError> {
-    children
-        .get(index)
-        .and_then(|child| child.clone().into_string())
-        .ok_or(ClarirsError::InvalidArguments(format!(
-            "missing or invalid string child at index {index}"
+            "missing child at index {index}"
         )))
 }
 
@@ -66,54 +30,18 @@ pub trait ExcavateIte<'c>: Sized {
     fn excavate_ite(&self) -> Result<Self, ClarirsError>;
 }
 
-impl<'c> ExcavateIte<'c> for DynAst<'c> {
+impl<'c> ExcavateIte<'c> for AstRef<'c> {
     fn excavate_ite(&self) -> Result<Self, ClarirsError> {
         walk_post_order(
             self.clone(),
-            |node, children| match node {
-                DynAst::Boolean(ast) => bool::excavate_ite(&ast, children).map(DynAst::Boolean),
-                DynAst::BitVec(ast) => bitvec::excavate_ite(&ast, children).map(DynAst::BitVec),
-                DynAst::Float(ast) => float::excavate_ite(&ast, children).map(DynAst::Float),
-                DynAst::String(ast) => string::excavate_ite(&ast, children).map(DynAst::String),
+            |node, children| match node.return_type() {
+                AstType::Bool => bool::excavate_ite(&node, children),
+                AstType::BitVec(_) => bitvec::excavate_ite(&node, children),
+                AstType::Float(_) => float::excavate_ite(&node, children),
+                AstType::String => string::excavate_ite(&node, children),
             },
             &self.context().excavate_ite_cache,
         )
-    }
-}
-
-impl<'c> ExcavateIte<'c> for BoolAst<'c> {
-    fn excavate_ite(&self) -> Result<Self, ClarirsError> {
-        DynAst::Boolean(self.clone())
-            .excavate_ite()?
-            .into_bool()
-            .ok_or(ClarirsError::TypeError("Expected BoolAst".to_string()))
-    }
-}
-
-impl<'c> ExcavateIte<'c> for BitVecAst<'c> {
-    fn excavate_ite(&self) -> Result<Self, ClarirsError> {
-        DynAst::BitVec(self.clone())
-            .excavate_ite()?
-            .into_bitvec()
-            .ok_or(ClarirsError::TypeError("Expected BvAst".to_string()))
-    }
-}
-
-impl<'c> ExcavateIte<'c> for FloatAst<'c> {
-    fn excavate_ite(&self) -> Result<Self, ClarirsError> {
-        DynAst::Float(self.clone())
-            .excavate_ite()?
-            .into_float()
-            .ok_or(ClarirsError::TypeError("Expected FloatAst".to_string()))
-    }
-}
-
-impl<'c> ExcavateIte<'c> for StringAst<'c> {
-    fn excavate_ite(&self) -> Result<Self, ClarirsError> {
-        DynAst::String(self.clone())
-            .excavate_ite()?
-            .into_string()
-            .ok_or(ClarirsError::TypeError("Expected StringAst".to_string()))
     }
 }
 

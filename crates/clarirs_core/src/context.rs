@@ -133,11 +133,12 @@ impl<'c> AstFactory<'c> for Context<'c> {
         op: Op<'c>,
         mut annotations: BTreeSet<Annotation>,
     ) -> Result<AstRef<'c>, ClarirsError> {
-        annotations.extend(
-            op.child_iter()
-                .flat_map(|c| c.annotations().iter().cloned())
-                .filter(|a| a.relocatable()),
-        );
+        let child_annotations: Vec<Annotation> = op
+            .child_iter()
+            .flat_map(|c| c.annotations().clone())
+            .filter(|a| a.relocatable())
+            .collect();
+        annotations.extend(child_annotations);
 
         let mut hasher = AHasher::default();
         op.hash(&mut hasher);

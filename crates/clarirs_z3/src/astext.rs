@@ -64,81 +64,74 @@ pub(crate) trait AstExtZ3<'c>: HasContext<'c> + Simplify<'c> + Sized {
     }
 }
 
-impl<'c> AstExtZ3<'c> for BoolAst<'c> {
-    fn to_z3(&self) -> Result<RcAst, ClarirsError> {
-        DynAst::from(self).to_z3()
-    }
-
-    fn from_z3(ctx: &'c Context<'c>, ast: impl Into<RcAst>) -> Result<Self, ClarirsError> {
-        bool::from_z3(ctx, ast)
-    }
-}
-
-impl<'c> AstExtZ3<'c> for BitVecAst<'c> {
-    fn to_z3(&self) -> Result<RcAst, ClarirsError> {
-        DynAst::from(self).to_z3()
-    }
-
-    fn from_z3(ctx: &'c Context<'c>, ast: impl Into<RcAst>) -> Result<Self, ClarirsError> {
-        bv::from_z3(ctx, ast)
-    }
-}
-
-impl<'c> AstExtZ3<'c> for FloatAst<'c> {
-    fn to_z3(&self) -> Result<RcAst, ClarirsError> {
-        DynAst::from(self).to_z3()
-    }
-
-    fn from_z3(ctx: &'c Context<'c>, ast: impl Into<RcAst>) -> Result<Self, ClarirsError> {
-        float::from_z3(ctx, ast)
-    }
-}
-
-impl<'c> AstExtZ3<'c> for StringAst<'c> {
-    fn to_z3(&self) -> Result<RcAst, ClarirsError> {
-        DynAst::from(self).to_z3()
-    }
-
-    fn from_z3(ctx: &'c Context<'c>, ast: impl Into<RcAst>) -> Result<Self, ClarirsError> {
-        string::from_z3(ctx, ast)
-    }
-}
-
-impl<'c> AstExtZ3<'c> for DynAst<'c> {
+impl<'c> AstExtZ3<'c> for AstRef<'c> {
     fn to_z3(&self) -> Result<RcAst, ClarirsError> {
         Z3_AST_CACHE.with(|cache| {
             walk_post_order(
                 self.clone(),
-                |node, children| match node {
-                    DynAst::Boolean(ast) => bool::to_z3(&ast, children),
-                    DynAst::BitVec(ast) => bv::to_z3(&ast, children),
-                    DynAst::Float(ast) => float::to_z3(&ast, children),
-                    DynAst::String(ast) => string::to_z3(&ast, children),
-                },
+                |node, children| to_z3_node(&node, children),
                 cache,
             )
         })
     }
 
     fn from_z3(ctx: &'c Context<'c>, ast: impl Into<RcAst>) -> Result<Self, ClarirsError> {
-        // You probably want to use the `from_z3` method of the specific type
-
         let ast = ast.into();
-        // Just try them all
-        if let Ok(ast) = BoolAst::from_z3(ctx, ast.clone()) {
-            return Ok(DynAst::Boolean(ast));
+        // Determine the sort from Z3 and dispatch to the appropriate from_z3
+        Z3_CONTEXT.with(|z3_ctx| unsafe {
+            let sort = z3::get_sort(*z3_ctx, *ast);
+            let sort_kind = z3::get_sort_kind(*z3_ctx, sort);
+            match sort_kind {
+                z3::SortKind::Bool => bool::from_z3(ctx, ast),
+                z3::SortKind::Bv => bv::from_z3(ctx, ast),
+                z3::SortKind::FloatingPoint => float::from_z3(ctx, ast),
+                z3::SortKind::Seq => string::from_z3(ctx, ast),
+                _ => Err(ClarirsError::ConversionError(
+                    "Unknown Z3 sort kind".to_string(),
+                )),
+            }
+        })
+    }
+}
+
+fn to_z3_node(ast: &AstRef<'_>, children: &[RcAst]) -> Result<RcAst, ClarirsError> {
+    match ast.op() {
+        // Boolean ops
+        Op::BoolS(..) | Op::BoolV(..) | Op::Not(..) | Op::And(..) | Op::Or(..)
+        | Op::Xor(..) | Op::BoolEq(..) | Op::BoolNeq(..) | Op::BoolITE(..)
+        | Op::Eq(..) | Op::Neq(..) | Op::ULT(..) | Op::ULE(..) | Op::UGT(..)
+        | Op::UGE(..) | Op::SLT(..) | Op::SLE(..) | Op::SGT(..) | Op::SGE(..)
+        | Op::FpEq(..) | Op::FpNeq(..) | Op::FpLt(..) | Op::FpLeq(..)
+        | Op::FpGt(..) | Op::FpGeq(..) | Op::FpIsNan(..) | Op::FpIsInf(..)
+        | Op::StrContains(..) | Op::StrPrefixOf(..) | Op::StrSuffixOf(..)
+        | Op::StrIsDigit(..) | Op::StrEq(..) | Op::StrNeq(..) => {
+            bool::to_z3(ast, children)
         }
-        if let Ok(ast) = BitVecAst::from_z3(ctx, ast.clone()) {
-            return Ok(DynAst::BitVec(ast));
+
+        // BitVec ops
+        Op::BVS(..) | Op::BVV(..) | Op::BVNot(..) | Op::Neg(..) | Op::BVAnd(..)
+        | Op::BVOr(..) | Op::BVXor(..) | Op::Add(..) | Op::Sub(..) | Op::Mul(..)
+        | Op::UDiv(..) | Op::SDiv(..) | Op::URem(..) | Op::SRem(..) | Op::ShL(..)
+        | Op::LShR(..) | Op::AShR(..) | Op::RotateLeft(..) | Op::RotateRight(..)
+        | Op::ZeroExt(..) | Op::SignExt(..) | Op::Extract(..) | Op::Concat(..)
+        | Op::ByteReverse(..) | Op::BVITE(..) | Op::FpToIEEEBV(..)
+        | Op::FpToUBV(..) | Op::FpToSBV(..) | Op::StrLen(..) | Op::StrIndexOf(..)
+        | Op::StrToBV(..) | Op::Union(..) | Op::Intersection(..) | Op::Widen(..) => {
+            bv::to_z3(ast, children)
         }
-        if let Ok(ast) = FloatAst::from_z3(ctx, ast.clone()) {
-            return Ok(DynAst::Float(ast));
+
+        // Float ops
+        Op::FPS(..) | Op::FPV(..) | Op::FpNeg(..) | Op::FpAbs(..) | Op::FpAdd(..)
+        | Op::FpSub(..) | Op::FpMul(..) | Op::FpDiv(..) | Op::FpSqrt(..)
+        | Op::FpToFp(..) | Op::FpFP(..) | Op::BvToFp(..) | Op::BvToFpSigned(..)
+        | Op::BvToFpUnsigned(..) | Op::FpITE(..) => {
+            float::to_z3(ast, children)
         }
-        if let Ok(ast) = StringAst::from_z3(ctx, ast.clone()) {
-            return Ok(DynAst::String(ast));
+
+        // String ops
+        Op::StringS(..) | Op::StringV(..) | Op::StrConcat(..) | Op::StrSubstr(..)
+        | Op::StrReplace(..) | Op::BVToStr(..) | Op::StrITE(..) => {
+            string::to_z3(ast, children)
         }
-        Err(ClarirsError::ConversionError(
-            "Unknown AST type".to_string(),
-        ))
     }
 }

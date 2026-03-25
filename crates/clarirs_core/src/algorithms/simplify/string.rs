@@ -3,33 +3,33 @@ use crate::prelude::*;
 
 pub(crate) fn simplify_string<'c>(
     state: &mut super::SimplifyState<'c>,
-) -> Result<StringAst<'c>, SimplifyError<'c>> {
+) -> Result<AstRef<'c>, SimplifyError<'c>> {
     let ctx = state.expr.context();
-    let string_expr = state.expr.clone().into_string().unwrap();
+    
 
-    match string_expr.op() {
-        StringOp::StringS(_) | StringOp::StringV(_) => Ok(string_expr),
-        StringOp::StrConcat(..) => {
+    match state.expr.op() {
+        Op::StringS(_) | Op::StringV(_) => Ok(state.expr.clone()),
+        Op::StrConcat(..) => {
             let (arc, arc1) = (
                 state.get_string_simplified(0)?,
                 state.get_string_simplified(1)?,
             );
             match (arc.op(), arc1.op()) {
-                (StringOp::StringV(str1), StringOp::StringV(str2)) => {
+                (Op::StringV(str1), Op::StringV(str2)) => {
                     let concatenated = format!("{str1}{str2}");
                     Ok(ctx.stringv(concatenated)?)
                 }
                 _ => Ok(ctx.str_concat(arc, arc1)?),
             }
         }
-        StringOp::StrSubstr(..) => {
+        Op::StrSubstr(..) => {
             let (arc, arc1, arc2) = (
                 state.get_string_simplified(0)?,
                 state.get_bv_simplified(1)?,
                 state.get_bv_simplified(2)?,
             );
             match (arc.op(), arc1.op(), arc2.op()) {
-                (StringOp::StringV(s), BitVecOp::BVV(start_bv), BitVecOp::BVV(length_bv)) => {
+                (Op::StringV(s), Op::BVV(start_bv), Op::BVV(length_bv)) => {
                     // Convert the bitvectors to usize indices.
                     let start = start_bv.to_usize().unwrap_or(0);
                     let length = length_bv.to_usize().unwrap_or(s.chars().count());
@@ -51,7 +51,7 @@ pub(crate) fn simplify_string<'c>(
                 _ => Ok(ctx.str_substr(arc, arc1, arc2)?),
             }
         }
-        StringOp::StrReplace(..) => {
+        Op::StrReplace(..) => {
             let (arc, arc1, arc2) = (
                 state.get_string_simplified(0)?,
                 state.get_string_simplified(1)?,
@@ -59,9 +59,9 @@ pub(crate) fn simplify_string<'c>(
             );
             match (arc.op(), arc1.op(), arc2.op()) {
                 (
-                    StringOp::StringV(initial),
-                    StringOp::StringV(pattern),
-                    StringOp::StringV(replacement),
+                    Op::StringV(initial),
+                    Op::StringV(pattern),
+                    Op::StringV(replacement),
                 ) => {
                     // Case: Replace first occurrence of `pattern` with `replacement` in `initial` as per ClariPy DONE
                     let new_value = initial.replacen(pattern, replacement, 1);
@@ -72,10 +72,10 @@ pub(crate) fn simplify_string<'c>(
                 _ => Ok(ctx.str_replace(arc, arc1, arc2)?), // Fallback to symbolic StrReplace
             }
         }
-        StringOp::BVToStr(..) => {
+        Op::BVToStr(..) => {
             let arc = state.get_bv_simplified(0)?;
             match arc.op() {
-                BitVecOp::BVV(value) => {
+                Op::BVV(value) => {
                     // Convert the BitVec value to an integer, then to a string
                     let int_value = value.to_biguint();
                     let string_value = int_value.to_string();
@@ -85,7 +85,7 @@ pub(crate) fn simplify_string<'c>(
                 _ => Ok(ctx.bv_to_str(arc)?),
             }
         }
-        StringOp::ITE(..) => {
+        Op::StrITE(..) => {
             let (if_, then_, else_) = (
                 state.get_bool_simplified(0)?,
                 state.get_string_simplified(1)?,
@@ -99,7 +99,7 @@ pub(crate) fn simplify_string<'c>(
 
             match if_.op() {
                 // If the condition is a concrete boolean value, return the appropriate branch
-                BooleanOp::BoolV(value) => {
+                Op::BoolV(value) => {
                     if *value {
                         Ok(then_.clone())
                     } else {
@@ -107,9 +107,10 @@ pub(crate) fn simplify_string<'c>(
                     }
                 }
                 // If the condition has a Not at the top level, invert the branches
-                BooleanOp::Not(inner) => Ok(ctx.ite(inner, else_, then_)?),
+                Op::Not(inner) => Ok(ctx.ite(inner, else_, then_)?),
                 _ => Ok(ctx.ite(if_, then_, else_)?),
             }
         }
+        _ => Ok(state.expr.clone()),
     }
 }

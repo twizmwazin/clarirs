@@ -1,32 +1,32 @@
-use super::{extract_bitvec_child, extract_bool_child, extract_float_child, extract_string_child};
+use super::extract_child;
 use crate::prelude::*;
 
 pub(crate) fn excavate_ite<'c>(
-    ast: &BoolAst<'c>,
-    children: &[DynAst<'c>],
-) -> Result<BoolAst<'c>, ClarirsError> {
+    ast: &AstRef<'c>,
+    children: &[AstRef<'c>],
+) -> Result<AstRef<'c>, ClarirsError> {
     let ctx = ast.context();
 
     match ast.op() {
-        BooleanOp::BoolS(..) | BooleanOp::BoolV(..) => Ok(ast.clone()),
-        BooleanOp::Not(..) => {
-            let ast = extract_bool_child(children, 0)?;
+        Op::BoolS(..) | Op::BoolV(..) => Ok(ast.clone()),
+        Op::Not(..) => {
+            let ast = extract_child(children, 0)?;
 
-            if let BooleanOp::ITE(cond, then_, else_) = ast.op() {
+            if let Op::BoolITE(cond, then_, else_) = ast.op() {
                 Ok(ctx.ite(cond, ctx.not(then_)?, ctx.not(else_)?)?)
             } else {
                 Ok(ctx.not(ast)?)
             }
         }
-        BooleanOp::And(..) => {
+        Op::And(..) => {
             let args: Vec<_> = children
                 .iter()
-                .map(|c| extract_bool_child(std::slice::from_ref(c), 0))
+                .map(|c| extract_child(std::slice::from_ref(c), 0))
                 .collect::<Result<_, _>>()?;
 
             // Special case for binary And with two ITEs - expand all combinations
             if args.len() == 2
-                && let (BooleanOp::ITE(cond1, then1, else1), BooleanOp::ITE(cond2, then2, else2)) =
+                && let (Op::BoolITE(cond1, then1, else1), Op::BoolITE(cond2, then2, else2)) =
                     (args[0].op(), args[1].op())
             {
                 // Both are ITEs, expand to: ITE(cond1, ITE(cond2, then1&then2, then1&else2), ITE(cond2, else1&then2, else1&else2))
@@ -39,7 +39,7 @@ pub(crate) fn excavate_ite<'c>(
 
             // Find first ITE among args
             if let Some((idx, (cond, then_, else_))) = args.iter().enumerate().find_map(|(i, a)| {
-                if let BooleanOp::ITE(c, t, e) = a.op() {
+                if let Op::BoolITE(c, t, e) = a.op() {
                     Some((i, (c.clone(), t.clone(), e.clone())))
                 } else {
                     None
@@ -60,15 +60,15 @@ pub(crate) fn excavate_ite<'c>(
                 ctx.and(args)
             }
         }
-        BooleanOp::Or(..) => {
+        Op::Or(..) => {
             let args: Vec<_> = children
                 .iter()
-                .map(|c| extract_bool_child(std::slice::from_ref(c), 0))
+                .map(|c| extract_child(std::slice::from_ref(c), 0))
                 .collect::<Result<_, _>>()?;
 
             // Special case for binary Or with two ITEs - expand all combinations
             if args.len() == 2
-                && let (BooleanOp::ITE(cond1, then1, else1), BooleanOp::ITE(cond2, then2, else2)) =
+                && let (Op::BoolITE(cond1, then1, else1), Op::BoolITE(cond2, then2, else2)) =
                     (args[0].op(), args[1].op())
             {
                 // Both are ITEs, expand to: ITE(cond1, ITE(cond2, then1|then2, then1|else2), ITE(cond2, else1|then2, else1|else2))
@@ -81,7 +81,7 @@ pub(crate) fn excavate_ite<'c>(
 
             // Find first ITE among args
             if let Some((idx, (cond, then_, else_))) = args.iter().enumerate().find_map(|(i, a)| {
-                if let BooleanOp::ITE(c, t, e) = a.op() {
+                if let Op::BoolITE(c, t, e) = a.op() {
                     Some((i, (c.clone(), t.clone(), e.clone())))
                 } else {
                     None
@@ -102,13 +102,13 @@ pub(crate) fn excavate_ite<'c>(
                 ctx.or(args)
             }
         }
-        BooleanOp::Xor(..) => {
-            let lhs = extract_bool_child(children, 0)?;
-            let rhs = extract_bool_child(children, 1)?;
+        Op::Xor(..) => {
+            let lhs = extract_child(children, 0)?;
+            let rhs = extract_child(children, 1)?;
 
-            if let BooleanOp::ITE(cond, then_, else_) = lhs.op() {
+            if let Op::BoolITE(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
-                if let BooleanOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+                if let Op::BoolITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
                     // Prioritize left condition as outer if
                     Ok(ctx.ite(
                         cond,
@@ -126,19 +126,19 @@ pub(crate) fn excavate_ite<'c>(
                 } else {
                     Ok(ctx.ite(cond, ctx.xor(then_, &rhs)?, ctx.xor(else_, rhs)?)?)
                 }
-            } else if let BooleanOp::ITE(cond, then_, else_) = rhs.op() {
+            } else if let Op::BoolITE(cond, then_, else_) = rhs.op() {
                 Ok(ctx.ite(cond, ctx.xor(&lhs, then_)?, ctx.xor(lhs, else_)?)?)
             } else {
                 Ok(ctx.xor(lhs, rhs)?)
             }
         }
-        BooleanOp::BoolEq(..) => {
-            let lhs = extract_bool_child(children, 0)?;
-            let rhs = extract_bool_child(children, 1)?;
+        Op::BoolEq(..) => {
+            let lhs = extract_child(children, 0)?;
+            let rhs = extract_child(children, 1)?;
 
-            if let BooleanOp::ITE(cond, then_, else_) = lhs.op() {
+            if let Op::BoolITE(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
-                if let BooleanOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+                if let Op::BoolITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
                     // Prioritize left condition as outer if
                     Ok(ctx.ite(
                         cond,
@@ -156,19 +156,19 @@ pub(crate) fn excavate_ite<'c>(
                 } else {
                     Ok(ctx.ite(cond, ctx.eq_(then_, &rhs)?, ctx.eq_(else_, rhs)?)?)
                 }
-            } else if let BooleanOp::ITE(cond, then_, else_) = rhs.op() {
+            } else if let Op::BoolITE(cond, then_, else_) = rhs.op() {
                 Ok(ctx.ite(cond, ctx.eq_(&lhs, then_)?, ctx.eq_(lhs, else_)?)?)
             } else {
                 Ok(ctx.eq_(lhs, rhs)?)
             }
         }
-        BooleanOp::BoolNeq(..) => {
-            let lhs = extract_bool_child(children, 0)?;
-            let rhs = extract_bool_child(children, 1)?;
+        Op::BoolNeq(..) => {
+            let lhs = extract_child(children, 0)?;
+            let rhs = extract_child(children, 1)?;
 
-            if let BooleanOp::ITE(cond, then_, else_) = lhs.op() {
+            if let Op::BoolITE(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
-                if let BooleanOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+                if let Op::BoolITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
                     // Prioritize left condition as outer if
                     Ok(ctx.ite(
                         cond,
@@ -186,19 +186,19 @@ pub(crate) fn excavate_ite<'c>(
                 } else {
                     Ok(ctx.ite(cond, ctx.neq(then_, &rhs)?, ctx.neq(else_, rhs)?)?)
                 }
-            } else if let BooleanOp::ITE(cond, then_, else_) = rhs.op() {
+            } else if let Op::BoolITE(cond, then_, else_) = rhs.op() {
                 Ok(ctx.ite(cond, ctx.neq(&lhs, then_)?, ctx.neq(lhs, else_)?)?)
             } else {
                 Ok(ctx.neq(lhs, rhs)?)
             }
         }
-        BooleanOp::Eq(..) => {
-            let lhs = extract_bitvec_child(children, 0)?;
-            let rhs = extract_bitvec_child(children, 1)?;
+        Op::Eq(..) => {
+            let lhs = extract_child(children, 0)?;
+            let rhs = extract_child(children, 1)?;
 
-            if let BitVecOp::ITE(cond, then_, else_) = lhs.op() {
+            if let Op::BVITE(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
-                if let BitVecOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+                if let Op::BVITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
                     // Prioritize left condition as outer if
                     Ok(ctx.ite(
                         cond,
@@ -216,19 +216,19 @@ pub(crate) fn excavate_ite<'c>(
                 } else {
                     Ok(ctx.ite(cond, ctx.eq_(then_, &rhs)?, ctx.eq_(else_, rhs)?)?)
                 }
-            } else if let BitVecOp::ITE(cond, then_, else_) = rhs.op() {
+            } else if let Op::BVITE(cond, then_, else_) = rhs.op() {
                 Ok(ctx.ite(cond, ctx.eq_(&lhs, then_)?, ctx.eq_(lhs, else_)?)?)
             } else {
                 Ok(ctx.eq_(lhs, rhs)?)
             }
         }
-        BooleanOp::Neq(..) => {
-            let lhs = extract_bitvec_child(children, 0)?;
-            let rhs = extract_bitvec_child(children, 1)?;
+        Op::Neq(..) => {
+            let lhs = extract_child(children, 0)?;
+            let rhs = extract_child(children, 1)?;
 
-            if let BitVecOp::ITE(cond, then_, else_) = lhs.op() {
+            if let Op::BVITE(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
-                if let BitVecOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+                if let Op::BVITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
                     // Prioritize left condition as outer if
                     Ok(ctx.ite(
                         cond,
@@ -246,19 +246,19 @@ pub(crate) fn excavate_ite<'c>(
                 } else {
                     Ok(ctx.ite(cond, ctx.neq(then_, &rhs)?, ctx.neq(else_, rhs)?)?)
                 }
-            } else if let BitVecOp::ITE(cond, then_, else_) = rhs.op() {
+            } else if let Op::BVITE(cond, then_, else_) = rhs.op() {
                 Ok(ctx.ite(cond, ctx.neq(&lhs, then_)?, ctx.neq(lhs, else_)?)?)
             } else {
                 Ok(ctx.neq(lhs, rhs)?)
             }
         }
-        BooleanOp::ULT(..) => {
-            let lhs = extract_bitvec_child(children, 0)?;
-            let rhs = extract_bitvec_child(children, 1)?;
+        Op::ULT(..) => {
+            let lhs = extract_child(children, 0)?;
+            let rhs = extract_child(children, 1)?;
 
-            if let BitVecOp::ITE(cond, then_, else_) = lhs.op() {
+            if let Op::BVITE(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
-                if let BitVecOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+                if let Op::BVITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
                     // Prioritize left condition as outer if
                     Ok(ctx.ite(
                         cond,
@@ -276,19 +276,19 @@ pub(crate) fn excavate_ite<'c>(
                 } else {
                     Ok(ctx.ite(cond, ctx.ult(then_, &rhs)?, ctx.ult(else_, rhs)?)?)
                 }
-            } else if let BitVecOp::ITE(cond, then_, else_) = rhs.op() {
+            } else if let Op::BVITE(cond, then_, else_) = rhs.op() {
                 Ok(ctx.ite(cond, ctx.ult(&lhs, then_)?, ctx.ult(lhs, else_)?)?)
             } else {
                 Ok(ctx.ult(lhs, rhs)?)
             }
         }
-        BooleanOp::ULE(..) => {
-            let lhs = extract_bitvec_child(children, 0)?;
-            let rhs = extract_bitvec_child(children, 1)?;
+        Op::ULE(..) => {
+            let lhs = extract_child(children, 0)?;
+            let rhs = extract_child(children, 1)?;
 
-            if let BitVecOp::ITE(cond, then_, else_) = lhs.op() {
+            if let Op::BVITE(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
-                if let BitVecOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+                if let Op::BVITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
                     // Prioritize left condition as outer if
                     Ok(ctx.ite(
                         cond,
@@ -306,19 +306,19 @@ pub(crate) fn excavate_ite<'c>(
                 } else {
                     Ok(ctx.ite(cond, ctx.ule(then_, &rhs)?, ctx.ule(else_, rhs)?)?)
                 }
-            } else if let BitVecOp::ITE(cond, then_, else_) = rhs.op() {
+            } else if let Op::BVITE(cond, then_, else_) = rhs.op() {
                 Ok(ctx.ite(cond, ctx.ule(&lhs, then_)?, ctx.ule(lhs, else_)?)?)
             } else {
                 Ok(ctx.ule(lhs, rhs)?)
             }
         }
-        BooleanOp::UGT(..) => {
-            let lhs = extract_bitvec_child(children, 0)?;
-            let rhs = extract_bitvec_child(children, 1)?;
+        Op::UGT(..) => {
+            let lhs = extract_child(children, 0)?;
+            let rhs = extract_child(children, 1)?;
 
-            if let BitVecOp::ITE(cond, then_, else_) = lhs.op() {
+            if let Op::BVITE(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
-                if let BitVecOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+                if let Op::BVITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
                     // Prioritize left condition as outer if
                     Ok(ctx.ite(
                         cond,
@@ -336,19 +336,19 @@ pub(crate) fn excavate_ite<'c>(
                 } else {
                     Ok(ctx.ite(cond, ctx.ugt(then_, &rhs)?, ctx.ugt(else_, rhs)?)?)
                 }
-            } else if let BitVecOp::ITE(cond, then_, else_) = rhs.op() {
+            } else if let Op::BVITE(cond, then_, else_) = rhs.op() {
                 Ok(ctx.ite(cond, ctx.ugt(&lhs, then_)?, ctx.ugt(lhs, else_)?)?)
             } else {
                 Ok(ctx.ugt(&lhs, rhs)?)
             }
         }
-        BooleanOp::UGE(..) => {
-            let lhs = extract_bitvec_child(children, 0)?;
-            let rhs = extract_bitvec_child(children, 1)?;
+        Op::UGE(..) => {
+            let lhs = extract_child(children, 0)?;
+            let rhs = extract_child(children, 1)?;
 
-            if let BitVecOp::ITE(cond, then_, else_) = lhs.op() {
+            if let Op::BVITE(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
-                if let BitVecOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+                if let Op::BVITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
                     // Prioritize left condition as outer if
                     Ok(ctx.ite(
                         cond,
@@ -366,19 +366,19 @@ pub(crate) fn excavate_ite<'c>(
                 } else {
                     Ok(ctx.ite(cond, ctx.uge(then_, &rhs)?, ctx.uge(else_, rhs)?)?)
                 }
-            } else if let BitVecOp::ITE(cond, then_, else_) = rhs.op() {
+            } else if let Op::BVITE(cond, then_, else_) = rhs.op() {
                 Ok(ctx.ite(cond, ctx.uge(&lhs, then_)?, ctx.uge(lhs, else_)?)?)
             } else {
                 Ok(ctx.uge(lhs, rhs)?)
             }
         }
-        BooleanOp::SLT(..) => {
-            let lhs = extract_bitvec_child(children, 0)?;
-            let rhs = extract_bitvec_child(children, 1)?;
+        Op::SLT(..) => {
+            let lhs = extract_child(children, 0)?;
+            let rhs = extract_child(children, 1)?;
 
-            if let BitVecOp::ITE(cond, then_, else_) = lhs.op() {
+            if let Op::BVITE(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
-                if let BitVecOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+                if let Op::BVITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
                     // Prioritize left condition as outer if
                     Ok(ctx.ite(
                         cond,
@@ -396,19 +396,19 @@ pub(crate) fn excavate_ite<'c>(
                 } else {
                     Ok(ctx.ite(cond, ctx.slt(then_, &rhs)?, ctx.slt(else_, rhs)?)?)
                 }
-            } else if let BitVecOp::ITE(cond, then_, else_) = rhs.op() {
+            } else if let Op::BVITE(cond, then_, else_) = rhs.op() {
                 Ok(ctx.ite(cond, ctx.slt(&lhs, then_)?, ctx.slt(lhs, else_)?)?)
             } else {
                 Ok(ctx.slt(lhs, rhs)?)
             }
         }
-        BooleanOp::SLE(..) => {
-            let lhs = extract_bitvec_child(children, 0)?;
-            let rhs = extract_bitvec_child(children, 1)?;
+        Op::SLE(..) => {
+            let lhs = extract_child(children, 0)?;
+            let rhs = extract_child(children, 1)?;
 
-            if let BitVecOp::ITE(cond, then_, else_) = lhs.op() {
+            if let Op::BVITE(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
-                if let BitVecOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+                if let Op::BVITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
                     // Prioritize left condition as outer if
                     Ok(ctx.ite(
                         cond,
@@ -426,19 +426,19 @@ pub(crate) fn excavate_ite<'c>(
                 } else {
                     Ok(ctx.ite(cond, ctx.sle(then_, &rhs)?, ctx.sle(else_, rhs)?)?)
                 }
-            } else if let BitVecOp::ITE(cond, then_, else_) = rhs.op() {
+            } else if let Op::BVITE(cond, then_, else_) = rhs.op() {
                 Ok(ctx.ite(cond, ctx.sle(&lhs, then_)?, ctx.sle(lhs, else_)?)?)
             } else {
                 Ok(ctx.sle(lhs, rhs)?)
             }
         }
-        BooleanOp::SGT(..) => {
-            let lhs = extract_bitvec_child(children, 0)?;
-            let rhs = extract_bitvec_child(children, 1)?;
+        Op::SGT(..) => {
+            let lhs = extract_child(children, 0)?;
+            let rhs = extract_child(children, 1)?;
 
-            if let BitVecOp::ITE(cond, then_, else_) = lhs.op() {
+            if let Op::BVITE(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
-                if let BitVecOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+                if let Op::BVITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
                     // Prioritize left condition as outer if
                     Ok(ctx.ite(
                         cond,
@@ -456,19 +456,19 @@ pub(crate) fn excavate_ite<'c>(
                 } else {
                     Ok(ctx.ite(cond, ctx.sgt(then_, &rhs)?, ctx.sgt(else_, rhs)?)?)
                 }
-            } else if let BitVecOp::ITE(cond, then_, else_) = rhs.op() {
+            } else if let Op::BVITE(cond, then_, else_) = rhs.op() {
                 Ok(ctx.ite(cond, ctx.sgt(&lhs, then_)?, ctx.sgt(lhs, else_)?)?)
             } else {
                 Ok(ctx.sgt(lhs, rhs)?)
             }
         }
-        BooleanOp::SGE(..) => {
-            let lhs = extract_bitvec_child(children, 0)?;
-            let rhs = extract_bitvec_child(children, 1)?;
+        Op::SGE(..) => {
+            let lhs = extract_child(children, 0)?;
+            let rhs = extract_child(children, 1)?;
 
-            if let BitVecOp::ITE(cond, then_, else_) = lhs.op() {
+            if let Op::BVITE(cond, then_, else_) = lhs.op() {
                 // Handle case where both sides are If expressions
-                if let BitVecOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+                if let Op::BVITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
                     // Prioritize left condition as outer if
                     Ok(ctx.ite(
                         cond,
@@ -486,18 +486,18 @@ pub(crate) fn excavate_ite<'c>(
                 } else {
                     Ok(ctx.ite(cond, ctx.sge(then_, &rhs)?, ctx.sge(else_, rhs)?)?)
                 }
-            } else if let BitVecOp::ITE(cond, then_, else_) = rhs.op() {
+            } else if let Op::BVITE(cond, then_, else_) = rhs.op() {
                 Ok(ctx.ite(cond, ctx.sge(&lhs, then_)?, ctx.sge(lhs, else_)?)?)
             } else {
                 Ok(ctx.sge(lhs, rhs)?)
             }
         }
-        BooleanOp::FpEq(..) => {
-            let lhs = extract_float_child(children, 0)?;
-            let rhs = extract_float_child(children, 1)?;
+        Op::FpEq(..) => {
+            let lhs = extract_child(children, 0)?;
+            let rhs = extract_child(children, 1)?;
 
-            if let FloatOp::ITE(cond, then_, else_) = lhs.op() {
-                if let FloatOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+            if let Op::FpITE(cond, then_, else_) = lhs.op() {
+                if let Op::FpITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
                     Ok(ctx.ite(
                         cond,
                         ctx.ite(
@@ -514,18 +514,18 @@ pub(crate) fn excavate_ite<'c>(
                 } else {
                     Ok(ctx.ite(cond, ctx.fp_eq(then_, &rhs)?, ctx.fp_eq(else_, rhs)?)?)
                 }
-            } else if let FloatOp::ITE(cond, then_, else_) = rhs.op() {
+            } else if let Op::FpITE(cond, then_, else_) = rhs.op() {
                 Ok(ctx.ite(cond, ctx.fp_eq(&lhs, then_)?, ctx.fp_eq(lhs, else_)?)?)
             } else {
                 Ok(ctx.fp_eq(lhs, rhs)?)
             }
         }
-        BooleanOp::FpNeq(..) => {
-            let lhs = extract_float_child(children, 0)?;
-            let rhs = extract_float_child(children, 1)?;
+        Op::FpNeq(..) => {
+            let lhs = extract_child(children, 0)?;
+            let rhs = extract_child(children, 1)?;
 
-            if let FloatOp::ITE(cond, then_, else_) = lhs.op() {
-                if let FloatOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+            if let Op::FpITE(cond, then_, else_) = lhs.op() {
+                if let Op::FpITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
                     Ok(ctx.ite(
                         cond,
                         ctx.ite(
@@ -542,18 +542,18 @@ pub(crate) fn excavate_ite<'c>(
                 } else {
                     Ok(ctx.ite(cond, ctx.fp_neq(then_, &rhs)?, ctx.fp_neq(else_, rhs)?)?)
                 }
-            } else if let FloatOp::ITE(cond, then_, else_) = rhs.op() {
+            } else if let Op::FpITE(cond, then_, else_) = rhs.op() {
                 Ok(ctx.ite(cond, ctx.fp_neq(&lhs, then_)?, ctx.fp_neq(lhs, else_)?)?)
             } else {
                 Ok(ctx.fp_neq(lhs, rhs)?)
             }
         }
-        BooleanOp::FpLt(..) => {
-            let lhs = extract_float_child(children, 0)?;
-            let rhs = extract_float_child(children, 1)?;
+        Op::FpLt(..) => {
+            let lhs = extract_child(children, 0)?;
+            let rhs = extract_child(children, 1)?;
 
-            if let FloatOp::ITE(cond, then_, else_) = lhs.op() {
-                if let FloatOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+            if let Op::FpITE(cond, then_, else_) = lhs.op() {
+                if let Op::FpITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
                     Ok(ctx.ite(
                         cond,
                         ctx.ite(
@@ -570,18 +570,18 @@ pub(crate) fn excavate_ite<'c>(
                 } else {
                     Ok(ctx.ite(cond, ctx.fp_lt(then_, &rhs)?, ctx.fp_lt(else_, rhs)?)?)
                 }
-            } else if let FloatOp::ITE(cond, then_, else_) = rhs.op() {
+            } else if let Op::FpITE(cond, then_, else_) = rhs.op() {
                 Ok(ctx.ite(cond, ctx.fp_lt(&lhs, then_)?, ctx.fp_lt(lhs, else_)?)?)
             } else {
                 Ok(ctx.fp_lt(lhs, rhs)?)
             }
         }
-        BooleanOp::FpLeq(..) => {
-            let lhs = extract_float_child(children, 0)?;
-            let rhs = extract_float_child(children, 1)?;
+        Op::FpLeq(..) => {
+            let lhs = extract_child(children, 0)?;
+            let rhs = extract_child(children, 1)?;
 
-            if let FloatOp::ITE(cond, then_, else_) = lhs.op() {
-                if let FloatOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+            if let Op::FpITE(cond, then_, else_) = lhs.op() {
+                if let Op::FpITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
                     Ok(ctx.ite(
                         cond,
                         ctx.ite(
@@ -598,18 +598,18 @@ pub(crate) fn excavate_ite<'c>(
                 } else {
                     Ok(ctx.ite(cond, ctx.fp_leq(then_, &rhs)?, ctx.fp_leq(else_, rhs)?)?)
                 }
-            } else if let FloatOp::ITE(cond, then_, else_) = rhs.op() {
+            } else if let Op::FpITE(cond, then_, else_) = rhs.op() {
                 Ok(ctx.ite(cond, ctx.fp_leq(&lhs, then_)?, ctx.fp_leq(lhs, else_)?)?)
             } else {
                 Ok(ctx.fp_leq(lhs, rhs)?)
             }
         }
-        BooleanOp::FpGt(..) => {
-            let lhs = extract_float_child(children, 0)?;
-            let rhs = extract_float_child(children, 1)?;
+        Op::FpGt(..) => {
+            let lhs = extract_child(children, 0)?;
+            let rhs = extract_child(children, 1)?;
 
-            if let FloatOp::ITE(cond, then_, else_) = lhs.op() {
-                if let FloatOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+            if let Op::FpITE(cond, then_, else_) = lhs.op() {
+                if let Op::FpITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
                     Ok(ctx.ite(
                         cond,
                         ctx.ite(
@@ -626,18 +626,18 @@ pub(crate) fn excavate_ite<'c>(
                 } else {
                     Ok(ctx.ite(cond, ctx.fp_gt(then_, &rhs)?, ctx.fp_gt(else_, rhs)?)?)
                 }
-            } else if let FloatOp::ITE(cond, then_, else_) = rhs.op() {
+            } else if let Op::FpITE(cond, then_, else_) = rhs.op() {
                 Ok(ctx.ite(cond, ctx.fp_gt(&lhs, then_)?, ctx.fp_gt(lhs, else_)?)?)
             } else {
                 Ok(ctx.fp_gt(lhs, rhs)?)
             }
         }
-        BooleanOp::FpGeq(..) => {
-            let lhs = extract_float_child(children, 0)?;
-            let rhs = extract_float_child(children, 1)?;
+        Op::FpGeq(..) => {
+            let lhs = extract_child(children, 0)?;
+            let rhs = extract_child(children, 1)?;
 
-            if let FloatOp::ITE(cond, then_, else_) = lhs.op() {
-                if let FloatOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+            if let Op::FpITE(cond, then_, else_) = lhs.op() {
+                if let Op::FpITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
                     Ok(ctx.ite(
                         cond,
                         ctx.ite(
@@ -654,36 +654,36 @@ pub(crate) fn excavate_ite<'c>(
                 } else {
                     Ok(ctx.ite(cond, ctx.fp_geq(then_, &rhs)?, ctx.fp_geq(else_, rhs)?)?)
                 }
-            } else if let FloatOp::ITE(cond, then_, else_) = rhs.op() {
+            } else if let Op::FpITE(cond, then_, else_) = rhs.op() {
                 Ok(ctx.ite(cond, ctx.fp_geq(&lhs, then_)?, ctx.fp_geq(lhs, else_)?)?)
             } else {
                 Ok(ctx.fp_geq(lhs, rhs)?)
             }
         }
-        BooleanOp::FpIsNan(..) => {
-            let inner = extract_float_child(children, 0)?;
+        Op::FpIsNan(..) => {
+            let inner = extract_child(children, 0)?;
 
-            if let FloatOp::ITE(cond, then_, else_) = inner.op() {
+            if let Op::FpITE(cond, then_, else_) = inner.op() {
                 Ok(ctx.ite(cond, ctx.fp_is_nan(then_)?, ctx.fp_is_nan(else_)?)?)
             } else {
                 Ok(ctx.fp_is_nan(inner)?)
             }
         }
-        BooleanOp::FpIsInf(..) => {
-            let inner = extract_float_child(children, 0)?;
+        Op::FpIsInf(..) => {
+            let inner = extract_child(children, 0)?;
 
-            if let FloatOp::ITE(cond, then_, else_) = inner.op() {
+            if let Op::FpITE(cond, then_, else_) = inner.op() {
                 Ok(ctx.ite(cond, ctx.fp_is_inf(then_)?, ctx.fp_is_inf(else_)?)?)
             } else {
                 Ok(ctx.fp_is_inf(inner)?)
             }
         }
-        BooleanOp::StrContains(..) => {
-            let lhs = extract_string_child(children, 0)?;
-            let rhs = extract_string_child(children, 1)?;
+        Op::StrContains(..) => {
+            let lhs = extract_child(children, 0)?;
+            let rhs = extract_child(children, 1)?;
 
-            if let StringOp::ITE(cond, then_, else_) = lhs.op() {
-                if let StringOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+            if let Op::StrITE(cond, then_, else_) = lhs.op() {
+                if let Op::StrITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
                     Ok(ctx.ite(
                         cond,
                         ctx.ite(
@@ -704,7 +704,7 @@ pub(crate) fn excavate_ite<'c>(
                         ctx.str_contains(else_, rhs)?,
                     )?)
                 }
-            } else if let StringOp::ITE(cond, then_, else_) = rhs.op() {
+            } else if let Op::StrITE(cond, then_, else_) = rhs.op() {
                 Ok(ctx.ite(
                     cond,
                     ctx.str_contains(&lhs, then_)?,
@@ -714,12 +714,12 @@ pub(crate) fn excavate_ite<'c>(
                 Ok(ctx.str_contains(lhs, rhs)?)
             }
         }
-        BooleanOp::StrPrefixOf(..) => {
-            let lhs = extract_string_child(children, 0)?;
-            let rhs = extract_string_child(children, 1)?;
+        Op::StrPrefixOf(..) => {
+            let lhs = extract_child(children, 0)?;
+            let rhs = extract_child(children, 1)?;
 
-            if let StringOp::ITE(cond, then_, else_) = lhs.op() {
-                if let StringOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+            if let Op::StrITE(cond, then_, else_) = lhs.op() {
+                if let Op::StrITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
                     Ok(ctx.ite(
                         cond,
                         ctx.ite(
@@ -740,7 +740,7 @@ pub(crate) fn excavate_ite<'c>(
                         ctx.str_prefix_of(else_, rhs)?,
                     )?)
                 }
-            } else if let StringOp::ITE(cond, then_, else_) = rhs.op() {
+            } else if let Op::StrITE(cond, then_, else_) = rhs.op() {
                 Ok(ctx.ite(
                     cond,
                     ctx.str_prefix_of(&lhs, then_)?,
@@ -750,12 +750,12 @@ pub(crate) fn excavate_ite<'c>(
                 Ok(ctx.str_prefix_of(lhs, rhs)?)
             }
         }
-        BooleanOp::StrSuffixOf(..) => {
-            let lhs = extract_string_child(children, 0)?;
-            let rhs = extract_string_child(children, 1)?;
+        Op::StrSuffixOf(..) => {
+            let lhs = extract_child(children, 0)?;
+            let rhs = extract_child(children, 1)?;
 
-            if let StringOp::ITE(cond, then_, else_) = lhs.op() {
-                if let StringOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+            if let Op::StrITE(cond, then_, else_) = lhs.op() {
+                if let Op::StrITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
                     Ok(ctx.ite(
                         cond,
                         ctx.ite(
@@ -776,7 +776,7 @@ pub(crate) fn excavate_ite<'c>(
                         ctx.str_suffix_of(else_, rhs)?,
                     )?)
                 }
-            } else if let StringOp::ITE(cond, then_, else_) = rhs.op() {
+            } else if let Op::StrITE(cond, then_, else_) = rhs.op() {
                 Ok(ctx.ite(
                     cond,
                     ctx.str_suffix_of(&lhs, then_)?,
@@ -786,21 +786,21 @@ pub(crate) fn excavate_ite<'c>(
                 Ok(ctx.str_suffix_of(lhs, rhs)?)
             }
         }
-        BooleanOp::StrIsDigit(..) => {
-            let inner = extract_string_child(children, 0)?;
+        Op::StrIsDigit(..) => {
+            let inner = extract_child(children, 0)?;
 
-            if let StringOp::ITE(cond, then_, else_) = inner.op() {
+            if let Op::StrITE(cond, then_, else_) = inner.op() {
                 Ok(ctx.ite(cond, ctx.str_is_digit(then_)?, ctx.str_is_digit(else_)?)?)
             } else {
                 Ok(ctx.str_is_digit(inner)?)
             }
         }
-        BooleanOp::StrEq(..) => {
-            let lhs = extract_string_child(children, 0)?;
-            let rhs = extract_string_child(children, 1)?;
+        Op::StrEq(..) => {
+            let lhs = extract_child(children, 0)?;
+            let rhs = extract_child(children, 1)?;
 
-            if let StringOp::ITE(cond, then_, else_) = lhs.op() {
-                if let StringOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+            if let Op::StrITE(cond, then_, else_) = lhs.op() {
+                if let Op::StrITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
                     Ok(ctx.ite(
                         cond,
                         ctx.ite(
@@ -817,18 +817,18 @@ pub(crate) fn excavate_ite<'c>(
                 } else {
                     Ok(ctx.ite(cond, ctx.str_eq(then_, &rhs)?, ctx.str_eq(else_, rhs)?)?)
                 }
-            } else if let StringOp::ITE(cond, then_, else_) = rhs.op() {
+            } else if let Op::StrITE(cond, then_, else_) = rhs.op() {
                 Ok(ctx.ite(cond, ctx.str_eq(&lhs, then_)?, ctx.str_eq(lhs, else_)?)?)
             } else {
                 Ok(ctx.str_eq(lhs, rhs)?)
             }
         }
-        BooleanOp::StrNeq(..) => {
-            let lhs = extract_string_child(children, 0)?;
-            let rhs = extract_string_child(children, 1)?;
+        Op::StrNeq(..) => {
+            let lhs = extract_child(children, 0)?;
+            let rhs = extract_child(children, 1)?;
 
-            if let StringOp::ITE(cond, then_, else_) = lhs.op() {
-                if let StringOp::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+            if let Op::StrITE(cond, then_, else_) = lhs.op() {
+                if let Op::StrITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
                     Ok(ctx.ite(
                         cond,
                         ctx.ite(
@@ -845,18 +845,19 @@ pub(crate) fn excavate_ite<'c>(
                 } else {
                     Ok(ctx.ite(cond, ctx.str_neq(then_, &rhs)?, ctx.str_neq(else_, rhs)?)?)
                 }
-            } else if let StringOp::ITE(cond, then_, else_) = rhs.op() {
+            } else if let Op::StrITE(cond, then_, else_) = rhs.op() {
                 Ok(ctx.ite(cond, ctx.str_neq(&lhs, then_)?, ctx.str_neq(lhs, else_)?)?)
             } else {
                 Ok(ctx.str_neq(lhs, rhs)?)
             }
         }
-        BooleanOp::ITE(..) => {
-            let cond = extract_bool_child(children, 0)?;
-            let then = extract_bool_child(children, 1)?;
-            let else_ = extract_bool_child(children, 2)?;
+        Op::BoolITE(..) => {
+            let cond = extract_child(children, 0)?;
+            let then = extract_child(children, 1)?;
+            let else_ = extract_child(children, 2)?;
 
             Ok(ctx.ite(cond, then, else_)?)
         }
+        _ => Ok(ast.clone()),
     }
 }

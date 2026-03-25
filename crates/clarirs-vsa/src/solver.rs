@@ -1,4 +1,4 @@
-use clarirs_core::{ast::bitvec::BitVecOpExt, prelude::*};
+use clarirs_core::prelude::*;
 use num_traits::Signed;
 
 use crate::{reduce::Reduce, strided_interval::ComparisonResult};
@@ -23,7 +23,7 @@ impl<'c> HasContext<'c> for VSASolver<'c> {
 }
 
 impl<'c> Solver<'c> for VSASolver<'c> {
-    fn add(&mut self, _: &BoolAst<'c>) -> Result<(), ClarirsError> {
+    fn add(&mut self, _: &AstRef<'c>) -> Result<(), ClarirsError> {
         Ok(())
     }
 
@@ -31,7 +31,7 @@ impl<'c> Solver<'c> for VSASolver<'c> {
         Ok(())
     }
 
-    fn constraints(&self) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
+    fn constraints(&self) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         Ok(vec![])
     }
 
@@ -45,9 +45,9 @@ impl<'c> Solver<'c> for VSASolver<'c> {
 
     fn eval_bool_n(
         &mut self,
-        expr: &BoolAst<'c>,
+        expr: &AstRef<'c>,
         n: u32,
-    ) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
+    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         expr.simplify()?
             .reduce()
             .and_then(|comp_result| match comp_result {
@@ -66,9 +66,9 @@ impl<'c> Solver<'c> for VSASolver<'c> {
 
     fn eval_bitvec_n(
         &mut self,
-        expr: &BitVecAst<'c>,
+        expr: &AstRef<'c>,
         n: u32,
-    ) -> Result<Vec<BitVecAst<'c>>, ClarirsError> {
+    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         expr.simplify()?.reduce().and_then(|si| {
             if si.is_empty() {
                 return Ok(vec![]);
@@ -82,9 +82,9 @@ impl<'c> Solver<'c> for VSASolver<'c> {
 
     fn eval_float_n(
         &mut self,
-        _expr: &FloatAst<'c>,
+        _expr: &AstRef<'c>,
         _n: u32,
-    ) -> Result<Vec<FloatAst<'c>>, ClarirsError> {
+    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         Err(ClarirsError::UnsupportedOperation(
             "Floating-point evaluation is not supported in VSASolver".to_string(),
         ))
@@ -92,40 +92,40 @@ impl<'c> Solver<'c> for VSASolver<'c> {
 
     fn eval_string_n(
         &mut self,
-        _expr: &StringAst<'c>,
+        _expr: &AstRef<'c>,
         _n: u32,
-    ) -> Result<Vec<StringAst<'c>>, ClarirsError> {
+    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         Err(ClarirsError::UnsupportedOperation(
             "String evaluation is not supported in VSASolver".to_string(),
         ))
     }
 
-    fn is_true(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+    fn is_true(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
         Ok(matches!(expr.simplify()?.reduce()?, ComparisonResult::True))
     }
 
-    fn is_false(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+    fn is_false(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
         Ok(matches!(
             expr.simplify()?.reduce()?,
             ComparisonResult::False
         ))
     }
 
-    fn has_true(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+    fn has_true(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
         Ok(matches!(
             expr.simplify()?.reduce()?,
             ComparisonResult::True | ComparisonResult::Maybe
         ))
     }
 
-    fn has_false(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+    fn has_false(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
         Ok(matches!(
             expr.simplify()?.reduce()?,
             ComparisonResult::False | ComparisonResult::Maybe
         ))
     }
 
-    fn min_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn min_unsigned(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         expr.simplify()?.reduce().and_then(|si| {
             let (min_bound, _) = si.get_unsigned_bounds();
             expr.context()
@@ -133,7 +133,7 @@ impl<'c> Solver<'c> for VSASolver<'c> {
         })
     }
 
-    fn max_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn max_unsigned(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         expr.simplify()?.reduce().and_then(|si| {
             let (_, max_bound) = si.get_unsigned_bounds();
             expr.context()
@@ -141,7 +141,7 @@ impl<'c> Solver<'c> for VSASolver<'c> {
         })
     }
 
-    fn min_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn min_signed(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         expr.simplify()?.reduce().and_then(|si| {
             let (min_bound, _) = si.get_signed_bounds();
             // Convert BigInt back to unsigned representation for two's complement
@@ -157,7 +157,7 @@ impl<'c> Solver<'c> for VSASolver<'c> {
         })
     }
 
-    fn max_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn max_signed(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         expr.simplify()?.reduce().and_then(|si| {
             let (_, max_bound) = si.get_signed_bounds();
             // Convert BigInt back to unsigned representation for two's complement

@@ -16,35 +16,33 @@ pub enum ReduceResult {
 /// - BitVec expressions are reduced to StridedIntervals
 /// - Bool expressions are reduced to ComparisonResults
 /// - Float and String expressions return errors
-pub trait Reduce<'c>: Sized {
-    type Result;
-
-    fn reduce(&self) -> Result<Self::Result, ClarirsError>;
+pub trait Reduce<T>: Sized {
+    fn reduce(&self) -> Result<T, ClarirsError>;
 }
 
-impl<'c> Reduce<'c> for DynAst<'c> {
-    type Result = ReduceResult;
+fn reduce_ast<'c>(ast: &AstRef<'c>) -> Result<ReduceResult, ClarirsError> {
+    walk_post_order(
+        ast.clone(),
+        |node, children| match node.return_type() {
+            AstType::BitVec(_) => bv::reduce_bv(&node, children).map(ReduceResult::BitVec),
+            AstType::Bool => bool::reduce_bool(&node, children).map(ReduceResult::Bool),
+            _ => Err(ClarirsError::UnsupportedOperation(
+                "Unsupported operation for reduction".to_string(),
+            )),
+        },
+        &(),
+    )
+}
 
-    fn reduce(&self) -> Result<Self::Result, ClarirsError> {
-        walk_post_order(
-            self.clone(),
-            |node, children| match node {
-                DynAst::BitVec(bv) => bv::reduce_bv(&bv, children).map(ReduceResult::BitVec),
-                DynAst::Boolean(bool) => bool::reduce_bool(&bool, children).map(ReduceResult::Bool),
-                _ => Err(ClarirsError::UnsupportedOperation(
-                    "Unsupported operation for reduction".to_string(),
-                )),
-            },
-            &(),
-        )
+impl<'c> Reduce<ReduceResult> for AstRef<'c> {
+    fn reduce(&self) -> Result<ReduceResult, ClarirsError> {
+        reduce_ast(self)
     }
 }
 
-impl<'c> Reduce<'c> for BoolAst<'c> {
-    type Result = ComparisonResult;
-
-    fn reduce(&self) -> Result<Self::Result, ClarirsError> {
-        if let ReduceResult::Bool(result) = DynAst::Boolean(self.clone()).reduce()? {
+impl<'c> Reduce<ComparisonResult> for AstRef<'c> {
+    fn reduce(&self) -> Result<ComparisonResult, ClarirsError> {
+        if let ReduceResult::Bool(result) = reduce_ast(self)? {
             Ok(result)
         } else {
             Err(ClarirsError::InvalidArguments(
@@ -54,11 +52,9 @@ impl<'c> Reduce<'c> for BoolAst<'c> {
     }
 }
 
-impl<'c> Reduce<'c> for BitVecAst<'c> {
-    type Result = StridedInterval;
-
+impl<'c> Reduce<StridedInterval> for AstRef<'c> {
     fn reduce(&self) -> Result<StridedInterval, ClarirsError> {
-        if let ReduceResult::BitVec(result) = DynAst::BitVec(self.clone()).reduce()? {
+        if let ReduceResult::BitVec(result) = reduce_ast(self)? {
             Ok(result)
         } else {
             Err(ClarirsError::InvalidArguments(

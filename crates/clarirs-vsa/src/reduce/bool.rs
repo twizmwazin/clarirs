@@ -29,20 +29,20 @@ fn child_si(children: &[ReduceResult], index: usize) -> Result<StridedInterval, 
 }
 
 pub(crate) fn reduce_bool(
-    ast: &BoolAst<'_>,
+    ast: &AstRef<'_>,
     children: &[ReduceResult],
 ) -> Result<ComparisonResult, ClarirsError> {
     Ok(match ast.op() {
-        BooleanOp::BoolS(..) => ComparisonResult::Maybe,
-        BooleanOp::BoolV(v) => {
+        Op::BoolS(..) => ComparisonResult::Maybe,
+        Op::BoolV(v) => {
             if *v {
                 ComparisonResult::True
             } else {
                 ComparisonResult::False
             }
         }
-        BooleanOp::Not(..) => !child(children, 0)?,
-        BooleanOp::And(..) => {
+        Op::Not(..) => !child(children, 0)?,
+        Op::And(..) => {
             let mut result = ComparisonResult::True;
             for c in children {
                 if let ReduceResult::Bool(b) = c {
@@ -53,7 +53,7 @@ pub(crate) fn reduce_bool(
             }
             result
         }
-        BooleanOp::Or(..) => {
+        Op::Or(..) => {
             let mut result = ComparisonResult::False;
             for c in children {
                 if let ReduceResult::Bool(b) = c {
@@ -64,45 +64,50 @@ pub(crate) fn reduce_bool(
             }
             result
         }
-        BooleanOp::Xor(..) => child(children, 0)? ^ child(children, 1)?,
-        BooleanOp::BoolEq(..) => child(children, 0)?.eq_(child(children, 1)?),
-        BooleanOp::BoolNeq(..) => !child(children, 0)?.eq_(child(children, 1)?),
-        BooleanOp::Eq(..) => child_si(children, 0)?.eq_(&child_si(children, 1)?),
-        BooleanOp::Neq(..) => child_si(children, 0)?.ne_(&child_si(children, 1)?),
-        BooleanOp::ULT(..) => child_si(children, 0)?.ult(&child_si(children, 1)?),
-        BooleanOp::ULE(..) => child_si(children, 0)?.ule(&child_si(children, 1)?),
-        BooleanOp::UGT(..) => child_si(children, 0)?.ugt(&child_si(children, 1)?),
-        BooleanOp::UGE(..) => child_si(children, 0)?.uge(&child_si(children, 1)?),
-        BooleanOp::SLT(..) => child_si(children, 0)?.slt(&child_si(children, 1)?),
-        BooleanOp::SLE(..) => child_si(children, 0)?.sle(&child_si(children, 1)?),
-        BooleanOp::SGT(..) => child_si(children, 0)?.sgt(&child_si(children, 1)?),
-        BooleanOp::SGE(..) => child_si(children, 0)?.sge(&child_si(children, 1)?),
-        BooleanOp::FpEq(..)
-        | BooleanOp::FpNeq(..)
-        | BooleanOp::FpLt(..)
-        | BooleanOp::FpLeq(..)
-        | BooleanOp::FpGt(..)
-        | BooleanOp::FpGeq(..)
-        | BooleanOp::FpIsNan(..)
-        | BooleanOp::FpIsInf(..) => {
+        Op::Xor(..) => child(children, 0)? ^ child(children, 1)?,
+        Op::BoolEq(..) => child(children, 0)?.eq_(child(children, 1)?),
+        Op::BoolNeq(..) => !child(children, 0)?.eq_(child(children, 1)?),
+        Op::Eq(..) => child_si(children, 0)?.eq_(&child_si(children, 1)?),
+        Op::Neq(..) => child_si(children, 0)?.ne_(&child_si(children, 1)?),
+        Op::ULT(..) => child_si(children, 0)?.ult(&child_si(children, 1)?),
+        Op::ULE(..) => child_si(children, 0)?.ule(&child_si(children, 1)?),
+        Op::UGT(..) => child_si(children, 0)?.ugt(&child_si(children, 1)?),
+        Op::UGE(..) => child_si(children, 0)?.uge(&child_si(children, 1)?),
+        Op::SLT(..) => child_si(children, 0)?.slt(&child_si(children, 1)?),
+        Op::SLE(..) => child_si(children, 0)?.sle(&child_si(children, 1)?),
+        Op::SGT(..) => child_si(children, 0)?.sgt(&child_si(children, 1)?),
+        Op::SGE(..) => child_si(children, 0)?.sge(&child_si(children, 1)?),
+        Op::FpEq(..)
+        | Op::FpNeq(..)
+        | Op::FpLt(..)
+        | Op::FpLeq(..)
+        | Op::FpGt(..)
+        | Op::FpGeq(..)
+        | Op::FpIsNan(..)
+        | Op::FpIsInf(..) => {
             return Err(ClarirsError::UnsupportedOperation(
                 "Floating point operations are not supported".to_string(),
             ));
         }
-        BooleanOp::StrContains(..)
-        | BooleanOp::StrPrefixOf(..)
-        | BooleanOp::StrSuffixOf(..)
-        | BooleanOp::StrIsDigit(..)
-        | BooleanOp::StrEq(..)
-        | BooleanOp::StrNeq(..) => {
+        Op::StrContains(..)
+        | Op::StrPrefixOf(..)
+        | Op::StrSuffixOf(..)
+        | Op::StrIsDigit(..)
+        | Op::StrEq(..)
+        | Op::StrNeq(..) => {
             return Err(ClarirsError::UnsupportedOperation(
                 "String operations are not supported".to_string(),
             ));
         }
-        BooleanOp::ITE(..) => match child(children, 0)? {
+        Op::BoolITE(..) => match child(children, 0)? {
             ComparisonResult::True => child(children, 1)?,
             ComparisonResult::False => child(children, 2)?,
             ComparisonResult::Maybe => child(children, 1)? | child(children, 2)?,
         },
+        _ => {
+            return Err(ClarirsError::UnsupportedOperation(
+                "Unsupported operation for boolean reduction".to_string(),
+            ));
+        }
     })
 }

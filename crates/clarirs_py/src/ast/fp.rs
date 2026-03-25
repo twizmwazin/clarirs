@@ -9,7 +9,6 @@ use std::{
 };
 
 use clarirs_core::algorithms::{canonicalize, structurally_match};
-use clarirs_core::ast::float::{FloatExt, FloatOpExt};
 use dashmap::DashMap;
 use pyo3::types::{PyFrozenSet, PyTuple, PyWeakrefReference};
 
@@ -345,15 +344,8 @@ impl FP {
         &self,
         py: Python<'py>,
     ) -> Result<(HashMap<u64, Bound<'py, PyAny>>, usize, Bound<'py, FP>), ClaripyError> {
-        let (replacement_map, counter, canonical) = canonicalize(&self.inner.clone().into())?;
-        let canonical_fp = FP::new(
-            py,
-            &canonical
-                .into_float()
-                .ok_or(ClaripyError::InvalidOperation(
-                    "Canonicalization did not produce a Float".to_string(),
-                ))?,
-        )?;
+        let (replacement_map, counter, canonical) = canonicalize(&self.inner)?;
+        let canonical_fp = FP::new(py, &canonical)?;
 
         let mut py_map = HashMap::new();
         for (hash, dynast) in replacement_map {
@@ -366,10 +358,7 @@ impl FP {
 
     pub fn identical(&self, other: Bound<'_, Base>) -> Result<bool, ClaripyError> {
         let other_dyn = Base::to_dynast(other)?;
-        Ok(structurally_match(
-            &DynAst::Float(self.inner.clone()),
-            &other_dyn,
-        )?)
+        Ok(structurally_match(&self.inner, &other_dyn)?)
     }
 
     #[getter]
@@ -414,7 +403,7 @@ impl FP {
     #[getter]
     pub fn concrete_value(&self) -> Result<Option<f64>, ClaripyError> {
         Ok(match self.inner.simplify_ext(false, false)?.op() {
-            FloatOp::FPV(value) => value.to_f64(),
+            Op::FPV(value) => value.to_f64(),
             _ => None,
         })
     }
@@ -778,7 +767,7 @@ impl FP {
 
     #[getter]
     pub fn sort(&self) -> PyFSort {
-        PyFSort::from(self.inner.sort())
+        PyFSort::from(self.inner.sort().unwrap())
     }
 
     #[pyo3(signature = (size, signed = true, rm = None))]

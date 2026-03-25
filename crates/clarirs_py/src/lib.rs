@@ -13,10 +13,7 @@ pub mod pyslicemethodsext;
 pub mod solver;
 pub mod vsa;
 
-use clarirs_core::{
-    algorithms::{ExcavateIte, Replace},
-    ast::float::FloatOpExt,
-};
+use clarirs_core::algorithms::{ExcavateIte, Replace};
 use num_bigint::BigInt;
 use prelude::*;
 
@@ -88,12 +85,14 @@ fn py_replace<'py>(
     let new_dyn = Base::to_dynast(new.clone())?;
 
     // Convert new type to old type, if they do not match and both are BV or FP
-    let new_coerced = match (&old_dyn, &new_dyn) {
-        (DynAst::BitVec(_), DynAst::Float(new_fp)) => new_fp.context().fp_to_ieeebv(new_fp)?.into(),
-        (DynAst::Float(old_fp), DynAst::BitVec(new_bv)) => {
-            new_bv.context().bv_to_fp(new_bv, old_fp.sort())?.into()
+    let new_coerced = match (old_dyn.return_type(), new_dyn.return_type()) {
+        (AstType::BitVec(_), AstType::Float(_)) => new_dyn.context().fp_to_ieeebv(&new_dyn)?,
+        (AstType::Float(_), AstType::BitVec(_)) => {
+            new_dyn
+                .context()
+                .bv_to_fp(&new_dyn, old_dyn.sort().unwrap())?
         }
-        (_, new_dyn) => new_dyn.clone(),
+        _ => new_dyn.clone(),
     };
 
     Base::from_dynast(

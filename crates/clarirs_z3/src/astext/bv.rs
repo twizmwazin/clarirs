@@ -1,54 +1,55 @@
-use clarirs_core::{ast::bitvec::BitVecOpExt, prelude::*};
+use clarirs_core::prelude::*;
 use clarirs_z3_sys as z3;
 
 use super::AstExtZ3;
 use crate::{Z3_CONTEXT, astext::child, check_z3_error, rc::RcAst};
 
-pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, ClarirsError> {
+pub(crate) fn to_z3(ast: &AstRef, children: &[RcAst]) -> Result<RcAst, ClarirsError> {
     Z3_CONTEXT.with(|&z3_ctx| unsafe {
         Ok(match ast.op() {
-            BitVecOp::BVS(s, w) => {
+            Op::BVS(s, w) => {
                 let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
                 let sym = z3::mk_string_symbol(z3_ctx, s_cstr.as_ptr());
                 let sort = z3::mk_bv_sort(z3_ctx, *w);
                 RcAst::try_from(z3::mk_const(z3_ctx, sym, sort))?
             }
-            BitVecOp::BVV(v) => {
+            Op::BVV(v) => {
                 let sort = z3::mk_bv_sort(z3_ctx, v.len());
                 let numeral = v.to_biguint().to_string();
                 let numeral_cstr = std::ffi::CString::new(numeral).unwrap();
                 RcAst::try_from(z3::mk_numeral(z3_ctx, numeral_cstr.as_ptr(), sort))?
             }
-            BitVecOp::Not(..) => unop!(z3_ctx, children, mk_bvnot),
-            BitVecOp::Neg(..) => unop!(z3_ctx, children, mk_bvneg),
-            BitVecOp::And(..) => naryop!(z3_ctx, children, mk_bvand),
-            BitVecOp::Or(..) => naryop!(z3_ctx, children, mk_bvor),
-            BitVecOp::Xor(..) => naryop!(z3_ctx, children, mk_bvxor),
-            BitVecOp::Add(..) => naryop!(z3_ctx, children, mk_bvadd),
-            BitVecOp::Sub(..) => binop!(z3_ctx, children, mk_bvsub),
-            BitVecOp::Mul(..) => naryop!(z3_ctx, children, mk_bvmul),
-            BitVecOp::UDiv(..) => binop!(z3_ctx, children, mk_bvudiv),
-            BitVecOp::SDiv(..) => binop!(z3_ctx, children, mk_bvsdiv),
-            BitVecOp::URem(..) => binop!(z3_ctx, children, mk_bvurem),
-            BitVecOp::SRem(..) => binop!(z3_ctx, children, mk_bvsrem),
-            BitVecOp::ShL(..) => binop!(z3_ctx, children, mk_bvshl),
-            BitVecOp::LShR(..) => binop!(z3_ctx, children, mk_bvlshr),
-            BitVecOp::AShR(..) => binop!(z3_ctx, children, mk_bvashr),
-            BitVecOp::RotateLeft(..) => binop!(z3_ctx, children, mk_ext_rotate_left),
-            BitVecOp::RotateRight(..) => binop!(z3_ctx, children, mk_ext_rotate_right),
-            BitVecOp::ZeroExt(_, i) => {
+            Op::BVNot(..) => unop!(z3_ctx, children, mk_bvnot),
+            Op::Neg(..) => unop!(z3_ctx, children, mk_bvneg),
+            Op::BVAnd(..) => naryop!(z3_ctx, children, mk_bvand),
+            Op::BVOr(..) => naryop!(z3_ctx, children, mk_bvor),
+            Op::BVXor(..) => naryop!(z3_ctx, children, mk_bvxor),
+            Op::Add(..) => naryop!(z3_ctx, children, mk_bvadd),
+            Op::Sub(..) => binop!(z3_ctx, children, mk_bvsub),
+            Op::Mul(..) => naryop!(z3_ctx, children, mk_bvmul),
+            Op::UDiv(..) => binop!(z3_ctx, children, mk_bvudiv),
+            Op::SDiv(..) => binop!(z3_ctx, children, mk_bvsdiv),
+            Op::URem(..) => binop!(z3_ctx, children, mk_bvurem),
+            Op::SRem(..) => binop!(z3_ctx, children, mk_bvsrem),
+            Op::ShL(..) => binop!(z3_ctx, children, mk_bvshl),
+            Op::LShR(..) => binop!(z3_ctx, children, mk_bvlshr),
+            Op::AShR(..) => binop!(z3_ctx, children, mk_bvashr),
+            Op::RotateLeft(..) => binop!(z3_ctx, children, mk_ext_rotate_left),
+            Op::RotateRight(..) => binop!(z3_ctx, children, mk_ext_rotate_right),
+            Op::ZeroExt(_, i) => {
                 RcAst::try_from(z3::mk_zero_ext(z3_ctx, *i, **child(children, 0)?))?
             }
-            BitVecOp::SignExt(_, i) => {
+            Op::SignExt(_, i) => {
                 RcAst::try_from(z3::mk_sign_ext(z3_ctx, *i, **child(children, 0)?))?
             }
-            BitVecOp::Extract(a, high, low) => {
-                if high >= &a.size() {
+            Op::Extract(a, high, low) => {
+                let a_size = a.size();
+                if high >= &a_size {
                     return Err(ClarirsError::ConversionError(
                         "high index is greater than bitvector size".to_string(),
                     ));
                 }
-                if low >= &a.size() {
+                if low >= &a_size {
                     return Err(ClarirsError::ConversionError(
                         "low index is greater than bitvector size".to_string(),
                     ));
@@ -61,7 +62,7 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, Clarir
                 let a = child(children, 0)?;
                 RcAst::try_from(z3::mk_extract(z3_ctx, *high, *low, **a))?
             }
-            BitVecOp::Concat(args) => {
+            Op::Concat(args) => {
                 // Z3's concat constructor is binary, so we chain them
                 if args.is_empty() {
                     return Err(ClarirsError::InvalidArguments(
@@ -75,7 +76,7 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, Clarir
                 }
                 result
             }
-            BitVecOp::ByteReverse(a) => {
+            Op::ByteReverse(a) => {
                 let size = a.size();
                 if size == 0 || size % 8 != 0 {
                     return Err(ClarirsError::ConversionError(
@@ -99,32 +100,32 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, Clarir
 
                 result
             }
-            BitVecOp::ITE(..) => {
+            Op::BVITE(..) => {
                 let cond = child(children, 0)?;
                 let then = child(children, 1)?;
                 let else_ = child(children, 2)?;
                 RcAst::try_from(z3::mk_ite(z3_ctx, **cond, **then, **else_))?
             }
-            BitVecOp::FpToIEEEBV(..) => {
+            Op::FpToIEEEBV(..) => {
                 let a = child(children, 0)?;
                 RcAst::try_from(z3::mk_fpa_to_ieee_bv(z3_ctx, **a))?
             }
-            BitVecOp::FpToUBV(_, size, rm) => {
+            Op::FpToUBV(_, size, rm) => {
                 let rm_ast = super::float::fprm_to_z3(*rm)?;
                 let a = child(children, 0)?;
                 RcAst::try_from(z3::mk_fpa_to_ubv(z3_ctx, *rm_ast, **a, *size))?
             }
-            BitVecOp::FpToSBV(_, size, rm) => {
+            Op::FpToSBV(_, size, rm) => {
                 let rm_ast = super::float::fprm_to_z3(*rm)?;
                 let a = child(children, 0)?;
                 RcAst::try_from(z3::mk_fpa_to_sbv(z3_ctx, *rm_ast, **a, *size))?
             }
-            BitVecOp::StrLen(..) => {
+            Op::StrLen(..) => {
                 let a = child(children, 0)?;
                 let str_len = RcAst::try_from(z3::mk_seq_length(z3_ctx, **a))?;
                 RcAst::try_from(z3::mk_int2bv(z3_ctx, 64, *str_len))?
             }
-            BitVecOp::StrIndexOf(..) => {
+            Op::StrIndexOf(..) => {
                 let haystack = child(children, 0)?;
                 let needle = child(children, 1)?;
                 let offset_bv = child(children, 2)?;
@@ -133,16 +134,22 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, Clarir
                     RcAst::try_from(z3::mk_seq_index(z3_ctx, **haystack, **needle, *offset_int))?;
                 RcAst::try_from(z3::mk_int2bv(z3_ctx, 64, *index_int))?
             }
-            BitVecOp::StrToBV(..) => {
+            Op::StrToBV(..) => {
                 let a = child(children, 0)?;
                 let int_val = RcAst::try_from(z3::mk_str_to_int(z3_ctx, **a))?;
                 RcAst::try_from(z3::mk_int2bv(z3_ctx, 64, *int_val))?
             }
-            BitVecOp::Union(..) | BitVecOp::Intersection(..) | BitVecOp::Widen(..) => {
+            Op::Union(..) | Op::Intersection(..) | Op::Widen(..) => {
                 // These are not supported in Z3
                 return Err(ClarirsError::ConversionError(
                     "vsa types are not currently supported in the z3 backend".to_string(),
                 ));
+            }
+            _ => {
+                return Err(ClarirsError::ConversionError(format!(
+                    "bv::to_z3: unexpected op {:?}",
+                    ast.op()
+                )));
             }
         })
         .and_then(|maybe_null| {
@@ -155,7 +162,7 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, Clarir
 pub(crate) fn from_z3<'c>(
     ctx: &'c Context<'c>,
     ast: impl Into<RcAst>,
-) -> Result<BitVecAst<'c>, ClarirsError> {
+) -> Result<AstRef<'c>, ClarirsError> {
     Z3_CONTEXT.with(|z3_ctx| unsafe {
         let ast = ast.into();
         let ast_kind = z3::get_ast_kind(*z3_ctx, *ast);
@@ -184,12 +191,12 @@ pub(crate) fn from_z3<'c>(
                     }
                     z3::DeclKind::Bnot => {
                         let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
-                        let inner = BitVecAst::from_z3(ctx, arg)?;
+                        let inner = AstRef::from_z3(ctx, arg)?;
                         ctx.not(inner)
                     }
                     z3::DeclKind::Bneg => {
                         let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
-                        let inner = BitVecAst::from_z3(ctx, arg)?;
+                        let inner = AstRef::from_z3(ctx, arg)?;
                         ctx.neg(inner)
                     }
                     z3::DeclKind::Band
@@ -202,7 +209,7 @@ pub(crate) fn from_z3<'c>(
                         let mut args = Vec::with_capacity(num_args as usize);
                         for i in 0..num_args {
                             let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, i))?;
-                            args.push(BitVecAst::from_z3(ctx, arg)?);
+                            args.push(AstRef::from_z3(ctx, arg)?);
                         }
                         match decl_kind {
                             z3::DeclKind::Band => ctx.bv_and_many(args),
@@ -223,8 +230,8 @@ pub(crate) fn from_z3<'c>(
                     | z3::DeclKind::Bashr => {
                         let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
                         let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
-                        let a = BitVecAst::from_z3(ctx, arg0)?;
-                        let b = BitVecAst::from_z3(ctx, arg1)?;
+                        let a = AstRef::from_z3(ctx, arg0)?;
+                        let b = AstRef::from_z3(ctx, arg1)?;
                         match decl_kind {
                             z3::DeclKind::Bsub => ctx.sub(a, b),
                             z3::DeclKind::Budiv => ctx.udiv(a, b),
@@ -240,8 +247,8 @@ pub(crate) fn from_z3<'c>(
                     z3::DeclKind::ExtRotateLeft | z3::DeclKind::ExtRotateRight => {
                         let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
                         let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
-                        let a = BitVecAst::from_z3(ctx, arg0)?;
-                        let b = BitVecAst::from_z3(ctx, arg1)?;
+                        let a = AstRef::from_z3(ctx, arg0)?;
+                        let b = AstRef::from_z3(ctx, arg1)?;
                         match decl_kind {
                             z3::DeclKind::ExtRotateLeft => ctx.rotate_left(a, b),
                             z3::DeclKind::ExtRotateRight => ctx.rotate_right(a, b),
@@ -250,7 +257,7 @@ pub(crate) fn from_z3<'c>(
                     }
                     z3::DeclKind::ZeroExt | z3::DeclKind::SignExt => {
                         let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
-                        let inner = BitVecAst::from_z3(ctx, arg)?;
+                        let inner = AstRef::from_z3(ctx, arg)?;
                         let i = z3::get_decl_int_parameter(*z3_ctx, decl, 0) as u32;
                         match decl_kind {
                             z3::DeclKind::ZeroExt => ctx.zero_ext(&inner, i),
@@ -260,7 +267,7 @@ pub(crate) fn from_z3<'c>(
                     }
                     z3::DeclKind::Extract => {
                         let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
-                        let inner = BitVecAst::from_z3(ctx, arg)?;
+                        let inner = AstRef::from_z3(ctx, arg)?;
                         let high = z3::get_decl_int_parameter(*z3_ctx, decl, 0) as u32;
                         let low = z3::get_decl_int_parameter(*z3_ctx, decl, 1) as u32;
                         ctx.extract(inner, high, low)
@@ -270,7 +277,7 @@ pub(crate) fn from_z3<'c>(
                         let mut concat_args = Vec::with_capacity(num_args as usize);
                         for i in 0..num_args {
                             let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, i))?;
-                            let val = BitVecAst::from_z3(ctx, arg)?;
+                            let val = AstRef::from_z3(ctx, arg)?;
                             concat_args.push(val);
                         }
                         ctx.concat(concat_args)
@@ -279,9 +286,9 @@ pub(crate) fn from_z3<'c>(
                         let cond = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
                         let then = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
                         let else_ = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 2))?;
-                        let cond = BoolAst::from_z3(ctx, cond)?;
-                        let then = BitVecAst::from_z3(ctx, then)?;
-                        let else_ = BitVecAst::from_z3(ctx, else_)?;
+                        let cond = AstRef::from_z3(ctx, cond)?;
+                        let then = AstRef::from_z3(ctx, then)?;
+                        let else_ = AstRef::from_z3(ctx, else_)?;
                         ctx.ite(cond, then, else_)
                     }
                     // Special case for bv2int used in string operations
@@ -307,7 +314,7 @@ pub(crate) fn from_z3<'c>(
                                     z3::DeclKind::Bv2int => {
                                         let arg =
                                             RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
-                                        BitVecAst::from_z3(ctx, arg)
+                                        AstRef::from_z3(ctx, arg)
                                     }
                                     z3::DeclKind::SeqIndex => {
                                         // int2bv(seq.indexof(haystack, needle, offset))
@@ -317,28 +324,28 @@ pub(crate) fn from_z3<'c>(
                                             RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
                                         let arg2 =
                                             RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 2))?;
-                                        let haystack = StringAst::from_z3(ctx, arg0)?;
-                                        let needle = StringAst::from_z3(ctx, arg1)?;
+                                        let haystack = AstRef::from_z3(ctx, arg0)?;
+                                        let needle = AstRef::from_z3(ctx, arg1)?;
                                         // offset is an int, convert to bv
                                         let offset_bv =
                                             RcAst::try_from(z3::mk_int2bv(*z3_ctx, 64, *arg2))?;
                                         let offset_simplified =
                                             RcAst::try_from(z3::simplify(*z3_ctx, *offset_bv))?;
-                                        let offset = BitVecAst::from_z3(ctx, offset_simplified)?;
+                                        let offset = AstRef::from_z3(ctx, offset_simplified)?;
                                         ctx.str_index_of(haystack, needle, offset)
                                     }
                                     z3::DeclKind::StrToInt => {
                                         // int2bv(str.to_int(s))
                                         let arg0 =
                                             RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
-                                        let s = StringAst::from_z3(ctx, arg0)?;
+                                        let s = AstRef::from_z3(ctx, arg0)?;
                                         ctx.str_to_bv(s)
                                     }
                                     z3::DeclKind::SeqLength => {
                                         // int2bv(seq.len(s))
                                         let arg0 =
                                             RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
-                                        let s = StringAst::from_z3(ctx, arg0)?;
+                                        let s = AstRef::from_z3(ctx, arg0)?;
                                         ctx.str_len(s)
                                     }
                                     _ => Err(ClarirsError::ConversionError(format!(

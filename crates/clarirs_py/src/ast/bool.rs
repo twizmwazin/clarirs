@@ -278,13 +278,8 @@ impl Bool {
         &self,
         py: Python<'py>,
     ) -> Result<(HashMap<u64, Bound<'py, PyAny>>, usize, Bound<'py, Bool>), ClaripyError> {
-        let (replacement_map, counter, canonical) = canonicalize(&self.inner.clone().into())?;
-        let canonical_bool = Bool::new(
-            py,
-            &canonical.into_bool().ok_or(ClaripyError::InvalidOperation(
-                "Canonicalization did not produce a Bool".to_string(),
-            ))?,
-        )?;
+        let (replacement_map, counter, canonical) = canonicalize(&self.inner)?;
+        let canonical_bool = Bool::new(py, &canonical)?;
 
         let mut py_map = HashMap::new();
         for (hash, dynast) in replacement_map {
@@ -297,10 +292,7 @@ impl Bool {
 
     pub fn identical(&self, other: Bound<'_, Base>) -> Result<bool, ClaripyError> {
         let other_dyn = Base::to_dynast(other)?;
-        Ok(structurally_match(
-            &DynAst::Boolean(self.inner.clone()),
-            &other_dyn,
-        )?)
+        Ok(structurally_match(&self.inner, &other_dyn)?)
     }
 
     #[getter]
@@ -353,7 +345,7 @@ impl Bool {
     #[getter]
     pub fn concrete_value(&self) -> Result<Option<bool>, ClaripyError> {
         Ok(match self.inner.simplify_ext(false, false)?.op() {
-            BooleanOp::BoolV(value) => Some(*value),
+            Op::BoolV(value) => Some(*value),
             _ => None,
         })
     }
