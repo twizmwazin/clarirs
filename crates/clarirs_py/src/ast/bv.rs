@@ -24,20 +24,20 @@ static PY_BV_CACHE: LazyLock<DashMap<u64, Py<PyWeakrefReference>>> = LazyLock::n
 
 #[pyclass(extends=Bits, subclass, frozen, weakref, module="claripy.ast.bv")]
 pub struct BV {
-    pub(crate) inner: BitVecAst<'static>,
+    pub(crate) inner: AstRef<'static>,
 }
 
 impl BV {
     pub fn new<'py>(
         py: Python<'py>,
-        inner: &BitVecAst<'static>,
+        inner: &AstRef<'static>,
     ) -> Result<Bound<'py, BV>, ClaripyError> {
         Self::new_with_name(py, inner, None)
     }
 
     pub fn new_with_name<'py>(
         py: Python<'py>,
-        inner: &BitVecAst<'static>,
+        inner: &AstRef<'static>,
         name: Option<String>,
     ) -> Result<Bound<'py, BV>, ClaripyError> {
         let inner = &inner.simplify_ext(true, true)?;

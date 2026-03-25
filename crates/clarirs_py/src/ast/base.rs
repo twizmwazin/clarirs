@@ -24,7 +24,7 @@ impl Base {
         }
     }
 
-    pub fn to_dynast(self_: Bound<'_, Base>) -> Result<DynAst<'static>, ClaripyError> {
+    pub fn to_dynast(self_: Bound<'_, Base>) -> Result<AstRef<'static>, ClaripyError> {
         if let Ok(bool) = self_.clone().into_any().cast::<Bool>() {
             Ok(bool.get().inner.clone())
         } else if let Ok(bv) = self_.clone().into_any().cast::<BV>() {
@@ -42,7 +42,7 @@ impl Base {
 
     pub fn from_dynast<'py>(
         py: Python<'py>,
-        dynast: DynAst<'static>,
+        dynast: AstRef<'static>,
     ) -> Result<Bound<'py, Base>, ClaripyError> {
         match dynast.return_type() {
             AstType::Bool => {

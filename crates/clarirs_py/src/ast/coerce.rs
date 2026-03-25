@@ -30,7 +30,7 @@ impl<'py> From<CoerceBool<'py>> for Bound<'py, Bool> {
     }
 }
 
-impl<'py> From<CoerceBool<'py>> for BoolAst<'static> {
+impl<'py> From<CoerceBool<'py>> for AstRef<'static> {
     fn from(val: CoerceBool<'py>) -> Self {
         val.0.get().inner.clone()
     }
@@ -295,7 +295,7 @@ impl<'py> TryFrom<CoerceFP<'py>> for Bound<'py, FP> {
     }
 }
 
-impl<'py> TryFrom<CoerceFP<'py>> for FloatAst<'static> {
+impl<'py> TryFrom<CoerceFP<'py>> for AstRef<'static> {
     type Error = ClaripyError;
 
     fn try_from(val: CoerceFP<'py>) -> Result<Self, Self::Error> {
@@ -329,7 +329,7 @@ impl<'py> From<CoerceString<'py>> for Bound<'py, PyAstString> {
     }
 }
 
-impl<'py> From<CoerceString<'py>> for StringAst<'static> {
+impl<'py> From<CoerceString<'py>> for AstRef<'static> {
     fn from(val: CoerceString<'py>) -> Self {
         val.0.get().inner.clone()
     }

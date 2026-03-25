@@ -26,20 +26,20 @@ static PY_BOOL_CACHE: LazyLock<DashMap<u64, Py<PyWeakrefReference>>> = LazyLock:
 
 #[pyclass(extends=Base, subclass, frozen, weakref, module="claripy.ast.bool")]
 pub struct Bool {
-    pub(crate) inner: BoolAst<'static>,
+    pub(crate) inner: AstRef<'static>,
 }
 
 impl Bool {
     pub fn new<'py>(
         py: Python<'py>,
-        inner: &BoolAst<'static>,
+        inner: &AstRef<'static>,
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Self::new_with_name(py, inner, None)
     }
 
     pub fn new_with_name<'py>(
         py: Python<'py>,
-        inner: &BoolAst<'static>,
+        inner: &AstRef<'static>,
         name: Option<String>,
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         let inner = &inner.simplify()?;
@@ -534,7 +534,7 @@ impl Bool {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.and2(&self.inner, <CoerceBool as Into<BoolAst>>::into(other))?,
+            &GLOBAL_CONTEXT.and2(&self.inner, <CoerceBool as Into<AstRef<'static>>>::into(other))?,
         )
     }
 
@@ -545,7 +545,7 @@ impl Bool {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.or2(&self.inner, <CoerceBool as Into<BoolAst>>::into(other))?,
+            &GLOBAL_CONTEXT.or2(&self.inner, <CoerceBool as Into<AstRef<'static>>>::into(other))?,
         )
     }
 
@@ -556,7 +556,7 @@ impl Bool {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.xor(&self.inner, <CoerceBool as Into<BoolAst>>::into(other))?,
+            &GLOBAL_CONTEXT.xor(&self.inner, <CoerceBool as Into<AstRef<'static>>>::into(other))?,
         )
     }
 
@@ -567,7 +567,7 @@ impl Bool {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.eq_(&self.inner, <CoerceBool as Into<BoolAst>>::into(other))?,
+            &GLOBAL_CONTEXT.eq_(&self.inner, <CoerceBool as Into<AstRef<'static>>>::into(other))?,
         )
     }
 
@@ -578,7 +578,7 @@ impl Bool {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.neq(&self.inner, <CoerceBool as Into<BoolAst>>::into(other))?,
+            &GLOBAL_CONTEXT.neq(&self.inner, <CoerceBool as Into<AstRef<'static>>>::into(other))?,
         )
     }
 

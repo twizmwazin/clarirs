@@ -140,20 +140,20 @@ pub fn fsort_double() -> PyFSort {
 
 #[pyclass(extends=Bits, subclass, frozen, weakref, module="claripy.ast.fp")]
 pub struct FP {
-    pub(crate) inner: FloatAst<'static>,
+    pub(crate) inner: AstRef<'static>,
 }
 
 impl FP {
     pub fn new<'py>(
         py: Python<'py>,
-        inner: &FloatAst<'static>,
+        inner: &AstRef<'static>,
     ) -> Result<Bound<'py, FP>, ClaripyError> {
         Self::new_with_name(py, inner, None)
     }
 
     pub fn new_with_name<'py>(
         py: Python<'py>,
-        inner: &FloatAst<'static>,
+        inner: &AstRef<'static>,
         name: Option<String>,
     ) -> Result<Bound<'py, FP>, ClaripyError> {
         let inner = &inner.simplify()?;

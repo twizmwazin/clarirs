@@ -31,7 +31,7 @@ impl<'c, S: Solver<'c>> HasContext<'c> for SimplificationMixin<'c, S> {
 }
 
 impl<'c, S: Solver<'c>> Solver<'c> for SimplificationMixin<'c, S> {
-    fn add(&mut self, constraint: &BoolAst<'c>) -> Result<(), ClarirsError> {
+    fn add(&mut self, constraint: &AstRef<'c>) -> Result<(), ClarirsError> {
         let simplified = constraint.simplify()?;
         if simplified.is_true() {
             return Ok(());
@@ -43,7 +43,7 @@ impl<'c, S: Solver<'c>> Solver<'c> for SimplificationMixin<'c, S> {
         self.inner.clear()
     }
 
-    fn constraints(&self) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
+    fn constraints(&self) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         self.inner.constraints()
     }
 
@@ -55,67 +55,67 @@ impl<'c, S: Solver<'c>> Solver<'c> for SimplificationMixin<'c, S> {
         self.inner.satisfiable()
     }
 
-    fn is_true(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+    fn is_true(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
         self.inner.is_true(&expr.simplify()?)
     }
 
-    fn is_false(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+    fn is_false(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
         self.inner.is_false(&expr.simplify()?)
     }
 
-    fn has_true(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+    fn has_true(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
         self.inner.has_true(&expr.simplify()?)
     }
 
-    fn has_false(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+    fn has_false(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
         self.inner.has_false(&expr.simplify()?)
     }
 
-    fn min_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn min_unsigned(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         self.inner.min_unsigned(&expr.simplify()?)
     }
 
-    fn max_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn max_unsigned(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         self.inner.max_unsigned(&expr.simplify()?)
     }
 
-    fn min_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn min_signed(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         self.inner.min_signed(&expr.simplify()?)
     }
 
-    fn max_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn max_signed(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         self.inner.max_signed(&expr.simplify()?)
     }
 
     fn eval_bool_n(
         &mut self,
-        expr: &BoolAst<'c>,
+        expr: &AstRef<'c>,
         n: u32,
-    ) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
+    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         self.inner.eval_bool_n(&expr.simplify()?, n)
     }
 
     fn eval_bitvec_n(
         &mut self,
-        expr: &BitVecAst<'c>,
+        expr: &AstRef<'c>,
         n: u32,
-    ) -> Result<Vec<BitVecAst<'c>>, ClarirsError> {
+    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         self.inner.eval_bitvec_n(&expr.simplify()?, n)
     }
 
     fn eval_float_n(
         &mut self,
-        expr: &FloatAst<'c>,
+        expr: &AstRef<'c>,
         n: u32,
-    ) -> Result<Vec<FloatAst<'c>>, ClarirsError> {
+    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         self.inner.eval_float_n(&expr.simplify()?, n)
     }
 
     fn eval_string_n(
         &mut self,
-        expr: &StringAst<'c>,
+        expr: &AstRef<'c>,
         n: u32,
-    ) -> Result<Vec<StringAst<'c>>, ClarirsError> {
+    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         self.inner.eval_string_n(&expr.simplify()?, n)
     }
 }

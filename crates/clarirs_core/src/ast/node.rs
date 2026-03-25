@@ -165,12 +165,6 @@ impl<'c> AstNode<'c> {
 /// The primary AST reference type — a reference-counted pointer to an AstNode.
 pub type AstRef<'c> = Arc<AstNode<'c>>;
 
-// Backwards-compatible type aliases — all are now the same type.
-pub type BoolAst<'c> = AstRef<'c>;
-pub type BitVecAst<'c> = AstRef<'c>;
-pub type FloatAst<'c> = AstRef<'c>;
-pub type StringAst<'c> = AstRef<'c>;
-pub type DynAst<'c> = AstRef<'c>;
 
 pub trait IntoOwned<T> {
     fn into_owned(self) -> T;
