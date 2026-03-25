@@ -246,10 +246,10 @@ pub(crate) fn simplify_bool<'c>(
                 (_, BooleanOp::BoolV(true)) => Ok(state.get_bool_simplified(0)?),
                 (BooleanOp::BoolV(false), _) => Ok(ctx.not(state.get_bool_simplified(1)?)?),
                 (_, BooleanOp::BoolV(false)) => Ok(ctx.not(state.get_bool_simplified(0)?)?),
-                // a == a -> true, but only when no floats are involved (NaN != NaN)
-                _ if early_lhs == early_rhs && !early_lhs.theories().contains(Theories::FLOAT) => {
-                    Ok(ctx.true_()?)
-                }
+                // a == a -> true. Even when floats are involved, this is a boolean
+                // identity: both sides are the same expression and evaluate to the same
+                // value (NaN only affects fp== itself, not bool== of two equal booleans).
+                _ if early_lhs == early_rhs => Ok(ctx.true_()?),
                 _ => Ok(ctx.eq_(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
             }
         }
@@ -263,10 +263,10 @@ pub(crate) fn simplify_bool<'c>(
                 (_, BooleanOp::BoolV(true)) => Ok(ctx.not(state.get_bool_simplified(0)?)?),
                 (BooleanOp::BoolV(false), _) => Ok(state.get_bool_simplified(1)?),
                 (_, BooleanOp::BoolV(false)) => Ok(state.get_bool_simplified(0)?),
-                // a != a -> false, but only when no floats are involved (NaN != NaN)
-                _ if early_lhs == early_rhs && !early_lhs.theories().contains(Theories::FLOAT) => {
-                    Ok(ctx.false_()?)
-                }
+                // a != a -> false. Even when floats are involved, this is a boolean
+                // identity: both sides are the same expression and evaluate to the same
+                // value (NaN only affects fp!= itself, not bool!= of two equal booleans).
+                _ if early_lhs == early_rhs => Ok(ctx.false_()?),
                 _ => Ok(ctx.neq(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
             }
         }
