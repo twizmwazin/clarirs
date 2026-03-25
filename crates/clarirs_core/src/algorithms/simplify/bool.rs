@@ -249,9 +249,7 @@ pub(crate) fn simplify_bool<'c>(
                 // a == a -> true. Even when floats are involved, this is a boolean
                 // identity: both sides are the same expression and evaluate to the same
                 // value (NaN only affects fp== itself, not bool== of two equal booleans).
-                _ if early_lhs == early_rhs => {
-                    Ok(ctx.true_()?)
-                }
+                _ if early_lhs == early_rhs => Ok(ctx.true_()?),
                 _ => Ok(ctx.eq_(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
             }
         }
@@ -268,9 +266,7 @@ pub(crate) fn simplify_bool<'c>(
                 // a != a -> false. Even when floats are involved, this is a boolean
                 // identity: both sides are the same expression and evaluate to the same
                 // value (NaN only affects fp!= itself, not bool!= of two equal booleans).
-                _ if early_lhs == early_rhs => {
-                    Ok(ctx.false_()?)
-                }
+                _ if early_lhs == early_rhs => Ok(ctx.false_()?),
                 _ => Ok(ctx.neq(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
             }
         }

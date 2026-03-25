@@ -267,7 +267,6 @@ impl DynAst<'_> {
             DynAst::String(ast) => ast.symbolic(),
         }
     }
-
 }
 
 impl<'c> HasContext<'c> for DynAst<'c> {
