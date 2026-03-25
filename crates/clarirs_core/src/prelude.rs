@@ -1,4 +1,4 @@
-pub use crate::algorithms::{Join, Simplify};
+pub use crate::algorithms::Simplify;
 pub use crate::ast::bitvec::{BitVecAst, BitVecOp};
 pub use crate::ast::bool::{BoolAst, BooleanOp};
 pub use crate::ast::float::{FloatAst, FloatOp};
