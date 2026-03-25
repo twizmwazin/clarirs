@@ -515,7 +515,7 @@ mod from_z3 {
 
         // Verify it's an FpFP node with the right structure
         match result.op() {
-            FloatOp::FpFP(..) => {} // expected
+            Op::FpFP(..) => {} // expected
             other => panic!("Expected FpFP, got {:?}", other),
         }
     }
