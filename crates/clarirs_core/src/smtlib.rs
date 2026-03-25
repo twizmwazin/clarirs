@@ -131,7 +131,6 @@ fn to_smtlib_node(ast: &AstRef, children: &[String]) -> String {
             )
         }
         Op::StrToBV(..) => format!("(str.to_bv {})", children[0]),
-        Op::ITE(..) => format!("(ite {} {} {})", children[0], children[1], children[2]),
         Op::Union(..) => format!("(vsaunion {} {})", children[0], children[1]),
         Op::Intersection(..) => {
             format!("(vsaintersection {} {})", children[0], children[1])
@@ -201,10 +200,6 @@ fn to_smtlib_node(ast: &AstRef, children: &[String]) -> String {
             fprm_to_smtlib(fprm),
             children[0]
         ),
-        Op::ITE(..) => {
-            format!("(ite {} {} {})", children[0], children[1], children[2])
-        }
-
         // ── String ops ──────────────────────────────────────────────
         Op::StringS(s) => s.to_string(),
         Op::StringV(s) => format!("\"{}\"", s.replace('"', "\\\"")),
@@ -218,7 +213,6 @@ fn to_smtlib_node(ast: &AstRef, children: &[String]) -> String {
             children[0], children[1], children[2]
         ),
         Op::BVToStr(..) => format!("(str.from_bv {})", children[0]),
-        Op::ITE(..) => format!("(ite {} {} {})", children[0], children[1], children[2]),
     }
 }
 

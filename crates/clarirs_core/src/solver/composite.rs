@@ -6,11 +6,7 @@ use crate::prelude::*;
 ///
 /// Independent constraint sets are solved in separate child solver instances,
 /// which can significantly improve performance when constraints involve
-/// disjoint variable sets. This mirrors the design of claripy's
-/// `CompositeFrontend`.
-///
-/// The solver is parameterized over `S`, the backing solver type (e.g., Z3).
-/// A fresh `template` solver is cloned whenever a new child is needed.
+/// disjoint variable sets.
 #[derive(Clone, Debug)]
 pub struct CompositeSolver<'c, S: Solver<'c>> {
     ctx: &'c Context<'c>,
@@ -37,7 +33,6 @@ impl<'c, S: Solver<'c>> CompositeSolver<'c, S> {
         }
     }
 
-    /// Return the child IDs that own any of the given variables (deduplicated).
     fn child_ids_for_vars(&self, vars: &BTreeSet<InternedString>) -> Vec<usize> {
         let set: HashSet<usize> = vars
             .iter()
@@ -48,7 +43,6 @@ impl<'c, S: Solver<'c>> CompositeSolver<'c, S> {
         ids
     }
 
-    /// Allocate a new child by cloning the template. Returns its ID.
     fn new_child(&mut self) -> usize {
         let id = self.next_id;
         self.next_id += 1;
@@ -56,8 +50,6 @@ impl<'c, S: Solver<'c>> CompositeSolver<'c, S> {
         id
     }
 
-    /// Merge all children in `ids[1..]` into `ids[0]`, updating variable
-    /// mappings. Returns the surviving child ID.
     fn merge_children(&mut self, ids: &[usize]) -> Result<usize, ClarirsError> {
         debug_assert!(ids.len() >= 2);
         let target = ids[0];
@@ -73,7 +65,6 @@ impl<'c, S: Solver<'c>> CompositeSolver<'c, S> {
             }
         }
 
-        // Repoint variable mappings from removed children to `target`.
         let removed: HashSet<usize> = ids[1..].iter().copied().collect();
         for v in self.var_to_child.values_mut() {
             if removed.contains(v) {
@@ -84,10 +75,6 @@ impl<'c, S: Solver<'c>> CompositeSolver<'c, S> {
         Ok(target)
     }
 
-    /// Execute `f` on the solver that contains the relevant variables for a
-    /// query. When the variables span zero or one child the existing child is
-    /// used directly; when they span multiple children a temporary merged
-    /// solver is created.
     fn with_solver_for<T>(
         &mut self,
         vars: &BTreeSet<InternedString>,
@@ -97,13 +84,11 @@ impl<'c, S: Solver<'c>> CompositeSolver<'c, S> {
 
         match ids.len() {
             0 => {
-                // Variables not constrained — use a fresh solver.
                 let mut solver = self.template.clone();
                 f(&mut solver)
             }
             1 => f(self.children.get_mut(&ids[0]).unwrap()),
             _ => {
-                // Build a temporary merged solver for the query.
                 let mut merged = self.template.clone();
                 for &id in &ids {
                     for constraint in self.children[&id].constraints()? {
@@ -121,7 +106,6 @@ impl<'c, S: Solver<'c>> Solver<'c> for CompositeSolver<'c, S> {
         let vars: BTreeSet<InternedString> = constraint.variables().clone();
 
         if vars.is_empty() {
-            // Concrete constraint — reject immediately if false.
             if constraint.is_false() {
                 return Err(ClarirsError::Unsat);
             }
@@ -138,7 +122,6 @@ impl<'c, S: Solver<'c>> Solver<'c> for CompositeSolver<'c, S> {
 
         self.children.get_mut(&target_id).unwrap().add(constraint)?;
 
-        // Map all variables in this constraint to the target child.
         for v in vars {
             self.var_to_child.insert(v, target_id);
         }
@@ -216,40 +199,13 @@ impl<'c, S: Solver<'c>> Solver<'c> for CompositeSolver<'c, S> {
         self.with_solver_for(&vars, |s| s.max_signed(expr))
     }
 
-    fn eval_bool_n(
+    fn eval_many(
         &mut self,
         expr: &AstRef<'c>,
         n: u32,
     ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         let vars = expr.variables().clone();
-        self.with_solver_for(&vars, |s| s.eval_bool_n(expr, n))
-    }
-
-    fn eval_bitvec_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        let vars = expr.variables().clone();
-        self.with_solver_for(&vars, |s| s.eval_bitvec_n(expr, n))
-    }
-
-    fn eval_float_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        let vars = expr.variables().clone();
-        self.with_solver_for(&vars, |s| s.eval_float_n(expr, n))
-    }
-
-    fn eval_string_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        let vars = expr.variables().clone();
-        self.with_solver_for(&vars, |s| s.eval_string_n(expr, n))
+        self.with_solver_for(&vars, |s| s.eval_many(expr, n))
     }
 }
 
@@ -264,10 +220,9 @@ mod tests {
         let template = ConcreteSolver::new(&ctx);
         let mut solver = CompositeSolver::new(&ctx, template);
 
-        // Add concrete constraints (no variables) — should succeed
         solver.add(&ctx.true_()?)?;
         assert!(solver.satisfiable()?);
-        assert_eq!(solver.constraints()?.len(), 0); // concrete true is dropped
+        assert_eq!(solver.constraints()?.len(), 0);
 
         Ok(())
     }
@@ -278,7 +233,6 @@ mod tests {
         let template = ConcreteSolver::new(&ctx);
         let mut solver = CompositeSolver::new(&ctx, template);
 
-        // Adding false should return Unsat
         let result = solver.add(&ctx.false_().unwrap());
         assert!(result.is_err());
     }
@@ -289,9 +243,6 @@ mod tests {
         let template = ConcreteSolver::new(&ctx);
         let solver = CompositeSolver::new(&ctx, template);
 
-        // Two independent symbolic variables should go to different children.
-        // ConcreteSolver doesn't actually store constraints, but we can verify
-        // the partitioning logic via the child count.
         assert_eq!(solver.children.len(), 0);
 
         Ok(())

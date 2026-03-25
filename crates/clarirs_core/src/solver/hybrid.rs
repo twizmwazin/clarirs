@@ -159,7 +159,7 @@ impl<'c, A: Solver<'c>, E: Solver<'c>> Solver<'c> for HybridSolver<'c, A, E> {
         self.exact.max_signed(expr)
     }
 
-    fn eval_bool_n(
+    fn eval_many(
         &mut self,
         expr: &AstRef<'c>,
         n: u32,
@@ -168,72 +168,17 @@ impl<'c, A: Solver<'c>, E: Solver<'c>> Solver<'c> for HybridSolver<'c, A, E> {
             return Ok(Vec::new());
         }
         if !expr.symbolic() {
-            return self.approximate.eval_bool_n(expr, n);
+            return self.approximate.eval_many(expr, n);
         }
-        // Try approximate first, fall back to exact for symbolic
-        match self.approximate.eval_bool_n(expr, n) {
+        match self.approximate.eval_many(expr, n) {
             Ok(approx_results) if !approx_results.is_empty() => {
-                match self.exact.eval_bool_n(expr, n) {
+                match self.exact.eval_many(expr, n) {
                     Ok(exact) => Ok(exact),
                     Err(_) => Ok(approx_results),
                 }
             }
-            _ => self.exact.eval_bool_n(expr, n),
+            _ => self.exact.eval_many(expr, n),
         }
-    }
-
-    fn eval_bitvec_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        if n == 0 {
-            return Ok(Vec::new());
-        }
-        if !expr.symbolic() {
-            return self.approximate.eval_bitvec_n(expr, n);
-        }
-        match self.approximate.eval_bitvec_n(expr, n) {
-            Ok(approx_results) if !approx_results.is_empty() => {
-                match self.exact.eval_bitvec_n(expr, n) {
-                    Ok(exact) => Ok(exact),
-                    Err(_) => Ok(approx_results),
-                }
-            }
-            _ => self.exact.eval_bitvec_n(expr, n),
-        }
-    }
-
-    fn eval_float_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        if n == 0 {
-            return Ok(Vec::new());
-        }
-        if !expr.symbolic()
-            && let Ok(result) = self.approximate.eval_float_n(expr, n)
-        {
-            return Ok(result);
-        }
-        self.exact.eval_float_n(expr, n)
-    }
-
-    fn eval_string_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        if n == 0 {
-            return Ok(Vec::new());
-        }
-        if !expr.symbolic()
-            && let Ok(result) = self.approximate.eval_string_n(expr, n)
-        {
-            return Ok(result);
-        }
-        self.exact.eval_string_n(expr, n)
     }
 }
 
@@ -259,7 +204,7 @@ mod tests {
         let a = ctx.bvv_prim(10u8)?;
         let b = ctx.bvv_prim(20u8)?;
         let sum = ctx.add(&a, &b)?;
-        let result = solver.eval_bitvec(&sum)?;
+        let result = solver.eval(&sum)?;
         assert_eq!(result, ctx.bvv_prim(30u8)?);
 
         assert!(solver.satisfiable()?);

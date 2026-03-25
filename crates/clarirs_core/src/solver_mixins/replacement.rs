@@ -188,40 +188,13 @@ impl<'c, S: Solver<'c>> Solver<'c> for ReplacementSolver<'c, S> {
         self.inner.max_signed(&replaced)
     }
 
-    fn eval_bool_n(
+    fn eval_many(
         &mut self,
         expr: &AstRef<'c>,
         n: u32,
     ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         let replaced = self.replace_ast(expr)?;
-        self.inner.eval_bool_n(&replaced, n)
-    }
-
-    fn eval_bitvec_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        let replaced = self.replace_ast(expr)?;
-        self.inner.eval_bitvec_n(&replaced, n)
-    }
-
-    fn eval_float_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        let replaced = self.replace_ast(expr)?;
-        self.inner.eval_float_n(&replaced, n)
-    }
-
-    fn eval_string_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        let replaced = self.replace_ast(expr)?;
-        self.inner.eval_string_n(&replaced, n)
+        self.inner.eval_many(&replaced, n)
     }
 }
 
@@ -243,7 +216,7 @@ mod tests {
         solver.add_replacement(x.clone(), five.clone());
 
         // Evaluating x should now return 5
-        let result = solver.eval_bitvec(&x)?;
+        let result = solver.eval(&x)?;
         assert_eq!(result, five);
 
         Ok(())
@@ -263,7 +236,7 @@ mod tests {
         solver.add(&eq_constraint)?;
 
         // Evaluating x should now return 5
-        let result = solver.eval_bitvec(&x)?;
+        let result = solver.eval(&x)?;
         assert_eq!(result, five);
 
         Ok(())
@@ -284,7 +257,7 @@ mod tests {
 
         // Evaluating x + 3 should return 8
         let expr = ctx.add(&x, &three)?;
-        let result = solver.eval_bitvec(&expr)?;
+        let result = solver.eval(&expr)?;
         let expected = ctx.bvv_prim(8u8)?;
         assert_eq!(result, expected);
 

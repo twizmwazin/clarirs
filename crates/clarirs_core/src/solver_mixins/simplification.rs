@@ -87,36 +87,12 @@ impl<'c, S: Solver<'c>> Solver<'c> for SimplificationMixin<'c, S> {
         self.inner.max_signed(&expr.simplify()?)
     }
 
-    fn eval_bool_n(
+    fn eval_many(
         &mut self,
         expr: &AstRef<'c>,
         n: u32,
     ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        self.inner.eval_bool_n(&expr.simplify()?, n)
-    }
-
-    fn eval_bitvec_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        self.inner.eval_bitvec_n(&expr.simplify()?, n)
-    }
-
-    fn eval_float_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        self.inner.eval_float_n(&expr.simplify()?, n)
-    }
-
-    fn eval_string_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        self.inner.eval_string_n(&expr.simplify()?, n)
+        self.inner.eval_many(&expr.simplify()?, n)
     }
 }
 
@@ -135,7 +111,7 @@ mod tests {
         let and_expr = ctx.bv_and(&five, &five).unwrap();
 
         // The mixin should simplify this to just 5 before evaluation
-        let results = solver.eval_bitvec_n(&and_expr, 1).unwrap();
+        let results = solver.eval_many(&and_expr, 1).unwrap();
         assert_eq!(results.len(), 1);
 
         // Verify it was simplified to a concrete BVV
