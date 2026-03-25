@@ -1,18 +1,7 @@
+use crate::algorithms::reconstruct::reconstruct_node;
 use crate::prelude::*;
 
 use super::walk_post_order;
-
-fn extract_child<'c>(
-    children: &[AstRef<'c>],
-    index: usize,
-) -> Result<AstRef<'c>, ClarirsError> {
-    children
-        .get(index)
-        .cloned()
-        .ok_or(ClarirsError::InvalidArguments(format!(
-            "missing child at index {index}"
-        )))
-}
 
 /// Trait for excavating if-then-else expressions to the top level of an AST.
 ///
@@ -21,12 +10,8 @@ fn extract_child<'c>(
 ///
 /// For example, if we have an expression like: `a + (if cond then b else c)`
 ///
-/// After excavation, it would become: `if cond then (a + b) else (a + c)``
+/// After excavation, it would become: `if cond then (a + b) else (a + c)`
 pub trait ExcavateIte<'c>: Sized {
-    /// Transforms the AST by moving ITE expressions to the top level.
-    ///
-    /// Returns a new AST that is semantically equivalent to the original,
-    /// but with ITE expressions moved to the top level where possible.
     fn excavate_ite(&self) -> Result<Self, ClarirsError>;
 }
 
@@ -34,21 +19,66 @@ impl<'c> ExcavateIte<'c> for AstRef<'c> {
     fn excavate_ite(&self) -> Result<Self, ClarirsError> {
         walk_post_order(
             self.clone(),
-            |node, children| match node.return_type() {
-                AstType::Bool => bool::excavate_ite(&node, children),
-                AstType::BitVec(_) => bitvec::excavate_ite(&node, children),
-                AstType::Float(_) => float::excavate_ite(&node, children),
-                AstType::String => string::excavate_ite(&node, children),
-            },
+            |node, children| excavate_ite_node(&node, children),
             &self.context().excavate_ite_cache,
         )
     }
 }
 
-mod bitvec;
-mod bool;
-mod float;
-mod string;
+fn excavate_ite_node<'c>(
+    ast: &AstRef<'c>,
+    children: &[AstRef<'c>],
+) -> Result<AstRef<'c>, ClarirsError> {
+    let ctx = ast.context();
+
+    // Leaves: return as-is
+    if ast.op().is_leaf() {
+        return Ok(ast.clone());
+    }
+
+    // ITE itself: just rebuild from transformed children
+    if let Op::ITE(..) = ast.op() {
+        return ctx.ite(
+            children[0].clone(),
+            children[1].clone(),
+            children[2].clone(),
+        );
+    }
+
+    // For any other op: split on ITE children one at a time until none remain.
+    let mut current_children: Vec<AstRef<'c>> = children.to_vec();
+
+    loop {
+        let ite_idx = current_children
+            .iter()
+            .position(|c| matches!(c.op(), Op::ITE(..)));
+
+        let Some(idx) = ite_idx else {
+            // No more ITE children — rebuild the node
+            return reconstruct_node(ctx, ast, &current_children);
+        };
+
+        let Op::ITE(cond, then_, else_) = current_children[idx].op() else {
+            unreachable!()
+        };
+
+        // Build then-branch: replace the ITE child with its then-value
+        let mut then_children = current_children.clone();
+        then_children[idx] = then_.clone();
+        let then_branch = reconstruct_node(ctx, ast, &then_children)?;
+
+        // Build else-branch: replace the ITE child with its else-value
+        let mut else_children = current_children.clone();
+        else_children[idx] = else_.clone();
+        let else_branch = reconstruct_node(ctx, ast, &else_children)?;
+
+        // Recursively excavate the branches (they may contain more ITEs)
+        let then_excavated = then_branch.excavate_ite()?;
+        let else_excavated = else_branch.excavate_ite()?;
+
+        return ctx.ite(cond, then_excavated, else_excavated);
+    }
+}
 
 #[cfg(test)]
 mod tests;
