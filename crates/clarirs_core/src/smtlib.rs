@@ -52,7 +52,7 @@ fn to_smtlib_node(ast: &AstRef, children: &[String]) -> String {
         Op::StrIsDigit(..) => format!("(str.is_digit {})", children[0]),
         Op::StrEq(..) => format!("(= {} {})", children[0], children[1]),
         Op::StrNeq(..) => format!("(not (= {} {}))", children[0], children[1]),
-        Op::BoolITE(..) => format!("(ite {} {} {})", children[0], children[1], children[2]),
+        Op::ITE(..) => format!("(ite {} {} {})", children[0], children[1], children[2]),
 
         // ── BitVec ops ──────────────────────────────────────────────
         Op::BVS(s, _) => s.to_string(),
@@ -131,7 +131,7 @@ fn to_smtlib_node(ast: &AstRef, children: &[String]) -> String {
             )
         }
         Op::StrToBV(..) => format!("(str.to_bv {})", children[0]),
-        Op::BVITE(..) => format!("(ite {} {} {})", children[0], children[1], children[2]),
+        Op::ITE(..) => format!("(ite {} {} {})", children[0], children[1], children[2]),
         Op::Union(..) => format!("(vsaunion {} {})", children[0], children[1]),
         Op::Intersection(..) => {
             format!("(vsaintersection {} {})", children[0], children[1])
@@ -201,7 +201,7 @@ fn to_smtlib_node(ast: &AstRef, children: &[String]) -> String {
             fprm_to_smtlib(fprm),
             children[0]
         ),
-        Op::FpITE(..) => {
+        Op::ITE(..) => {
             format!("(ite {} {} {})", children[0], children[1], children[2])
         }
 
@@ -218,7 +218,7 @@ fn to_smtlib_node(ast: &AstRef, children: &[String]) -> String {
             children[0], children[1], children[2]
         ),
         Op::BVToStr(..) => format!("(str.from_bv {})", children[0]),
-        Op::StrITE(..) => format!("(ite {} {} {})", children[0], children[1], children[2]),
+        Op::ITE(..) => format!("(ite {} {} {})", children[0], children[1], children[2]),
     }
 }
 

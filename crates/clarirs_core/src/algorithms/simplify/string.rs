@@ -85,7 +85,7 @@ pub(crate) fn simplify_string<'c>(
                 _ => Ok(ctx.bv_to_str(arc)?),
             }
         }
-        Op::StrITE(..) => {
+        Op::ITE(..) => {
             let (if_, then_, else_) = (
                 state.get_bool_simplified(0)?,
                 state.get_string_simplified(1)?,

@@ -37,7 +37,7 @@ pub(crate) fn to_z3(ast: &AstRef, children: &[RcAst]) -> Result<RcAst, ClarirsEr
                 let b = child(children, 1)?;
                 z3::mk_distinct(z3_ctx, 2, [**a, **b].as_ptr()).try_into()?
             }
-            Op::BoolITE(..) => {
+            Op::ITE(..) => {
                 let cond = child(children, 0)?;
                 let then = child(children, 1)?;
                 let else_ = child(children, 2)?;

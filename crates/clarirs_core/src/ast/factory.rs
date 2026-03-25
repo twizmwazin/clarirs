@@ -768,15 +768,7 @@ pub trait AstFactory<'c>: Sized {
         then: impl IntoOwned<AstRef<'c>>,
         else_: impl IntoOwned<AstRef<'c>>,
     ) -> Result<AstRef<'c>, ClarirsError> {
-        let c = cond.into_owned();
-        let t = then.into_owned();
-        let e = else_.into_owned();
-        match t.return_type() {
-            AstType::Bool => self.make(Op::BoolITE(c, t, e)),
-            AstType::BitVec(_) => self.make(Op::BVITE(c, t, e)),
-            AstType::Float(_) => self.make(Op::FpITE(c, t, e)),
-            AstType::String => self.make(Op::StrITE(c, t, e)),
-        }
+        self.make(Op::ITE(cond.into_owned(), then.into_owned(), else_.into_owned()))
     }
 
     fn annotate(

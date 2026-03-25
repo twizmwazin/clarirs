@@ -332,8 +332,8 @@ pub(crate) fn simplify_bool<'c>(
                 }
 
                 // (ite cond 1 0) == 0  ==>  !cond
-                (Op::BVITE(cond, then_val, else_val), Op::BVV(val))
-                | (Op::BVV(val), Op::BVITE(cond, then_val, else_val))
+                (Op::ITE(cond, then_val, else_val), Op::BVV(val))
+                | (Op::BVV(val), Op::ITE(cond, then_val, else_val))
                     if val.is_zero() =>
                 {
                     if let (Op::BVV(then_bvv), Op::BVV(else_bvv)) =
@@ -351,8 +351,8 @@ pub(crate) fn simplify_bool<'c>(
                 }
 
                 // (ite cond 1 0) == 1  ==>  cond
-                (Op::BVITE(cond, then_val, else_val), Op::BVV(val))
-                | (Op::BVV(val), Op::BVITE(cond, then_val, else_val))
+                (Op::ITE(cond, then_val, else_val), Op::BVV(val))
+                | (Op::BVV(val), Op::ITE(cond, then_val, else_val))
                     if val.is_one() =>
                 {
                     if let (Op::BVV(then_bvv), Op::BVV(else_bvv)) =
@@ -470,8 +470,8 @@ pub(crate) fn simplify_bool<'c>(
                 }
 
                 // (ite cond 1 0) != 0  ==>  cond
-                (Op::BVITE(cond, then_val, else_val), Op::BVV(val))
-                | (Op::BVV(val), Op::BVITE(cond, then_val, else_val))
+                (Op::ITE(cond, then_val, else_val), Op::BVV(val))
+                | (Op::BVV(val), Op::ITE(cond, then_val, else_val))
                     if val.is_zero() =>
                 {
                     if let (Op::BVV(then_bvv), Op::BVV(else_bvv)) =
@@ -489,8 +489,8 @@ pub(crate) fn simplify_bool<'c>(
                 }
 
                 // (ite cond 1 0) != 1  ==>  !cond
-                (Op::BVITE(cond, then_val, else_val), Op::BVV(val))
-                | (Op::BVV(val), Op::BVITE(cond, then_val, else_val))
+                (Op::ITE(cond, then_val, else_val), Op::BVV(val))
+                | (Op::BVV(val), Op::ITE(cond, then_val, else_val))
                     if val.is_one() =>
                 {
                     if let (Op::BVV(then_bvv), Op::BVV(else_bvv)) =
@@ -1536,7 +1536,7 @@ pub(crate) fn simplify_bool<'c>(
             }
         }
 
-        Op::BoolITE(..) => {
+        Op::ITE(..) => {
             let cond = state.get_bool_simplified(0)?;
             let early_then = state.get_bool_available(1)?;
             let early_else = state.get_bool_available(2)?;

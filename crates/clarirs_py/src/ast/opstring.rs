@@ -40,7 +40,7 @@ impl ToOpString for AstRef<'static> {
             Op::StrIsDigit(..) => "StrIsDigit".to_string(),
             Op::StrEq(..) => "__eq__".to_string(),
             Op::StrNeq(..) => "__ne__".to_string(),
-            Op::BoolITE(..) => "If".to_string(),
+            Op::ITE(..) => "If".to_string(),
 
             // BitVec ops
             Op::BVS(..) => "BVS".to_string(),
@@ -73,7 +73,7 @@ impl ToOpString for AstRef<'static> {
             Op::StrLen(..) => "StrLen".to_string(),
             Op::StrIndexOf(..) => "StrIndexOf".to_string(),
             Op::StrToBV(..) => "StrToBV".to_string(),
-            Op::BVITE(..) => "If".to_string(),
+            Op::ITE(..) => "If".to_string(),
             Op::Union(..) => "Union".to_string(),
             Op::Intersection(..) => "Intersection".to_string(),
             Op::Widen(..) => "Widen".to_string(),
@@ -93,7 +93,7 @@ impl ToOpString for AstRef<'static> {
             Op::BvToFp(..) => "bvToFP".to_string(),
             Op::BvToFpSigned(..) => "fpToFPSigned".to_string(),
             Op::BvToFpUnsigned(..) => "fpToFPUnsigned".to_string(),
-            Op::FpITE(..) => "If".to_string(),
+            Op::ITE(..) => "If".to_string(),
 
             // String ops
             Op::StringS(..) => "StringS".to_string(),
@@ -102,7 +102,7 @@ impl ToOpString for AstRef<'static> {
             Op::StrSubstr(..) => "StrSubstr".to_string(),
             Op::StrReplace(..) => "StrReplace".to_string(),
             Op::BVToStr(..) => "IntToStr".to_string(),
-            Op::StrITE(..) => "If".to_string(),
+            Op::ITE(..) => "If".to_string(),
         }
     }
 }

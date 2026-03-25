@@ -62,7 +62,7 @@ pub fn reconstruct_node<'c>(
         Op::StrPrefixOf(..) => ctx.str_prefix_of(child(children, 0)?, child(children, 1)?),
         Op::StrSuffixOf(..) => ctx.str_suffix_of(child(children, 0)?, child(children, 1)?),
         Op::StrIsDigit(..) => ctx.str_is_digit(child(children, 0)?),
-        Op::BoolITE(..) | Op::BVITE(..) | Op::FpITE(..) | Op::StrITE(..) => {
+        Op::ITE(..) => {
             ctx.ite(child(children, 0)?, child(children, 1)?, child(children, 2)?)
         }
 

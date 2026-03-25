@@ -69,7 +69,7 @@ pub(crate) fn to_z3(ast: &AstRef, children: &[RcAst]) -> Result<RcAst, ClarirsEr
                 let int_val = mk_bv2int(a)?;
                 RcAst::try_from(z3::mk_int_to_str(z3_ctx, *int_val))?
             }
-            Op::StrITE(..) => {
+            Op::ITE(..) => {
                 let cond = child(children, 0)?;
                 let then = child(children, 1)?;
                 let else_ = child(children, 2)?;

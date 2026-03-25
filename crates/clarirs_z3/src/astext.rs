@@ -98,7 +98,7 @@ fn to_z3_node(ast: &AstRef<'_>, children: &[RcAst]) -> Result<RcAst, ClarirsErro
     match ast.op() {
         // Boolean ops
         Op::BoolS(..) | Op::BoolV(..) | Op::Not(..) | Op::And(..) | Op::Or(..)
-        | Op::Xor(..) | Op::BoolEq(..) | Op::BoolNeq(..) | Op::BoolITE(..)
+        | Op::Xor(..) | Op::BoolEq(..) | Op::BoolNeq(..) | Op::ITE(..)
         | Op::Eq(..) | Op::Neq(..) | Op::ULT(..) | Op::ULE(..) | Op::UGT(..)
         | Op::UGE(..) | Op::SLT(..) | Op::SLE(..) | Op::SGT(..) | Op::SGE(..)
         | Op::FpEq(..) | Op::FpNeq(..) | Op::FpLt(..) | Op::FpLeq(..)
@@ -114,7 +114,7 @@ fn to_z3_node(ast: &AstRef<'_>, children: &[RcAst]) -> Result<RcAst, ClarirsErro
         | Op::UDiv(..) | Op::SDiv(..) | Op::URem(..) | Op::SRem(..) | Op::ShL(..)
         | Op::LShR(..) | Op::AShR(..) | Op::RotateLeft(..) | Op::RotateRight(..)
         | Op::ZeroExt(..) | Op::SignExt(..) | Op::Extract(..) | Op::Concat(..)
-        | Op::ByteReverse(..) | Op::BVITE(..) | Op::FpToIEEEBV(..)
+        | Op::ByteReverse(..) | Op::ITE(..) | Op::FpToIEEEBV(..)
         | Op::FpToUBV(..) | Op::FpToSBV(..) | Op::StrLen(..) | Op::StrIndexOf(..)
         | Op::StrToBV(..) | Op::Union(..) | Op::Intersection(..) | Op::Widen(..) => {
             bv::to_z3(ast, children)
@@ -124,13 +124,13 @@ fn to_z3_node(ast: &AstRef<'_>, children: &[RcAst]) -> Result<RcAst, ClarirsErro
         Op::FPS(..) | Op::FPV(..) | Op::FpNeg(..) | Op::FpAbs(..) | Op::FpAdd(..)
         | Op::FpSub(..) | Op::FpMul(..) | Op::FpDiv(..) | Op::FpSqrt(..)
         | Op::FpToFp(..) | Op::FpFP(..) | Op::BvToFp(..) | Op::BvToFpSigned(..)
-        | Op::BvToFpUnsigned(..) | Op::FpITE(..) => {
+        | Op::BvToFpUnsigned(..) | Op::ITE(..) => {
             float::to_z3(ast, children)
         }
 
         // String ops
         Op::StringS(..) | Op::StringV(..) | Op::StrConcat(..) | Op::StrSubstr(..)
-        | Op::StrReplace(..) | Op::BVToStr(..) | Op::StrITE(..) => {
+        | Op::StrReplace(..) | Op::BVToStr(..) | Op::ITE(..) => {
             string::to_z3(ast, children)
         }
     }

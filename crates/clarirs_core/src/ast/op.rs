@@ -95,8 +95,8 @@ pub enum Op<'c> {
     StrEq(AstRef<'c>, AstRef<'c>),
     StrNeq(AstRef<'c>, AstRef<'c>),
 
-    // ── Boolean ITE ──────────────────────────────────────────────────
-    BoolITE(AstRef<'c>, AstRef<'c>, AstRef<'c>),
+    // ── If-then-else (all types) ───────────────────────────────────
+    ITE(AstRef<'c>, AstRef<'c>, AstRef<'c>),
 
     // ── BitVec leaf / value ──────────────────────────────────────────
     BVS(InternedString, u32),
@@ -140,9 +140,6 @@ pub enum Op<'c> {
     StrIndexOf(AstRef<'c>, AstRef<'c>, AstRef<'c>),
     StrToBV(AstRef<'c>),
 
-    // ── BitVec ITE ───────────────────────────────────────────────────
-    BVITE(AstRef<'c>, AstRef<'c>, AstRef<'c>),
-
     // ── BitVec VSA ops ───────────────────────────────────────────────
     Union(AstRef<'c>, AstRef<'c>),
     Intersection(AstRef<'c>, AstRef<'c>),
@@ -168,9 +165,6 @@ pub enum Op<'c> {
     BvToFpSigned(AstRef<'c>, FSort, FPRM),
     BvToFpUnsigned(AstRef<'c>, FSort, FPRM),
 
-    // ── Float ITE ────────────────────────────────────────────────────
-    FpITE(AstRef<'c>, AstRef<'c>, AstRef<'c>),
-
     // ── String leaf / value ──────────────────────────────────────────
     StringS(InternedString),
     StringV(String),
@@ -180,9 +174,6 @@ pub enum Op<'c> {
     StrSubstr(AstRef<'c>, AstRef<'c>, AstRef<'c>),
     StrReplace(AstRef<'c>, AstRef<'c>, AstRef<'c>),
     BVToStr(AstRef<'c>),
-
-    // ── String ITE ───────────────────────────────────────────────────
-    StrITE(AstRef<'c>, AstRef<'c>, AstRef<'c>),
 }
 
 impl<'c> Op<'c> {
@@ -200,13 +191,14 @@ impl<'c> Op<'c> {
             Op::FpGt(..) | Op::FpGeq(..) | Op::FpIsNan(_) | Op::FpIsInf(_) => AstType::Bool,
             Op::StrContains(..) | Op::StrPrefixOf(..) | Op::StrSuffixOf(..) => AstType::Bool,
             Op::StrIsDigit(_) | Op::StrEq(..) | Op::StrNeq(..) => AstType::Bool,
-            Op::BoolITE(_, t, _) => t.return_type(),
+
+            // ── ITE — return type follows `then` branch ─────────────
+            Op::ITE(_, t, _) => t.return_type(),
 
             // ── BitVec return ────────────────────────────────────────
             Op::BVS(_, w) => AstType::BitVec(*w),
             Op::BVV(bv) => AstType::BitVec(bv.len()),
             Op::BVNot(a) | Op::Neg(a) | Op::ByteReverse(a) => a.return_type(),
-            Op::BVITE(_, t, _) => t.return_type(),
             Op::BVAnd(args) | Op::BVOr(args) | Op::BVXor(args) => args[0].return_type(),
             Op::Add(args) | Op::Mul(args) => args[0].return_type(),
             Op::Sub(a, _) | Op::UDiv(a, _) | Op::SDiv(a, _) => a.return_type(),
@@ -240,13 +232,11 @@ impl<'c> Op<'c> {
                 let sig_size = sig.return_type().size();
                 AstType::Float(FSort::new(exp_size, sig_size.saturating_sub(1)))
             }
-            Op::FpITE(_, t, _) => t.return_type(),
 
             // ── String return ────────────────────────────────────────
             Op::StringS(_) | Op::StringV(_) => AstType::String,
             Op::StrConcat(..) | Op::StrSubstr(..) | Op::StrReplace(..) => AstType::String,
             Op::BVToStr(_) => AstType::String,
-            Op::StrITE(_, t, _) => t.return_type(),
         }
     }
 
@@ -285,8 +275,7 @@ impl<'c> Op<'c> {
             | Op::StrConcat(..) => 2,
 
             // 3 children
-            Op::BoolITE(..) | Op::BVITE(..) | Op::FpITE(..) | Op::StrITE(..)
-            | Op::StrIndexOf(..) | Op::FpFP(..)
+            Op::ITE(..) | Op::StrIndexOf(..) | Op::FpFP(..)
             | Op::StrSubstr(..) | Op::StrReplace(..) => 3,
 
             // N-ary
@@ -346,8 +335,7 @@ impl<'c> Op<'c> {
             },
 
             // 3 children
-            Op::BoolITE(a, b, c) | Op::BVITE(a, b, c) | Op::FpITE(a, b, c)
-            | Op::StrITE(a, b, c)
+            Op::ITE(a, b, c)
             | Op::StrIndexOf(a, b, c) | Op::FpFP(a, b, c)
             | Op::StrSubstr(a, b, c) | Op::StrReplace(a, b, c) => match index {
                 0 => Some(a.clone()),

@@ -1042,7 +1042,7 @@ pub(crate) fn simplify_bv<'c>(
                     state.rerun(ctx.zero_ext(inner, total_ext)?)
                 }
                 // Propogate over ITE when the children are BVVs
-                (Op::BVITE(cond, then_bv, else_bv), _) => {
+                (Op::ITE(cond, then_bv, else_bv), _) => {
                     let then_ext = ctx.zero_ext(then_bv, num_bits)?;
                     let else_ext = ctx.zero_ext(else_bv, num_bits)?;
                     state.rerun(ctx.ite(cond, &then_ext, &else_ext)?)
@@ -1135,7 +1135,7 @@ pub(crate) fn simplify_bv<'c>(
                 }
 
                 // Propogate through ITE
-                Op::BVITE(cond, then_bv, else_bv) => {
+                Op::ITE(cond, then_bv, else_bv) => {
                     let then_extracted = ctx.extract(then_bv, high, low)?;
                     let else_extracted = ctx.extract(else_bv, high, low)?;
                     state.rerun(ctx.ite(cond, &then_extracted, &else_extracted)?)
@@ -1435,7 +1435,7 @@ pub(crate) fn simplify_bv<'c>(
                 _ => Ok(ctx.str_to_bv(arc)?),
             }
         }
-        Op::BVITE(..) => {
+        Op::ITE(..) => {
             let (if_, then_, else_) = (
                 state.get_bool_simplified(0)?,
                 state.get_bv_simplified(1)?,

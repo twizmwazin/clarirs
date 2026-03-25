@@ -12,7 +12,7 @@ pub(crate) fn excavate_ite<'c>(
         Op::FpNeg(..) => {
             let inner = extract_child(children, 0)?;
 
-            if let Op::FpITE(cond, then_, else_) = inner.op() {
+            if let Op::ITE(cond, then_, else_) = inner.op() {
                 Ok(ctx.ite(cond, ctx.fp_neg(then_)?, ctx.fp_neg(else_)?)?)
             } else {
                 Ok(ctx.fp_neg(inner)?)
@@ -21,7 +21,7 @@ pub(crate) fn excavate_ite<'c>(
         Op::FpAbs(..) => {
             let inner = extract_child(children, 0)?;
 
-            if let Op::FpITE(cond, then_, else_) = inner.op() {
+            if let Op::ITE(cond, then_, else_) = inner.op() {
                 Ok(ctx.ite(cond, ctx.fp_abs(then_)?, ctx.fp_abs(else_)?)?)
             } else {
                 Ok(ctx.fp_abs(inner)?)
@@ -32,8 +32,8 @@ pub(crate) fn excavate_ite<'c>(
             let lhs = extract_child(children, 0)?;
             let rhs = extract_child(children, 1)?;
 
-            if let Op::FpITE(cond, then_, else_) = lhs.op() {
-                if let Op::FpITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+            if let Op::ITE(cond, then_, else_) = lhs.op() {
+                if let Op::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
                     Ok(ctx.ite(
                         cond,
                         ctx.ite(
@@ -54,7 +54,7 @@ pub(crate) fn excavate_ite<'c>(
                         ctx.fp_add(else_, rhs, rm)?,
                     )?)
                 }
-            } else if let Op::FpITE(cond, then_, else_) = rhs.op() {
+            } else if let Op::ITE(cond, then_, else_) = rhs.op() {
                 Ok(ctx.ite(
                     cond,
                     ctx.fp_add(&lhs, then_, rm)?,
@@ -69,8 +69,8 @@ pub(crate) fn excavate_ite<'c>(
             let lhs = extract_child(children, 0)?;
             let rhs = extract_child(children, 1)?;
 
-            if let Op::FpITE(cond, then_, else_) = lhs.op() {
-                if let Op::FpITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+            if let Op::ITE(cond, then_, else_) = lhs.op() {
+                if let Op::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
                     Ok(ctx.ite(
                         cond,
                         ctx.ite(
@@ -91,7 +91,7 @@ pub(crate) fn excavate_ite<'c>(
                         ctx.fp_sub(else_, rhs, rm)?,
                     )?)
                 }
-            } else if let Op::FpITE(cond, then_, else_) = rhs.op() {
+            } else if let Op::ITE(cond, then_, else_) = rhs.op() {
                 Ok(ctx.ite(
                     cond,
                     ctx.fp_sub(&lhs, then_, rm)?,
@@ -106,8 +106,8 @@ pub(crate) fn excavate_ite<'c>(
             let lhs = extract_child(children, 0)?;
             let rhs = extract_child(children, 1)?;
 
-            if let Op::FpITE(cond, then_, else_) = lhs.op() {
-                if let Op::FpITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+            if let Op::ITE(cond, then_, else_) = lhs.op() {
+                if let Op::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
                     Ok(ctx.ite(
                         cond,
                         ctx.ite(
@@ -128,7 +128,7 @@ pub(crate) fn excavate_ite<'c>(
                         ctx.fp_mul(else_, rhs, rm)?,
                     )?)
                 }
-            } else if let Op::FpITE(cond, then_, else_) = rhs.op() {
+            } else if let Op::ITE(cond, then_, else_) = rhs.op() {
                 Ok(ctx.ite(
                     cond,
                     ctx.fp_mul(&lhs, then_, rm)?,
@@ -143,8 +143,8 @@ pub(crate) fn excavate_ite<'c>(
             let lhs = extract_child(children, 0)?;
             let rhs = extract_child(children, 1)?;
 
-            if let Op::FpITE(cond, then_, else_) = lhs.op() {
-                if let Op::FpITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
+            if let Op::ITE(cond, then_, else_) = lhs.op() {
+                if let Op::ITE(rhs_cond, rhs_then, rhs_else) = rhs.op() {
                     Ok(ctx.ite(
                         cond,
                         ctx.ite(
@@ -165,7 +165,7 @@ pub(crate) fn excavate_ite<'c>(
                         ctx.fp_div(else_, rhs, rm)?,
                     )?)
                 }
-            } else if let Op::FpITE(cond, then_, else_) = rhs.op() {
+            } else if let Op::ITE(cond, then_, else_) = rhs.op() {
                 Ok(ctx.ite(
                     cond,
                     ctx.fp_div(&lhs, then_, rm)?,
@@ -179,7 +179,7 @@ pub(crate) fn excavate_ite<'c>(
             let rm = *rm;
             let inner = extract_child(children, 0)?;
 
-            if let Op::FpITE(cond, then_, else_) = inner.op() {
+            if let Op::ITE(cond, then_, else_) = inner.op() {
                 Ok(ctx.ite(cond, ctx.fp_sqrt(then_, rm)?, ctx.fp_sqrt(else_, rm)?)?)
             } else {
                 Ok(ctx.fp_sqrt(inner, rm)?)
@@ -190,7 +190,7 @@ pub(crate) fn excavate_ite<'c>(
             let rm = *rm;
             let inner = extract_child(children, 0)?;
 
-            if let Op::FpITE(cond, then_, else_) = inner.op() {
+            if let Op::ITE(cond, then_, else_) = inner.op() {
                 Ok(ctx.ite(
                     cond,
                     ctx.fp_to_fp(then_, sort, rm)?,
@@ -204,7 +204,7 @@ pub(crate) fn excavate_ite<'c>(
             let sort = *sort;
             let inner = extract_child(children, 0)?;
 
-            if let Op::BVITE(cond, then_, else_) = inner.op() {
+            if let Op::ITE(cond, then_, else_) = inner.op() {
                 Ok(ctx.ite(cond, ctx.bv_to_fp(then_, sort)?, ctx.bv_to_fp(else_, sort)?)?)
             } else {
                 Ok(ctx.bv_to_fp(inner, sort)?)
@@ -215,7 +215,7 @@ pub(crate) fn excavate_ite<'c>(
             let rm = *rm;
             let inner = extract_child(children, 0)?;
 
-            if let Op::BVITE(cond, then_, else_) = inner.op() {
+            if let Op::ITE(cond, then_, else_) = inner.op() {
                 Ok(ctx.ite(
                     cond,
                     ctx.bv_to_fp_signed(then_, sort, rm)?,
@@ -230,7 +230,7 @@ pub(crate) fn excavate_ite<'c>(
             let rm = *rm;
             let inner = extract_child(children, 0)?;
 
-            if let Op::BVITE(cond, then_, else_) = inner.op() {
+            if let Op::ITE(cond, then_, else_) = inner.op() {
                 Ok(ctx.ite(
                     cond,
                     ctx.bv_to_fp_unsigned(then_, sort, rm)?,
@@ -246,19 +246,19 @@ pub(crate) fn excavate_ite<'c>(
             let significand = extract_child(children, 2)?;
 
             // Check sign for ITE
-            if let Op::BVITE(cond, then_, else_) = sign.op() {
+            if let Op::ITE(cond, then_, else_) = sign.op() {
                 Ok(ctx.ite(
                     cond,
                     ctx.fp_fp(then_, &exponent, &significand)?,
                     ctx.fp_fp(else_, exponent, significand)?,
                 )?)
-            } else if let Op::BVITE(cond, then_, else_) = exponent.op() {
+            } else if let Op::ITE(cond, then_, else_) = exponent.op() {
                 Ok(ctx.ite(
                     cond,
                     ctx.fp_fp(&sign, then_, &significand)?,
                     ctx.fp_fp(sign, else_, significand)?,
                 )?)
-            } else if let Op::BVITE(cond, then_, else_) = significand.op() {
+            } else if let Op::ITE(cond, then_, else_) = significand.op() {
                 Ok(ctx.ite(
                     cond,
                     ctx.fp_fp(&sign, &exponent, then_)?,
@@ -268,7 +268,7 @@ pub(crate) fn excavate_ite<'c>(
                 Ok(ctx.fp_fp(sign, exponent, significand)?)
             }
         }
-        Op::FpITE(..) => {
+        Op::ITE(..) => {
             let cond = extract_child(children, 0)?;
             let then_ = extract_child(children, 1)?;
             let else_ = extract_child(children, 2)?;

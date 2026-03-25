@@ -129,7 +129,7 @@ pub(crate) fn reduce_bv(
                 "String operations are not supported".to_string(),
             ));
         }
-        Op::BVITE(..) => match child(children, 0)? {
+        Op::ITE(..) => match child(children, 0)? {
             ComparisonResult::True => child_si(children, 1)?,
             ComparisonResult::False => child_si(children, 2)?,
             ComparisonResult::Maybe => child_si(children, 1)?.union(&child_si(children, 2)?),

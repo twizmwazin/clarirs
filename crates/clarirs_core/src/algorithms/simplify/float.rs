@@ -147,7 +147,7 @@ pub(crate) fn simplify_float<'c>(
                 _ => Ok(ctx.bv_to_fp_unsigned(arc, fsort, fprm)?),
             }
         }
-        Op::FpITE(..) => {
+        Op::ITE(..) => {
             let (if_, then_, else_) = (
                 state.get_bool_simplified(0)?,
                 state.get_fp_simplified(1)?,
