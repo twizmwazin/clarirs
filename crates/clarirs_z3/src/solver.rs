@@ -84,7 +84,7 @@ impl<'c> Z3Solver<'c> {
 
         for i in 0..core_size {
             let core_ast = core_vector.get(i)?;
-            // Convert the Z3 AST back to a BoolAst to get its variable name
+            // Convert the Z3 AST back to get its variable name
             let bool_ast = AstRef::from_z3(self.ctx, &core_ast)?;
             if let Some(vars) = bool_ast.variables().iter().next()
                 && let Some(idx) = track_to_idx.get(&vars.to_string())
@@ -220,22 +220,6 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         Ok(z3_solver.check()? == z3::Lbool::True)
     }
 
-    fn eval(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.eval(expr)
-    }
-
-    fn eval(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.eval(expr)
-    }
-
-    fn eval(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.eval(expr)
-    }
-
-    fn eval(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.eval(expr)
-    }
-
     fn is_true(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
         let expr = expr.simplify_z3()?;
         Ok(expr.concrete() && expr.is_true())
@@ -350,138 +334,6 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         let model = optimize.get_model()?;
         let result = AstRef::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)?;
         Ok(result)
-    }
-
-    fn eval_many(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        let mut results = Vec::new();
-
-        // Simplify and check if concrete
-        let expr = expr.simplify_z3()?;
-        if expr.concrete() {
-            return Ok(vec![expr; n as usize]);
-        }
-
-        // Convert to Z3 once
-        let z3_expr = expr.to_z3()?;
-
-        // Create and fill the Z3 solver once
-        let mut z3_solver = RcSolver::new()?;
-
-        for assertion in &self.assertions {
-            let converted = assertion.to_z3()?;
-            z3_solver.assert(&converted)?;
-        }
-
-        for _ in 0..n {
-            if z3_solver.check()? != z3::Lbool::True {
-                break;
-            }
-
-            let model = z3_solver.model()?;
-            let eval_result = model.eval(&z3_expr)?;
-
-            let solution = AstRef::from_z3(self.context(), eval_result)?;
-            results.push(solution.clone());
-
-            // Add constraint to exclude this solution
-            let neq_constraint = self.context().neq(&expr, &solution)?;
-            let z3_neq = neq_constraint.to_z3()?;
-            z3_solver.assert(&z3_neq)?;
-        }
-
-        Ok(results)
-    }
-
-    fn eval_many(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        let mut results = Vec::new();
-
-        // Simplify and check if concrete
-        let expr = expr.simplify_z3()?;
-        if expr.concrete() {
-            return Ok(vec![expr; n as usize]);
-        }
-
-        // Convert to Z3 once
-        let z3_expr = expr.to_z3()?;
-
-        // Create and fill the Z3 solver once
-        let mut z3_solver = RcSolver::new()?;
-
-        for assertion in &self.assertions {
-            let converted = assertion.to_z3()?;
-            z3_solver.assert(&converted)?;
-        }
-
-        for _ in 0..n {
-            if z3_solver.check()? != z3::Lbool::True {
-                break;
-            }
-
-            let model = z3_solver.model()?;
-            let eval_result = model.eval(&z3_expr)?;
-
-            let solution = AstRef::from_z3(self.context(), eval_result)?;
-            results.push(solution.clone());
-
-            // Add constraint to exclude this solution
-            let neq_constraint = self.context().neq(&expr, &solution)?;
-            let z3_neq = neq_constraint.to_z3()?;
-            z3_solver.assert(&z3_neq)?;
-        }
-
-        Ok(results)
-    }
-
-    fn eval_many(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        let mut results = Vec::new();
-
-        // Simplify and check if concrete
-        let expr = expr.simplify_z3()?;
-        if expr.concrete() {
-            return Ok(vec![expr; n as usize]);
-        }
-
-        // Convert to Z3 once
-        let z3_expr = expr.to_z3()?;
-
-        // Create and fill the Z3 solver once
-        let mut z3_solver = RcSolver::new()?;
-
-        for assertion in &self.assertions {
-            let converted = assertion.to_z3()?;
-            z3_solver.assert(&converted)?;
-        }
-
-        for _ in 0..n {
-            if z3_solver.check()? != z3::Lbool::True {
-                break;
-            }
-
-            let model = z3_solver.model()?;
-            let eval_result = model.eval(&z3_expr)?;
-
-            let solution = AstRef::from_z3(self.context(), eval_result)?;
-            results.push(solution.clone());
-
-            // Add constraint to exclude this solution
-            let neq_constraint = self.context().neq(&expr, &solution)?;
-            let z3_neq = neq_constraint.to_z3()?;
-            z3_solver.assert(&z3_neq)?;
-        }
-
-        Ok(results)
     }
 
     fn eval_many(

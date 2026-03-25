@@ -21,48 +21,6 @@ pub trait AstFactory<'c>: Sized {
         self.make_annotated(op, BTreeSet::new())
     }
 
-    // Backwards-compatible aliases
-    fn make_bool(&'c self, op: Op<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make(op)
-    }
-    fn make_bitvec(&'c self, op: Op<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make(op)
-    }
-    fn make_float(&'c self, op: Op<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make(op)
-    }
-    fn make_string(&'c self, op: Op<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.make(op)
-    }
-    fn make_bool_annotated(
-        &'c self,
-        op: Op<'c>,
-        annotations: BTreeSet<Annotation>,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_annotated(op, annotations)
-    }
-    fn make_bitvec_annotated(
-        &'c self,
-        op: Op<'c>,
-        annotations: BTreeSet<Annotation>,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_annotated(op, annotations)
-    }
-    fn make_float_annotated(
-        &'c self,
-        op: Op<'c>,
-        annotations: BTreeSet<Annotation>,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_annotated(op, annotations)
-    }
-    fn make_string_annotated(
-        &'c self,
-        op: Op<'c>,
-        annotations: BTreeSet<Annotation>,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_annotated(op, annotations)
-    }
-
     fn bools<S: AsRef<str>>(&'c self, name: S) -> Result<AstRef<'c>, ClarirsError> {
         let interned = self.intern_string(name);
         self.make(Op::BoolS(interned))
