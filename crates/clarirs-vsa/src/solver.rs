@@ -1,7 +1,7 @@
 use clarirs_core::prelude::*;
 use num_traits::Signed;
 
-use crate::{reduce::Reduce, strided_interval::ComparisonResult};
+use crate::{reduce::Reduce, strided_interval::{ComparisonResult, StridedInterval}};
 
 /// A solver that uses Value Set Analysis (VSA) for symbolic computation
 #[derive(Clone, Debug)]
@@ -69,7 +69,7 @@ impl<'c> Solver<'c> for VSASolver<'c> {
         expr: &AstRef<'c>,
         n: u32,
     ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        expr.simplify()?.reduce().and_then(|si| {
+        Reduce::<StridedInterval>::reduce(&expr.simplify()?).and_then(|si| {
             if si.is_empty() {
                 return Ok(vec![]);
             }
@@ -101,32 +101,32 @@ impl<'c> Solver<'c> for VSASolver<'c> {
     }
 
     fn is_true(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
-        Ok(matches!(expr.simplify()?.reduce()?, ComparisonResult::True))
+        Ok(matches!(Reduce::<ComparisonResult>::reduce(&expr.simplify()?)?, ComparisonResult::True))
     }
 
     fn is_false(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
         Ok(matches!(
-            expr.simplify()?.reduce()?,
+            Reduce::<ComparisonResult>::reduce(&expr.simplify()?)?,
             ComparisonResult::False
         ))
     }
 
     fn has_true(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
         Ok(matches!(
-            expr.simplify()?.reduce()?,
+            Reduce::<ComparisonResult>::reduce(&expr.simplify()?)?,
             ComparisonResult::True | ComparisonResult::Maybe
         ))
     }
 
     fn has_false(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
         Ok(matches!(
-            expr.simplify()?.reduce()?,
+            Reduce::<ComparisonResult>::reduce(&expr.simplify()?)?,
             ComparisonResult::False | ComparisonResult::Maybe
         ))
     }
 
     fn min_unsigned(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        expr.simplify()?.reduce().and_then(|si| {
+        Reduce::<StridedInterval>::reduce(&expr.simplify()?).and_then(|si| {
             let (min_bound, _) = si.get_unsigned_bounds();
             expr.context()
                 .bvv_from_biguint_with_size(&min_bound, expr.size())
@@ -134,7 +134,7 @@ impl<'c> Solver<'c> for VSASolver<'c> {
     }
 
     fn max_unsigned(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        expr.simplify()?.reduce().and_then(|si| {
+        Reduce::<StridedInterval>::reduce(&expr.simplify()?).and_then(|si| {
             let (_, max_bound) = si.get_unsigned_bounds();
             expr.context()
                 .bvv_from_biguint_with_size(&max_bound, expr.size())
@@ -142,7 +142,7 @@ impl<'c> Solver<'c> for VSASolver<'c> {
     }
 
     fn min_signed(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        expr.simplify()?.reduce().and_then(|si| {
+        Reduce::<StridedInterval>::reduce(&expr.simplify()?).and_then(|si| {
             let (min_bound, _) = si.get_signed_bounds();
             // Convert BigInt back to unsigned representation for two's complement
             let unsigned_min = if min_bound.is_negative() {
@@ -158,7 +158,7 @@ impl<'c> Solver<'c> for VSASolver<'c> {
     }
 
     fn max_signed(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        expr.simplify()?.reduce().and_then(|si| {
+        Reduce::<StridedInterval>::reduce(&expr.simplify()?).and_then(|si| {
             let (_, max_bound) = si.get_signed_bounds();
             // Convert BigInt back to unsigned representation for two's complement
             let unsigned_max = if max_bound.is_negative() {
