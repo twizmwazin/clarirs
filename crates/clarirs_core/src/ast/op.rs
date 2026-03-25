@@ -407,6 +407,220 @@ impl<'c> Op<'c> {
     pub fn check_same_sort(&self, other: &Self) -> bool {
         self.return_type() == other.return_type()
     }
+
+    /// Validate that all children have the expected types for this operation.
+    /// Returns Ok(()) if valid, or a TypeError describing the mismatch.
+    pub fn validate(&self) -> Result<(), ClarirsError> {
+        use AstType::*;
+
+        let err = |msg: std::string::String| Err(ClarirsError::TypeError(msg));
+
+        // Helper: check a single child has the expected type category
+        let expect = |child: &AstRef<'c>, expected: &str| -> Result<(), ClarirsError> {
+            let ty = child.return_type();
+            let ok = match expected {
+                "bool" => ty.is_bool(),
+                "bv" => ty.is_bitvec(),
+                "float" => ty.is_float(),
+                "string" => ty.is_string(),
+                _ => unreachable!(),
+            };
+            if ok {
+                Ok(())
+            } else {
+                err(format!(
+                    "{:?}: expected {expected} child, got {:?}",
+                    std::mem::discriminant(self),
+                    ty
+                ))
+            }
+        };
+
+        // Helper: check two children have the same return type
+        let expect_same =
+            |a: &AstRef<'c>, b: &AstRef<'c>| -> Result<(), ClarirsError> {
+                if a.return_type() == b.return_type() {
+                    Ok(())
+                } else {
+                    err(format!(
+                        "{:?}: children have mismatched types: {:?} vs {:?}",
+                        std::mem::discriminant(self),
+                        a.return_type(),
+                        b.return_type()
+                    ))
+                }
+            };
+
+        // Helper: check all elements in a vec have the same bitvec width
+        let expect_all_same_bv = |args: &[AstRef<'c>]| -> Result<(), ClarirsError> {
+            for arg in args {
+                expect(arg, "bv")?;
+            }
+            if let Some(first) = args.first() {
+                for arg in &args[1..] {
+                    expect_same(first, arg)?;
+                }
+            }
+            Ok(())
+        };
+
+        match self {
+            // ── Leaves: no children to validate ──────────────────────
+            Op::BoolS(_) | Op::BoolV(_) | Op::BVS(..) | Op::BVV(_) | Op::FPS(..) | Op::FPV(_)
+            | Op::StringS(_) | Op::StringV(_) => Ok(()),
+
+            // ── Bool unary ───────────────────────────────────────────
+            Op::Not(a) => expect(a, "bool"),
+
+            // ── Bool n-ary ───────────────────────────────────────────
+            Op::And(args) | Op::Or(args) => {
+                for a in args {
+                    expect(a, "bool")?;
+                }
+                Ok(())
+            }
+
+            // ── Bool binary (bool, bool) ─────────────────────────────
+            Op::Xor(a, b) | Op::BoolEq(a, b) | Op::BoolNeq(a, b) => {
+                expect(a, "bool")?;
+                expect(b, "bool")
+            }
+
+            // ── BV comparisons (bv, bv) same width ──────────────────
+            Op::Eq(a, b) | Op::Neq(a, b) | Op::ULT(a, b) | Op::ULE(a, b) | Op::UGT(a, b)
+            | Op::UGE(a, b) | Op::SLT(a, b) | Op::SLE(a, b) | Op::SGT(a, b)
+            | Op::SGE(a, b) => {
+                expect(a, "bv")?;
+                expect(b, "bv")?;
+                expect_same(a, b)
+            }
+
+            // ── Float comparisons (float, float) same sort ──────────
+            Op::FpEq(a, b) | Op::FpNeq(a, b) | Op::FpLt(a, b) | Op::FpLeq(a, b)
+            | Op::FpGt(a, b) | Op::FpGeq(a, b) => {
+                expect(a, "float")?;
+                expect(b, "float")?;
+                expect_same(a, b)
+            }
+
+            // ── Float unary predicates ───────────────────────────────
+            Op::FpIsNan(a) | Op::FpIsInf(a) => expect(a, "float"),
+
+            // ── String comparisons (string, string) ──────────────────
+            Op::StrContains(a, b) | Op::StrPrefixOf(a, b) | Op::StrSuffixOf(a, b)
+            | Op::StrEq(a, b) | Op::StrNeq(a, b) => {
+                expect(a, "string")?;
+                expect(b, "string")
+            }
+            Op::StrIsDigit(a) => expect(a, "string"),
+
+            // ── ITE: cond=bool, then/else same type ──────────────────
+            Op::ITE(c, t, e) => {
+                expect(c, "bool")?;
+                expect_same(t, e)
+            }
+
+            // ── BV unary ─────────────────────────────────────────────
+            Op::BVNot(a) | Op::Neg(a) | Op::ByteReverse(a) => expect(a, "bv"),
+
+            // ── BV n-ary (all same width) ────────────────────────────
+            Op::BVAnd(args) | Op::BVOr(args) | Op::BVXor(args) | Op::Add(args) | Op::Mul(args) => {
+                expect_all_same_bv(args)
+            }
+
+            // ── BV binary (bv, bv) same width ────────────────────────
+            Op::Sub(a, b) | Op::UDiv(a, b) | Op::SDiv(a, b) | Op::URem(a, b) | Op::SRem(a, b)
+            | Op::ShL(a, b) | Op::LShR(a, b) | Op::AShR(a, b) | Op::RotateLeft(a, b)
+            | Op::RotateRight(a, b) | Op::Union(a, b) | Op::Intersection(a, b)
+            | Op::Widen(a, b) => {
+                expect(a, "bv")?;
+                expect(b, "bv")?;
+                expect_same(a, b)
+            }
+
+            // ── BV extend/extract ────────────────────────────────────
+            Op::ZeroExt(a, _) | Op::SignExt(a, _) => expect(a, "bv"),
+            Op::Extract(a, high, low) => {
+                expect(a, "bv")?;
+                let w = a.size();
+                if *high >= w || *low > *high {
+                    err(format!(
+                        "Extract: invalid bounds [{high}:{low}] for width {w}"
+                    ))
+                } else {
+                    Ok(())
+                }
+            }
+            Op::Concat(args) => {
+                for a in args {
+                    expect(a, "bv")?;
+                }
+                if args.is_empty() {
+                    err("Concat: requires at least one argument".into())
+                } else {
+                    Ok(())
+                }
+            }
+
+            // ── BV ← Float conversions ───────────────────────────────
+            Op::FpToIEEEBV(a) | Op::FpToUBV(a, _, _) | Op::FpToSBV(a, _, _) => {
+                expect(a, "float")
+            }
+
+            // ── BV ← String conversions ──────────────────────────────
+            Op::StrLen(a) | Op::StrToBV(a) => expect(a, "string"),
+            Op::StrIndexOf(a, b, c) => {
+                expect(a, "string")?;
+                expect(b, "string")?;
+                expect(c, "bv")
+            }
+
+            // ── Float unary ──────────────────────────────────────────
+            Op::FpNeg(a) | Op::FpAbs(a) | Op::FpSqrt(a, _) | Op::FpToFp(a, _, _) => {
+                expect(a, "float")
+            }
+
+            // ── Float binary (float, float) same sort ────────────────
+            Op::FpAdd(a, b, _) | Op::FpSub(a, b, _) | Op::FpMul(a, b, _)
+            | Op::FpDiv(a, b, _) => {
+                expect(a, "float")?;
+                expect(b, "float")?;
+                expect_same(a, b)
+            }
+
+            // ── Float ← BV conversions ───────────────────────────────
+            Op::BvToFp(a, _) | Op::BvToFpSigned(a, _, _) | Op::BvToFpUnsigned(a, _, _) => {
+                expect(a, "bv")
+            }
+            Op::FpFP(sign, exp, sig) => {
+                expect(sign, "bv")?;
+                expect(exp, "bv")?;
+                expect(sig, "bv")?;
+                if sign.size() != 1 {
+                    err(format!("FpFP: sign bit must be 1 bit, got {}", sign.size()))
+                } else {
+                    Ok(())
+                }
+            }
+
+            // ── String ops ───────────────────────────────────────────
+            Op::StrConcat(a, b) => {
+                expect(a, "string")?;
+                expect(b, "string")
+            }
+            Op::StrSubstr(a, b, c) => {
+                expect(a, "string")?;
+                expect(b, "bv")?;
+                expect(c, "bv")
+            }
+            Op::StrReplace(a, b, c) => {
+                expect(a, "string")?;
+                expect(b, "string")?;
+                expect(c, "string")
+            }
+            Op::BVToStr(a) => expect(a, "bv"),
+        }
+    }
 }
 
 pub struct OpChildIter<'a, 'c> {

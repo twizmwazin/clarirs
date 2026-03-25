@@ -133,6 +133,8 @@ impl<'c> AstFactory<'c> for Context<'c> {
         op: Op<'c>,
         mut annotations: BTreeSet<Annotation>,
     ) -> Result<AstRef<'c>, ClarirsError> {
+        op.validate()?;
+
         let child_annotations: Vec<Annotation> = op
             .child_iter()
             .flat_map(|c| c.annotations().clone())

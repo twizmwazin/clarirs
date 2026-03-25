@@ -499,9 +499,10 @@ fn test_booleq_identity_simplification_without_floats() -> Result<()> {
 }
 
 #[test]
-fn test_booleq_no_identity_simplification_with_floats() -> Result<()> {
-    // BoolEq(x, x) should NOT simplify to true when floats are involved
-    // because NaN != NaN in IEEE 754.
+fn test_booleq_identity_simplification_with_floats() -> Result<()> {
+    // BoolEq(x, x) SHOULD simplify to true even when floats are involved,
+    // because this is boolean identity (not fp==). NaN != NaN applies to
+    // fp_eq itself, not to bool== of two identical boolean expressions.
     let ctx = Context::default();
     let a = ctx.fps("a", clarirs_num::FSort::f64())?;
     let b = ctx.fps("b", clarirs_num::FSort::f64())?;
@@ -511,8 +512,8 @@ fn test_booleq_no_identity_simplification_with_floats() -> Result<()> {
     let simplified = eq_check.simplify()?;
 
     assert!(
-        !matches!(simplified.op(), Op::BoolV(true)),
-        "BoolEq(x, x) should NOT simplify to true when floats are involved, got: {:?}",
+        matches!(simplified.op(), Op::BoolV(true)),
+        "BoolEq(x, x) should simplify to true (boolean identity), got: {:?}",
         simplified.op()
     );
     Ok(())
