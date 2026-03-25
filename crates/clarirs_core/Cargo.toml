@@ -11,7 +11,6 @@ repository = { workspace = true }
 
 [dependencies]
 ahash = "0.8.12"
-bitflags = { version = "2", features = ["serde"] }
 anyhow = { workspace = true }
 clarirs_num = { path = "../clarirs_num" }
 num-bigint = { version = "0.4.6", features = ["serde"] }
