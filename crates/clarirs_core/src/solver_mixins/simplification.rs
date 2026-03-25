@@ -139,7 +139,7 @@ mod tests {
         assert_eq!(results.len(), 1);
 
         // Verify it was simplified to a concrete BVV
-        assert!(matches!(results[0].op(), BitVecOp::BVV(_)));
+        assert!(matches!(results[0].op(), Op::BVV(_)));
     }
 
     #[test]

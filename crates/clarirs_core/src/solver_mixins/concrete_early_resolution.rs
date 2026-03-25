@@ -61,7 +61,7 @@ impl<'c, S: Solver<'c>> Solver<'c> for ConcreteEarlyResolutionMixin<'c, S> {
         // If the expression is concrete, we can determine the result without the solver
         // Assumes the expression is already simplified
         if expr.concrete() {
-            return Ok(matches!(expr.op(), BooleanOp::BoolV(true)));
+            return Ok(matches!(expr.op(), Op::BoolV(true)));
         }
         self.inner.is_true(expr)
     }
@@ -70,7 +70,7 @@ impl<'c, S: Solver<'c>> Solver<'c> for ConcreteEarlyResolutionMixin<'c, S> {
         // If the expression is concrete, we can determine the result without the solver
         // Assumes the expression is already simplified
         if expr.concrete() {
-            return Ok(matches!(expr.op(), BooleanOp::BoolV(false)));
+            return Ok(matches!(expr.op(), Op::BoolV(false)));
         }
         self.inner.is_false(expr)
     }
@@ -94,7 +94,7 @@ impl<'c, S: Solver<'c>> Solver<'c> for ConcreteEarlyResolutionMixin<'c, S> {
     fn min_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
         if expr.concrete() {
             let simplified = expr.simplify_ext(false, true)?;
-            if matches!(simplified.op(), BitVecOp::BVV(..)) {
+            if matches!(simplified.op(), Op::BVV(..)) {
                 return Ok(simplified);
             }
         }
@@ -104,7 +104,7 @@ impl<'c, S: Solver<'c>> Solver<'c> for ConcreteEarlyResolutionMixin<'c, S> {
     fn max_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
         if expr.concrete() {
             let simplified = expr.simplify_ext(false, true)?;
-            if matches!(simplified.op(), BitVecOp::BVV(..)) {
+            if matches!(simplified.op(), Op::BVV(..)) {
                 return Ok(simplified);
             }
         }
@@ -114,7 +114,7 @@ impl<'c, S: Solver<'c>> Solver<'c> for ConcreteEarlyResolutionMixin<'c, S> {
     fn min_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
         if expr.concrete() {
             let simplified = expr.simplify_ext(false, true)?;
-            if matches!(simplified.op(), BitVecOp::BVV(..)) {
+            if matches!(simplified.op(), Op::BVV(..)) {
                 return Ok(simplified);
             }
         }
@@ -124,7 +124,7 @@ impl<'c, S: Solver<'c>> Solver<'c> for ConcreteEarlyResolutionMixin<'c, S> {
     fn max_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
         if expr.concrete() {
             let simplified = expr.simplify_ext(false, true)?;
-            if matches!(simplified.op(), BitVecOp::BVV(..)) {
+            if matches!(simplified.op(), Op::BVV(..)) {
                 return Ok(simplified);
             }
         }
@@ -161,7 +161,7 @@ impl<'c, S: Solver<'c>> Solver<'c> for ConcreteEarlyResolutionMixin<'c, S> {
             // VSA ops (Union, Intersection, Widen) on concrete values are
             // "concrete" (no variables) but multi-valued, and need the full
             // solver to enumerate values.
-            if matches!(simplified.op(), BitVecOp::BVV(..)) {
+            if matches!(simplified.op(), Op::BVV(..)) {
                 return Ok(vec![simplified]);
             }
         }
@@ -349,7 +349,7 @@ mod tests {
 
         assert_eq!(results.len(), 1);
         assert!(results[0].concrete());
-        assert!(matches!(results[0].op(), BitVecOp::BVV(_)));
+        assert!(matches!(results[0].op(), Op::BVV(_)));
     }
 
     #[test]
@@ -367,8 +367,8 @@ mod tests {
         assert!(min.concrete());
         assert!(max.concrete());
         // Verify they're the same as the input
-        assert!(matches!(min.op(), BitVecOp::BVV(_)));
-        assert!(matches!(max.op(), BitVecOp::BVV(_)));
+        assert!(matches!(min.op(), Op::BVV(_)));
+        assert!(matches!(max.op(), Op::BVV(_)));
     }
 
     #[test]
@@ -414,6 +414,6 @@ mod tests {
 
         assert_eq!(results.len(), 1);
         assert!(results[0].concrete());
-        assert!(matches!(results[0].op(), BooleanOp::BoolV(true)));
+        assert!(matches!(results[0].op(), Op::BoolV(true)));
     }
 }

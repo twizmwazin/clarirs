@@ -56,7 +56,7 @@ impl<'c, S: Solver<'c>> ReplacementSolver<'c, S> {
     /// Add an explicit replacement mapping: occurrences of `old` will be
     /// replaced with `new` in all future queries.
     pub fn add_replacement(&mut self, old: DynAst<'c>, new: DynAst<'c>) {
-        let hash = old.inner_hash();
+        let hash = old.hash();
         self.replacements.insert(hash, new.clone());
         self.replacement_cache.insert(hash, new);
     }
@@ -104,35 +104,26 @@ impl<'c, S: Solver<'c>> ReplacementSolver<'c, S> {
     /// Try to extract a replacement from an equality constraint like `sym == concrete`.
     fn try_extract_replacement(&mut self, constraint: &BoolAst<'c>) {
         match constraint.op() {
-            BooleanOp::BoolEq(lhs, rhs) => {
+            Op::BoolEq(lhs, rhs) => {
                 if lhs.symbolic() && !rhs.symbolic() {
-                    self.add_replacement(
-                        DynAst::Boolean(lhs.clone()),
-                        DynAst::Boolean(rhs.clone()),
-                    );
+                    self.add_replacement(lhs.clone(), rhs.clone());
                 } else if !lhs.symbolic() && rhs.symbolic() {
-                    self.add_replacement(
-                        DynAst::Boolean(rhs.clone()),
-                        DynAst::Boolean(lhs.clone()),
-                    );
+                    self.add_replacement(rhs.clone(), lhs.clone());
                 }
             }
-            BooleanOp::Eq(lhs, rhs) => {
+            Op::Eq(lhs, rhs) => {
                 if lhs.symbolic() && !rhs.symbolic() {
-                    self.add_replacement(DynAst::BitVec(lhs.clone()), DynAst::BitVec(rhs.clone()));
+                    self.add_replacement(lhs.clone(), rhs.clone());
                 } else if !lhs.symbolic() && rhs.symbolic() {
-                    self.add_replacement(DynAst::BitVec(rhs.clone()), DynAst::BitVec(lhs.clone()));
+                    self.add_replacement(rhs.clone(), lhs.clone());
                 }
             }
-            BooleanOp::Not(inner) => {
+            Op::Not(inner) => {
                 // Not(x) means x is false
                 if inner.symbolic()
                     && let Ok(false_val) = constraint.context().false_()
                 {
-                    self.add_replacement(
-                        DynAst::Boolean(inner.clone()),
-                        DynAst::Boolean(false_val),
-                    );
+                    self.add_replacement(inner.clone(), false_val);
                 }
             }
             _ => {}
@@ -264,7 +255,7 @@ mod tests {
         let five = ctx.bvv_prim(5u8)?;
 
         // Add explicit replacement: x -> 5
-        solver.add_replacement(DynAst::BitVec(x.clone()), DynAst::BitVec(five.clone()));
+        solver.add_replacement(x.clone(), five.clone());
 
         // Evaluating x should now return 5
         let result = solver.eval_bitvec(&x)?;
@@ -304,7 +295,7 @@ mod tests {
         let three = ctx.bvv_prim(3u8)?;
 
         // Replace x with 5
-        solver.add_replacement(DynAst::BitVec(x.clone()), DynAst::BitVec(five.clone()));
+        solver.add_replacement(x.clone(), five.clone());
 
         // Evaluating x + 3 should return 8
         let expr = ctx.add(&x, &three)?;
@@ -324,7 +315,7 @@ mod tests {
         let x = ctx.bvs("x", 8)?;
         let five = ctx.bvv_prim(5u8)?;
 
-        solver.add_replacement(DynAst::BitVec(x.clone()), DynAst::BitVec(five.clone()));
+        solver.add_replacement(x.clone(), five.clone());
         assert!(!solver.replacements().is_empty());
 
         solver.clear_replacements();
@@ -342,7 +333,7 @@ mod tests {
         let x = ctx.bools("x")?;
 
         // Replace x with true
-        solver.add_replacement(DynAst::Boolean(x.clone()), DynAst::Boolean(ctx.true_()?));
+        solver.add_replacement(x.clone(), ctx.true_()?);
 
         assert!(solver.is_true(&x)?);
         assert!(!solver.is_false(&x)?);

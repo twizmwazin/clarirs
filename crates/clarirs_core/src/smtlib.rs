@@ -13,139 +13,134 @@ fn fprm_to_smtlib(fprm: &FPRM) -> &'static str {
     }
 }
 
-fn to_smtlib_bool(ast: &BoolAst, children: &[String]) -> String {
+fn to_smtlib_node(ast: &AstRef, children: &[String]) -> String {
     match ast.op() {
-        BooleanOp::BoolS(s) => s.to_string(),
-        BooleanOp::BoolV(b) => b.to_string(),
-        BooleanOp::Not(..) => format!("(not {})", children[0]),
-        BooleanOp::And(..) => format!("(and {})", children.join(" ")),
-        BooleanOp::Or(..) => format!("(or {})", children.join(" ")),
-        BooleanOp::Xor(..) => format!("(xor {} {})", children[0], children[1]),
-        BooleanOp::BoolEq(..) => format!("(= {} {})", children[0], children[1]),
-        BooleanOp::BoolNeq(..) => {
+        // ── Boolean ops ─────────────────────────────────────────────
+        Op::BoolS(s) => s.to_string(),
+        Op::BoolV(b) => b.to_string(),
+        Op::Not(..) => format!("(not {})", children[0]),
+        Op::And(..) => format!("(and {})", children.join(" ")),
+        Op::Or(..) => format!("(or {})", children.join(" ")),
+        Op::Xor(..) => format!("(xor {} {})", children[0], children[1]),
+        Op::BoolEq(..) => format!("(= {} {})", children[0], children[1]),
+        Op::BoolNeq(..) => {
             format!("(distinct {} {})", children[0], children[1])
         }
-        BooleanOp::Eq(..) => format!("(= {} {})", children[0], children[1]),
-        BooleanOp::Neq(..) => {
+        Op::Eq(..) => format!("(= {} {})", children[0], children[1]),
+        Op::Neq(..) => {
             format!("(distinct {} {})", children[0], children[1])
         }
-        BooleanOp::ULT(..) => format!("(bvult {} {})", children[0], children[1]),
-        BooleanOp::ULE(..) => format!("(bvule {} {})", children[0], children[1]),
-        BooleanOp::UGT(..) => format!("(bvugt {} {})", children[0], children[1]),
-        BooleanOp::UGE(..) => format!("(bvuge {} {})", children[0], children[1]),
-        BooleanOp::SLT(..) => format!("(bvslt {} {})", children[0], children[1]),
-        BooleanOp::SLE(..) => format!("(bvsle {} {})", children[0], children[1]),
-        BooleanOp::SGT(..) => format!("(bvsgt {} {})", children[0], children[1]),
-        BooleanOp::SGE(..) => format!("(bvsge {} {})", children[0], children[1]),
-        BooleanOp::FpEq(..) => format!("(fp.eq {} {})", children[0], children[1]),
-        BooleanOp::FpNeq(..) => format!("(not (fp.eq {} {}))", children[0], children[1]),
-        BooleanOp::FpLt(..) => format!("(fp.lt {} {})", children[0], children[1]),
-        BooleanOp::FpLeq(..) => format!("(fp.leq {} {})", children[0], children[1]),
-        BooleanOp::FpGt(..) => format!("(fp.gt {} {})", children[0], children[1]),
-        BooleanOp::FpGeq(..) => format!("(fp.geq {} {})", children[0], children[1]),
-        BooleanOp::FpIsNan(..) => format!("(fp.isNaN {})", children[0]),
-        BooleanOp::FpIsInf(..) => format!("(fp.isInfinite {})", children[0]),
-        BooleanOp::StrContains(..) => format!("(str.contains {} {})", children[0], children[1]),
-        BooleanOp::StrPrefixOf(..) => format!("(str.prefixof {} {})", children[0], children[1]),
-        BooleanOp::StrSuffixOf(..) => format!("(str.suffixof {} {})", children[0], children[1]),
-        BooleanOp::StrIsDigit(..) => format!("(str.is_digit {})", children[0]),
-        BooleanOp::StrEq(..) => format!("(= {} {})", children[0], children[1]),
-        BooleanOp::StrNeq(..) => format!("(not (= {} {}))", children[0], children[1]),
-        BooleanOp::ITE(..) => format!("(ite {} {} {})", children[0], children[1], children[2]),
-    }
-}
+        Op::ULT(..) => format!("(bvult {} {})", children[0], children[1]),
+        Op::ULE(..) => format!("(bvule {} {})", children[0], children[1]),
+        Op::UGT(..) => format!("(bvugt {} {})", children[0], children[1]),
+        Op::UGE(..) => format!("(bvuge {} {})", children[0], children[1]),
+        Op::SLT(..) => format!("(bvslt {} {})", children[0], children[1]),
+        Op::SLE(..) => format!("(bvsle {} {})", children[0], children[1]),
+        Op::SGT(..) => format!("(bvsgt {} {})", children[0], children[1]),
+        Op::SGE(..) => format!("(bvsge {} {})", children[0], children[1]),
+        Op::FpEq(..) => format!("(fp.eq {} {})", children[0], children[1]),
+        Op::FpNeq(..) => format!("(not (fp.eq {} {}))", children[0], children[1]),
+        Op::FpLt(..) => format!("(fp.lt {} {})", children[0], children[1]),
+        Op::FpLeq(..) => format!("(fp.leq {} {})", children[0], children[1]),
+        Op::FpGt(..) => format!("(fp.gt {} {})", children[0], children[1]),
+        Op::FpGeq(..) => format!("(fp.geq {} {})", children[0], children[1]),
+        Op::FpIsNan(..) => format!("(fp.isNaN {})", children[0]),
+        Op::FpIsInf(..) => format!("(fp.isInfinite {})", children[0]),
+        Op::StrContains(..) => format!("(str.contains {} {})", children[0], children[1]),
+        Op::StrPrefixOf(..) => format!("(str.prefixof {} {})", children[0], children[1]),
+        Op::StrSuffixOf(..) => format!("(str.suffixof {} {})", children[0], children[1]),
+        Op::StrIsDigit(..) => format!("(str.is_digit {})", children[0]),
+        Op::StrEq(..) => format!("(= {} {})", children[0], children[1]),
+        Op::StrNeq(..) => format!("(not (= {} {}))", children[0], children[1]),
+        Op::BoolITE(..) => format!("(ite {} {} {})", children[0], children[1], children[2]),
 
-fn to_smtlib_bv(ast: &BitVecAst, children: &[String]) -> String {
-    match ast.op() {
-        BitVecOp::BVS(s, _) => s.to_string(),
-        BitVecOp::BVV(bit_vec) => format!("(_ bv{} {})", bit_vec.to_biguint(), bit_vec.len()),
-        BitVecOp::Not(..) => format!("(bvnot {})", children[0]),
-        BitVecOp::And(..) => format!(
+        // ── BitVec ops ──────────────────────────────────────────────
+        Op::BVS(s, _) => s.to_string(),
+        Op::BVV(bit_vec) => format!("(_ bv{} {})", bit_vec.to_biguint(), bit_vec.len()),
+        Op::BVNot(..) => format!("(bvnot {})", children[0]),
+        Op::BVAnd(..) => format!(
             "(bvand{})",
             children
                 .iter()
                 .fold(String::new(), |acc, c| format!("{} {}", acc, c))
         ),
-        BitVecOp::Or(..) => format!(
+        Op::BVOr(..) => format!(
             "(bvor{})",
             children
                 .iter()
                 .fold(String::new(), |acc, c| format!("{} {}", acc, c))
         ),
-        BitVecOp::Xor(..) => format!(
+        Op::BVXor(..) => format!(
             "(bvxor{})",
             children
                 .iter()
                 .fold(String::new(), |acc, c| format!("{} {}", acc, c))
         ),
-        BitVecOp::Neg(..) => format!("(bvneg {})", children[0]),
-        BitVecOp::Add(..) => format!(
+        Op::Neg(..) => format!("(bvneg {})", children[0]),
+        Op::Add(..) => format!(
             "(bvadd{})",
             children
                 .iter()
                 .fold(String::new(), |acc, c| format!("{} {}", acc, c))
         ),
-        BitVecOp::Sub(..) => format!("(bvsub {} {})", children[0], children[1]),
-        BitVecOp::Mul(..) => format!(
+        Op::Sub(..) => format!("(bvsub {} {})", children[0], children[1]),
+        Op::Mul(..) => format!(
             "(bvmul{})",
             children
                 .iter()
                 .fold(String::new(), |acc, c| format!("{} {}", acc, c))
         ),
-        BitVecOp::UDiv(..) => format!("(bvudiv {} {})", children[0], children[1]),
-        BitVecOp::SDiv(..) => format!("(bvsdiv {} {})", children[0], children[1]),
-        BitVecOp::URem(..) => format!("(bvurem {} {})", children[0], children[1]),
-        BitVecOp::SRem(..) => format!("(bvsrem {} {})", children[0], children[1]),
-        BitVecOp::ShL(..) => format!("(bvshl {} {})", children[0], children[1]),
-        BitVecOp::LShR(..) => format!("(bvlshr {} {})", children[0], children[1]),
-        BitVecOp::AShR(..) => format!("(bvashr {} {})", children[0], children[1]),
-        BitVecOp::RotateLeft(..) => {
+        Op::UDiv(..) => format!("(bvudiv {} {})", children[0], children[1]),
+        Op::SDiv(..) => format!("(bvsdiv {} {})", children[0], children[1]),
+        Op::URem(..) => format!("(bvurem {} {})", children[0], children[1]),
+        Op::SRem(..) => format!("(bvsrem {} {})", children[0], children[1]),
+        Op::ShL(..) => format!("(bvshl {} {})", children[0], children[1]),
+        Op::LShR(..) => format!("(bvlshr {} {})", children[0], children[1]),
+        Op::AShR(..) => format!("(bvashr {} {})", children[0], children[1]),
+        Op::RotateLeft(..) => {
             format!("(ext_rotate_left {} {})", children[0], children[1])
         }
-        BitVecOp::RotateRight(..) => {
+        Op::RotateRight(..) => {
             format!("(ext_rotate_right {} {})", children[0], children[1])
         }
-        BitVecOp::ZeroExt(_, size) => format!("((_ zero_extend {}) {})", size, children[0]),
-        BitVecOp::SignExt(_, size) => format!("((_ sign_extend {}) {})", size, children[0]),
-        BitVecOp::Extract(_, high, low) => {
+        Op::ZeroExt(_, size) => format!("((_ zero_extend {}) {})", size, children[0]),
+        Op::SignExt(_, size) => format!("((_ sign_extend {}) {})", size, children[0]),
+        Op::Extract(_, high, low) => {
             format!("((_ extract {} {}) {})", high, low, children[0])
         }
-        BitVecOp::Concat(..) => format!("(concat {})", children.join(" ")),
-        BitVecOp::ByteReverse(..) => format!("(bvreverse {})", children[0]),
-        BitVecOp::FpToIEEEBV(..) => format!("(fp.to_ieee_bv {})", children[0]),
-        BitVecOp::FpToUBV(_, size, fprm) => format!(
+        Op::Concat(..) => format!("(concat {})", children.join(" ")),
+        Op::ByteReverse(..) => format!("(bvreverse {})", children[0]),
+        Op::FpToIEEEBV(..) => format!("(fp.to_ieee_bv {})", children[0]),
+        Op::FpToUBV(_, size, fprm) => format!(
             "((_ fp.to_ubv {}) {} {})",
             size,
             fprm_to_smtlib(fprm),
             children[0]
         ),
-        BitVecOp::FpToSBV(_, size, fprm) => format!(
+        Op::FpToSBV(_, size, fprm) => format!(
             "((_ fp.to_sbv {}) {} {})",
             size,
             fprm_to_smtlib(fprm),
             children[0]
         ),
-        BitVecOp::StrLen(..) => format!("(str.len {})", children[0]),
-        BitVecOp::StrIndexOf(..) => {
+        Op::StrLen(..) => format!("(str.len {})", children[0]),
+        Op::StrIndexOf(..) => {
             format!(
                 "(str.indexof {} {} {})",
                 children[0], children[1], children[2]
             )
         }
-        BitVecOp::StrToBV(..) => format!("(str.to_bv {})", children[0]),
-        BitVecOp::ITE(..) => format!("(ite {} {} {})", children[0], children[1], children[2]),
-        BitVecOp::Union(..) => format!("(vsaunion {} {})", children[0], children[1]),
-        BitVecOp::Intersection(..) => {
+        Op::StrToBV(..) => format!("(str.to_bv {})", children[0]),
+        Op::BVITE(..) => format!("(ite {} {} {})", children[0], children[1], children[2]),
+        Op::Union(..) => format!("(vsaunion {} {})", children[0], children[1]),
+        Op::Intersection(..) => {
             format!("(vsaintersection {} {})", children[0], children[1])
         }
-        BitVecOp::Widen(..) => format!("(vsawiden {} {})", children[0], children[1]),
-    }
-}
+        Op::Widen(..) => format!("(vsawiden {} {})", children[0], children[1]),
 
-fn to_smtlib_float(ast: &FloatAst, children: &[String]) -> String {
-    match ast.op() {
-        FloatOp::FPS(s, _) => s.to_string(),
-        FloatOp::FPV(float) => {
+        // ── Float ops ───────────────────────────────────────────────
+        Op::FPS(s, _) => s.to_string(),
+        Op::FPV(float) => {
             let sign = if float.sign() { "#b1" } else { "#b0" };
             let exp = float.exponent();
             let sig = float.mantissa();
@@ -153,80 +148,77 @@ fn to_smtlib_float(ast: &FloatAst, children: &[String]) -> String {
             let sig_str = format!("{:0>width$b}", sig.to_biguint(), width = sig.len() as usize);
             format!("(fp {sign} #b{exp_str} #b{sig_str})")
         }
-        FloatOp::FpFP(..) => format!("(fp {} {} {})", children[0], children[1], children[2]),
-        FloatOp::FpNeg(..) => format!("(fp.neg {})", children[0]),
-        FloatOp::FpAbs(..) => format!("(fp.abs {})", children[0]),
-        FloatOp::FpAdd(_, _, fprm) => format!(
+        Op::FpFP(..) => format!("(fp {} {} {})", children[0], children[1], children[2]),
+        Op::FpNeg(..) => format!("(fp.neg {})", children[0]),
+        Op::FpAbs(..) => format!("(fp.abs {})", children[0]),
+        Op::FpAdd(_, _, fprm) => format!(
             "(fp.add {} {} {})",
             fprm_to_smtlib(fprm),
             children[0],
             children[1]
         ),
-        FloatOp::FpSub(_, _, fprm) => format!(
+        Op::FpSub(_, _, fprm) => format!(
             "(fp.sub {} {} {})",
             fprm_to_smtlib(fprm),
             children[0],
             children[1]
         ),
-        FloatOp::FpMul(_, _, fprm) => format!(
+        Op::FpMul(_, _, fprm) => format!(
             "(fp.mul {} {} {})",
             fprm_to_smtlib(fprm),
             children[0],
             children[1]
         ),
-        FloatOp::FpDiv(_, _, fprm) => format!(
+        Op::FpDiv(_, _, fprm) => format!(
             "(fp.div {} {} {})",
             fprm_to_smtlib(fprm),
             children[0],
             children[1]
         ),
-        FloatOp::FpSqrt(_, fprm) => format!("(fp.sqrt {} {})", fprm_to_smtlib(fprm), children[0]),
-        FloatOp::FpToFp(_, fsort, fprm) => format!(
+        Op::FpSqrt(_, fprm) => format!("(fp.sqrt {} {})", fprm_to_smtlib(fprm), children[0]),
+        Op::FpToFp(_, fsort, fprm) => format!(
             "((_ to_fp {} {}) {} {})",
             fsort.exponent,
             fsort.mantissa,
             fprm_to_smtlib(fprm),
             children[0]
         ),
-        FloatOp::BvToFp(_, fsort) => format!(
+        Op::BvToFp(_, fsort) => format!(
             "((_ to_fp {} {}) {})",
             fsort.exponent, fsort.mantissa, children[0]
         ),
-        FloatOp::BvToFpSigned(_, fsort, fprm) => format!(
+        Op::BvToFpSigned(_, fsort, fprm) => format!(
             "((_ to_fp {} {}) {} {})",
             fsort.exponent,
             fsort.mantissa,
             fprm_to_smtlib(fprm),
             children[0]
         ),
-        FloatOp::BvToFpUnsigned(_, fsort, fprm) => format!(
+        Op::BvToFpUnsigned(_, fsort, fprm) => format!(
             "((_ to_fp_unsigned {} {}) {} {})",
             fsort.exponent,
             fsort.mantissa,
             fprm_to_smtlib(fprm),
             children[0]
         ),
-        FloatOp::ITE(..) => {
+        Op::FpITE(..) => {
             format!("(ite {} {} {})", children[0], children[1], children[2])
         }
-    }
-}
 
-fn to_smtlib_string(ast: &StringAst, children: &[String]) -> String {
-    match ast.op() {
-        StringOp::StringS(s) => s.to_string(),
-        StringOp::StringV(s) => format!("\"{}\"", s.replace('"', "\\\"")),
-        StringOp::StrConcat(..) => format!("(str.++ {} {})", children[0], children[1]),
-        StringOp::StrSubstr(..) => format!(
+        // ── String ops ──────────────────────────────────────────────
+        Op::StringS(s) => s.to_string(),
+        Op::StringV(s) => format!("\"{}\"", s.replace('"', "\\\"")),
+        Op::StrConcat(..) => format!("(str.++ {} {})", children[0], children[1]),
+        Op::StrSubstr(..) => format!(
             "(str.substr {} {} {})",
             children[0], children[1], children[2]
         ),
-        StringOp::StrReplace(..) => format!(
+        Op::StrReplace(..) => format!(
             "(str.replace {} {} {})",
             children[0], children[1], children[2]
         ),
-        StringOp::BVToStr(..) => format!("(str.from_bv {})", children[0]),
-        StringOp::ITE(..) => format!("(ite {} {} {})", children[0], children[1], children[2]),
+        Op::BVToStr(..) => format!("(str.from_bv {})", children[0]),
+        Op::StrITE(..) => format!("(ite {} {} {})", children[0], children[1], children[2]),
     }
 }
 
@@ -235,43 +227,14 @@ pub trait ToSmtLib {
     fn to_smtlib(&self) -> String;
 }
 
-impl ToSmtLib for DynAst<'_> {
+impl ToSmtLib for AstRef<'_> {
     fn to_smtlib(&self) -> String {
         walk_post_order(
             self.clone(),
-            |node, children| match node {
-                DynAst::Boolean(ast) => Ok(to_smtlib_bool(&ast, children)),
-                DynAst::BitVec(ast) => Ok(to_smtlib_bv(&ast, children)),
-                DynAst::Float(ast) => Ok(to_smtlib_float(&ast, children)),
-                DynAst::String(ast) => Ok(to_smtlib_string(&ast, children)),
-            },
+            |node, children| Ok(to_smtlib_node(&node, children)),
             &(),
         )
         .expect("infallible")
-    }
-}
-
-impl ToSmtLib for BoolAst<'_> {
-    fn to_smtlib(&self) -> String {
-        DynAst::from(self).to_smtlib()
-    }
-}
-
-impl ToSmtLib for BitVecAst<'_> {
-    fn to_smtlib(&self) -> String {
-        DynAst::from(self).to_smtlib()
-    }
-}
-
-impl ToSmtLib for FloatAst<'_> {
-    fn to_smtlib(&self) -> String {
-        DynAst::from(self).to_smtlib()
-    }
-}
-
-impl ToSmtLib for StringAst<'_> {
-    fn to_smtlib(&self) -> String {
-        DynAst::from(self).to_smtlib()
     }
 }
 

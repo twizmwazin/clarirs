@@ -2,7 +2,6 @@ use std::collections::BTreeSet;
 
 use num_bigint::BigUint;
 
-use super::factory_support::*;
 use crate::error::ClarirsError;
 use crate::prelude::*;
 
@@ -10,61 +9,76 @@ pub trait AstFactory<'c>: Sized {
     // Required methods
     fn intern_string(&self, s: impl AsRef<str>) -> InternedString;
 
-    fn make_bool_annotated(
+    fn make_annotated(
         &'c self,
-        op: BooleanOp<'c>,
+        op: Op<'c>,
         annotations: BTreeSet<Annotation>,
-    ) -> Result<BoolAst<'c>, ClarirsError>;
-    fn make_bitvec_annotated(
-        &'c self,
-        op: BitVecOp<'c>,
-        annotations: BTreeSet<Annotation>,
-    ) -> Result<BitVecAst<'c>, ClarirsError>;
-    fn make_float_annotated(
-        &'c self,
-        op: FloatOp<'c>,
-        annotations: BTreeSet<Annotation>,
-    ) -> Result<FloatAst<'c>, ClarirsError>;
-    fn make_string_annotated(
-        &'c self,
-        op: StringOp<'c>,
-        annotations: BTreeSet<Annotation>,
-    ) -> Result<StringAst<'c>, ClarirsError>;
+    ) -> Result<AstRef<'c>, ClarirsError>;
 
     // Provided methods
 
-    fn make_bool(&'c self, op: BooleanOp<'c>) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool_annotated(op, BTreeSet::new())
+    fn make(&'c self, op: Op<'c>) -> Result<AstRef<'c>, ClarirsError> {
+        self.make_annotated(op, BTreeSet::new())
     }
 
-    fn make_bitvec(&'c self, op: BitVecOp<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec_annotated(op, BTreeSet::new())
+    // Backwards-compatible aliases
+    fn make_bool(&'c self, op: Op<'c>) -> Result<AstRef<'c>, ClarirsError> {
+        self.make(op)
     }
-
-    fn make_float(&'c self, op: FloatOp<'c>) -> Result<FloatAst<'c>, ClarirsError> {
-        self.make_float_annotated(op, BTreeSet::new())
+    fn make_bitvec(&'c self, op: Op<'c>) -> Result<AstRef<'c>, ClarirsError> {
+        self.make(op)
     }
-
-    fn make_string(&'c self, op: StringOp<'c>) -> Result<StringAst<'c>, ClarirsError> {
-        self.make_string_annotated(op, BTreeSet::new())
+    fn make_float(&'c self, op: Op<'c>) -> Result<AstRef<'c>, ClarirsError> {
+        self.make(op)
+    }
+    fn make_string(&'c self, op: Op<'c>) -> Result<AstRef<'c>, ClarirsError> {
+        self.make(op)
+    }
+    fn make_bool_annotated(
+        &'c self,
+        op: Op<'c>,
+        annotations: BTreeSet<Annotation>,
+    ) -> Result<AstRef<'c>, ClarirsError> {
+        self.make_annotated(op, annotations)
+    }
+    fn make_bitvec_annotated(
+        &'c self,
+        op: Op<'c>,
+        annotations: BTreeSet<Annotation>,
+    ) -> Result<AstRef<'c>, ClarirsError> {
+        self.make_annotated(op, annotations)
+    }
+    fn make_float_annotated(
+        &'c self,
+        op: Op<'c>,
+        annotations: BTreeSet<Annotation>,
+    ) -> Result<AstRef<'c>, ClarirsError> {
+        self.make_annotated(op, annotations)
+    }
+    fn make_string_annotated(
+        &'c self,
+        op: Op<'c>,
+        annotations: BTreeSet<Annotation>,
+    ) -> Result<AstRef<'c>, ClarirsError> {
+        self.make_annotated(op, annotations)
     }
 
     fn bools<S: AsRef<str>>(&'c self, name: S) -> Result<BoolAst<'c>, ClarirsError> {
         let interned = self.intern_string(name);
-        self.make_bool(BooleanOp::BoolS(interned))
+        self.make(Op::BoolS(interned))
     }
 
     fn boolv(&'c self, value: bool) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::BoolV(value))
+        self.make(Op::BoolV(value))
     }
 
     fn bvs<S: AsRef<str>>(&'c self, name: S, width: u32) -> Result<BitVecAst<'c>, ClarirsError> {
         let interned = self.intern_string(name);
-        self.make_bitvec(BitVecOp::BVS(interned, width))
+        self.make(Op::BVS(interned, width))
     }
 
     fn bvv(&'c self, value: BitVec) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::BVV(value))
+        self.make(Op::BVV(value))
     }
 
     fn fps<S: AsRef<str>, FS: Into<FSort>>(
@@ -73,34 +87,36 @@ pub trait AstFactory<'c>: Sized {
         sort: FS,
     ) -> Result<FloatAst<'c>, ClarirsError> {
         let interned = self.intern_string(name);
-        self.make_float(FloatOp::FPS(interned, sort.into()))
+        self.make(Op::FPS(interned, sort.into()))
     }
 
     fn fpv<F: Into<Float>>(&'c self, value: F) -> Result<FloatAst<'c>, ClarirsError> {
-        self.make_float(FloatOp::FPV(value.into()))
+        self.make(Op::FPV(value.into()))
     }
 
     fn strings<S: AsRef<str>>(&'c self, name: S) -> Result<StringAst<'c>, ClarirsError> {
         let interned = self.intern_string(name);
-        self.make_string(StringOp::StringS(interned))
+        self.make(Op::StringS(interned))
     }
 
     fn stringv<S: Into<String>>(&'c self, value: S) -> Result<StringAst<'c>, ClarirsError> {
-        self.make_string(StringOp::StringV(value.into()))
+        self.make(Op::StringV(value.into()))
     }
 
-    fn not<Op: SupportsNot<'c>>(
-        &'c self,
-        ast: impl IntoOwned<AstRef<'c, Op>>,
-    ) -> Result<AstRef<'c, Op>, ClarirsError> {
-        Op::not(self, ast)
+    fn not(&'c self, ast: impl IntoOwned<AstRef<'c>>) -> Result<AstRef<'c>, ClarirsError> {
+        let a = ast.into_owned();
+        match a.return_type() {
+            AstType::Bool => self.make(Op::Not(a)),
+            AstType::BitVec(_) => self.make(Op::BVNot(a)),
+            _ => Err(ClarirsError::TypeError("Not requires Bool or BitVec".into())),
+        }
     }
 
     fn and(
         &'c self,
         args: impl IntoIterator<Item = BoolAst<'c>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::And(args.into_iter().collect()))
+        self.make(Op::And(args.into_iter().collect()))
     }
 
     fn and2(
@@ -108,14 +124,14 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BoolAst<'c>>,
         rhs: impl IntoOwned<BoolAst<'c>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::And(vec![lhs.into_owned(), rhs.into_owned()]))
+        self.make(Op::And(vec![lhs.into_owned(), rhs.into_owned()]))
     }
 
     fn or(
         &'c self,
         args: impl IntoIterator<Item = BoolAst<'c>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::Or(args.into_iter().collect()))
+        self.make(Op::Or(args.into_iter().collect()))
     }
 
     fn or2(
@@ -123,7 +139,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BoolAst<'c>>,
         rhs: impl IntoOwned<BoolAst<'c>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::Or(vec![lhs.into_owned(), rhs.into_owned()]))
+        self.make(Op::Or(vec![lhs.into_owned(), rhs.into_owned()]))
     }
 
     fn xor(
@@ -131,27 +147,41 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BoolAst<'c>>,
         rhs: impl IntoOwned<BoolAst<'c>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::Xor(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::Xor(lhs.into_owned(), rhs.into_owned()))
     }
 
-    fn eq_<Op: SupportsEq<'c>>(
+    fn eq_(
         &'c self,
-        lhs: impl IntoOwned<AstRef<'c, Op>>,
-        rhs: impl IntoOwned<AstRef<'c, Op>>,
+        lhs: impl IntoOwned<AstRef<'c>>,
+        rhs: impl IntoOwned<AstRef<'c>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        Op::eq_(self, lhs, rhs)
+        let l = lhs.into_owned();
+        let r = rhs.into_owned();
+        match l.return_type() {
+            AstType::Bool => self.make(Op::BoolEq(l, r)),
+            AstType::BitVec(_) => self.make(Op::Eq(l, r)),
+            AstType::Float(_) => self.make(Op::FpEq(l, r)),
+            AstType::String => self.make(Op::StrEq(l, r)),
+        }
     }
 
-    fn neq<Op: SupportsNeq<'c>>(
+    fn neq(
         &'c self,
-        lhs: impl IntoOwned<AstRef<'c, Op>>,
-        rhs: impl IntoOwned<AstRef<'c, Op>>,
+        lhs: impl IntoOwned<AstRef<'c>>,
+        rhs: impl IntoOwned<AstRef<'c>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        Op::neq(self, lhs, rhs)
+        let l = lhs.into_owned();
+        let r = rhs.into_owned();
+        match l.return_type() {
+            AstType::Bool => self.make(Op::BoolNeq(l, r)),
+            AstType::BitVec(_) => self.make(Op::Neq(l, r)),
+            AstType::Float(_) => self.make(Op::FpNeq(l, r)),
+            AstType::String => self.make(Op::StrNeq(l, r)),
+        }
     }
 
     fn neg(&'c self, ast: impl IntoOwned<BitVecAst<'c>>) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::Neg(ast.into_owned()))
+        self.make(Op::Neg(ast.into_owned()))
     }
 
     fn bv_and(
@@ -159,15 +189,14 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BitVecAst<'c>>,
         rhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::And(vec![lhs.into_owned(), rhs.into_owned()]))
+        self.make(Op::BVAnd(vec![lhs.into_owned(), rhs.into_owned()]))
     }
 
     fn bv_and_many(
         &'c self,
         args: impl IntoIterator<Item = BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        let args: Vec<BitVecAst<'c>> = args.into_iter().collect();
-        self.make_bitvec(BitVecOp::And(args))
+        self.make(Op::BVAnd(args.into_iter().collect()))
     }
 
     fn bv_or(
@@ -175,15 +204,14 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BitVecAst<'c>>,
         rhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::Or(vec![lhs.into_owned(), rhs.into_owned()]))
+        self.make(Op::BVOr(vec![lhs.into_owned(), rhs.into_owned()]))
     }
 
     fn bv_or_many(
         &'c self,
         args: impl IntoIterator<Item = BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        let args: Vec<BitVecAst<'c>> = args.into_iter().collect();
-        self.make_bitvec(BitVecOp::Or(args))
+        self.make(Op::BVOr(args.into_iter().collect()))
     }
 
     fn bv_xor(
@@ -191,15 +219,14 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BitVecAst<'c>>,
         rhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::Xor(vec![lhs.into_owned(), rhs.into_owned()]))
+        self.make(Op::BVXor(vec![lhs.into_owned(), rhs.into_owned()]))
     }
 
     fn bv_xor_many(
         &'c self,
         args: impl IntoIterator<Item = BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        let args: Vec<BitVecAst<'c>> = args.into_iter().collect();
-        self.make_bitvec(BitVecOp::Xor(args))
+        self.make(Op::BVXor(args.into_iter().collect()))
     }
 
     fn add(
@@ -207,15 +234,14 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BitVecAst<'c>>,
         rhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::Add(vec![lhs.into_owned(), rhs.into_owned()]))
+        self.make(Op::Add(vec![lhs.into_owned(), rhs.into_owned()]))
     }
 
     fn add_many(
         &'c self,
         args: impl IntoIterator<Item = BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        let args: Vec<BitVecAst<'c>> = args.into_iter().collect();
-        self.make_bitvec(BitVecOp::Add(args))
+        self.make(Op::Add(args.into_iter().collect()))
     }
 
     fn mul(
@@ -223,15 +249,14 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BitVecAst<'c>>,
         rhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::Mul(vec![lhs.into_owned(), rhs.into_owned()]))
+        self.make(Op::Mul(vec![lhs.into_owned(), rhs.into_owned()]))
     }
 
     fn mul_many(
         &'c self,
         args: impl IntoIterator<Item = BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        let args: Vec<BitVecAst<'c>> = args.into_iter().collect();
-        self.make_bitvec(BitVecOp::Mul(args))
+        self.make(Op::Mul(args.into_iter().collect()))
     }
 
     fn sub(
@@ -239,7 +264,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BitVecAst<'c>>,
         rhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::Sub(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::Sub(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn udiv(
@@ -247,7 +272,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BitVecAst<'c>>,
         rhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::UDiv(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::UDiv(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn sdiv(
@@ -255,7 +280,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BitVecAst<'c>>,
         rhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::SDiv(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::SDiv(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn urem(
@@ -263,7 +288,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BitVecAst<'c>>,
         rhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::URem(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::URem(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn srem(
@@ -271,7 +296,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BitVecAst<'c>>,
         rhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::SRem(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::SRem(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn shl(
@@ -279,7 +304,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BitVecAst<'c>>,
         rhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::ShL(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::ShL(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn ashr(
@@ -287,7 +312,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BitVecAst<'c>>,
         rhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::AShR(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::AShR(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn lshr(
@@ -295,7 +320,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BitVecAst<'c>>,
         rhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::LShR(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::LShR(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn rotate_left(
@@ -303,7 +328,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BitVecAst<'c>>,
         rhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::RotateLeft(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::RotateLeft(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn rotate_right(
@@ -311,7 +336,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BitVecAst<'c>>,
         rhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::RotateRight(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::RotateRight(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn zero_ext(
@@ -319,7 +344,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BitVecAst<'c>>,
         width: u32,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::ZeroExt(lhs.into_owned(), width))
+        self.make(Op::ZeroExt(lhs.into_owned(), width))
     }
 
     fn sign_ext(
@@ -327,7 +352,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BitVecAst<'c>>,
         width: u32,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::SignExt(lhs.into_owned(), width))
+        self.make(Op::SignExt(lhs.into_owned(), width))
     }
 
     fn extract(
@@ -336,7 +361,7 @@ pub trait AstFactory<'c>: Sized {
         high: u32,
         low: u32,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::Extract(lhs.into_owned(), high, low))
+        self.make(Op::Extract(lhs.into_owned(), high, low))
     }
 
     fn concat(
@@ -349,7 +374,7 @@ pub trait AstFactory<'c>: Sized {
                 "Concat requires at least one argument".to_string(),
             ));
         }
-        self.make_bitvec(BitVecOp::Concat(args))
+        self.make(Op::Concat(args))
     }
 
     fn concat2(
@@ -364,7 +389,7 @@ pub trait AstFactory<'c>: Sized {
         &'c self,
         lhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::ByteReverse(lhs.into_owned()))
+        self.make(Op::ByteReverse(lhs.into_owned()))
     }
 
     fn ult(
@@ -372,7 +397,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BitVecAst<'c>>,
         rhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::ULT(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::ULT(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn ule(
@@ -380,7 +405,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BitVecAst<'c>>,
         rhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::ULE(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::ULE(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn ugt(
@@ -388,7 +413,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BitVecAst<'c>>,
         rhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::UGT(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::UGT(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn uge(
@@ -396,7 +421,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BitVecAst<'c>>,
         rhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::UGE(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::UGE(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn slt(
@@ -404,7 +429,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BitVecAst<'c>>,
         rhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::SLT(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::SLT(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn sle(
@@ -412,7 +437,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BitVecAst<'c>>,
         rhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::SLE(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::SLE(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn sgt(
@@ -420,7 +445,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BitVecAst<'c>>,
         rhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::SGT(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::SGT(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn sge(
@@ -428,7 +453,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BitVecAst<'c>>,
         rhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::SGE(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::SGE(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn fp_to_fp<RM: Into<FPRM>, FS: Into<FSort>>(
@@ -437,7 +462,7 @@ pub trait AstFactory<'c>: Sized {
         sort: FS,
         rm: RM,
     ) -> Result<FloatAst<'c>, ClarirsError> {
-        self.make_float(FloatOp::FpToFp(lhs.into_owned(), sort.into(), rm.into()))
+        self.make(Op::FpToFp(lhs.into_owned(), sort.into(), rm.into()))
     }
 
     fn bv_to_fp<FS: Into<FSort>>(
@@ -445,7 +470,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BitVecAst<'c>>,
         sort: FS,
     ) -> Result<FloatAst<'c>, ClarirsError> {
-        self.make_float(FloatOp::BvToFp(lhs.into_owned(), sort.into()))
+        self.make(Op::BvToFp(lhs.into_owned(), sort.into()))
     }
 
     fn fp_fp(
@@ -454,7 +479,7 @@ pub trait AstFactory<'c>: Sized {
         exponent: impl IntoOwned<BitVecAst<'c>>,
         significand: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<FloatAst<'c>, ClarirsError> {
-        self.make_float(FloatOp::FpFP(
+        self.make(Op::FpFP(
             sign.into_owned(),
             exponent.into_owned(),
             significand.into_owned(),
@@ -467,11 +492,7 @@ pub trait AstFactory<'c>: Sized {
         sort: FS,
         rm: RM,
     ) -> Result<FloatAst<'c>, ClarirsError> {
-        self.make_float(FloatOp::BvToFpSigned(
-            lhs.into_owned(),
-            sort.into(),
-            rm.into(),
-        ))
+        self.make(Op::BvToFpSigned(lhs.into_owned(), sort.into(), rm.into()))
     }
 
     fn bv_to_fp_unsigned<RM: Into<FPRM>, FS: Into<FSort>>(
@@ -480,7 +501,7 @@ pub trait AstFactory<'c>: Sized {
         sort: FS,
         rm: RM,
     ) -> Result<FloatAst<'c>, ClarirsError> {
-        self.make_float(FloatOp::BvToFpUnsigned(
+        self.make(Op::BvToFpUnsigned(
             lhs.into_owned(),
             sort.into(),
             rm.into(),
@@ -491,7 +512,7 @@ pub trait AstFactory<'c>: Sized {
         &'c self,
         lhs: impl IntoOwned<FloatAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::FpToIEEEBV(lhs.into_owned()))
+        self.make(Op::FpToIEEEBV(lhs.into_owned()))
     }
 
     fn fp_to_ubv<RM: Into<FPRM>>(
@@ -500,7 +521,7 @@ pub trait AstFactory<'c>: Sized {
         width: u32,
         rm: RM,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::FpToUBV(lhs.into_owned(), width, rm.into()))
+        self.make(Op::FpToUBV(lhs.into_owned(), width, rm.into()))
     }
 
     fn fp_to_sbv<RM: Into<FPRM>>(
@@ -509,15 +530,15 @@ pub trait AstFactory<'c>: Sized {
         width: u32,
         rm: RM,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::FpToSBV(lhs.into_owned(), width, rm.into()))
+        self.make(Op::FpToSBV(lhs.into_owned(), width, rm.into()))
     }
 
     fn fp_neg(&'c self, lhs: impl IntoOwned<FloatAst<'c>>) -> Result<FloatAst<'c>, ClarirsError> {
-        self.make_float(FloatOp::FpNeg(lhs.into_owned()))
+        self.make(Op::FpNeg(lhs.into_owned()))
     }
 
     fn fp_abs(&'c self, lhs: impl IntoOwned<FloatAst<'c>>) -> Result<FloatAst<'c>, ClarirsError> {
-        self.make_float(FloatOp::FpAbs(lhs.into_owned()))
+        self.make(Op::FpAbs(lhs.into_owned()))
     }
 
     fn fp_add<RM: Into<FPRM>>(
@@ -526,11 +547,7 @@ pub trait AstFactory<'c>: Sized {
         rhs: impl IntoOwned<FloatAst<'c>>,
         rm: RM,
     ) -> Result<FloatAst<'c>, ClarirsError> {
-        self.make_float(FloatOp::FpAdd(
-            lhs.into_owned(),
-            rhs.into_owned(),
-            rm.into(),
-        ))
+        self.make(Op::FpAdd(lhs.into_owned(), rhs.into_owned(), rm.into()))
     }
 
     fn fp_sub<RM: Into<FPRM>>(
@@ -539,11 +556,7 @@ pub trait AstFactory<'c>: Sized {
         rhs: impl IntoOwned<FloatAst<'c>>,
         rm: RM,
     ) -> Result<FloatAst<'c>, ClarirsError> {
-        self.make_float(FloatOp::FpSub(
-            lhs.into_owned(),
-            rhs.into_owned(),
-            rm.into(),
-        ))
+        self.make(Op::FpSub(lhs.into_owned(), rhs.into_owned(), rm.into()))
     }
 
     fn fp_mul<RM: Into<FPRM>>(
@@ -552,11 +565,7 @@ pub trait AstFactory<'c>: Sized {
         rhs: impl IntoOwned<FloatAst<'c>>,
         rm: RM,
     ) -> Result<FloatAst<'c>, ClarirsError> {
-        self.make_float(FloatOp::FpMul(
-            lhs.into_owned(),
-            rhs.into_owned(),
-            rm.into(),
-        ))
+        self.make(Op::FpMul(lhs.into_owned(), rhs.into_owned(), rm.into()))
     }
 
     fn fp_div<RM: Into<FPRM>>(
@@ -565,11 +574,7 @@ pub trait AstFactory<'c>: Sized {
         rhs: impl IntoOwned<FloatAst<'c>>,
         rm: RM,
     ) -> Result<FloatAst<'c>, ClarirsError> {
-        self.make_float(FloatOp::FpDiv(
-            lhs.into_owned(),
-            rhs.into_owned(),
-            rm.into(),
-        ))
+        self.make(Op::FpDiv(lhs.into_owned(), rhs.into_owned(), rm.into()))
     }
 
     fn fp_sqrt<RM: Into<FPRM>>(
@@ -577,7 +582,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<FloatAst<'c>>,
         rm: RM,
     ) -> Result<FloatAst<'c>, ClarirsError> {
-        self.make_float(FloatOp::FpSqrt(lhs.into_owned(), rm.into()))
+        self.make(Op::FpSqrt(lhs.into_owned(), rm.into()))
     }
 
     fn fp_eq(
@@ -585,7 +590,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<FloatAst<'c>>,
         rhs: impl IntoOwned<FloatAst<'c>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::FpEq(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::FpEq(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn fp_neq(
@@ -593,7 +598,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<FloatAst<'c>>,
         rhs: impl IntoOwned<FloatAst<'c>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::FpNeq(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::FpNeq(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn fp_lt(
@@ -601,7 +606,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<FloatAst<'c>>,
         rhs: impl IntoOwned<FloatAst<'c>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::FpLt(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::FpLt(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn fp_leq(
@@ -609,7 +614,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<FloatAst<'c>>,
         rhs: impl IntoOwned<FloatAst<'c>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::FpLeq(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::FpLeq(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn fp_gt(
@@ -617,7 +622,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<FloatAst<'c>>,
         rhs: impl IntoOwned<FloatAst<'c>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::FpGt(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::FpGt(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn fp_geq(
@@ -625,22 +630,28 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<FloatAst<'c>>,
         rhs: impl IntoOwned<FloatAst<'c>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::FpGeq(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::FpGeq(lhs.into_owned(), rhs.into_owned()))
     }
 
-    fn fp_is_nan(&'c self, lhs: impl IntoOwned<FloatAst<'c>>) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::FpIsNan(lhs.into_owned()))
+    fn fp_is_nan(
+        &'c self,
+        lhs: impl IntoOwned<FloatAst<'c>>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make(Op::FpIsNan(lhs.into_owned()))
     }
 
-    fn fp_is_inf(&'c self, lhs: impl IntoOwned<FloatAst<'c>>) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::FpIsInf(lhs.into_owned()))
+    fn fp_is_inf(
+        &'c self,
+        lhs: impl IntoOwned<FloatAst<'c>>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make(Op::FpIsInf(lhs.into_owned()))
     }
 
     fn str_len(
         &'c self,
         lhs: impl IntoOwned<StringAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::StrLen(lhs.into_owned()))
+        self.make(Op::StrLen(lhs.into_owned()))
     }
 
     fn str_concat(
@@ -648,7 +659,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<StringAst<'c>>,
         rhs: impl IntoOwned<StringAst<'c>>,
     ) -> Result<StringAst<'c>, ClarirsError> {
-        self.make_string(StringOp::StrConcat(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::StrConcat(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn str_substr(
@@ -657,7 +668,7 @@ pub trait AstFactory<'c>: Sized {
         start: impl IntoOwned<BitVecAst<'c>>,
         size: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<StringAst<'c>, ClarirsError> {
-        self.make_string(StringOp::StrSubstr(
+        self.make(Op::StrSubstr(
             lhs.into_owned(),
             start.into_owned(),
             size.into_owned(),
@@ -669,7 +680,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<StringAst<'c>>,
         rhs: impl IntoOwned<StringAst<'c>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::StrContains(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::StrContains(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn str_index_of(
@@ -678,7 +689,7 @@ pub trait AstFactory<'c>: Sized {
         substr: impl IntoOwned<StringAst<'c>>,
         offset: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::StrIndexOf(
+        self.make(Op::StrIndexOf(
             base.into_owned(),
             substr.into_owned(),
             offset.into_owned(),
@@ -691,7 +702,7 @@ pub trait AstFactory<'c>: Sized {
         rhs: impl IntoOwned<StringAst<'c>>,
         start: impl IntoOwned<StringAst<'c>>,
     ) -> Result<StringAst<'c>, ClarirsError> {
-        self.make_string(StringOp::StrReplace(
+        self.make(Op::StrReplace(
             lhs.into_owned(),
             rhs.into_owned(),
             start.into_owned(),
@@ -703,7 +714,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<StringAst<'c>>,
         rhs: impl IntoOwned<StringAst<'c>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::StrPrefixOf(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::StrPrefixOf(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn str_suffix_of(
@@ -711,28 +722,28 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<StringAst<'c>>,
         rhs: impl IntoOwned<StringAst<'c>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::StrSuffixOf(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::StrSuffixOf(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn str_to_bv(
         &'c self,
         lhs: impl IntoOwned<StringAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::StrToBV(lhs.into_owned()))
+        self.make(Op::StrToBV(lhs.into_owned()))
     }
 
     fn bv_to_str(
         &'c self,
         lhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<StringAst<'c>, ClarirsError> {
-        self.make_string(StringOp::BVToStr(lhs.into_owned()))
+        self.make(Op::BVToStr(lhs.into_owned()))
     }
 
     fn str_is_digit(
         &'c self,
         lhs: impl IntoOwned<StringAst<'c>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::StrIsDigit(lhs.into_owned()))
+        self.make(Op::StrIsDigit(lhs.into_owned()))
     }
 
     fn str_eq(
@@ -740,7 +751,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<StringAst<'c>>,
         rhs: impl IntoOwned<StringAst<'c>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::StrEq(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::StrEq(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn str_neq(
@@ -748,49 +759,47 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<StringAst<'c>>,
         rhs: impl IntoOwned<StringAst<'c>>,
     ) -> Result<BoolAst<'c>, ClarirsError> {
-        self.make_bool(BooleanOp::StrNeq(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::StrNeq(lhs.into_owned(), rhs.into_owned()))
     }
 
-    fn ite<Op: SupportsIf<'c>>(
+    fn ite(
         &'c self,
-        cond: impl IntoOwned<AstRef<'c, BooleanOp<'c>>>,
-        then: impl IntoOwned<AstRef<'c, Op>>,
-        else_: impl IntoOwned<AstRef<'c, Op>>,
-    ) -> Result<AstRef<'c, Op>, ClarirsError> {
-        Op::ite(self, cond, then, else_)
+        cond: impl IntoOwned<BoolAst<'c>>,
+        then: impl IntoOwned<AstRef<'c>>,
+        else_: impl IntoOwned<AstRef<'c>>,
+    ) -> Result<AstRef<'c>, ClarirsError> {
+        let c = cond.into_owned();
+        let t = then.into_owned();
+        let e = else_.into_owned();
+        match t.return_type() {
+            AstType::Bool => self.make(Op::BoolITE(c, t, e)),
+            AstType::BitVec(_) => self.make(Op::BVITE(c, t, e)),
+            AstType::Float(_) => self.make(Op::FpITE(c, t, e)),
+            AstType::String => self.make(Op::StrITE(c, t, e)),
+        }
     }
 
-    fn annotate<Op: SupportsAnnotate<'c>>(
+    fn annotate(
         &'c self,
-        ast: impl IntoOwned<AstRef<'c, Op>>,
+        ast: impl IntoOwned<AstRef<'c>>,
         annotations: impl IntoIterator<Item = Annotation>,
-    ) -> Result<AstRef<'c, Op>, ClarirsError> {
-        Op::annotate(ast, annotations)
+    ) -> Result<AstRef<'c>, ClarirsError> {
+        let ast_owned = ast.into_owned();
+        let all_annotations = ast_owned
+            .annotations()
+            .iter()
+            .cloned()
+            .chain(annotations)
+            .collect();
+        self.make_annotated(ast_owned.op().clone(), all_annotations)
     }
 
     fn annotate_dyn(
         &'c self,
-        ast: impl IntoOwned<DynAst<'c>>,
+        ast: impl IntoOwned<AstRef<'c>>,
         annotations: Vec<Annotation>,
-    ) -> Result<DynAst<'c>, ClarirsError> {
-        match ast.into_owned() {
-            DynAst::Boolean(b) => {
-                let annotated = self.annotate(b, annotations.clone())?;
-                Ok(DynAst::Boolean(annotated))
-            }
-            DynAst::BitVec(bv) => {
-                let annotated = self.annotate(bv, annotations.clone())?;
-                Ok(DynAst::BitVec(annotated))
-            }
-            DynAst::Float(f) => {
-                let annotated = self.annotate(f, annotations.clone())?;
-                Ok(DynAst::Float(annotated))
-            }
-            DynAst::String(s) => {
-                let annotated = self.annotate(s, annotations.clone())?;
-                Ok(DynAst::String(annotated))
-            }
-        }
+    ) -> Result<AstRef<'c>, ClarirsError> {
+        self.annotate(ast, annotations)
     }
 
     // VSA methods
@@ -804,8 +813,8 @@ pub trait AstFactory<'c>: Sized {
     ) -> Result<BitVecAst<'c>, ClarirsError> {
         let name = format!("SI{size}_{stride}_{lower_bound}_{upper_bound}");
         let interned = self.intern_string(name);
-        self.make_bitvec_annotated(
-            BitVecOp::BVS(interned, size),
+        self.make_annotated(
+            Op::BVS(interned, size),
             BTreeSet::from([Annotation::new(
                 AnnotationType::StridedInterval {
                     stride,
@@ -821,8 +830,8 @@ pub trait AstFactory<'c>: Sized {
     fn esi(&'c self, size: u32) -> Result<BitVecAst<'c>, ClarirsError> {
         let name = format!("ESI{size}");
         let interned = self.intern_string(name);
-        self.make_bitvec_annotated(
-            BitVecOp::BVS(interned, size),
+        self.make_annotated(
+            Op::BVS(interned, size),
             BTreeSet::from([Annotation::new(
                 AnnotationType::EmptyStridedInterval,
                 false,
@@ -836,7 +845,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BitVecAst<'c>>,
         rhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::Union(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::Union(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn intersection(
@@ -844,7 +853,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BitVecAst<'c>>,
         rhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::Intersection(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::Intersection(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn widen(
@@ -852,7 +861,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<BitVecAst<'c>>,
         rhs: impl IntoOwned<BitVecAst<'c>>,
     ) -> Result<BitVecAst<'c>, ClarirsError> {
-        self.make_bitvec(BitVecOp::Widen(lhs.into_owned(), rhs.into_owned()))
+        self.make(Op::Widen(lhs.into_owned(), rhs.into_owned()))
     }
 
     // Helper methods
