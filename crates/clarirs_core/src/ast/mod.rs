@@ -7,9 +7,6 @@ pub mod float;
 pub mod node;
 pub mod op;
 pub mod string;
-pub mod theory;
-
 pub use annotation::{Annotation, AnnotationType};
 pub use factory::AstFactory;
 pub use node::{AstNode, AstRef};
-pub use theory::Theories;

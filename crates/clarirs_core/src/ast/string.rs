@@ -152,8 +152,4 @@ impl<'c> Op<'c> for StringOp<'c> {
     fn check_same_sort(&self, _: &Self) -> bool {
         true
     }
-
-    fn base_theories(&self) -> Theories {
-        Theories::STRING
-    }
 }
