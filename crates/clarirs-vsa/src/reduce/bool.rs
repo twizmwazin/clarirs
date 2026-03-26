@@ -1,32 +1,7 @@
-use crate::StridedInterval;
 use crate::strided_interval::ComparisonResult;
 use clarirs_core::prelude::*;
 
-use super::ReduceResult;
-
-fn child(children: &[ReduceResult], index: usize) -> Result<ComparisonResult, ClarirsError> {
-    if let Some(ReduceResult::Bool(result)) = children.get(index) {
-        Ok(result.clone())
-    } else {
-        Err(ClarirsError::InvalidArguments(format!(
-            "Expected Bool at index {}, found {:?}",
-            index,
-            children.get(index)
-        )))
-    }
-}
-
-fn child_si(children: &[ReduceResult], index: usize) -> Result<StridedInterval, ClarirsError> {
-    if let Some(ReduceResult::BitVec(result)) = children.get(index) {
-        Ok(result.clone())
-    } else {
-        Err(ClarirsError::InvalidArguments(format!(
-            "Expected BitVec at index {}, found {:?}",
-            index,
-            children.get(index)
-        )))
-    }
-}
+use super::{ReduceResult, child, child_si};
 
 pub(crate) fn reduce_bool(
     ast: &BoolAst<'_>,

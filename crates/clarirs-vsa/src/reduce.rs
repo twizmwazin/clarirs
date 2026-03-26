@@ -5,6 +5,30 @@ use crate::strided_interval::{ComparisonResult, StridedInterval};
 use clarirs_core::algorithms::walk_post_order;
 use clarirs_core::prelude::*;
 
+fn child(children: &[ReduceResult], index: usize) -> Result<ComparisonResult, ClarirsError> {
+    if let Some(ReduceResult::Bool(result)) = children.get(index) {
+        Ok(result.clone())
+    } else {
+        Err(ClarirsError::InvalidArguments(format!(
+            "Expected Bool at index {}, found {:?}",
+            index,
+            children.get(index)
+        )))
+    }
+}
+
+fn child_si(children: &[ReduceResult], index: usize) -> Result<StridedInterval, ClarirsError> {
+    if let Some(ReduceResult::BitVec(result)) = children.get(index) {
+        Ok(result.clone())
+    } else {
+        Err(ClarirsError::InvalidArguments(format!(
+            "Expected BitVec at index {}, found {:?}",
+            index,
+            children.get(index)
+        )))
+    }
+}
+
 // Define an enum to represent the result of reduction
 #[derive(Debug, Clone)]
 pub enum ReduceResult {
