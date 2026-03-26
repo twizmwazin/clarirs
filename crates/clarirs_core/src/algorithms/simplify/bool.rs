@@ -45,7 +45,7 @@ pub(crate) fn simplify_bool<'c>(
                 .collect::<Result<Vec<_>, _>>()?;
 
             // Absorption simplification
-            let mut absorbed_args = available_args
+            let absorbed_args = available_args
                 .into_iter()
                 .flat_map(|arg| {
                     if let BooleanOp::And(nested_args) = arg.op() {
@@ -56,11 +56,14 @@ pub(crate) fn simplify_bool<'c>(
                 })
                 .filter(|arg| !matches!(arg.op(), BooleanOp::BoolV(true)))
                 .collect::<Vec<_>>();
-            // Deduplicate (And is idempotent: x & x = x)
-            {
-                let mut seen = ahash::AHashSet::with_capacity(absorbed_args.len());
-                absorbed_args.retain(|arg| seen.insert(arg.hash()));
+            // Deduplicate using == comparison
+            let mut deduped = Vec::with_capacity(absorbed_args.len());
+            for arg in absorbed_args {
+                if !deduped.iter().any(|existing| existing == &arg) {
+                    deduped.push(arg);
+                }
             }
+            let absorbed_args = deduped;
 
             if absorbed_args.is_empty() {
                 return Ok(ctx.true_()?);
@@ -132,7 +135,7 @@ pub(crate) fn simplify_bool<'c>(
                 .collect::<Result<Vec<_>, _>>()?;
 
             // Absorption simplification
-            let mut absorbed_args = available_args
+            let absorbed_args = available_args
                 .into_iter()
                 .flat_map(|arg| {
                     if let BooleanOp::Or(nested_args) = arg.op() {
@@ -143,11 +146,14 @@ pub(crate) fn simplify_bool<'c>(
                 })
                 .filter(|arg| !matches!(arg.op(), BooleanOp::BoolV(false)))
                 .collect::<Vec<_>>();
-            // Deduplicate (Or is idempotent: x | x = x)
-            {
-                let mut seen = ahash::AHashSet::with_capacity(absorbed_args.len());
-                absorbed_args.retain(|arg| seen.insert(arg.hash()));
+            // Deduplicate using == comparison
+            let mut deduped = Vec::with_capacity(absorbed_args.len());
+            for arg in absorbed_args {
+                if !deduped.iter().any(|existing| existing == &arg) {
+                    deduped.push(arg);
+                }
             }
+            let absorbed_args = deduped;
 
             // Identity simplification
             if absorbed_args

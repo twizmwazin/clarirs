@@ -64,16 +64,21 @@ pub(crate) fn simplify_bv<'c>(
                 }
             }
 
-            // Deduplicate (And is idempotent: x & x = x) and build hash set for complement check
-            let mut hashes = ahash::AHashSet::with_capacity(sym_args.len());
-            sym_args.retain(|arg| hashes.insert(arg.hash()));
+            // Deduplicate (And is idempotent: x & x = x)
+            {
+                let mut seen = ahash::AHashSet::with_capacity(sym_args.len());
+                sym_args.retain(|arg| seen.insert(arg.hash()));
+            }
 
-            // Check for x & ¬x = 0
-            for arg in &sym_args {
-                if let BitVecOp::Not(inner) = arg.op()
-                    && hashes.contains(&inner.hash())
-                {
-                    return Ok(ctx.bvv(BitVec::zeros(size))?);
+            // Check for x & ¬x = 0 using a hash set for O(n) lookup
+            {
+                let hashes: ahash::AHashSet<u64> = sym_args.iter().map(|a| a.hash()).collect();
+                for arg in &sym_args {
+                    if let BitVecOp::Not(inner) = arg.op()
+                        && hashes.contains(&inner.hash())
+                    {
+                        return Ok(ctx.bvv(BitVec::zeros(size))?);
+                    }
                 }
             }
 
@@ -269,16 +274,21 @@ pub(crate) fn simplify_bv<'c>(
                 }
             }
 
-            // Deduplicate (Or is idempotent: x | x = x) and build hash set for complement check
-            let mut hashes = ahash::AHashSet::with_capacity(sym_args.len());
-            sym_args.retain(|arg| hashes.insert(arg.hash()));
+            // Deduplicate (Or is idempotent: x | x = x)
+            {
+                let mut seen = ahash::AHashSet::with_capacity(sym_args.len());
+                sym_args.retain(|arg| seen.insert(arg.hash()));
+            }
 
-            // Check for x | ¬x = all-ones
-            for arg in &sym_args {
-                if let BitVecOp::Not(inner) = arg.op()
-                    && hashes.contains(&inner.hash())
-                {
-                    return Ok(ctx.bvv(all_ones)?);
+            // Check for x | ¬x = all-ones using a hash set for O(n) lookup
+            {
+                let hashes: ahash::AHashSet<u64> = sym_args.iter().map(|a| a.hash()).collect();
+                for arg in &sym_args {
+                    if let BitVecOp::Not(inner) = arg.op()
+                        && hashes.contains(&inner.hash())
+                    {
+                        return Ok(ctx.bvv(all_ones)?);
+                    }
                 }
             }
 
