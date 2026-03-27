@@ -15,7 +15,7 @@ build = "build.rs"
 
 [build-dependencies]
 bindgen = "0.72.1"
-cmake = "0.1.57"
+cmake = "0.1.58"
 
 [lints]
 workspace = true
