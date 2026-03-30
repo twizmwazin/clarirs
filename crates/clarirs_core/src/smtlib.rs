@@ -235,7 +235,9 @@ fn to_smtlib_string(ast: &StringAst, children: &[String]) -> String {
 fn to_smtlib_limited(ast: &DynAst<'_>, remaining_depth: usize) -> String {
     let children: Vec<String> = if remaining_depth == 0 {
         // At depth limit: replace every child with "..."
-        (0..ast.child_iter().len()).map(|_| "...".to_string()).collect()
+        (0..ast.child_iter().len())
+            .map(|_| "...".to_string())
+            .collect()
     } else {
         ast.child_iter()
             .map(|child| to_smtlib_limited(&child, remaining_depth - 1))
