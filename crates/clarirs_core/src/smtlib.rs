@@ -230,9 +230,34 @@ fn to_smtlib_string(ast: &StringAst, children: &[String]) -> String {
     }
 }
 
+/// Depth-limited SMT-LIB rendering. When `remaining_depth` reaches 0,
+/// children are replaced with `...` instead of being recursed into.
+fn to_smtlib_limited(ast: &DynAst<'_>, remaining_depth: usize) -> String {
+    let children: Vec<String> = if remaining_depth == 0 {
+        // At depth limit: replace every child with "..."
+        (0..ast.child_iter().len())
+            .map(|_| "...".to_string())
+            .collect()
+    } else {
+        ast.child_iter()
+            .map(|child| to_smtlib_limited(&child, remaining_depth - 1))
+            .collect()
+    };
+    match ast {
+        DynAst::Boolean(a) => to_smtlib_bool(a, &children),
+        DynAst::BitVec(a) => to_smtlib_bv(a, &children),
+        DynAst::Float(a) => to_smtlib_float(a, &children),
+        DynAst::String(a) => to_smtlib_string(a, &children),
+    }
+}
+
 /// Trait for converting an AST to an SMT-LIB 2.6 string representation.
 pub trait ToSmtLib {
     fn to_smtlib(&self) -> String;
+
+    /// Returns a depth-limited SMT-LIB representation. Children beyond
+    /// `max_depth` levels are replaced with `...`.
+    fn to_smtlib_shallow(&self, max_depth: usize) -> String;
 }
 
 impl ToSmtLib for DynAst<'_> {
@@ -249,11 +274,18 @@ impl ToSmtLib for DynAst<'_> {
         )
         .expect("infallible")
     }
+
+    fn to_smtlib_shallow(&self, max_depth: usize) -> String {
+        to_smtlib_limited(self, max_depth)
+    }
 }
 
 impl ToSmtLib for BoolAst<'_> {
     fn to_smtlib(&self) -> String {
         DynAst::from(self).to_smtlib()
+    }
+    fn to_smtlib_shallow(&self, max_depth: usize) -> String {
+        DynAst::from(self).to_smtlib_shallow(max_depth)
     }
 }
 
@@ -261,17 +293,26 @@ impl ToSmtLib for BitVecAst<'_> {
     fn to_smtlib(&self) -> String {
         DynAst::from(self).to_smtlib()
     }
+    fn to_smtlib_shallow(&self, max_depth: usize) -> String {
+        DynAst::from(self).to_smtlib_shallow(max_depth)
+    }
 }
 
 impl ToSmtLib for FloatAst<'_> {
     fn to_smtlib(&self) -> String {
         DynAst::from(self).to_smtlib()
     }
+    fn to_smtlib_shallow(&self, max_depth: usize) -> String {
+        DynAst::from(self).to_smtlib_shallow(max_depth)
+    }
 }
 
 impl ToSmtLib for StringAst<'_> {
     fn to_smtlib(&self) -> String {
         DynAst::from(self).to_smtlib()
+    }
+    fn to_smtlib_shallow(&self, max_depth: usize) -> String {
+        DynAst::from(self).to_smtlib_shallow(max_depth)
     }
 }
 
@@ -413,5 +454,35 @@ mod tests {
         let x = ctx.bvs("x", 64).unwrap();
         let displayed = format!("{}", SmtLibDisplay(&x));
         assert_eq!(displayed, "x");
+    }
+
+    #[test]
+    fn test_shallow_repr_leaf() {
+        let ctx = Context::new();
+        let x = ctx.bvs("x", 64).unwrap();
+        // Leaf nodes are unchanged regardless of depth
+        assert_eq!(x.to_smtlib_shallow(0), "x");
+        assert_eq!(x.to_smtlib_shallow(2), "x");
+    }
+
+    #[test]
+    fn test_shallow_repr_depth_limit() {
+        let ctx = Context::new();
+        let x = ctx.bvs("x", 64).unwrap();
+        let y = ctx.bvs("y", 64).unwrap();
+        let add = ctx.add(&x, &y).unwrap();
+        let neg = ctx.neg(&add).unwrap();
+
+        // Full repr
+        assert_eq!(neg.to_smtlib(), "(bvneg (bvadd x y))");
+
+        // Depth 0: children replaced with ...
+        assert_eq!(neg.to_smtlib_shallow(0), "(bvneg ...)");
+
+        // Depth 1: one level of children shown, their children replaced
+        assert_eq!(neg.to_smtlib_shallow(1), "(bvneg (bvadd ... ...))");
+
+        // Depth 2: full tree (only 2 deep)
+        assert_eq!(neg.to_smtlib_shallow(2), "(bvneg (bvadd x y))");
     }
 }

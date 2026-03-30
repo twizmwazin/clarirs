@@ -273,6 +273,11 @@ impl Bool {
         self.inner.to_smtlib()
     }
 
+    #[pyo3(signature = (max_depth=2))]
+    pub fn shallow_repr(&self, max_depth: usize) -> String {
+        self.inner.to_smtlib_shallow(max_depth)
+    }
+
     #[allow(clippy::type_complexity)]
     pub fn canonicalize<'py>(
         &self,
