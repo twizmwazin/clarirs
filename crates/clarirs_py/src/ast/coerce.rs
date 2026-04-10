@@ -380,25 +380,32 @@ impl<'a, 'py> FromPyObject<'a, 'py> for CoerceBase<'py> {
     type Error = PyErr;
 
     fn extract(val: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
-        if let Ok(bool) = CoerceBool::extract(val) {
-            Ok(CoerceBase(bool.0.cast()?.clone()))
-        } else if let Ok(bv) = CoerceBV::extract(val) {
-            match bv {
-                CoerceBV::BV(bv) => Ok(CoerceBase(bv.cast()?.clone())),
-                CoerceBV::Int(int) => {
-                    // Just default to 64 bits for now
-                    let bv = BitVec::from_bigint_trunc(&int, 64);
-                    let bv = BV::new(
-                        val.py(),
-                        &GLOBAL_CONTEXT.bvv(bv).map_err(ClaripyError::from)?,
-                    )?;
-                    Ok(CoerceBase(bv.cast()?.clone()))
-                }
-                CoerceBV::Bool(bool_val) => {
-                    // Bool is already handled above via CoerceBool, but just in case
-                    Ok(CoerceBase(bool_val.cast()?.clone()))
-                }
-            }
+        // Check concrete AST types first, preserving the actual type of the input.
+        // Do NOT use CoerceBool here since that now accepts BVs (via BV != 0), which
+        // would incorrectly turn a BV expression into a Bool expression in contexts
+        // like solver.solution(bv_expr, value) that need to preserve the original type.
+        if let Ok(bool_val) = val.cast::<Bool>() {
+            Ok(CoerceBase(bool_val.to_owned().cast()?.clone()))
+        } else if let Ok(bv_val) = val.cast::<BV>() {
+            Ok(CoerceBase(bv_val.to_owned().cast()?.clone()))
+        } else if let Ok(fp_val) = val.cast::<FP>() {
+            Ok(CoerceBase(fp_val.to_owned().cast()?.clone()))
+        } else if let Ok(string_val) = val.cast::<PyAstString>() {
+            Ok(CoerceBase(string_val.to_owned().cast()?.clone()))
+        } else if let Ok(py_bool) = val.extract::<bool>() {
+            // Handle Python bool literals by wrapping in BoolV
+            let bool_ast =
+                Bool::new(val.py(), &GLOBAL_CONTEXT.boolv(py_bool).map_err(ClaripyError::from)?)?;
+            Ok(CoerceBase(bool_ast.cast()?.clone()))
+        } else if let Ok(int_val) = val.cast::<PyInt>() {
+            // Handle Python int literals by wrapping in BVV (64-bit default)
+            let int: BigInt = int_val.extract()?;
+            let bv = BitVec::from_bigint_trunc(&int, 64);
+            let bv_ast = BV::new(
+                val.py(),
+                &GLOBAL_CONTEXT.bvv(bv).map_err(ClaripyError::from)?,
+            )?;
+            Ok(CoerceBase(bv_ast.cast()?.clone()))
         } else if let Ok(fp) = CoerceFP::extract(val) {
             match fp {
                 CoerceFP::FP(fp) => Ok(CoerceBase(fp.cast()?.clone())),
