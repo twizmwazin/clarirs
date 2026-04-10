@@ -11,9 +11,10 @@ use std::{
 use dashmap::DashMap;
 use pyo3::types::{PyFrozenSet, PyWeakrefReference};
 
+use super::{dynast_map_to_py_map, py_map_to_dynast_map};
 use crate::prelude::*;
 use clarirs_core::{
-    algorithms::{canonicalize, structurally_match},
+    algorithms::{canonicalize_with_map, structurally_match},
     smtlib::ToSmtLib,
 };
 
@@ -169,9 +170,12 @@ impl PyAstString {
     }
 
     #[allow(clippy::type_complexity)]
+    #[pyo3(signature = (var_map=None, counter=None))]
     pub fn canonicalize<'py>(
         &self,
         py: Python<'py>,
+        var_map: Option<HashMap<u64, Bound<'py, PyAny>>>,
+        counter: Option<usize>,
     ) -> Result<
         (
             HashMap<u64, Bound<'py, PyAny>>,
@@ -180,7 +184,10 @@ impl PyAstString {
         ),
         ClaripyError,
     > {
-        let (replacement_map, counter, canonical) = canonicalize(&self.inner.clone().into())?;
+        let initial_map = py_map_to_dynast_map(py, var_map)?;
+        let initial_counter = counter.unwrap_or(0);
+        let (replacement_map, counter, canonical) =
+            canonicalize_with_map(&self.inner.clone().into(), initial_map, initial_counter)?;
         let canonical_string = PyAstString::new(
             py,
             &canonical
@@ -190,11 +197,7 @@ impl PyAstString {
                 ))?,
         )?;
 
-        let mut py_map = HashMap::new();
-        for (hash, dynast) in replacement_map {
-            let py_ast = Base::from_dynast(py, dynast)?;
-            py_map.insert(hash, py_ast.into_any());
-        }
+        let py_map = dynast_map_to_py_map(py, replacement_map)?;
 
         Ok((py_map, counter, canonical_string))
     }
