@@ -121,10 +121,15 @@ impl<'c, S: Solver<'c>> Solver<'c> for CompositeSolver<'c, S> {
         let vars: BTreeSet<InternedString> = constraint.variables().clone();
 
         if vars.is_empty() {
-            // Concrete constraint — reject immediately if false.
-            if constraint.is_false() {
-                return Err(ClarirsError::Unsat);
+            // Concrete constraint: skip if true, store in a dedicated child if false
+            // (so satisfiable() will later return false). Do NOT raise Unsat from add.
+            if constraint.is_true() {
+                return Ok(());
             }
+            // For concrete false constraints, we need to store them somewhere so that
+            // satisfiable() returns false. Add to a new child as a degenerate case.
+            let target_id = self.new_child();
+            self.children.get_mut(&target_id).unwrap().add(constraint)?;
             return Ok(());
         }
 
