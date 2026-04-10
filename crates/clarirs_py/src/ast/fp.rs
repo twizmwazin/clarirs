@@ -388,20 +388,20 @@ impl FP {
 
     pub fn is_true(&self) -> bool {
         // A FP is "true" if it's a concrete non-zero value
-        if let Ok(simplified) = self.inner.simplify() {
-            if let FloatOp::FPV(fp) = simplified.op() {
-                return !fp.is_zero();
-            }
+        if let Ok(simplified) = self.inner.simplify()
+            && let FloatOp::FPV(fp) = simplified.op()
+        {
+            return !fp.is_zero();
         }
         false
     }
 
     pub fn is_false(&self) -> bool {
         // A FP is "false" if it's a concrete zero value
-        if let Ok(simplified) = self.inner.simplify() {
-            if let FloatOp::FPV(fp) = simplified.op() {
-                return fp.is_zero();
-            }
+        if let Ok(simplified) = self.inner.simplify()
+            && let FloatOp::FPV(fp) = simplified.op()
+        {
+            return fp.is_zero();
         }
         false
     }
