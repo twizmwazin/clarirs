@@ -39,8 +39,10 @@ impl<'py> FromPyObject<'_, 'py> for CoerceBool<'py> {
                 } else {
                     // Symbolic: create BV != 0
                     let zero = GLOBAL_CONTEXT
-                        .bvv(BitVec::from_prim_with_size(0u8, bv_val.get().size() as u32)
-                            .map_err(|e| ClaripyError::from(ClarirsError::from(e)))?)
+                        .bvv(
+                            BitVec::from_prim_with_size(0u8, bv_val.get().size() as u32)
+                                .map_err(|e| ClaripyError::from(ClarirsError::from(e)))?,
+                        )
                         .map_err(ClaripyError::from)?;
                     GLOBAL_CONTEXT
                         .neq(inner, &zero)
@@ -48,8 +50,10 @@ impl<'py> FromPyObject<'_, 'py> for CoerceBool<'py> {
                 }
             } else {
                 let zero = GLOBAL_CONTEXT
-                    .bvv(BitVec::from_prim_with_size(0u8, bv_val.get().size() as u32)
-                        .map_err(|e| ClaripyError::from(ClarirsError::from(e)))?)
+                    .bvv(
+                        BitVec::from_prim_with_size(0u8, bv_val.get().size() as u32)
+                            .map_err(|e| ClaripyError::from(ClarirsError::from(e)))?,
+                    )
                     .map_err(ClaripyError::from)?;
                 GLOBAL_CONTEXT
                     .neq(inner, &zero)
@@ -101,10 +105,14 @@ impl<'py> CoerceBV<'py> {
             }
             CoerceBV::Bool(bool_val) => {
                 // Convert Bool to BV of the requested size: If(bool, BVV(1, size), BVV(0, size))
-                let one = GLOBAL_CONTEXT
-                    .bvv(BitVec::from_prim_with_size(1u8, size).map_err(|e| ClaripyError::from(ClarirsError::from(e)))?)?;
-                let zero = GLOBAL_CONTEXT
-                    .bvv(BitVec::from_prim_with_size(0u8, size).map_err(|e| ClaripyError::from(ClarirsError::from(e)))?)?;
+                let one = GLOBAL_CONTEXT.bvv(
+                    BitVec::from_prim_with_size(1u8, size)
+                        .map_err(|e| ClaripyError::from(ClarirsError::from(e)))?,
+                )?;
+                let zero = GLOBAL_CONTEXT.bvv(
+                    BitVec::from_prim_with_size(0u8, size)
+                        .map_err(|e| ClaripyError::from(ClarirsError::from(e)))?,
+                )?;
                 let bv_ast = GLOBAL_CONTEXT.ite(&bool_val.get().inner, &one, &zero)?;
                 BV::new(py, &bv_ast)
             }
@@ -132,17 +140,11 @@ impl<'py> CoerceBV<'py> {
         let rhs_size = rhs.get_size();
 
         match (lhs_size, rhs_size) {
-            (Some(ls), Some(rs)) if ls != rs => {
-                Err(ClaripyError::TypeError(format!(
-                    "BV size mismatch: left operand has {ls} bits, right operand has {rs} bits"
-                )))
-            }
-            (Some(size), _) => {
-                Ok((lhs.unpack(py, size, false)?, rhs.unpack(py, size, false)?))
-            }
-            (_, Some(size)) => {
-                Ok((lhs.unpack(py, size, false)?, rhs.unpack(py, size, false)?))
-            }
+            (Some(ls), Some(rs)) if ls != rs => Err(ClaripyError::TypeError(format!(
+                "BV size mismatch: left operand has {ls} bits, right operand has {rs} bits"
+            ))),
+            (Some(size), _) => Ok((lhs.unpack(py, size, false)?, rhs.unpack(py, size, false)?)),
+            (_, Some(size)) => Ok((lhs.unpack(py, size, false)?, rhs.unpack(py, size, false)?)),
             (None, None) => {
                 // Both are Int or Bool - guess size
                 match (lhs, rhs) {
@@ -172,12 +174,12 @@ impl<'py> CoerceBV<'py> {
         }
 
         // First, determine the size to use
-        let size = vals
-            .iter()
-            .find_map(|val| val.get_size())
-            .ok_or(ClaripyError::InvalidArgumentType(
-                "Failed to extract size of BVs in list".to_string(),
-            ))?;
+        let size =
+            vals.iter()
+                .find_map(|val| val.get_size())
+                .ok_or(ClaripyError::InvalidArgumentType(
+                    "Failed to extract size of BVs in list".to_string(),
+                ))?;
 
         // Round up to the nearest power of 2
         let size = size.next_power_of_two();
@@ -197,12 +199,12 @@ impl<'py> CoerceBV<'py> {
             ));
         }
 
-        let default_size = vals
-            .iter()
-            .find_map(|val| val.get_size())
-            .ok_or(ClaripyError::InvalidArgumentType(
-                "Failed to extract size of BVs in list".to_string(),
-            ))?;
+        let default_size =
+            vals.iter()
+                .find_map(|val| val.get_size())
+                .ok_or(ClaripyError::InvalidArgumentType(
+                    "Failed to extract size of BVs in list".to_string(),
+                ))?;
 
         let mut results = Vec::with_capacity(vals.len());
 
@@ -394,8 +396,10 @@ impl<'a, 'py> FromPyObject<'a, 'py> for CoerceBase<'py> {
             Ok(CoerceBase(string_val.to_owned().cast()?.clone()))
         } else if let Ok(py_bool) = val.extract::<bool>() {
             // Handle Python bool literals by wrapping in BoolV
-            let bool_ast =
-                Bool::new(val.py(), &GLOBAL_CONTEXT.boolv(py_bool).map_err(ClaripyError::from)?)?;
+            let bool_ast = Bool::new(
+                val.py(),
+                &GLOBAL_CONTEXT.boolv(py_bool).map_err(ClaripyError::from)?,
+            )?;
             Ok(CoerceBase(bool_ast.cast()?.clone()))
         } else if let Ok(int_val) = val.cast::<PyInt>() {
             // Handle Python int literals by wrapping in BVV (64-bit default)
