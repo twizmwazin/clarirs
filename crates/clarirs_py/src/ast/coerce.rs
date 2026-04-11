@@ -5,6 +5,23 @@ use pyo3::types::{PyFloat, PyInt};
 
 use crate::prelude::*;
 
+/// Coerce a BV into a Bool: concrete BVVs resolve to true/false directly,
+/// symbolic BVs become `bv != 0`.
+fn bv_to_bool(bv: &BV) -> Result<BoolAst<'static>, ClaripyError> {
+    let inner = &bv.inner;
+    if let Ok(simplified) = inner.simplify()
+        && let BitVecOp::BVV(v) = simplified.op()
+    {
+        return Ok(if v.is_zero() {
+            GLOBAL_CONTEXT.false_()?
+        } else {
+            GLOBAL_CONTEXT.true_()?
+        });
+    }
+    let zero = GLOBAL_CONTEXT.bvv(BitVec::from_prim_with_size(0u8, bv.size() as u32)?)?;
+    Ok(GLOBAL_CONTEXT.neq(inner, &zero)?)
+}
+
 #[derive(Clone)]
 pub struct CoerceBool<'py>(pub Bound<'py, Bool>);
 
@@ -25,41 +42,8 @@ impl<'py> FromPyObject<'_, 'py> for CoerceBool<'py> {
                 Bool::new(val.py(), &GLOBAL_CONTEXT.boolv(i != BigInt::ZERO).unwrap()).unwrap(),
             ))
         } else if let Ok(bv_val) = val.cast::<BV>() {
-            // Coerce BV to Bool: check if concrete, otherwise use If(BV == 0, false, true)
-            let py = val.py();
-            let inner = &bv_val.get().inner;
-            // Try to simplify and check concrete value
-            let bool_ast = if let Ok(simplified) = inner.simplify() {
-                if let BitVecOp::BVV(bv) = simplified.op() {
-                    if bv.is_zero() {
-                        GLOBAL_CONTEXT.false_().map_err(ClaripyError::from)?
-                    } else {
-                        GLOBAL_CONTEXT.true_().map_err(ClaripyError::from)?
-                    }
-                } else {
-                    // Symbolic: create BV != 0
-                    let zero = GLOBAL_CONTEXT
-                        .bvv(
-                            BitVec::from_prim_with_size(0u8, bv_val.get().size() as u32)
-                                .map_err(|e| ClaripyError::from(ClarirsError::from(e)))?,
-                        )
-                        .map_err(ClaripyError::from)?;
-                    GLOBAL_CONTEXT
-                        .neq(inner, &zero)
-                        .map_err(ClaripyError::from)?
-                }
-            } else {
-                let zero = GLOBAL_CONTEXT
-                    .bvv(
-                        BitVec::from_prim_with_size(0u8, bv_val.get().size() as u32)
-                            .map_err(|e| ClaripyError::from(ClarirsError::from(e)))?,
-                    )
-                    .map_err(ClaripyError::from)?;
-                GLOBAL_CONTEXT
-                    .neq(inner, &zero)
-                    .map_err(ClaripyError::from)?
-            };
-            Ok(CoerceBool(Bool::new(py, &bool_ast)?))
+            // Coerce BV to Bool: concrete fast-path, otherwise `bv != 0`.
+            Ok(CoerceBool(Bool::new(val.py(), &bv_to_bool(bv_val.get())?)?))
         } else {
             Err(ClaripyError::InvalidArgumentType("Expected Bool".to_string()).into())
         }
@@ -104,15 +88,9 @@ impl<'py> CoerceBV<'py> {
                 BV::new(py, &GLOBAL_CONTEXT.bvv(bv)?)
             }
             CoerceBV::Bool(bool_val) => {
-                // Convert Bool to BV of the requested size: If(bool, BVV(1, size), BVV(0, size))
-                let one = GLOBAL_CONTEXT.bvv(
-                    BitVec::from_prim_with_size(1u8, size)
-                        .map_err(|e| ClaripyError::from(ClarirsError::from(e)))?,
-                )?;
-                let zero = GLOBAL_CONTEXT.bvv(
-                    BitVec::from_prim_with_size(0u8, size)
-                        .map_err(|e| ClaripyError::from(ClarirsError::from(e)))?,
-                )?;
+                // Convert Bool to BV of the requested size: If(bool, 1, 0).
+                let one = GLOBAL_CONTEXT.bvv(BitVec::from_prim_with_size(1u8, size)?)?;
+                let zero = GLOBAL_CONTEXT.bvv(BitVec::from_prim_with_size(0u8, size)?)?;
                 let bv_ast = GLOBAL_CONTEXT.ite(&bool_val.get().inner, &one, &zero)?;
                 BV::new(py, &bv_ast)
             }
