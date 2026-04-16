@@ -59,43 +59,87 @@ pub fn structurally_match<'c>(ast1: &DynAst<'c>, ast2: &DynAst<'c>) -> Result<bo
 pub fn canonicalize<'c>(
     ast: &DynAst<'c>,
 ) -> Result<(HashMap<u64, DynAst<'c>>, usize, DynAst<'c>), ClarirsError> {
+    canonicalize_with_map(ast, HashMap::new(), 0)
+}
+
+/// Canonicalize `ast`, continuing from an existing variable mapping.
+///
+/// `initial_map` maps variable hashes (as returned by [`canonicalize`]) to
+/// their canonical replacement ASTs from a previous call. Variables in `ast`
+/// that are already in the map reuse their existing canonical names;
+/// variables not in the map get fresh names starting at `v{initial_counter}`.
+///
+/// This is useful when canonicalizing several ASTs that share some variables
+/// and need to keep those variables renamed consistently (e.g. comparing
+/// constraint sets across two solver states in a congruency check).
+///
+/// Returns the updated replacement map (existing entries preserved, plus any
+/// newly-assigned canonical variables), the next available counter, and the
+/// canonicalized AST.
+pub fn canonicalize_with_map<'c>(
+    ast: &DynAst<'c>,
+    initial_map: HashMap<u64, DynAst<'c>>,
+    initial_counter: usize,
+) -> Result<(HashMap<u64, DynAst<'c>>, usize, DynAst<'c>), ClarirsError> {
     // Collect all variables in the AST
     let vars = collect_vars(ast)?;
 
     if vars.is_empty() {
-        // No variables, return the original AST
-        return Ok((HashMap::new(), 0, ast.clone()));
+        // No variables, return the original AST with the map unchanged
+        return Ok((initial_map, initial_counter, ast.clone()));
     }
 
-    // Sort variable names to ensure deterministic ordering
-    let mut var_names: Vec<InternedString> = vars
+    // Partition variables into "already in the map" vs "new"
+    let mut new_vars: Vec<DynAst<'c>> = Vec::new();
+    for var in &vars {
+        if !initial_map.contains_key(&var.inner_hash()) {
+            new_vars.push(var.clone());
+        }
+    }
+
+    // Sort new variable names to ensure deterministic ordering
+    let mut new_var_names: Vec<InternedString> = new_vars
         .iter()
         .flat_map(|v| v.variables().into_iter())
         .collect();
-    var_names.sort();
-    var_names.dedup();
+    new_var_names.sort();
+    new_var_names.dedup();
 
-    // Create mapping from original names to canonical names
+    // Create mapping from original names to canonical names,
+    // starting at initial_counter for the new variables.
     let ctx_ref = ast.context();
-    let var_mapping: HashMap<InternedString, InternedString> = var_names
+    let new_var_mapping: HashMap<InternedString, InternedString> = new_var_names
         .iter()
         .enumerate()
-        .map(|(i, name)| (name.clone(), ctx_ref.intern_string(format!("v{i}"))))
+        .map(|(i, name)| {
+            (
+                name.clone(),
+                ctx_ref.intern_string(format!("v{}", initial_counter + i)),
+            )
+        })
         .collect();
 
-    // Build replacement map: original var AST -> canonical var AST
+    // Build replacement map: start with the initial map, add canonical forms
+    // for the new variables.
+    let mut replacement_map = initial_map;
     let mut replacements: HashMap<DynAst<'c>, DynAst<'c>> = HashMap::new();
-    let mut replacement_map: HashMap<u64, DynAst<'c>> = HashMap::new();
     let ctx = ast.context();
 
-    for var in vars {
+    // Seed `replacements` with existing canonical mappings for vars we've seen
+    // before, so the `replace` pass below rewrites them too.
+    for var in &vars {
+        if let Some(existing_canonical) = replacement_map.get(&var.inner_hash()) {
+            replacements.insert(var.clone(), existing_canonical.clone());
+        }
+    }
+
+    // Add fresh canonical names for the new variables.
+    for var in &new_vars {
         let var_names_set = var.variables();
-        // Each variable should have exactly one name since we collected leaf variables
         if let Some(original_name) = var_names_set.iter().next()
-            && let Some(canonical_name) = var_mapping.get(original_name)
+            && let Some(canonical_name) = new_var_mapping.get(original_name)
         {
-            // Create the canonical variable with the same type and size as the original
-            let canonical_var = match &var {
+            let canonical_var = match var {
                 DynAst::Boolean(_) => DynAst::Boolean(ctx.bools(canonical_name.as_str())?),
                 DynAst::BitVec(bv) => {
                     let size = bv.size();
@@ -118,7 +162,7 @@ pub fn canonicalize<'c>(
         result = result.replace(from, to)?;
     }
 
-    let counter = var_mapping.len();
+    let counter = initial_counter + new_var_mapping.len();
 
     Ok((replacement_map, counter, result))
 }
@@ -432,6 +476,51 @@ mod tests {
         // Also verify structurally_match works for cross-type
         assert!(structurally_match(&dyn_ast1, &dyn_ast2)?);
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_canonicalize_with_map_continues_numbering() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+
+        // First AST introduces vars a, b -> v0, v1
+        let ast1 = ctx.add(&ctx.bvs("a", 64)?, &ctx.bvs("b", 64)?)?;
+        let dyn_ast1 = DynAst::from(&ast1);
+        let (map1, counter1, canonical1) = canonicalize(&dyn_ast1)?;
+
+        assert_eq!(counter1, 2);
+        let expected1 = ctx.add(&ctx.bvs("v0", 64)?, &ctx.bvs("v1", 64)?)?;
+        assert_eq!(canonical1, DynAst::from(&expected1));
+
+        // Second AST shares `a` and introduces `c`. With the map threaded
+        // through, `a` should still become v0 and `c` should become v2.
+        let ast2 = ctx.add(&ctx.bvs("a", 64)?, &ctx.bvs("c", 64)?)?;
+        let dyn_ast2 = DynAst::from(&ast2);
+        let (map2, counter2, canonical2) = canonicalize_with_map(&dyn_ast2, map1, counter1)?;
+
+        assert_eq!(counter2, 3);
+        assert_eq!(map2.len(), 3); // a=v0, b=v1 (carried over), c=v2
+
+        let expected2 = ctx.add(&ctx.bvs("v0", 64)?, &ctx.bvs("v2", 64)?)?;
+        assert_eq!(canonical2, DynAst::from(&expected2));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_canonicalize_with_map_empty_initial() -> Result<(), ClarirsError> {
+        // canonicalize_with_map called with an empty initial map and counter=0
+        // should behave identically to canonicalize().
+        let ctx = Context::new();
+        let ast = ctx.add(&ctx.bvs("x", 32)?, &ctx.bvs("y", 32)?)?;
+        let dyn_ast = DynAst::from(&ast);
+
+        let (map_a, counter_a, canonical_a) = canonicalize(&dyn_ast)?;
+        let (map_b, counter_b, canonical_b) = canonicalize_with_map(&dyn_ast, HashMap::new(), 0)?;
+
+        assert_eq!(counter_a, counter_b);
+        assert_eq!(canonical_a, canonical_b);
+        assert_eq!(map_a.len(), map_b.len());
         Ok(())
     }
 }

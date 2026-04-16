@@ -16,6 +16,45 @@ use super::import_submodule;
 
 pub static GLOBAL_CONTEXT: LazyLock<Context<'static>> = LazyLock::new(Context::new);
 
+/// Convert a Python-side var_map (hash -> AST) into the DynAst-keyed map
+/// used by `canonicalize_with_map`. An absent or `None` map becomes empty.
+pub fn py_map_to_dynast_map<'py>(
+    _py: Python<'py>,
+    var_map: Option<std::collections::HashMap<u64, pyo3::Bound<'py, pyo3::PyAny>>>,
+) -> Result<std::collections::HashMap<u64, DynAst<'static>>, ClaripyError> {
+    let mut out = std::collections::HashMap::new();
+    if let Some(map) = var_map {
+        for (hash, any) in map {
+            // The values in the Python map are AST instances; extract them via
+            // CoerceBase and convert to DynAst.
+            let base = any
+                .cast::<Base>()
+                .map_err(|_| {
+                    ClaripyError::TypeError(
+                        "canonicalize var_map values must be AST instances".to_string(),
+                    )
+                })?
+                .clone();
+            let dynast = Base::to_dynast(base)?;
+            out.insert(hash, dynast);
+        }
+    }
+    Ok(out)
+}
+
+/// Inverse of `py_map_to_dynast_map`.
+pub fn dynast_map_to_py_map<'py>(
+    py: Python<'py>,
+    dynast_map: std::collections::HashMap<u64, DynAst<'static>>,
+) -> Result<std::collections::HashMap<u64, pyo3::Bound<'py, pyo3::PyAny>>, ClaripyError> {
+    let mut py_map = std::collections::HashMap::new();
+    for (hash, dynast) in dynast_map {
+        let py_ast = Base::from_dynast(py, dynast)?;
+        py_map.insert(hash, py_ast.into_any());
+    }
+    Ok(py_map)
+}
+
 #[pyfunction(name = "Not")]
 pub fn not<'py>(py: Python<'py>, b: Bound<'py, Base>) -> Result<Bound<'py, Base>, ClaripyError> {
     if let Ok(b_bool) = b.clone().into_any().cast::<Bool>() {
