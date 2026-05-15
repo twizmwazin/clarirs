@@ -142,7 +142,10 @@ class TestFPOperations(unittest.TestCase):
         self._check_equal(result, 0.6)
 
         result = self.fp2 / self.fp1
-        self._check_equal(result, 1.6666665077, check_bits=True)
+        # 2.5/1.5 = 5/3, correctly-rounded to float32 = 0x3fd55555 = 1.6666666269302368.
+        # The previous expected value (1.6666665077 ~= 0x3fd55554) was one ULP below
+        # the IEEE-754 round-to-nearest-even result.
+        self._check_equal(result, 1.6666666269302368, check_bits=True)
 
         result = self.fp3 / self.fp4
         self._check_equal(result, 2.0)
