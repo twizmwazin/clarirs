@@ -64,18 +64,34 @@ impl Shl<u32> for BitVec {
     type Output = Result<Self, BitVecError>;
 
     fn shl(self, rhs: u32) -> Self::Output {
-        BitVec::new(
-            self.words
-                .iter()
-                .scan(0, |carry, w| {
-                    let new_carry = w >> (64 - rhs as usize);
-                    let new_word = (w << rhs as usize) | *carry;
-                    *carry = new_carry;
-                    Some(new_word)
-                })
-                .collect(),
-            self.length,
-        )
+        let bit_length = self.length;
+        if rhs >= bit_length {
+            return BitVec::new(SmallVec::new(), bit_length);
+        }
+
+        let word_shift = (rhs / 64) as usize;
+        let bit_shift = rhs % 64;
+        let num_words = self.words.len();
+        let mut result: SmallVec<[u64; 1]> = SmallVec::with_capacity(num_words);
+
+        for _ in 0..word_shift {
+            result.push(0);
+        }
+
+        if bit_shift == 0 {
+            for i in 0..(num_words - word_shift) {
+                result.push(self.words[i]);
+            }
+        } else {
+            let mut carry = 0u64;
+            for i in 0..(num_words - word_shift) {
+                let w = self.words[i];
+                result.push((w << bit_shift) | carry);
+                carry = w >> (64 - bit_shift);
+            }
+        }
+
+        BitVec::new(result, bit_length)
     }
 }
 
@@ -83,19 +99,30 @@ impl Shr<u32> for BitVec {
     type Output = Result<Self, BitVecError>;
 
     fn shr(self, rhs: u32) -> Self::Output {
-        BitVec::new(
-            self.words
-                .iter()
-                .rev()
-                .scan(0, |carry, w| {
-                    let new_carry = w << (64 - rhs as usize);
-                    let new_word = (w >> rhs as usize) | *carry;
-                    *carry = new_carry;
-                    Some(new_word)
-                })
-                .collect(),
-            self.length,
-        )
+        let bit_length = self.length;
+        if rhs >= bit_length {
+            return BitVec::new(SmallVec::new(), bit_length);
+        }
+
+        let word_shift = (rhs / 64) as usize;
+        let bit_shift = rhs % 64;
+        let num_words = self.words.len();
+        let mut result: SmallVec<[u64; 1]> = smallvec::smallvec![0u64; num_words];
+
+        if bit_shift == 0 {
+            for i in 0..(num_words - word_shift) {
+                result[i] = self.words[i + word_shift];
+            }
+        } else {
+            let mut carry = 0u64;
+            for i in (0..(num_words - word_shift)).rev() {
+                let w = self.words[i + word_shift];
+                result[i] = (w >> bit_shift) | carry;
+                carry = w << (64 - bit_shift);
+            }
+        }
+
+        BitVec::new(result, bit_length)
     }
 }
 
@@ -235,6 +262,53 @@ mod tests {
         let result = (bv << 4)?;
         assert_eq!(result.to_u64().unwrap(), 0b10100000);
 
+        // Shift by 0 must not panic (previously triggered UB via `w >> 64`)
+        let bv = BitVec::from_prim_with_size(0b1011u8, 8)?;
+        let result = (bv << 0)?;
+        assert_eq!(result.to_u64().unwrap(), 0b1011);
+
+        // Shift by >= length must yield zero (previously UB / wrong)
+        let bv = BitVec::from_prim_with_size(0b1011u8, 8)?;
+        let result = (bv << 8)?;
+        assert_eq!(result.to_u64().unwrap(), 0);
+        let bv = BitVec::from_prim_with_size(0b1011u8, 8)?;
+        let result = (bv << 100)?;
+        assert_eq!(result.to_u64().unwrap(), 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_shl_multi_word() -> Result<(), BitVecError> {
+        use num_bigint::BigUint;
+
+        // 128-bit shift by 64 (exact word boundary)
+        let bv = BitVec::from_biguint(&BigUint::from(3u64), 128)?;
+        let result = (bv << 64)?;
+        assert_eq!(result.to_biguint(), BigUint::from(3u64) << 64);
+
+        // 128-bit shift by 65 (word + bits)
+        let bv = BitVec::from_biguint(&BigUint::from(3u64), 128)?;
+        let result = (bv << 65)?;
+        assert_eq!(result.to_biguint(), BigUint::from(3u64) << 65);
+
+        // 128-bit shift by 127 (just under width)
+        let bv = BitVec::from_biguint(&BigUint::from(1u64), 128)?;
+        let result = (bv << 127)?;
+        assert_eq!(result.to_biguint(), BigUint::from(1u64) << 127);
+
+        // 128-bit shift by 128 (== width) must be zero
+        let bv = BitVec::from_biguint(&BigUint::from(0xffffu64), 128)?;
+        let result = (bv << 128)?;
+        assert_eq!(result.to_biguint(), BigUint::from(0u64));
+
+        // Shifting in the LSB word into the high word with a cross-word carry
+        let val = (BigUint::from(0xdeadbeefu64) << 32) | BigUint::from(0xcafef00du64);
+        let bv = BitVec::from_biguint(&val, 128)?;
+        let result = (bv << 40)?;
+        let mask = (BigUint::from(1u8) << 128) - BigUint::from(1u8);
+        assert_eq!(result.to_biguint(), (&val << 40) & &mask);
+
         Ok(())
     }
 
@@ -254,6 +328,56 @@ mod tests {
         let bv = BitVec::from_prim_with_size(0b1010u8, 4)?;
         let result = (bv >> 4)?;
         assert_eq!(result.to_u64().unwrap(), 0);
+
+        // Shift by 0 must not panic (previously triggered UB via `w << 64`)
+        let bv = BitVec::from_prim_with_size(0b1011u8, 8)?;
+        let result = (bv >> 0)?;
+        assert_eq!(result.to_u64().unwrap(), 0b1011);
+
+        // Shift by >= length must yield zero
+        let bv = BitVec::from_prim_with_size(0xffu8, 8)?;
+        let result = (bv >> 8)?;
+        assert_eq!(result.to_u64().unwrap(), 0);
+        let bv = BitVec::from_prim_with_size(0xffu8, 8)?;
+        let result = (bv >> 100)?;
+        assert_eq!(result.to_u64().unwrap(), 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_shr_multi_word() -> Result<(), BitVecError> {
+        use num_bigint::BigUint;
+
+        // 128-bit shift by 64 (exact word boundary)
+        let val = BigUint::from(3u64) << 64;
+        let bv = BitVec::from_biguint(&val, 128)?;
+        let result = (bv >> 64)?;
+        assert_eq!(result.to_biguint(), BigUint::from(3u64));
+
+        // 128-bit shift by 65 (word + bits)
+        let val = BigUint::from(6u64) << 64;
+        let bv = BitVec::from_biguint(&val, 128)?;
+        let result = (bv >> 65)?;
+        assert_eq!(result.to_biguint(), BigUint::from(3u64));
+
+        // 128-bit shift by 1 with high bit set (cross-word carry MSB->LSB)
+        let val = BigUint::from(1u64) << 64;
+        let bv = BitVec::from_biguint(&val, 128)?;
+        let result = (bv >> 1)?;
+        assert_eq!(result.to_biguint(), BigUint::from(1u64) << 63);
+
+        // 128-bit shift by 128 (== width) must be zero
+        let val = (BigUint::from(1u8) << 128) - BigUint::from(1u8);
+        let bv = BitVec::from_biguint(&val, 128)?;
+        let result = (bv >> 128)?;
+        assert_eq!(result.to_biguint(), BigUint::from(0u64));
+
+        // Check round-trip preserves bits with a complex value
+        let val = (BigUint::from(0xdeadbeefu64) << 64) | BigUint::from(0xcafef00du64);
+        let bv = BitVec::from_biguint(&val, 128)?;
+        let result = (bv >> 40)?;
+        assert_eq!(result.to_biguint(), &val >> 40);
 
         Ok(())
     }
