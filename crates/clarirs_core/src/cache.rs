@@ -1,10 +1,12 @@
 use ahash::HashMap;
 use std::{
+    collections::HashMap as StdHashMap,
     hash::Hash,
     sync::{Arc, RwLock, Weak},
 };
 
 use crate::prelude::*;
+use crate::util::precomputed_hasher::PrecomputedHasherBuilder;
 
 /// A trait for caching values based on a key. In the context of clarirs, this
 /// is used to cache ASTs, as well as the results of various algorithms.
@@ -72,8 +74,14 @@ enum AstCacheValue<'c> {
 
 /// A special cache for when the result type is an AST. Unlike the generic cache,
 /// this cache stores weak references to the AST nodes.
+///
+/// The key is an already-computed 64-bit structural hash of the AST node, so the
+/// `HashMap`'s `BuildHasher` is a no-op `PrecomputedHasherBuilder`: rehashing a
+/// high-entropy `u64` through ahash on every lookup buys nothing.
 #[derive(Debug, Default)]
-pub struct AstCache<'c>(RwLock<HashMap<u64, AstCacheValue<'c>>>);
+pub struct AstCache<'c>(
+    RwLock<StdHashMap<u64, AstCacheValue<'c>, PrecomputedHasherBuilder>>,
+);
 
 impl<'c> Cache<u64, DynAst<'c>> for AstCache<'c> {
     fn get_or_insert<E>(
@@ -332,6 +340,29 @@ mod tests {
             computed,
             "Should always compute in collision detection mode"
         );
+    }
+
+    #[test]
+    fn test_ast_cache_handles_low_high_and_zero_hashes() -> Result<(), ClarirsError> {
+        // PrecomputedHasher writes the u64 key straight through, so make sure
+        // adversarial keys (0, u64::MAX, low/high bits only) still round-trip
+        // without colliding.
+        let ctx = crate::context::Context::new();
+        let cache = AstCache::default();
+        let asts: Vec<_> = (0..4)
+            .map(|i| ctx.bvv_prim_with_size(i as u64, 64).unwrap())
+            .collect();
+        let keys = [0u64, u64::MAX, 1, 1 << 63];
+
+        for (k, ast) in keys.iter().zip(asts.iter()) {
+            cache.get_or_insert::<ClarirsError>(*k, || Ok(DynAst::from(ast)))?;
+        }
+        for (k, ast) in keys.iter().zip(asts.iter()) {
+            let got =
+                cache.get_or_insert::<ClarirsError>(*k, || panic!("hash {k} should be cached"))?;
+            assert_eq!(got, DynAst::from(ast));
+        }
+        Ok(())
     }
 
     #[test]
