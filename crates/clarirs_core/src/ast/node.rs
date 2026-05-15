@@ -33,14 +33,13 @@ pub struct AstNode<'c, O: Op<'c>> {
     symbolic: bool,
 }
 
-impl<'c, O> Drop for AstNode<'c, O>
-where
-    O: Op<'c>,
-{
-    fn drop(&mut self) {
-        self.ctx.drop_cache(self.hash);
-    }
-}
+// The cache stores `Weak` references and `get_or_insert` already falls
+// through to recompute when an upgrade fails, so dropping an `AstNode`
+// does not need to eagerly evict its cache entry. The previous `Drop`
+// took three write locks (ast_cache / simplification_cache /
+// excavate_ite_cache) on every Arc destruction — devastating in tight
+// loops that build and discard short-lived expressions. Stale `Weak`
+// entries are pruned lazily as their hashes are reinserted.
 
 impl<'c, O> Debug for AstNode<'c, O>
 where
