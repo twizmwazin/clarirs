@@ -133,7 +133,9 @@ impl<'c> Cache<u64, DynAst<'c>> for AstCache<'c> {
             // Step 2: Acquire a write lock to check for collisions and insert
             let mut inner = self.0.write().unwrap();
 
-            // Check for hash collision
+            // Check for hash collision. `PartialEq` on `AstNode` is now
+            // hash-only (so a collision would compare *equal*); use
+            // `structural_eq` to detect a true op-level mismatch.
             if let Some(existing_value) = inner.get(&hash)
                 && let Some(existing_arc) = match existing_value {
                     AstCacheValue::Boolean(weak) => weak.upgrade().map(DynAst::Boolean),
@@ -141,7 +143,7 @@ impl<'c> Cache<u64, DynAst<'c>> for AstCache<'c> {
                     AstCacheValue::Float(weak) => weak.upgrade().map(DynAst::Float),
                     AstCacheValue::String(weak) => weak.upgrade().map(DynAst::String),
                 }
-                && existing_arc != arc
+                && !existing_arc.structural_eq(&arc)
             {
                 panic!(
                     "Hash collision detected! Hash: {hash}, Existing: {existing_arc:?}, New: {arc:?}"

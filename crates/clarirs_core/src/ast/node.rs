@@ -64,7 +64,26 @@ impl<'c, O> PartialEq for AstNode<'c, O>
 where
     O: Op<'c> + Serialize,
 {
+    /// Compare by the precomputed structural hash. This is O(1) and matches the
+    /// `Hash` impl (which writes `self.hash` directly). The simplification
+    /// rules trigger `==` thousands of times per pass; the previous
+    /// implementation walked the entire op subtree on every probe.
+    ///
+    /// Use `structural_eq` when a true op-by-op comparison is required (the
+    /// hash-collision detection path in `AstCache` is one such caller).
     fn eq(&self, other: &Self) -> bool {
+        self.hash == other.hash
+    }
+}
+
+impl<'c, O> AstNode<'c, O>
+where
+    O: Op<'c> + Serialize,
+{
+    /// Full op + annotation comparison, ignoring the precomputed hash.
+    /// Use this to validate that two nodes that compare `==` (by hash) are
+    /// actually structurally identical — i.e., to detect hash collisions.
+    pub fn structural_eq(&self, other: &Self) -> bool {
         self.op == other.op && self.annotations == other.annotations
     }
 }
@@ -371,6 +390,19 @@ impl<'c> DynAst<'c> {
         }
     }
 
+    /// True op + annotation comparison, ignoring the precomputed hash.
+    /// `PartialEq` short-circuits on `hash`; this is the fallback used by
+    /// `AstCache`'s hash-collision detection mode.
+    pub fn structural_eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (DynAst::Boolean(a), DynAst::Boolean(b)) => a.structural_eq(b),
+            (DynAst::BitVec(a), DynAst::BitVec(b)) => a.structural_eq(b),
+            (DynAst::Float(a), DynAst::Float(b)) => a.structural_eq(b),
+            (DynAst::String(a), DynAst::String(b)) => a.structural_eq(b),
+            _ => false,
+        }
+    }
+
     pub fn as_bool(&self) -> Option<&BoolAst<'c>> {
         match self {
             DynAst::Boolean(ast) => Some(ast),
@@ -517,5 +549,33 @@ impl<'c> TryFrom<DynAst<'c>> for StringAst<'c> {
             DynAst::String(ast) => Ok(ast),
             _ => Err(ClarirsError::TypeError("Expected StringAst".to_string())),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::prelude::*;
+
+    /// PartialEq now compares only the precomputed hash. Two structurally
+    /// identical builds must agree (they hash-cons to the same Arc anyway),
+    /// and two distinct builds must differ — verifying both that the fast
+    /// path returns the right answer on the common case and that the hash
+    /// is stable enough to distinguish typical operands.
+    #[test]
+    fn test_partial_eq_is_hash_only() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let a1 = ctx.bvv_prim_with_size(42u64, 64)?;
+        let a2 = ctx.bvv_prim_with_size(42u64, 64)?;
+        let b = ctx.bvv_prim_with_size(99u64, 64)?;
+
+        assert_eq!(a1, a2);
+        assert_eq!(a1.hash(), a2.hash());
+        assert_ne!(a1, b);
+        assert_ne!(a1.hash(), b.hash());
+
+        // structural_eq agrees with PartialEq on the happy path.
+        assert!(a1.structural_eq(&a2));
+        assert!(!a1.structural_eq(&b));
+        Ok(())
     }
 }
