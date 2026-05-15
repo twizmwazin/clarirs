@@ -145,8 +145,64 @@ pub fn r#if<'py>(
     then_: Bound<'py, PyAny>,
     else_: Bound<'py, PyAny>,
 ) -> Result<Bound<'py, Base>, ClaripyError> {
-    if let Ok(then_bv) = then_.clone().into_any().extract::<CoerceBV>() {
-        if let Ok(else_bv) = else_.clone().into_any().extract::<CoerceBV>() {
+    // Classify each branch by its concrete AST type so we can dispatch on the
+    // explicit sort, not on whichever coercion happens to match first.
+    // `CoerceBV` and `CoerceBool` both silently accept the other's AST type,
+    // which would otherwise mask a Bool/BV mismatch (and would route a
+    // Bool/Bool `If` through the BV path, returning a 1-bit BV).
+    #[derive(Copy, Clone, PartialEq, Eq, Debug)]
+    enum Kind {
+        Bool,
+        BV,
+        FP,
+        String,
+        Literal,
+    }
+    fn classify(val: &Bound<'_, PyAny>) -> Kind {
+        if val.cast::<Bool>().is_ok() {
+            Kind::Bool
+        } else if val.cast::<BV>().is_ok() {
+            Kind::BV
+        } else if val.cast::<FP>().is_ok() {
+            Kind::FP
+        } else if val.cast::<PyAstString>().is_ok() {
+            Kind::String
+        } else {
+            Kind::Literal
+        }
+    }
+
+    let then_kind = classify(&then_);
+    let else_kind = classify(&else_);
+    let kind = match (then_kind, else_kind) {
+        // Both literals: default to BV, matching prior behavior for raw ints.
+        (Kind::Literal, Kind::Literal) => Kind::BV,
+        (Kind::Literal, k) | (k, Kind::Literal) => k,
+        (a, b) if a == b => a,
+        _ => {
+            return Err(ClaripyError::TypeError(format!(
+                "Sort mismatch in if-then-else: {then_kind:?} and {else_kind:?}"
+            )));
+        }
+    };
+
+    match kind {
+        Kind::Bool => {
+            let then_bool = then_.extract::<CoerceBool>()?;
+            let else_bool = else_.extract::<CoerceBool>()?;
+            Bool::new(
+                py,
+                &GLOBAL_CONTEXT.ite(
+                    &cond.0.get().inner,
+                    &then_bool.0.get().inner,
+                    &else_bool.0.get().inner,
+                )?,
+            )
+            .map(|b| b.into_any().cast::<Base>().unwrap().clone())
+        }
+        Kind::BV => {
+            let then_bv = then_.extract::<CoerceBV>()?;
+            let else_bv = else_.extract::<CoerceBV>()?;
             let (then_bv, else_bv) = CoerceBV::unpack_pair(py, &then_bv, &else_bv)?;
             BV::new(
                 py,
@@ -157,27 +213,10 @@ pub fn r#if<'py>(
                 )?,
             )
             .map(|b| b.into_any().cast::<Base>().unwrap().clone())
-        } else {
-            Err(ClaripyError::TypeError(format!(
-                "Sort mismatch in if-then-else: {then_:?} and {else_:?}"
-            )))
         }
-    } else if let Ok(then_bool) = then_.clone().into_any().extract::<CoerceBool>() {
-        if let Ok(else_bv) = else_.clone().into_any().extract::<CoerceBool>() {
-            let then_bv = then_bool.0.get().inner.clone();
-            let else_bv = else_bv.0.get().inner.clone();
-            Bool::new(
-                py,
-                &GLOBAL_CONTEXT.ite(&cond.0.get().inner, &then_bv, &else_bv)?,
-            )
-            .map(|b| b.into_any().cast::<Base>().unwrap().clone())
-        } else {
-            Err(ClaripyError::TypeError(format!(
-                "Sort mismatch in if-then-else: {then_:?} and {else_:?}"
-            )))
-        }
-    } else if let Ok(then_fp) = then_.clone().into_any().extract::<CoerceFP>() {
-        if let Ok(else_fp) = else_.clone().into_any().extract::<CoerceFP>() {
+        Kind::FP => {
+            let then_fp = then_.extract::<CoerceFP>()?;
+            let else_fp = else_.extract::<CoerceFP>()?;
             let (then_fp, else_fp) = CoerceFP::unpack_pair(py, &then_fp, &else_fp)?;
             FP::new(
                 py,
@@ -188,27 +227,21 @@ pub fn r#if<'py>(
                 )?,
             )
             .map(|b| b.into_any().cast::<Base>().unwrap().clone())
-        } else {
-            Err(ClaripyError::TypeError(format!(
-                "Sort mismatch in if-then-else: {then_:?} and {else_:?}"
-            )))
         }
-    } else if let Ok(then_string) = then_.clone().into_any().extract::<CoerceString>() {
-        if let Ok(else_string) = else_.clone().into_any().extract::<CoerceString>() {
-            let then_bv = then_string.0.get().inner.clone();
-            let else_bv = else_string.0.get().inner.clone();
+        Kind::String => {
+            let then_s = then_.extract::<CoerceString>()?;
+            let else_s = else_.extract::<CoerceString>()?;
             PyAstString::new(
                 py,
-                &GLOBAL_CONTEXT.ite(&cond.0.get().inner, &then_bv, &else_bv)?,
+                &GLOBAL_CONTEXT.ite(
+                    &cond.0.get().inner,
+                    &then_s.0.get().inner,
+                    &else_s.0.get().inner,
+                )?,
             )
             .map(|b| b.into_any().cast::<Base>().unwrap().clone())
-        } else {
-            Err(ClaripyError::TypeError(format!(
-                "Sort mismatch in if-then-else: {then_:?} and {else_:?}"
-            )))
         }
-    } else {
-        panic!("unsupported type")
+        Kind::Literal => unreachable!(),
     }
 }
 
