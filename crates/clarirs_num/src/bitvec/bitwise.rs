@@ -22,6 +22,10 @@ impl BitAnd for BitVec {
     type Output = Result<Self, BitVecError>;
 
     fn bitand(self, rhs: Self) -> Self::Output {
+        assert_eq!(
+            self.length, rhs.length,
+            "BitVec lengths must match for bitwise AND"
+        );
         let new_bv = self
             .words
             .iter()
@@ -36,6 +40,10 @@ impl BitOr for BitVec {
     type Output = Result<Self, BitVecError>;
 
     fn bitor(self, rhs: Self) -> Self::Output {
+        assert_eq!(
+            self.length, rhs.length,
+            "BitVec lengths must match for bitwise OR"
+        );
         let new_bv = self
             .words
             .iter()
@@ -50,6 +58,10 @@ impl BitXor for BitVec {
     type Output = Result<Self, BitVecError>;
 
     fn bitxor(self, rhs: Self) -> Self::Output {
+        assert_eq!(
+            self.length, rhs.length,
+            "BitVec lengths must match for bitwise XOR"
+        );
         let new_bv = self
             .words
             .iter()
@@ -216,6 +228,30 @@ mod tests {
         assert_eq!(result.to_u64().unwrap(), 0b01010101);
 
         Ok(())
+    }
+
+    #[test]
+    #[should_panic(expected = "BitVec lengths must match for bitwise AND")]
+    fn test_bitand_different_lengths_panics() {
+        let bv1 = BitVec::from_prim_with_size(0xffu8, 8).unwrap();
+        let bv2 = BitVec::from_prim_with_size(0xffffu16, 16).unwrap();
+        let _ = bv1 & bv2;
+    }
+
+    #[test]
+    #[should_panic(expected = "BitVec lengths must match for bitwise OR")]
+    fn test_bitor_different_lengths_panics() {
+        let bv1 = BitVec::from_prim_with_size(0xffu8, 8).unwrap();
+        let bv2 = BitVec::from_prim_with_size(0xffffu16, 16).unwrap();
+        let _ = bv1 | bv2;
+    }
+
+    #[test]
+    #[should_panic(expected = "BitVec lengths must match for bitwise XOR")]
+    fn test_bitxor_different_lengths_panics() {
+        let bv1 = BitVec::from_prim_with_size(0xffu8, 8).unwrap();
+        let bv2 = BitVec::from_prim_with_size(0xffffu16, 16).unwrap();
+        let _ = bv1 ^ bv2;
     }
 
     #[test]
