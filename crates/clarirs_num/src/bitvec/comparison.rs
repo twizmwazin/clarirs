@@ -8,6 +8,10 @@ impl PartialOrd for BitVec {
 
 impl Ord for BitVec {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        assert_eq!(
+            self.length, other.length,
+            "BitVec lengths must match for comparison"
+        );
         self.words
             .iter()
             .zip(other.words.iter())
@@ -211,5 +215,15 @@ mod tests {
         let bv1 = BitVec::from_prim_with_size(0x05u8, 8).unwrap();
         let bv2 = BitVec::from_prim_with_size(0x0005u16, 16).unwrap();
         let _ = bv1.signed_lt(&bv2);
+    }
+
+    #[test]
+    #[should_panic(expected = "BitVec lengths must match for comparison")]
+    fn test_unsigned_cmp_different_lengths() {
+        // Previously this silently truncated to the shorter operand and could
+        // return Ordering::Equal for unequal BVs.
+        let bv1 = BitVec::from_prim_with_size(0x05u8, 8).unwrap();
+        let bv2 = BitVec::from_prim_with_size(0x0005u16, 16).unwrap();
+        let _ = bv1.cmp(&bv2);
     }
 }
