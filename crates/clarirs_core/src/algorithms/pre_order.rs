@@ -1,6 +1,7 @@
-use ahash::HashMap;
+use std::collections::HashMap;
 
 use crate::prelude::*;
+use crate::util::precomputed_hasher::PrecomputedHasherBuilder;
 
 /// Walks the AST in pre-order, with the option to short-circuit subtrees.
 ///
@@ -25,7 +26,9 @@ pub fn walk_pre_order<'c>(
         child_results: Vec<DynAst<'c>>,
     }
 
-    let mut cache: HashMap<u64, DynAst<'c>> = HashMap::default();
+    // Key is the structural hash of the AST node, so we can skip ahash's mixing
+    // and use the precomputed value directly.
+    let mut cache: HashMap<u64, DynAst<'c>, PrecomputedHasherBuilder> = HashMap::default();
     let mut stack: Vec<NodeState<'c>> = Vec::new();
     let mut last_result: Option<DynAst<'c>> = None;
 
