@@ -809,8 +809,8 @@ pub trait AstFactory<'c>: Sized {
             BTreeSet::from([Annotation::new(
                 AnnotationType::StridedInterval {
                     stride,
-                    lower_bound,
-                    upper_bound,
+                    lower_bound: lower_bound.into(),
+                    upper_bound: upper_bound.into(),
                 },
                 false,
                 false,

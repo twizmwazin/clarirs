@@ -1,4 +1,4 @@
-use num_bigint::BigUint;
+use num_bigint::{BigInt, BigUint};
 use serde::Serialize;
 
 /// This struct is a sort of hack to allow us to access data in python
@@ -12,8 +12,11 @@ pub enum AnnotationType {
     SimplificationAvoidance,
     StridedInterval {
         stride: BigUint,
-        lower_bound: BigUint,
-        upper_bound: BigUint,
+        // Bounds are signed: claripy allows negative bounds (e.g. from
+        // constraints like `x > -5`); they wrap to the value's bit width when
+        // the strided interval is materialized.
+        lower_bound: BigInt,
+        upper_bound: BigInt,
     },
     EmptyStridedInterval,
     Region {

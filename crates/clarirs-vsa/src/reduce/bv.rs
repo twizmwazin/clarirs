@@ -1,6 +1,20 @@
 use super::ReduceResult;
 use crate::strided_interval::{ComparisonResult, StridedInterval};
 use clarirs_core::prelude::*;
+use num_bigint::{BigInt, BigUint};
+
+/// Wrap a possibly-negative signed bound into its unsigned representation
+/// modulo 2^bits (two's complement), matching claripy's strided intervals.
+fn wrap_signed_to_bits(value: &BigInt, bits: u32) -> BigUint {
+    if let Some(unsigned) = value.to_biguint() {
+        unsigned
+    } else {
+        let modulus = BigInt::from(1u8) << bits;
+        (((value % &modulus) + &modulus) % &modulus)
+            .to_biguint()
+            .unwrap_or_default()
+    }
+}
 
 fn child(children: &[ReduceResult], index: usize) -> Result<ComparisonResult, ClarirsError> {
     if let Some(ReduceResult::Bool(result)) = children.get(index) {
@@ -46,8 +60,8 @@ pub(crate) fn reduce_bv(
                         Some(StridedInterval::new(
                             *bits,
                             stride.clone(),
-                            lower_bound.clone(),
-                            upper_bound.clone(),
+                            wrap_signed_to_bits(lower_bound, *bits),
+                            wrap_signed_to_bits(upper_bound, *bits),
                         ))
                     } else if let AnnotationType::EmptyStridedInterval = ann.type_() {
                         Some(StridedInterval::empty(*bits))

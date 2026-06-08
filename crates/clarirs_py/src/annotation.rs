@@ -1,6 +1,6 @@
 use std::{ffi::CString, mem::discriminant, str::FromStr};
 
-use num_bigint::BigUint;
+use num_bigint::{BigInt, BigUint};
 use pyo3::types::PyType;
 
 use crate::prelude::*;
@@ -58,8 +58,8 @@ impl<'py> FromPyObject<'_, 'py> for PyAnnotationType {
             ("claripy.annotation", "StridedIntervalAnnotation") => {
                 AnnotationType::StridedInterval {
                     stride: BigUint::from(0u32),
-                    lower_bound: BigUint::from(0u32),
-                    upper_bound: BigUint::from(0u32),
+                    lower_bound: BigInt::from(0),
+                    upper_bound: BigInt::from(0),
                 }
             }
             ("claripy.annotation", "RegionAnnotation") => AnnotationType::Region {
@@ -115,8 +115,8 @@ impl<'py> FromPyObject<'_, 'py> for PyAnnotation {
                 }
                 ("claripy.annotation", "StridedIntervalAnnotation") => {
                     let stride = annotation.getattr("stride")?.extract::<BigUint>()?;
-                    let lower_bound = annotation.getattr("lower_bound")?.extract::<BigUint>()?;
-                    let upper_bound = annotation.getattr("upper_bound")?.extract::<BigUint>()?;
+                    let lower_bound = annotation.getattr("lower_bound")?.extract::<BigInt>()?;
+                    let upper_bound = annotation.getattr("upper_bound")?.extract::<BigInt>()?;
 
                     PyAnnotation::new(
                         AnnotationType::StridedInterval {
