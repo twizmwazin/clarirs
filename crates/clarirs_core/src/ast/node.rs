@@ -31,15 +31,12 @@ pub struct AstNode<'c, O: Op<'c>> {
     pub(crate) size: u32,
     #[serde(skip)]
     symbolic: bool,
-    // True if this node, or any node in its subtree, is concrete and carries an
-    // annotation that is neither eliminatable nor relocatable (e.g. a stack- or
-    // region-location annotation on the concrete stack pointer). Such a subtree
-    // must not be constant-folded, or the annotation — and the structure needed
-    // to recover the offset — would be lost. Symbolic blocking annotations (e.g.
-    // strided-interval annotations on a BVS) are intentionally excluded: VSA
-    // needs to reduce those, and folding never eliminates a symbolic node.
+    // Set if this node or any descendant is concrete and carries a
+    // non-eliminatable, non-relocatable annotation that constant-folding would
+    // discard. Symbolic blocking annotations (e.g. strided intervals) are
+    // excluded so VSA can still reduce them.
     #[serde(skip)]
-    has_concrete_blocking_annotation: bool,
+    has_concrete_blocker: bool,
 }
 
 impl<'c, O> Drop for AstNode<'c, O>
@@ -105,13 +102,11 @@ impl<'c, O: Op<'c> + Serialize + SupportsAnnotate<'c>> AstNode<'c, O> {
             || op.is_inherently_symbolic()
             || op.child_iter().any(|c| c.symbolic());
 
-        let has_concrete_blocking_annotation = (!symbolic
+        let has_concrete_blocker = (!symbolic
             && annotations
                 .iter()
                 .any(|a| !a.eliminatable() && !a.relocatable()))
-            || op
-                .child_iter()
-                .any(|c| c.has_concrete_blocking_annotation());
+            || op.child_iter().any(|c| c.has_concrete_blocker());
 
         Self {
             op,
@@ -122,12 +117,12 @@ impl<'c, O: Op<'c> + Serialize + SupportsAnnotate<'c>> AstNode<'c, O> {
             size,
             annotations,
             symbolic,
-            has_concrete_blocking_annotation,
+            has_concrete_blocker,
         }
     }
 
-    pub fn has_concrete_blocking_annotation(&self) -> bool {
-        self.has_concrete_blocking_annotation
+    pub fn has_concrete_blocker(&self) -> bool {
+        self.has_concrete_blocker
     }
 
     pub fn op(&self) -> &O {
@@ -290,12 +285,12 @@ impl DynAst<'_> {
         }
     }
 
-    pub fn has_concrete_blocking_annotation(&self) -> bool {
+    pub fn has_concrete_blocker(&self) -> bool {
         match self {
-            DynAst::Boolean(ast) => ast.has_concrete_blocking_annotation(),
-            DynAst::BitVec(ast) => ast.has_concrete_blocking_annotation(),
-            DynAst::Float(ast) => ast.has_concrete_blocking_annotation(),
-            DynAst::String(ast) => ast.has_concrete_blocking_annotation(),
+            DynAst::Boolean(ast) => ast.has_concrete_blocker(),
+            DynAst::BitVec(ast) => ast.has_concrete_blocker(),
+            DynAst::Float(ast) => ast.has_concrete_blocker(),
+            DynAst::String(ast) => ast.has_concrete_blocker(),
         }
     }
 }
