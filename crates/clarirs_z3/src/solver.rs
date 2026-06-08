@@ -9,11 +9,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 /// A persistent z3 solver, incrementally extended as constraints are added.
 ///
-/// Z3 objects are bound to a thread-local context (`Z3_CONTEXT`), so these live
-/// in thread-local storage keyed by [`Z3Solver::cache_id`]. A solver first used
-/// on a new thread simply rebuilds there (the per-thread benefit is lost, which
-/// is acceptable). Keeping only the `u64` id on `Z3Solver` itself means the
-/// struct stays `Send`.
+/// Kept in thread-local storage keyed by [`Z3Solver::cache_id`], since z3 objects
+/// are bound to the thread-local `Z3_CONTEXT`. `Z3Solver` stores only the id, so
+/// it stays `Send`; first use on a new thread rebuilds there.
 struct CachedSolver {
     solver: RcSolver,
     /// Number of `Z3Solver::assertions` already pushed into `solver`.
@@ -46,9 +44,8 @@ pub struct Z3Solver<'c> {
 
 impl<'c> Clone for Z3Solver<'c> {
     fn clone(&self) -> Self {
-        // A clone is an independent solver: it gets a fresh cache id so it never
-        // shares the original's incremental z3 solver. Its own cache is built
-        // lazily from the cloned assertions on first use.
+        // A clone is independent: a fresh cache id, so it never shares the
+        // original's cached z3 solver.
         Z3Solver {
             ctx: self.ctx,
             assertions: self.assertions.clone(),
@@ -62,9 +59,8 @@ impl<'c> Clone for Z3Solver<'c> {
 
 impl Drop for Z3Solver<'_> {
     fn drop(&mut self) {
-        // Reclaim this solver's cached z3 solver on the current thread. Any
-        // entry left on another thread (had it migrated) is reclaimed when that
-        // thread exits.
+        // Drop this solver's cache entry on the current thread; an entry on
+        // another thread is reclaimed when that thread exits.
         let _ = SOLVER_CACHE.try_with(|cell| {
             if let Ok(mut map) = cell.try_borrow_mut() {
                 map.remove(&self.cache_id);
@@ -196,20 +192,16 @@ impl<'c> Z3Solver<'c> {
         Ok(())
     }
 
-    /// Run `f` against this solver's cached, incrementally-maintained z3 solver.
-    ///
-    /// The z3 solver persists across calls (per thread): only assertions added
-    /// since the previous call are pushed, so repeated `satisfiable`/`eval`
-    /// calls on a growing constraint set — as made heavily by e.g. Veritesting
-    /// — no longer re-assert and re-solve the whole set every time.
+    /// Run `f` against this solver's cached z3 solver (per thread), pushing only
+    /// the assertions added since the previous call rather than rebuilding and
+    /// re-asserting the whole set each time.
     fn with_cached_solver<T>(
         &self,
         f: impl FnOnce(&mut RcSolver) -> Result<T, ClarirsError>,
     ) -> Result<T, ClarirsError> {
         SOLVER_CACHE.with(|cell| {
-            // A cached solver is reusable only if it was built with the same
-            // params and has not asserted constraints that are no longer present
-            // (which happens after `clear`/`simplify`).
+            // Reusable only if built with the same params and its asserted
+            // constraints are still a prefix of the current set.
             let reusable = match cell.borrow().get(&self.cache_id) {
                 Some(c) => {
                     c.timeout == self.timeout
@@ -220,8 +212,7 @@ impl<'c> Z3Solver<'c> {
             };
 
             if !reusable {
-                // Build from scratch outside the cache borrow (to_z3 may be
-                // costly but never touches SOLVER_CACHE).
+                // Build outside the cache borrow.
                 let mut solver = self.new_z3_solver()?;
                 for idx in 0..self.assertions.len() {
                     self.assert_at(&mut solver, idx)?;
