@@ -44,8 +44,6 @@ pub struct Z3Solver<'c> {
 
 impl<'c> Clone for Z3Solver<'c> {
     fn clone(&self) -> Self {
-        // A clone is independent: a fresh cache id, so it never shares the
-        // original's cached z3 solver.
         Z3Solver {
             ctx: self.ctx,
             assertions: self.assertions.clone(),
@@ -59,8 +57,6 @@ impl<'c> Clone for Z3Solver<'c> {
 
 impl Drop for Z3Solver<'_> {
     fn drop(&mut self) {
-        // Drop this solver's cache entry on the current thread; an entry on
-        // another thread is reclaimed when that thread exits.
         let _ = SOLVER_CACHE.try_with(|cell| {
             if let Ok(mut map) = cell.try_borrow_mut() {
                 map.remove(&self.cache_id);
