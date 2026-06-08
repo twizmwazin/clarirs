@@ -283,11 +283,18 @@ fn simplify<'c>(
             state.last_missed_child = None;
         }
 
+        // Don't simplify a node that itself carries a blocking annotation, nor
+        // one whose subtree contains a *concrete* blocking-annotated node:
+        // folding the latter (e.g. `(sp_annotated + 0x10) - 0x8`) would discard
+        // the annotated node that consumers like variable-recovery stack
+        // tracking rely on. Symbolic blocking annotations (strided intervals)
+        // are excluded so VSA can still reduce them.
         let has_blocking_annotations = state
             .expr
             .annotations()
             .iter()
-            .any(|a| !a.eliminatable() && !a.relocatable());
+            .any(|a| !a.eliminatable() && !a.relocatable())
+            || state.expr.has_concrete_blocking_annotation();
         let should_simplify = !respect_annotations || !has_blocking_annotations;
         if should_simplify {
             let inner_result = simplify_inner(&mut state, error_on_dbz);
