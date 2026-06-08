@@ -349,14 +349,8 @@ fn simplify<'c>(
                     work_stack.push(state);
                 }
                 Err(SimplifyError::ReRun(new_ast)) => {
-                    // Carry relocatable annotations from the node being rewritten onto the
-                    // rewritten expression. A rewrite such as
-                    //   Extract(n, 0, a - b) -> Extract(n, 0, a) - Extract(n, 0, b)
-                    // builds a fresh result from children that never carried the parent
-                    // node's annotations, so without this the relocatable annotations
-                    // (e.g. variable-recovery VariableAnnotation) that lived on the
-                    // original node would be silently dropped. Attaching them here lets
-                    // them propagate forward through any further rerun iterations.
+                    // Forward the rewritten node's relocatable annotations onto the
+                    // rewritten expression so they are not dropped across the rerun.
                     let relocatable_annotations: Vec<Annotation> = state
                         .expr
                         .annotations()
