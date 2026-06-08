@@ -36,12 +36,31 @@ impl BV {
         Self::new_with_name(py, inner, None)
     }
 
+    /// Wrap an AST without re-simplifying it. Used by annotation-only operations
+    /// (e.g. `replace_annotations`) where the underlying op is already simplified
+    /// and re-simplifying would re-propagate relocatable annotations from the
+    /// children, defeating an explicit annotation replacement.
+    pub fn new_unsimplified<'py>(
+        py: Python<'py>,
+        inner: &BitVecAst<'static>,
+    ) -> Result<Bound<'py, BV>, ClaripyError> {
+        Self::new_inner(py, inner, None)
+    }
+
     pub fn new_with_name<'py>(
         py: Python<'py>,
         inner: &BitVecAst<'static>,
         name: Option<String>,
     ) -> Result<Bound<'py, BV>, ClaripyError> {
         let inner = &inner.simplify_ext(true, true)?;
+        Self::new_inner(py, inner, name)
+    }
+
+    fn new_inner<'py>(
+        py: Python<'py>,
+        inner: &BitVecAst<'static>,
+        name: Option<String>,
+    ) -> Result<Bound<'py, BV>, ClaripyError> {
         if let Some(cache_hit) = PY_BV_CACHE.get(&inner.hash()).and_then(|cache_hit| {
             cache_hit
                 .bind(py)
@@ -545,11 +564,11 @@ impl BV {
         py: Python<'py>,
         annotations: Vec<PyAnnotation>,
     ) -> Result<Bound<'py, Self>, ClaripyError> {
-        let inner = self.inner.context().make_bitvec_annotated(
+        let inner = self.inner.context().make_bitvec_annotated_exact(
             self.inner.op().clone(),
             annotations.into_iter().map(|a| a.0).collect(),
         )?;
-        Self::new(py, &inner)
+        Self::new_unsimplified(py, &inner)
     }
 
     pub fn remove_annotation<'py>(

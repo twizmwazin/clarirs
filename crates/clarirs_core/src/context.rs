@@ -151,7 +151,14 @@ impl<'c> AstFactory<'c> for Context<'c> {
                 .flat_map(|c| c.annotations())
                 .filter(|a| a.relocatable()),
         );
+        self.make_bool_annotated_exact(op, annotations)
+    }
 
+    fn make_bool_annotated_exact(
+        &'c self,
+        op: BooleanOp<'c>,
+        annotations: BTreeSet<Annotation>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
         let mut hasher = AHasher::default();
         0u32.hash(&mut hasher); // Domain separation for bools
         op.hash(&mut hasher);
@@ -186,7 +193,14 @@ impl<'c> AstFactory<'c> for Context<'c> {
                 .flat_map(|c| c.annotations())
                 .filter(|a| a.relocatable()),
         );
+        self.make_bitvec_annotated_exact(op, annotations)
+    }
 
+    fn make_bitvec_annotated_exact(
+        &'c self,
+        op: BitVecOp<'c>,
+        annotations: BTreeSet<Annotation>,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
         let mut hasher = AHasher::default();
         1u32.hash(&mut hasher); // Domain separation for bitvecs
         op.hash(&mut hasher);
@@ -224,7 +238,14 @@ impl<'c> AstFactory<'c> for Context<'c> {
                 .flat_map(|c| c.annotations())
                 .filter(|a| a.relocatable()),
         );
+        self.make_float_annotated_exact(op, annotations)
+    }
 
+    fn make_float_annotated_exact(
+        &'c self,
+        op: FloatOp<'c>,
+        annotations: BTreeSet<Annotation>,
+    ) -> std::result::Result<FloatAst<'c>, ClarirsError> {
         let mut hasher = AHasher::default();
         2u32.hash(&mut hasher); // Domain separation for floats
         op.hash(&mut hasher);
@@ -259,7 +280,14 @@ impl<'c> AstFactory<'c> for Context<'c> {
                 .flat_map(|c| c.annotations())
                 .filter(|a| a.relocatable()),
         );
+        self.make_string_annotated_exact(op, annotations)
+    }
 
+    fn make_string_annotated_exact(
+        &'c self,
+        op: StringOp<'c>,
+        annotations: BTreeSet<Annotation>,
+    ) -> Result<StringAst<'c>, ClarirsError> {
         let mut hasher = AHasher::default();
         3u32.hash(&mut hasher); // Domain separation for strings
         op.hash(&mut hasher);

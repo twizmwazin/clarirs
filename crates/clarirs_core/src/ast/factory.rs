@@ -31,6 +31,41 @@ pub trait AstFactory<'c>: Sized {
         annotations: BTreeSet<Annotation>,
     ) -> Result<StringAst<'c>, ClarirsError>;
 
+    // Exact-annotation constructors: build a node carrying *exactly* the given
+    // annotations, without propagating relocatable annotations up from the
+    // children. This matches claripy's `replace_annotations`, which sets a
+    // node's annotation set verbatim. The default implementation falls back to
+    // the propagating constructor; `Context` overrides these to skip
+    // propagation.
+    fn make_bool_annotated_exact(
+        &'c self,
+        op: BooleanOp<'c>,
+        annotations: BTreeSet<Annotation>,
+    ) -> Result<BoolAst<'c>, ClarirsError> {
+        self.make_bool_annotated(op, annotations)
+    }
+    fn make_bitvec_annotated_exact(
+        &'c self,
+        op: BitVecOp<'c>,
+        annotations: BTreeSet<Annotation>,
+    ) -> Result<BitVecAst<'c>, ClarirsError> {
+        self.make_bitvec_annotated(op, annotations)
+    }
+    fn make_float_annotated_exact(
+        &'c self,
+        op: FloatOp<'c>,
+        annotations: BTreeSet<Annotation>,
+    ) -> Result<FloatAst<'c>, ClarirsError> {
+        self.make_float_annotated(op, annotations)
+    }
+    fn make_string_annotated_exact(
+        &'c self,
+        op: StringOp<'c>,
+        annotations: BTreeSet<Annotation>,
+    ) -> Result<StringAst<'c>, ClarirsError> {
+        self.make_string_annotated(op, annotations)
+    }
+
     // Provided methods
 
     fn make_bool(&'c self, op: BooleanOp<'c>) -> Result<BoolAst<'c>, ClarirsError> {

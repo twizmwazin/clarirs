@@ -37,12 +37,28 @@ impl Bool {
         Self::new_with_name(py, inner, None)
     }
 
+    /// Wrap an AST without re-simplifying it. See `BV::new_unsimplified`.
+    pub fn new_unsimplified<'py>(
+        py: Python<'py>,
+        inner: &BoolAst<'static>,
+    ) -> Result<Bound<'py, Bool>, ClaripyError> {
+        Self::new_inner(py, inner, None)
+    }
+
     pub fn new_with_name<'py>(
         py: Python<'py>,
         inner: &BoolAst<'static>,
         name: Option<String>,
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         let inner = &inner.simplify()?;
+        Self::new_inner(py, inner, name)
+    }
+
+    fn new_inner<'py>(
+        py: Python<'py>,
+        inner: &BoolAst<'static>,
+        name: Option<String>,
+    ) -> Result<Bound<'py, Bool>, ClaripyError> {
         if let Some(cache_hit) = PY_BOOL_CACHE.get(&inner.hash()).and_then(|cache_hit| {
             cache_hit
                 .bind(py)
@@ -466,11 +482,11 @@ impl Bool {
         py: Python<'py>,
         annotations: Vec<PyAnnotation>,
     ) -> Result<Bound<'py, Self>, ClaripyError> {
-        let inner = self.inner.context().make_bool_annotated(
+        let inner = self.inner.context().make_bool_annotated_exact(
             self.inner.op().clone(),
             annotations.into_iter().map(|a| a.0).collect(),
         )?;
-        Self::new(py, &inner)
+        Self::new_unsimplified(py, &inner)
     }
 
     pub fn remove_annotation<'py>(
