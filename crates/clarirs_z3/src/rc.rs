@@ -172,7 +172,12 @@ impl Drop for RcAst {
     fn drop(&mut self) {
         // try_with: during thread/process shutdown the context thread-local may
         // already be destroyed; skip the dec_ref then rather than panic-aborting.
-        let _ = Z3_CONTEXT.try_with(|&ctx| unsafe { z3::dec_ref(ctx, self.0) });
+        if Z3_CONTEXT
+            .try_with(|&ctx| unsafe { z3::dec_ref(ctx, self.0) })
+            .is_err()
+        {
+            log::debug!("Z3 context already torn down at shutdown; skipping AST dec_ref");
+        }
     }
 }
 
@@ -259,7 +264,12 @@ impl Deref for RcParamSet {
 
 impl Drop for RcParamSet {
     fn drop(&mut self) {
-        let _ = Z3_CONTEXT.try_with(|&ctx| unsafe { z3::params_dec_ref(ctx, self.0) });
+        if Z3_CONTEXT
+            .try_with(|&ctx| unsafe { z3::params_dec_ref(ctx, self.0) })
+            .is_err()
+        {
+            log::debug!("Z3 context already torn down at shutdown; skipping param-set dec_ref");
+        }
     }
 }
 
@@ -338,7 +348,12 @@ impl Clone for RcSolver {
 
 impl Drop for RcSolver {
     fn drop(&mut self) {
-        let _ = Z3_CONTEXT.try_with(|&ctx| unsafe { z3::solver_dec_ref(ctx, self.0) });
+        if Z3_CONTEXT
+            .try_with(|&ctx| unsafe { z3::solver_dec_ref(ctx, self.0) })
+            .is_err()
+        {
+            log::debug!("Z3 context already torn down at shutdown; skipping solver dec_ref");
+        }
     }
 }
 
@@ -438,7 +453,12 @@ impl Clone for RcOptimize {
 
 impl Drop for RcOptimize {
     fn drop(&mut self) {
-        let _ = Z3_CONTEXT.try_with(|&ctx| unsafe { z3::optimize_dec_ref(ctx, self.0) });
+        if Z3_CONTEXT
+            .try_with(|&ctx| unsafe { z3::optimize_dec_ref(ctx, self.0) })
+            .is_err()
+        {
+            log::debug!("Z3 context already torn down at shutdown; skipping optimize dec_ref");
+        }
     }
 }
 
@@ -498,7 +518,12 @@ impl Clone for RcModel {
 
 impl Drop for RcModel {
     fn drop(&mut self) {
-        let _ = Z3_CONTEXT.try_with(|&ctx| unsafe { z3::model_dec_ref(ctx, self.0) });
+        if Z3_CONTEXT
+            .try_with(|&ctx| unsafe { z3::model_dec_ref(ctx, self.0) })
+            .is_err()
+        {
+            log::debug!("Z3 context already torn down at shutdown; skipping model dec_ref");
+        }
     }
 }
 
@@ -555,7 +580,12 @@ impl Clone for RcAstVector {
 
 impl Drop for RcAstVector {
     fn drop(&mut self) {
-        let _ = Z3_CONTEXT.try_with(|&ctx| unsafe { z3::ast_vector_dec_ref(ctx, self.0) });
+        if Z3_CONTEXT
+            .try_with(|&ctx| unsafe { z3::ast_vector_dec_ref(ctx, self.0) })
+            .is_err()
+        {
+            log::debug!("Z3 context already torn down at shutdown; skipping AST-vector dec_ref");
+        }
     }
 }
 

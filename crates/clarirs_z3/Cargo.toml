@@ -12,6 +12,7 @@ repository = { workspace = true }
 [dependencies]
 clarirs_core = { path = "../clarirs_core" }
 clarirs-z3-sys = { path = "../clarirs-z3-sys" }
+log = "0.4.32"
 regex = "1.12" 
 
 [lints]
