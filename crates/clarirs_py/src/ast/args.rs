@@ -102,6 +102,7 @@ impl ExtractPyArgs for DynAst<'static> {
             | AstOp::StrSuffixOf(a, b)
             | AstOp::StrEq(a, b)
             | AstOp::StrNeq(a, b)
+            | AstOp::StrConcat(a, b)
             | AstOp::Sub(a, b)
             | AstOp::UDiv(a, b)
             | AstOp::SDiv(a, b)

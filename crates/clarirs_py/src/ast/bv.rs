@@ -295,7 +295,7 @@ impl BV {
         // Fall back to VSA reduction comparison
         if let Ok(other_bv) = other.into_any().cast::<BV>()
             && let (Ok(a_reduced), Ok(b_reduced)) =
-                (self.inner.reduce(), other_bv.get().inner.reduce())
+                (self.inner.reduce().and_then(|r| r.into_bv()), other_bv.get().inner.reduce().and_then(|r| r.into_bv()))
         {
             return Ok(a_reduced == b_reduced);
         }

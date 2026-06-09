@@ -597,7 +597,7 @@ impl Bool {
 
     #[getter]
     pub fn cardinality(&self) -> Result<usize, ClaripyError> {
-        match self.inner.reduce()? {
+        match self.inner.reduce()?.into_bool()? {
             ComparisonResult::True => Ok(1),
             ComparisonResult::False => Ok(1),
             ComparisonResult::Maybe => Ok(2),
