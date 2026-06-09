@@ -75,6 +75,7 @@ pub(crate) fn to_z3(ast: &StringAst, children: &[RcAst]) -> Result<RcAst, Clarir
                 let else_ = child(children, 2)?;
                 RcAst::try_from(z3::mk_ite(z3_ctx, **cond, **then, **else_))?
             }
+            _ => unreachable!("non-string op in string::to_z3"),
         })
         .and_then(|maybe_null| {
             check_z3_error()?;

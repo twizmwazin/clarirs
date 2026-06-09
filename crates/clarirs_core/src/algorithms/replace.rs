@@ -3,7 +3,6 @@ use std::mem::discriminant;
 
 use crate::{
     algorithms::{pre_order::walk_pre_order, reconstruct::reconstruct_node},
-    ast::{bitvec::BitVecOpExt, float::FloatOpExt},
     prelude::*,
 };
 
@@ -17,7 +16,7 @@ impl<'c> Replace<'c> for DynAst<'c> {
         let from = from.clone().into();
         let to = to.clone().into();
 
-        if discriminant(&from) != discriminant(&to) {
+        if discriminant(&from.ty()) != discriminant(&to.ty()) {
             return Err(ClarirsError::TypeError(
                 "Replace types must match!".to_string(),
             ));
@@ -73,40 +72,3 @@ impl<'c> Replace<'c> for DynAst<'c> {
     }
 }
 
-macro_rules! impl_replace_for_ast {
-    ($ast_type:ident, $variant:ident, $into_method:ident, $label:expr) => {
-        impl<'c> Replace<'c> for $ast_type<'c> {
-            fn replace<T: Clone + Into<DynAst<'c>>>(
-                &self,
-                from: &T,
-                to: &T,
-            ) -> Result<Self, ClarirsError> {
-                DynAst::$variant(self.clone())
-                    .replace(from, to)
-                    .and_then(|replaced| {
-                        replaced.$into_method().ok_or(ClarirsError::TypeError(
-                            concat!("Expected ", $label, " after replacement").to_string(),
-                        ))
-                    })
-            }
-
-            fn replace_many(
-                &self,
-                replacements: &HashMap<u64, DynAst<'c>>,
-            ) -> Result<Self, ClarirsError> {
-                DynAst::$variant(self.clone())
-                    .replace_many(replacements)
-                    .and_then(|replaced| {
-                        replaced.$into_method().ok_or(ClarirsError::TypeError(
-                            concat!("Expected ", $label, " after replacement").to_string(),
-                        ))
-                    })
-            }
-        }
-    };
-}
-
-impl_replace_for_ast!(BoolAst, Boolean, into_bool, "Boolean");
-impl_replace_for_ast!(BitVecAst, BitVec, into_bitvec, "BitVec");
-impl_replace_for_ast!(FloatAst, Float, into_float, "Float");
-impl_replace_for_ast!(StringAst, String, into_string, "String");

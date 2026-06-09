@@ -30,7 +30,7 @@ pub(crate) fn to_z3(ast: &BoolAst, children: &[RcAst]) -> Result<RcAst, ClarirsE
                 let args: Vec<_> = children.iter().map(|c| **c).collect();
                 z3::mk_or(z3_ctx, args.len() as u32, args.as_ptr()).try_into()?
             }
-            BooleanOp::Xor(..) => binop!(z3_ctx, children, mk_xor),
+            BooleanOp::BoolXor(..) => binop!(z3_ctx, children, mk_xor),
             BooleanOp::BoolEq(..) => binop!(z3_ctx, children, mk_eq),
             BooleanOp::BoolNeq(..) => {
                 let a = child(children, 0)?;
@@ -100,6 +100,7 @@ pub(crate) fn to_z3(ast: &BoolAst, children: &[RcAst]) -> Result<RcAst, ClarirsE
                 let b = child(children, 1)?;
                 z3::mk_distinct(z3_ctx, 2, [**a, **b].as_ptr()).try_into()?
             }
+            _ => unreachable!("non-boolean op in bool::to_z3"),
         })
         .and_then(|maybe_null| {
             check_z3_error()?;

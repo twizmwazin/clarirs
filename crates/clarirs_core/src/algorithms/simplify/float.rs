@@ -173,5 +173,6 @@ pub(crate) fn simplify_float<'c>(
                 _ => Ok(ctx.ite(if_, then_, else_)?),
             }
         }
+        _ => unreachable!("non-float op dispatched to simplify_float"),
     }
 }

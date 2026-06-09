@@ -102,7 +102,7 @@ pub(crate) fn excavate_ite<'c>(
                 ctx.or(args)
             }
         }
-        BooleanOp::Xor(..) => {
+        BooleanOp::BoolXor(..) => {
             let lhs = extract_bool_child(children, 0)?;
             let rhs = extract_bool_child(children, 1)?;
 
@@ -858,5 +858,6 @@ pub(crate) fn excavate_ite<'c>(
 
             Ok(ctx.ite(cond, then, else_)?)
         }
+        _ => unreachable!("non-boolean op dispatched to excavate_ite"),
     }
 }

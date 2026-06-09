@@ -70,50 +70,14 @@ impl<'c> ExcavateIte<'c> for DynAst<'c> {
     fn excavate_ite(&self) -> Result<Self, ClarirsError> {
         walk_post_order(
             self.clone(),
-            |node, children| match node {
-                DynAst::Boolean(ast) => bool::excavate_ite(&ast, children).map(DynAst::Boolean),
-                DynAst::BitVec(ast) => bitvec::excavate_ite(&ast, children).map(DynAst::BitVec),
-                DynAst::Float(ast) => float::excavate_ite(&ast, children).map(DynAst::Float),
-                DynAst::String(ast) => string::excavate_ite(&ast, children).map(DynAst::String),
+            |node, children| match node.ty() {
+                AstType::Bool => bool::excavate_ite(&node, children),
+                AstType::BitVec(_) => bitvec::excavate_ite(&node, children),
+                AstType::Float(_) => float::excavate_ite(&node, children),
+                AstType::String => string::excavate_ite(&node, children),
             },
             &self.context().excavate_ite_cache,
         )
-    }
-}
-
-impl<'c> ExcavateIte<'c> for BoolAst<'c> {
-    fn excavate_ite(&self) -> Result<Self, ClarirsError> {
-        DynAst::Boolean(self.clone())
-            .excavate_ite()?
-            .into_bool()
-            .ok_or(ClarirsError::TypeError("Expected BoolAst".to_string()))
-    }
-}
-
-impl<'c> ExcavateIte<'c> for BitVecAst<'c> {
-    fn excavate_ite(&self) -> Result<Self, ClarirsError> {
-        DynAst::BitVec(self.clone())
-            .excavate_ite()?
-            .into_bitvec()
-            .ok_or(ClarirsError::TypeError("Expected BvAst".to_string()))
-    }
-}
-
-impl<'c> ExcavateIte<'c> for FloatAst<'c> {
-    fn excavate_ite(&self) -> Result<Self, ClarirsError> {
-        DynAst::Float(self.clone())
-            .excavate_ite()?
-            .into_float()
-            .ok_or(ClarirsError::TypeError("Expected FloatAst".to_string()))
-    }
-}
-
-impl<'c> ExcavateIte<'c> for StringAst<'c> {
-    fn excavate_ite(&self) -> Result<Self, ClarirsError> {
-        DynAst::String(self.clone())
-            .excavate_ite()?
-            .into_string()
-            .ok_or(ClarirsError::TypeError("Expected StringAst".to_string()))
     }
 }
 

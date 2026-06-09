@@ -111,5 +111,6 @@ pub(crate) fn simplify_string<'c>(
                 _ => Ok(ctx.ite(if_, then_, else_)?),
             }
         }
+        _ => unreachable!("non-string op dispatched to simplify_string"),
     }
 }

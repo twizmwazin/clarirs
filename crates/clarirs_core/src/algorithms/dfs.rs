@@ -45,7 +45,7 @@ mod tests {
             &ctx.bvs("a", 64)?,
             &ctx.mul(&ctx.bvs("b", 64)?, &ctx.bvs("c", 64)?)?,
         )?;
-        let var_ast = DynAst::from(&ast);
+        let var_ast = Clone::clone(&ast);
         let mut visited = Vec::new();
 
         walk_dfs(&var_ast, |node| {

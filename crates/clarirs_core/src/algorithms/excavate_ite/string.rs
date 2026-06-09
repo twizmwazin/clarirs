@@ -115,5 +115,6 @@ pub(crate) fn excavate_ite<'c>(
 
             Ok(ctx.ite(cond, then_, else_)?)
         }
+        _ => unreachable!("non-string op dispatched to excavate_ite"),
     }
 }

@@ -109,9 +109,9 @@ mod tests {
         let ctx = Context::new();
         let x = ctx.bvs("x", 64)?;
 
-        let result = walk_pre_order(DynAst::from(&x), |_| Ok(None), |node, _children| Ok(node))?;
+        let result = walk_pre_order(Clone::clone(&x), |_| Ok(None), |node, _children| Ok(node))?;
 
-        assert_eq!(result, DynAst::from(&x));
+        assert_eq!(result, Clone::clone(&x));
         Ok(())
     }
 
@@ -122,11 +122,11 @@ mod tests {
         let y = ctx.bvs("y", 64)?;
         let add = ctx.add(&x, &y)?;
 
-        let replacement = DynAst::from(&ctx.bvv_prim(99u64)?);
+        let replacement = Clone::clone(&ctx.bvv_prim(99u64)?);
 
         // Short-circuit the entire tree
         let result = walk_pre_order(
-            DynAst::from(&add),
+            Clone::clone(&add),
             |_| Ok(Some(replacement.clone())),
             |_, _| panic!("post_visit should not be called"),
         )?;
@@ -146,7 +146,7 @@ mod tests {
         let mut post_visit_count = 0;
 
         walk_pre_order(
-            DynAst::from(&add),
+            Clone::clone(&add),
             |_| {
                 pre_visit_count += 1;
                 Ok(None) // descend into all children
@@ -170,12 +170,12 @@ mod tests {
         let z = ctx.bvs("z", 64)?;
         let add = ctx.add(&x, &y)?;
 
-        let from = DynAst::from(&x);
-        let to = DynAst::from(&z);
+        let from = Clone::clone(&x);
+        let to = Clone::clone(&z);
 
         // Replace x with z in add(x, y)
         let result = walk_pre_order(
-            DynAst::from(&add),
+            Clone::clone(&add),
             |node| {
                 if *node == from {
                     Ok(Some(to.clone()))
@@ -190,12 +190,12 @@ mod tests {
                     // Rebuild add with new children
                     let lhs = children[0].clone().into_bitvec().unwrap();
                     let rhs = children[1].clone().into_bitvec().unwrap();
-                    Ok(DynAst::from(&ctx.add(&lhs, &rhs)?))
+                    Ok(Clone::clone(&ctx.add(&lhs, &rhs)?))
                 }
             },
         )?;
 
-        let expected = DynAst::from(&ctx.add(&z, &y)?);
+        let expected = Clone::clone(&ctx.add(&z, &y)?);
         assert_eq!(result, expected);
         Ok(())
     }
@@ -213,7 +213,7 @@ mod tests {
         let mut pre_visit_count = 0;
 
         walk_pre_order(
-            DynAst::from(&mul),
+            Clone::clone(&mul),
             |_| {
                 pre_visit_count += 1;
                 Ok(None)

@@ -107,5 +107,6 @@ pub(crate) fn reduce_bv(
         BitVecOp::Union(..) => child_si(children, 0)?.union(&child_si(children, 1)?),
         BitVecOp::Intersection(..) => child_si(children, 0)?.intersection(&child_si(children, 1)?),
         BitVecOp::Widen(..) => child_si(children, 0)?.widen(&child_si(children, 1)?),
+        _ => unreachable!("non-bitvector op dispatched to reduce_bv"),
     })
 }

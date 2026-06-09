@@ -107,21 +107,21 @@ impl<'c, S: Solver<'c>> ReplacementSolver<'c, S> {
             BooleanOp::BoolEq(lhs, rhs) => {
                 if lhs.symbolic() && !rhs.symbolic() {
                     self.add_replacement(
-                        DynAst::Boolean(lhs.clone()),
-                        DynAst::Boolean(rhs.clone()),
+                        lhs.clone() ,
+                        rhs.clone() ,
                     );
                 } else if !lhs.symbolic() && rhs.symbolic() {
                     self.add_replacement(
-                        DynAst::Boolean(rhs.clone()),
-                        DynAst::Boolean(lhs.clone()),
+                        rhs.clone() ,
+                        lhs.clone() ,
                     );
                 }
             }
             BooleanOp::Eq(lhs, rhs) => {
                 if lhs.symbolic() && !rhs.symbolic() {
-                    self.add_replacement(DynAst::BitVec(lhs.clone()), DynAst::BitVec(rhs.clone()));
+                    self.add_replacement(lhs.clone() , rhs.clone() );
                 } else if !lhs.symbolic() && rhs.symbolic() {
-                    self.add_replacement(DynAst::BitVec(rhs.clone()), DynAst::BitVec(lhs.clone()));
+                    self.add_replacement(rhs.clone() , lhs.clone() );
                 }
             }
             BooleanOp::Not(inner) => {
@@ -130,8 +130,8 @@ impl<'c, S: Solver<'c>> ReplacementSolver<'c, S> {
                     && let Ok(false_val) = constraint.context().false_()
                 {
                     self.add_replacement(
-                        DynAst::Boolean(inner.clone()),
-                        DynAst::Boolean(false_val),
+                        inner.clone() ,
+                        false_val ,
                     );
                 }
             }
@@ -264,7 +264,7 @@ mod tests {
         let five = ctx.bvv_prim(5u8)?;
 
         // Add explicit replacement: x -> 5
-        solver.add_replacement(DynAst::BitVec(x.clone()), DynAst::BitVec(five.clone()));
+        solver.add_replacement(x.clone() , five.clone() );
 
         // Evaluating x should now return 5
         let result = solver.eval_bitvec(&x)?;
@@ -304,7 +304,7 @@ mod tests {
         let three = ctx.bvv_prim(3u8)?;
 
         // Replace x with 5
-        solver.add_replacement(DynAst::BitVec(x.clone()), DynAst::BitVec(five.clone()));
+        solver.add_replacement(x.clone() , five.clone() );
 
         // Evaluating x + 3 should return 8
         let expr = ctx.add(&x, &three)?;
@@ -324,7 +324,7 @@ mod tests {
         let x = ctx.bvs("x", 8)?;
         let five = ctx.bvv_prim(5u8)?;
 
-        solver.add_replacement(DynAst::BitVec(x.clone()), DynAst::BitVec(five.clone()));
+        solver.add_replacement(x.clone() , five.clone() );
         assert!(!solver.replacements().is_empty());
 
         solver.clear_replacements();
@@ -342,7 +342,7 @@ mod tests {
         let x = ctx.bools("x")?;
 
         // Replace x with true
-        solver.add_replacement(DynAst::Boolean(x.clone()), DynAst::Boolean(ctx.true_()?));
+        solver.add_replacement(x.clone() , ctx.true_()? );
 
         assert!(solver.is_true(&x)?);
         assert!(!solver.is_false(&x)?);

@@ -106,6 +106,7 @@ pub(crate) fn to_z3(ast: &FloatAst, children: &[RcAst]) -> Result<RcAst, Clarirs
                 let else_ = child(children, 2)?;
                 RcAst::try_from(z3::mk_ite(z3_ctx, **cond, **then, **else_))?
             }
+            _ => unreachable!("non-float op in float::to_z3"),
         })
         .and_then(|maybe_null| {
             check_z3_error()?;

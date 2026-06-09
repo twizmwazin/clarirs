@@ -621,5 +621,6 @@ pub(crate) fn excavate_ite<'c>(
                 Ok(ctx.widen(lhs, rhs)?)
             }
         }
+        _ => unreachable!("non-bitvector op dispatched to excavate_ite"),
     }
 }

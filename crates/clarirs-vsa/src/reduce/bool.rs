@@ -64,7 +64,7 @@ pub(crate) fn reduce_bool(
             }
             result
         }
-        BooleanOp::Xor(..) => child(children, 0)? ^ child(children, 1)?,
+        BooleanOp::BoolXor(..) => child(children, 0)? ^ child(children, 1)?,
         BooleanOp::BoolEq(..) => child(children, 0)?.eq_(child(children, 1)?),
         BooleanOp::BoolNeq(..) => !child(children, 0)?.eq_(child(children, 1)?),
         BooleanOp::Eq(..) => child_si(children, 0)?.eq_(&child_si(children, 1)?),
@@ -104,5 +104,6 @@ pub(crate) fn reduce_bool(
             ComparisonResult::False => child(children, 2)?,
             ComparisonResult::Maybe => child(children, 1)? | child(children, 2)?,
         },
+        _ => unreachable!("non-boolean op dispatched to reduce_bool"),
     })
 }

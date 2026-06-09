@@ -148,7 +148,7 @@ mod tests {
         // Track visited nodes and transformations
         let mut visited = Vec::new();
         walk_post_order(
-            DynAst::from(&add),
+            Clone::clone(&add),
             |node, children| {
                 let node_type = match node.as_bitvec().unwrap().op() {
                     BitVecOp::BVS(s, _) => format!("var({s})"),
@@ -180,7 +180,7 @@ mod tests {
         let x = ctx.bvs("x", 64)?;
 
         let result = walk_post_order(
-            DynAst::from(&x),
+            Clone::clone(&x),
             |_node, _children| -> Result<String, ClarirsError> {
                 Err(ClarirsError::InvalidArguments("test error".to_string()))
             },
@@ -214,7 +214,7 @@ mod tests {
 
         // First traversal populates the cache
         walk_post_order(
-            DynAst::from(&mul),
+            Clone::clone(&mul),
             |node, _| {
                 first_visited.push(node.clone());
                 Ok(())
@@ -226,7 +226,7 @@ mod tests {
 
         // Second traversal should use the cache for common subexpressions
         walk_post_order(
-            DynAst::from(&mul),
+            Clone::clone(&mul),
             |node, _| {
                 second_visited.push(node.clone());
                 Ok(())

@@ -64,56 +64,16 @@ pub(crate) trait AstExtZ3<'c>: HasContext<'c> + Simplify<'c> + Sized {
     }
 }
 
-impl<'c> AstExtZ3<'c> for BoolAst<'c> {
-    fn to_z3(&self) -> Result<RcAst, ClarirsError> {
-        DynAst::from(self).to_z3()
-    }
-
-    fn from_z3(ctx: &'c Context<'c>, ast: impl Into<RcAst>) -> Result<Self, ClarirsError> {
-        bool::from_z3(ctx, ast)
-    }
-}
-
-impl<'c> AstExtZ3<'c> for BitVecAst<'c> {
-    fn to_z3(&self) -> Result<RcAst, ClarirsError> {
-        DynAst::from(self).to_z3()
-    }
-
-    fn from_z3(ctx: &'c Context<'c>, ast: impl Into<RcAst>) -> Result<Self, ClarirsError> {
-        bv::from_z3(ctx, ast)
-    }
-}
-
-impl<'c> AstExtZ3<'c> for FloatAst<'c> {
-    fn to_z3(&self) -> Result<RcAst, ClarirsError> {
-        DynAst::from(self).to_z3()
-    }
-
-    fn from_z3(ctx: &'c Context<'c>, ast: impl Into<RcAst>) -> Result<Self, ClarirsError> {
-        float::from_z3(ctx, ast)
-    }
-}
-
-impl<'c> AstExtZ3<'c> for StringAst<'c> {
-    fn to_z3(&self) -> Result<RcAst, ClarirsError> {
-        DynAst::from(self).to_z3()
-    }
-
-    fn from_z3(ctx: &'c Context<'c>, ast: impl Into<RcAst>) -> Result<Self, ClarirsError> {
-        string::from_z3(ctx, ast)
-    }
-}
-
 impl<'c> AstExtZ3<'c> for DynAst<'c> {
     fn to_z3(&self) -> Result<RcAst, ClarirsError> {
         Z3_AST_CACHE.with(|cache| {
             walk_post_order(
                 self.clone(),
-                |node, children| match node {
-                    DynAst::Boolean(ast) => bool::to_z3(&ast, children),
-                    DynAst::BitVec(ast) => bv::to_z3(&ast, children),
-                    DynAst::Float(ast) => float::to_z3(&ast, children),
-                    DynAst::String(ast) => string::to_z3(&ast, children),
+                |node, children| match node.ty() {
+                    AstType::Bool => bool::to_z3(&node, children),
+                    AstType::BitVec(_) => bv::to_z3(&node, children),
+                    AstType::Float(_) => float::to_z3(&node, children),
+                    AstType::String => string::to_z3(&node, children),
                 },
                 cache,
             )
@@ -121,21 +81,20 @@ impl<'c> AstExtZ3<'c> for DynAst<'c> {
     }
 
     fn from_z3(ctx: &'c Context<'c>, ast: impl Into<RcAst>) -> Result<Self, ClarirsError> {
-        // You probably want to use the `from_z3` method of the specific type
-
+        // The single AST type means there is one conversion entry point; we
+        // determine the sort by trying each backend converter in turn.
         let ast = ast.into();
-        // Just try them all
-        if let Ok(ast) = BoolAst::from_z3(ctx, ast.clone()) {
-            return Ok(DynAst::Boolean(ast));
+        if let Ok(a) = bool::from_z3(ctx, ast.clone()) {
+            return Ok(a);
         }
-        if let Ok(ast) = BitVecAst::from_z3(ctx, ast.clone()) {
-            return Ok(DynAst::BitVec(ast));
+        if let Ok(a) = bv::from_z3(ctx, ast.clone()) {
+            return Ok(a);
         }
-        if let Ok(ast) = FloatAst::from_z3(ctx, ast.clone()) {
-            return Ok(DynAst::Float(ast));
+        if let Ok(a) = float::from_z3(ctx, ast.clone()) {
+            return Ok(a);
         }
-        if let Ok(ast) = StringAst::from_z3(ctx, ast.clone()) {
-            return Ok(DynAst::String(ast));
+        if let Ok(a) = string::from_z3(ctx, ast.clone()) {
+            return Ok(a);
         }
         Err(ClarirsError::ConversionError(
             "Unknown AST type".to_string(),

@@ -303,7 +303,7 @@ impl Bool {
     pub fn identical(&self, other: Bound<'_, Base>) -> Result<bool, ClaripyError> {
         let other_dyn = Base::to_dynast(other)?;
         Ok(structurally_match(
-            &DynAst::Boolean(self.inner.clone()),
+            &self.inner,
             &other_dyn,
         )?)
     }

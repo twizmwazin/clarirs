@@ -22,62 +22,6 @@ pub trait Simplify<'c>: Sized {
     ) -> Result<Self, ClarirsError>;
 }
 
-impl<'c> Simplify<'c> for BoolAst<'c> {
-    fn simplify_ext(
-        &self,
-        respect_annotations: bool,
-        error_on_dbz: bool,
-    ) -> Result<Self, ClarirsError> {
-        DynAst::Boolean(self.clone())
-            .simplify_ext(respect_annotations, error_on_dbz)?
-            .as_bool()
-            .cloned()
-            .ok_or(ClarirsError::TypeError("Expected BoolAst".to_string()))
-    }
-}
-
-impl<'c> Simplify<'c> for BitVecAst<'c> {
-    fn simplify_ext(
-        &self,
-        respect_annotations: bool,
-        error_on_dbz: bool,
-    ) -> Result<Self, ClarirsError> {
-        DynAst::BitVec(self.clone())
-            .simplify_ext(respect_annotations, error_on_dbz)?
-            .as_bitvec()
-            .cloned()
-            .ok_or(ClarirsError::TypeError("Expected BvAst".to_string()))
-    }
-}
-
-impl<'c> Simplify<'c> for FloatAst<'c> {
-    fn simplify_ext(
-        &self,
-        respect_annotations: bool,
-        error_on_dbz: bool,
-    ) -> Result<Self, ClarirsError> {
-        DynAst::Float(self.clone())
-            .simplify_ext(respect_annotations, error_on_dbz)?
-            .as_float()
-            .cloned()
-            .ok_or(ClarirsError::TypeError("Expected FloatAst".to_string()))
-    }
-}
-
-impl<'c> Simplify<'c> for StringAst<'c> {
-    fn simplify_ext(
-        &self,
-        respect_annotations: bool,
-        error_on_dbz: bool,
-    ) -> Result<Self, ClarirsError> {
-        DynAst::String(self.clone())
-            .simplify_ext(respect_annotations, error_on_dbz)?
-            .as_string()
-            .cloned()
-            .ok_or(ClarirsError::TypeError("Expected StringAst".to_string()))
-    }
-}
-
 impl<'c> Simplify<'c> for DynAst<'c> {
     fn simplify_ext(
         &self,
@@ -243,11 +187,8 @@ impl<'c> SimplifyState<'c> {
             .ok_or(ClarirsError::TypeError("Expected string child".into()))
     }
 
-    fn rerun<T>(&self, new_ast: T) -> Result<T, SimplifyError<'c>>
-    where
-        DynAst<'c>: From<T>,
-    {
-        Err(SimplifyError::ReRun(DynAst::from(new_ast)))
+    fn rerun(&self, new_ast: DynAst<'c>) -> Result<DynAst<'c>, SimplifyError<'c>> {
+        Err(SimplifyError::ReRun(new_ast))
     }
 }
 
@@ -258,11 +199,11 @@ fn simplify_inner<'c>(
     let expr = &state.expr.clone();
     expr.context()
         .simplification_cache
-        .get_or_insert(state.expr.inner_hash(), || match expr {
-            DynAst::Boolean(_) => bool::simplify_bool(state).map(DynAst::Boolean),
-            DynAst::BitVec(_) => bv::simplify_bv(state, error_on_dbz).map(DynAst::BitVec),
-            DynAst::Float(_) => float::simplify_float(state).map(DynAst::Float),
-            DynAst::String(_) => string::simplify_string(state).map(DynAst::String),
+        .get_or_insert(state.expr.inner_hash(), || match expr.ty() {
+            AstType::Bool => bool::simplify_bool(state),
+            AstType::BitVec(_) => bv::simplify_bv(state, error_on_dbz),
+            AstType::Float(_) => float::simplify_float(state),
+            AstType::String => string::simplify_string(state),
         })
 }
 

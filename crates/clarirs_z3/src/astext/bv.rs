@@ -144,6 +144,7 @@ pub(crate) fn to_z3(ast: &BitVecAst, children: &[RcAst]) -> Result<RcAst, Clarir
                     "vsa types are not currently supported in the z3 backend".to_string(),
                 ));
             }
+            _ => unreachable!("non-bitvector op in bv::to_z3"),
         })
         .and_then(|maybe_null| {
             check_z3_error()?;

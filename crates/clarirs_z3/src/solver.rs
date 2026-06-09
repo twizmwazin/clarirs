@@ -267,12 +267,7 @@ impl<'c> Z3Solver<'c> {
     }
 
     fn simplify_dynast(expr: &DynAst<'c>) -> Result<DynAst<'c>, ClarirsError> {
-        Ok(match expr {
-            DynAst::Boolean(expr) => DynAst::from(&expr.simplify_z3()?),
-            DynAst::BitVec(expr) => DynAst::from(&expr.simplify_z3()?),
-            DynAst::Float(expr) => DynAst::from(&expr.simplify_z3()?),
-            DynAst::String(expr) => DynAst::from(&expr.simplify_z3()?),
-        })
+        expr.simplify_z3()
     }
 
     fn eval(&self, expr: &DynAst<'c>) -> Result<DynAst<'c>, ClarirsError> {
@@ -340,35 +335,27 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
     }
 
     fn eval_bool(&mut self, expr: &BoolAst<'c>) -> Result<BoolAst<'c>, ClarirsError> {
-        let result = self.eval(&DynAst::from(expr))?;
-        match result {
-            DynAst::Boolean(ast) => Ok(ast),
-            _ => unreachable!(),
-        }
+        self.eval(expr)?
+            .into_bool()
+            .ok_or(ClarirsError::TypeError("Expected BoolAst".to_string()))
     }
 
     fn eval_bitvec(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
-        let result = self.eval(&DynAst::from(expr))?;
-        match result {
-            DynAst::BitVec(ast) => Ok(ast),
-            _ => unreachable!(),
-        }
+        self.eval(expr)?
+            .into_bitvec()
+            .ok_or(ClarirsError::TypeError("Expected BitVecAst".to_string()))
     }
 
     fn eval_float(&mut self, expr: &FloatAst<'c>) -> Result<FloatAst<'c>, ClarirsError> {
-        let result = self.eval(&DynAst::from(expr))?;
-        match result {
-            DynAst::Float(ast) => Ok(ast),
-            _ => unreachable!(),
-        }
+        self.eval(expr)?
+            .into_float()
+            .ok_or(ClarirsError::TypeError("Expected FloatAst".to_string()))
     }
 
     fn eval_string(&mut self, expr: &StringAst<'c>) -> Result<StringAst<'c>, ClarirsError> {
-        let result = self.eval(&DynAst::from(expr))?;
-        match result {
-            DynAst::String(ast) => Ok(ast),
-            _ => unreachable!(),
-        }
+        self.eval(expr)?
+            .into_string()
+            .ok_or(ClarirsError::TypeError("Expected StringAst".to_string()))
     }
 
     fn is_true(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
@@ -401,12 +388,9 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         }
 
         let model = optimize.get_model()?;
-        let result = DynAst::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)?;
-
-        match result {
-            DynAst::BitVec(ast) => Ok(ast),
-            _ => unreachable!(),
-        }
+        DynAst::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)?
+            .into_bitvec()
+            .ok_or(ClarirsError::TypeError("Expected BitVecAst".to_string()))
     }
 
     fn max_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
@@ -417,12 +401,9 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         }
 
         let model = optimize.get_model()?;
-        let result = DynAst::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)?;
-
-        match result {
-            DynAst::BitVec(ast) => Ok(ast),
-            _ => unreachable!(),
-        }
+        DynAst::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)?
+            .into_bitvec()
+            .ok_or(ClarirsError::TypeError("Expected BitVecAst".to_string()))
     }
 
     fn min_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
@@ -455,11 +436,9 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         }
 
         let model = optimize.get_model()?;
-        let result = DynAst::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)?;
-        match result {
-            DynAst::BitVec(ast) => Ok(ast),
-            _ => unreachable!(),
-        }
+        DynAst::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)?
+            .into_bitvec()
+            .ok_or(ClarirsError::TypeError("Expected BitVecAst".to_string()))
     }
 
     fn max_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
@@ -492,11 +471,9 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         }
 
         let model = optimize.get_model()?;
-        let result = DynAst::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)?;
-        match result {
-            DynAst::BitVec(ast) => Ok(ast),
-            _ => unreachable!(),
-        }
+        DynAst::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)?
+            .into_bitvec()
+            .ok_or(ClarirsError::TypeError("Expected BitVecAst".to_string()))
     }
 
     fn eval_bool_n(

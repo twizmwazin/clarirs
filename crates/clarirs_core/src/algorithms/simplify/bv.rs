@@ -1562,5 +1562,6 @@ pub(crate) fn simplify_bv<'c>(
             }
             Ok(ctx.widen(lhs, rhs)?)
         }
+        _ => unreachable!("non-bitvector op dispatched to simplify_bv"),
     }
 }

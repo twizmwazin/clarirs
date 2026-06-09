@@ -219,7 +219,7 @@ pub(crate) fn simplify_bool<'c>(
             let simplified_args = state.get_all_bool_simplified()?;
             Ok(ctx.or(simplified_args)?)
         }
-        BooleanOp::Xor(..) => {
+        BooleanOp::BoolXor(..) => {
             let early_lhs = state.get_bool_available(0)?;
             let early_rhs = state.get_bool_available(1)?;
 
@@ -1575,5 +1575,6 @@ pub(crate) fn simplify_bool<'c>(
                 )?),
             }
         }
+        _ => unreachable!("non-boolean op dispatched to simplify_bool"),
     }
 }

@@ -286,7 +286,7 @@ impl BV {
 
     pub fn identical(&self, other: Bound<'_, Base>) -> Result<bool, ClaripyError> {
         let structural = structurally_match(
-            &DynAst::BitVec(self.inner.clone()),
+            &self.inner,
             &Base::to_dynast(other.clone())?,
         )?;
         if structural {
