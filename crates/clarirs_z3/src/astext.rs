@@ -81,23 +81,23 @@ impl<'c> AstExtZ3<'c> for DynAst<'c> {
     }
 
     fn from_z3(ctx: &'c Context<'c>, ast: impl Into<RcAst>) -> Result<Self, ClarirsError> {
-        // The single AST type means there is one conversion entry point; we
-        // determine the sort by trying each backend converter in turn.
+        // The single AST type means there is one conversion entry point. We
+        // route to the right backend converter by inspecting the Z3 sort kind
+        // (trying converters in turn would mis-dispatch, since e.g. the
+        // bitvector converter does not reject non-bitvector sorts).
         let ast = ast.into();
-        if let Ok(a) = bool::from_z3(ctx, ast.clone()) {
-            return Ok(a);
+        let sort_kind = Z3_CONTEXT.with(|z3_ctx| unsafe {
+            let sort = z3::get_sort(*z3_ctx, *ast);
+            z3::get_sort_kind(*z3_ctx, sort)
+        });
+        match sort_kind {
+            z3::SortKind::Bool => bool::from_z3(ctx, ast),
+            z3::SortKind::Bv => bv::from_z3(ctx, ast),
+            z3::SortKind::FloatingPoint => float::from_z3(ctx, ast),
+            z3::SortKind::Seq => string::from_z3(ctx, ast),
+            _ => Err(ClarirsError::ConversionError(
+                "Unknown AST sort".to_string(),
+            )),
         }
-        if let Ok(a) = bv::from_z3(ctx, ast.clone()) {
-            return Ok(a);
-        }
-        if let Ok(a) = float::from_z3(ctx, ast.clone()) {
-            return Ok(a);
-        }
-        if let Ok(a) = string::from_z3(ctx, ast.clone()) {
-            return Ok(a);
-        }
-        Err(ClarirsError::ConversionError(
-            "Unknown AST type".to_string(),
-        ))
     }
 }
