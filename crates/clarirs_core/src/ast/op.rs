@@ -428,9 +428,7 @@ impl<'c> AstOp<'c> {
 
             // Polymorphic: result type follows a child's type
             AstOp::Not(a) => a.ty(),
-            AstOp::And(v) | AstOp::Or(v) => {
-                v.first().map(|a| a.ty()).unwrap_or(AstType::Bool)
-            }
+            AstOp::And(v) | AstOp::Or(v) => v.first().map(|a| a.ty()).unwrap_or(AstType::Bool),
             AstOp::ITE(_, t, _) => t.ty(),
 
             // Bitvectors

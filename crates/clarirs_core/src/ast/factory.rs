@@ -401,10 +401,7 @@ pub trait AstFactory<'c>: Sized {
         self.concat([lhs.into_owned(), rhs.into_owned()])
     }
 
-    fn byte_reverse(
-        &'c self,
-        lhs: impl IntoOwned<AstRef<'c>>,
-    ) -> Result<AstRef<'c>, ClarirsError> {
+    fn byte_reverse(&'c self, lhs: impl IntoOwned<AstRef<'c>>) -> Result<AstRef<'c>, ClarirsError> {
         self.make_bitvec(AstOp::ByteReverse(lhs.into_owned()))
     }
 
@@ -508,7 +505,11 @@ pub trait AstFactory<'c>: Sized {
         sort: FS,
         rm: RM,
     ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_float(AstOp::BvToFpSigned(lhs.into_owned(), sort.into(), rm.into()))
+        self.make_float(AstOp::BvToFpSigned(
+            lhs.into_owned(),
+            sort.into(),
+            rm.into(),
+        ))
     }
 
     fn bv_to_fp_unsigned<RM: Into<FPRM>, FS: Into<FSort>>(
@@ -517,13 +518,14 @@ pub trait AstFactory<'c>: Sized {
         sort: FS,
         rm: RM,
     ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make_float(AstOp::BvToFpUnsigned(lhs.into_owned(), sort.into(), rm.into()))
+        self.make_float(AstOp::BvToFpUnsigned(
+            lhs.into_owned(),
+            sort.into(),
+            rm.into(),
+        ))
     }
 
-    fn fp_to_ieeebv(
-        &'c self,
-        lhs: impl IntoOwned<AstRef<'c>>,
-    ) -> Result<AstRef<'c>, ClarirsError> {
+    fn fp_to_ieeebv(&'c self, lhs: impl IntoOwned<AstRef<'c>>) -> Result<AstRef<'c>, ClarirsError> {
         self.make_bitvec(AstOp::FpToIEEEBV(lhs.into_owned()))
     }
 
@@ -653,10 +655,7 @@ pub trait AstFactory<'c>: Sized {
         self.make_bool(AstOp::FpIsInf(lhs.into_owned()))
     }
 
-    fn str_len(
-        &'c self,
-        lhs: impl IntoOwned<AstRef<'c>>,
-    ) -> Result<AstRef<'c>, ClarirsError> {
+    fn str_len(&'c self, lhs: impl IntoOwned<AstRef<'c>>) -> Result<AstRef<'c>, ClarirsError> {
         self.make_bitvec(AstOp::StrLen(lhs.into_owned()))
     }
 
@@ -731,24 +730,15 @@ pub trait AstFactory<'c>: Sized {
         self.make_bool(AstOp::StrSuffixOf(lhs.into_owned(), rhs.into_owned()))
     }
 
-    fn str_to_bv(
-        &'c self,
-        lhs: impl IntoOwned<AstRef<'c>>,
-    ) -> Result<AstRef<'c>, ClarirsError> {
+    fn str_to_bv(&'c self, lhs: impl IntoOwned<AstRef<'c>>) -> Result<AstRef<'c>, ClarirsError> {
         self.make_bitvec(AstOp::StrToBV(lhs.into_owned()))
     }
 
-    fn bv_to_str(
-        &'c self,
-        lhs: impl IntoOwned<AstRef<'c>>,
-    ) -> Result<AstRef<'c>, ClarirsError> {
+    fn bv_to_str(&'c self, lhs: impl IntoOwned<AstRef<'c>>) -> Result<AstRef<'c>, ClarirsError> {
         self.make_string(AstOp::BVToStr(lhs.into_owned()))
     }
 
-    fn str_is_digit(
-        &'c self,
-        lhs: impl IntoOwned<AstRef<'c>>,
-    ) -> Result<AstRef<'c>, ClarirsError> {
+    fn str_is_digit(&'c self, lhs: impl IntoOwned<AstRef<'c>>) -> Result<AstRef<'c>, ClarirsError> {
         self.make_bool(AstOp::StrIsDigit(lhs.into_owned()))
     }
 

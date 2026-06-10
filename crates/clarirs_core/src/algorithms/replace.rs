@@ -71,4 +71,3 @@ impl<'c> Replace<'c> for AstRef<'c> {
         )
     }
 }
-

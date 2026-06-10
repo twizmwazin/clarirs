@@ -96,10 +96,7 @@ pub fn bool_child<'c>(children: &[AstRef<'c>], index: usize) -> Result<AstRef<'c
         )))
 }
 
-pub fn bitvec_child<'c>(
-    children: &[AstRef<'c>],
-    index: usize,
-) -> Result<AstRef<'c>, ClarirsError> {
+pub fn bitvec_child<'c>(children: &[AstRef<'c>], index: usize) -> Result<AstRef<'c>, ClarirsError> {
     children
         .get(index)
         .and_then(|child| child.clone().into_bitvec())
@@ -108,10 +105,7 @@ pub fn bitvec_child<'c>(
         )))
 }
 
-pub fn float_child<'c>(
-    children: &[AstRef<'c>],
-    index: usize,
-) -> Result<AstRef<'c>, ClarirsError> {
+pub fn float_child<'c>(children: &[AstRef<'c>], index: usize) -> Result<AstRef<'c>, ClarirsError> {
     children
         .get(index)
         .and_then(|child| child.clone().into_float())
@@ -120,10 +114,7 @@ pub fn float_child<'c>(
         )))
 }
 
-pub fn string_child<'c>(
-    children: &[AstRef<'c>],
-    index: usize,
-) -> Result<AstRef<'c>, ClarirsError> {
+pub fn string_child<'c>(children: &[AstRef<'c>], index: usize) -> Result<AstRef<'c>, ClarirsError> {
     children
         .get(index)
         .and_then(|child| child.clone().into_string())

@@ -43,11 +43,7 @@ impl<'c> Solver<'c> for VSASolver<'c> {
         Ok(true)
     }
 
-    fn eval_bool_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+    fn eval_bool_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         expr.simplify()?
             .reduce()?
             .into_bool()

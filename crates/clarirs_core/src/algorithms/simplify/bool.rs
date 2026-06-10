@@ -238,358 +238,358 @@ pub(crate) fn simplify_bool<'c>(
         }
         AstOp::Eq(..) => match state.get_child_available(0).ty() {
             AstType::Bool => {
-            let early_lhs = state.get_bool_available(0)?;
-            let early_rhs = state.get_bool_available(1)?;
+                let early_lhs = state.get_bool_available(0)?;
+                let early_rhs = state.get_bool_available(1)?;
 
-            match (early_lhs.op(), early_rhs.op()) {
-                (AstOp::BoolV(arc), AstOp::BoolV(arc1)) => Ok(ctx.boolv(arc == arc1)?),
-                (AstOp::BoolV(true), _) => Ok(state.get_bool_simplified(1)?),
-                (_, AstOp::BoolV(true)) => Ok(state.get_bool_simplified(0)?),
-                (AstOp::BoolV(false), _) => Ok(ctx.not(state.get_bool_simplified(1)?)?),
-                (_, AstOp::BoolV(false)) => Ok(ctx.not(state.get_bool_simplified(0)?)?),
-                // a == a -> true. Even when floats are involved, this is a boolean
-                // identity: both sides are the same expression and evaluate to the same
-                // value (NaN only affects fp== itself, not bool== of two equal booleans).
-                _ if early_lhs == early_rhs => Ok(ctx.true_()?),
-                _ => Ok(ctx.eq_(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
-            }
+                match (early_lhs.op(), early_rhs.op()) {
+                    (AstOp::BoolV(arc), AstOp::BoolV(arc1)) => Ok(ctx.boolv(arc == arc1)?),
+                    (AstOp::BoolV(true), _) => Ok(state.get_bool_simplified(1)?),
+                    (_, AstOp::BoolV(true)) => Ok(state.get_bool_simplified(0)?),
+                    (AstOp::BoolV(false), _) => Ok(ctx.not(state.get_bool_simplified(1)?)?),
+                    (_, AstOp::BoolV(false)) => Ok(ctx.not(state.get_bool_simplified(0)?)?),
+                    // a == a -> true. Even when floats are involved, this is a boolean
+                    // identity: both sides are the same expression and evaluate to the same
+                    // value (NaN only affects fp== itself, not bool== of two equal booleans).
+                    _ if early_lhs == early_rhs => Ok(ctx.true_()?),
+                    _ => Ok(ctx.eq_(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
+                }
             }
             AstType::Float(_) => {
-            let early_lhs = state.get_fp_available(0)?;
-            let early_rhs = state.get_fp_available(1)?;
+                let early_lhs = state.get_fp_available(0)?;
+                let early_rhs = state.get_fp_available(1)?;
 
-            match (early_lhs.op(), early_rhs.op()) {
-                (AstOp::FPV(arc), AstOp::FPV(arc1)) => Ok(ctx.boolv(arc.compare_fp(arc1))?),
-                _ => Ok(ctx.fp_eq(state.get_fp_simplified(0)?, state.get_fp_simplified(1)?)?),
-            }
+                match (early_lhs.op(), early_rhs.op()) {
+                    (AstOp::FPV(arc), AstOp::FPV(arc1)) => Ok(ctx.boolv(arc.compare_fp(arc1))?),
+                    _ => Ok(ctx.fp_eq(state.get_fp_simplified(0)?, state.get_fp_simplified(1)?)?),
+                }
             }
             AstType::String => {
-            let early_lhs = state.get_string_available(0)?;
-            let early_rhs = state.get_string_available(1)?;
+                let early_lhs = state.get_string_available(0)?;
+                let early_rhs = state.get_string_available(1)?;
 
-            match (early_lhs.op(), early_rhs.op()) {
-                (AstOp::StringV(str1), AstOp::StringV(str2)) => Ok(ctx.boolv(str1 == str2)?),
-                _ => Ok(ctx.str_eq(
-                    state.get_string_simplified(0)?,
-                    state.get_string_simplified(1)?,
-                )?),
-            }
+                match (early_lhs.op(), early_rhs.op()) {
+                    (AstOp::StringV(str1), AstOp::StringV(str2)) => Ok(ctx.boolv(str1 == str2)?),
+                    _ => Ok(ctx.str_eq(
+                        state.get_string_simplified(0)?,
+                        state.get_string_simplified(1)?,
+                    )?),
+                }
             }
             AstType::BitVec(_) => {
-            let early_lhs = state.get_bv_available(0)?;
-            let early_rhs = state.get_bv_available(1)?;
+                let early_lhs = state.get_bv_available(0)?;
+                let early_rhs = state.get_bv_available(1)?;
 
-            match (early_lhs.op(), early_rhs.op()) {
-                (lhs, rhs) if lhs == rhs => Ok(ctx.true_()?),
-                (AstOp::BVV(arc), AstOp::BVV(arc1)) => Ok(ctx.boolv(arc == arc1)?),
+                match (early_lhs.op(), early_rhs.op()) {
+                    (lhs, rhs) if lhs == rhs => Ok(ctx.true_()?),
+                    (AstOp::BVV(arc), AstOp::BVV(arc1)) => Ok(ctx.boolv(arc == arc1)?),
 
-                // If on one side there is an AND where one of the operands is a mask, and on the
-                // other side, there is a BVV which matches the masked part of the AND, we can
-                // extract the AND operand directly, and extract the other side and rerun
-                (AstOp::And(and_args), AstOp::BVV(bvv))
-                    if and_args
-                        .iter()
-                        .any(|a| matches!(a.op(), AstOp::BVV(v) if v.is_mask().is_some())) =>
-                {
-                    let mask_idx = and_args
-                        .iter()
-                        .position(|a| matches!(a.op(), AstOp::BVV(v) if v.is_mask().is_some()))
-                        .unwrap();
-                    let mask = &and_args[mask_idx];
-                    let remaining: Vec<_> = and_args
-                        .iter()
-                        .enumerate()
-                        .filter(|(i, _)| *i != mask_idx)
-                        .map(|(_, a)| a.clone())
-                        .collect();
-                    let lhs_and = if remaining.len() == 1 {
-                        remaining.into_iter().next().unwrap()
-                    } else {
-                        ctx.bv_and_many(remaining)?
-                    };
-                    let (mask_high, mask_low) = if let AstOp::BVV(mask_val) = mask.op() {
-                        mask_val.is_mask()
-                    } else {
-                        None
-                    }
-                    .expect("Checked above, switch to if let when stabilized");
-                    state.rerun(ctx.eq_(
-                        ctx.extract(&lhs_and, mask_high, mask_low)?,
-                        ctx.bvv(bvv.extract(mask_low, mask_high)?)?,
-                    )?)
-                }
-
-                // If one side is a = ZeroExt and the other side is a BVV with those bits set to zero,
-                // we can extract the relevant bits and compare directly
-                (AstOp::ZeroExt(innner, ext_size), AstOp::BVV(outer))
-                | (AstOp::BVV(outer), AstOp::ZeroExt(innner, ext_size))
-                    if outer.leading_zeros() as u32 >= *ext_size =>
-                {
-                    state.rerun(ctx.eq_(
-                        innner.clone(),
-                        ctx.extract(ctx.bvv(outer.clone())?, innner.size() - 1, 0)?,
-                    )?)
-                }
-
-                // If both sides are ZeroExt of the same size, we can compare the inner values directly
-                (AstOp::ZeroExt(inner_lhs, _), AstOp::ZeroExt(inner_rhs, _)) => {
-                    state.rerun(ctx.eq_(inner_lhs.clone(), inner_rhs.clone())?)
-                }
-
-                // (ite cond 1 0) == 0  ==>  !cond
-                (AstOp::ITE(cond, then_val, else_val), AstOp::BVV(val))
-                | (AstOp::BVV(val), AstOp::ITE(cond, then_val, else_val))
-                    if val.is_zero() =>
-                {
-                    if let (AstOp::BVV(then_bvv), AstOp::BVV(else_bvv)) =
-                        (then_val.op(), else_val.op())
+                    // If on one side there is an AND where one of the operands is a mask, and on the
+                    // other side, there is a BVV which matches the masked part of the AND, we can
+                    // extract the AND operand directly, and extract the other side and rerun
+                    (AstOp::And(and_args), AstOp::BVV(bvv))
+                        if and_args
+                            .iter()
+                            .any(|a| matches!(a.op(), AstOp::BVV(v) if v.is_mask().is_some())) =>
                     {
-                        if then_bvv.is_one() && else_bvv.is_zero() {
-                            // (ite cond 1 0) == 0  ==>  !cond
-                            return state.rerun(ctx.not(cond.clone())?);
-                        } else if then_bvv.is_zero() && else_bvv.is_one() {
-                            // (ite cond 0 1) == 0  ==>  cond
-                            return state.rerun(cond.clone());
-                        }
-                    }
-                    Ok(ctx.eq_(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?)
-                }
-
-                // (ite cond 1 0) == 1  ==>  cond
-                (AstOp::ITE(cond, then_val, else_val), AstOp::BVV(val))
-                | (AstOp::BVV(val), AstOp::ITE(cond, then_val, else_val))
-                    if val.is_one() =>
-                {
-                    if let (AstOp::BVV(then_bvv), AstOp::BVV(else_bvv)) =
-                        (then_val.op(), else_val.op())
-                    {
-                        if then_bvv.is_one() && else_bvv.is_zero() {
-                            // (ite cond 1 0) == 1  ==>  cond
-                            return state.rerun(cond.clone());
-                        } else if then_bvv.is_zero() && else_bvv.is_one() {
-                            // (ite cond 0 1) == 1  ==>  !cond
-                            return state.rerun(ctx.not(cond.clone())?);
-                        }
-                    }
-                    Ok(ctx.eq_(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?)
-                }
-
-                // (x - C) == 0  ==>  x == C
-                (AstOp::Sub(lhs_sub, rhs_sub), AstOp::BVV(val))
-                | (AstOp::BVV(val), AstOp::Sub(lhs_sub, rhs_sub))
-                    if val.is_zero() && matches!(rhs_sub.op(), AstOp::BVV(..)) =>
-                {
-                    state.rerun(ctx.eq_(lhs_sub.clone(), rhs_sub.clone())?)
-                }
-
-                // (sum + C) == 0  ==>  sum == -C
-                (AstOp::Add(add_args), AstOp::BVV(val))
-                | (AstOp::BVV(val), AstOp::Add(add_args))
-                    if val.is_zero()
-                        && add_args.iter().any(|a| matches!(a.op(), AstOp::BVV(..))) =>
-                {
-                    if let Some(bvv_idx) = add_args
-                        .iter()
-                        .position(|a| matches!(a.op(), AstOp::BVV(..)))
-                    {
-                        let neg_c = ctx.neg(&add_args[bvv_idx])?;
-                        let remaining: Vec<_> = add_args
+                        let mask_idx = and_args
+                            .iter()
+                            .position(|a| matches!(a.op(), AstOp::BVV(v) if v.is_mask().is_some()))
+                            .unwrap();
+                        let mask = &and_args[mask_idx];
+                        let remaining: Vec<_> = and_args
                             .iter()
                             .enumerate()
-                            .filter(|(i, _)| *i != bvv_idx)
+                            .filter(|(i, _)| *i != mask_idx)
                             .map(|(_, a)| a.clone())
                             .collect();
-                        let lhs = if remaining.len() == 1 {
+                        let lhs_and = if remaining.len() == 1 {
                             remaining.into_iter().next().unwrap()
                         } else {
-                            ctx.add_many(remaining)?
+                            ctx.bv_and_many(remaining)?
                         };
-                        state.rerun(ctx.eq_(lhs, neg_c)?)
-                    } else {
-                        unreachable!()
+                        let (mask_high, mask_low) = if let AstOp::BVV(mask_val) = mask.op() {
+                            mask_val.is_mask()
+                        } else {
+                            None
+                        }
+                        .expect("Checked above, switch to if let when stabilized");
+                        state.rerun(ctx.eq_(
+                            ctx.extract(&lhs_and, mask_high, mask_low)?,
+                            ctx.bvv(bvv.extract(mask_low, mask_high)?)?,
+                        )?)
                     }
-                }
 
-                _ => Ok(ctx.eq_(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
-            }
+                    // If one side is a = ZeroExt and the other side is a BVV with those bits set to zero,
+                    // we can extract the relevant bits and compare directly
+                    (AstOp::ZeroExt(innner, ext_size), AstOp::BVV(outer))
+                    | (AstOp::BVV(outer), AstOp::ZeroExt(innner, ext_size))
+                        if outer.leading_zeros() as u32 >= *ext_size =>
+                    {
+                        state.rerun(ctx.eq_(
+                            innner.clone(),
+                            ctx.extract(ctx.bvv(outer.clone())?, innner.size() - 1, 0)?,
+                        )?)
+                    }
+
+                    // If both sides are ZeroExt of the same size, we can compare the inner values directly
+                    (AstOp::ZeroExt(inner_lhs, _), AstOp::ZeroExt(inner_rhs, _)) => {
+                        state.rerun(ctx.eq_(inner_lhs.clone(), inner_rhs.clone())?)
+                    }
+
+                    // (ite cond 1 0) == 0  ==>  !cond
+                    (AstOp::ITE(cond, then_val, else_val), AstOp::BVV(val))
+                    | (AstOp::BVV(val), AstOp::ITE(cond, then_val, else_val))
+                        if val.is_zero() =>
+                    {
+                        if let (AstOp::BVV(then_bvv), AstOp::BVV(else_bvv)) =
+                            (then_val.op(), else_val.op())
+                        {
+                            if then_bvv.is_one() && else_bvv.is_zero() {
+                                // (ite cond 1 0) == 0  ==>  !cond
+                                return state.rerun(ctx.not(cond.clone())?);
+                            } else if then_bvv.is_zero() && else_bvv.is_one() {
+                                // (ite cond 0 1) == 0  ==>  cond
+                                return state.rerun(cond.clone());
+                            }
+                        }
+                        Ok(ctx.eq_(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?)
+                    }
+
+                    // (ite cond 1 0) == 1  ==>  cond
+                    (AstOp::ITE(cond, then_val, else_val), AstOp::BVV(val))
+                    | (AstOp::BVV(val), AstOp::ITE(cond, then_val, else_val))
+                        if val.is_one() =>
+                    {
+                        if let (AstOp::BVV(then_bvv), AstOp::BVV(else_bvv)) =
+                            (then_val.op(), else_val.op())
+                        {
+                            if then_bvv.is_one() && else_bvv.is_zero() {
+                                // (ite cond 1 0) == 1  ==>  cond
+                                return state.rerun(cond.clone());
+                            } else if then_bvv.is_zero() && else_bvv.is_one() {
+                                // (ite cond 0 1) == 1  ==>  !cond
+                                return state.rerun(ctx.not(cond.clone())?);
+                            }
+                        }
+                        Ok(ctx.eq_(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?)
+                    }
+
+                    // (x - C) == 0  ==>  x == C
+                    (AstOp::Sub(lhs_sub, rhs_sub), AstOp::BVV(val))
+                    | (AstOp::BVV(val), AstOp::Sub(lhs_sub, rhs_sub))
+                        if val.is_zero() && matches!(rhs_sub.op(), AstOp::BVV(..)) =>
+                    {
+                        state.rerun(ctx.eq_(lhs_sub.clone(), rhs_sub.clone())?)
+                    }
+
+                    // (sum + C) == 0  ==>  sum == -C
+                    (AstOp::Add(add_args), AstOp::BVV(val))
+                    | (AstOp::BVV(val), AstOp::Add(add_args))
+                        if val.is_zero()
+                            && add_args.iter().any(|a| matches!(a.op(), AstOp::BVV(..))) =>
+                    {
+                        if let Some(bvv_idx) = add_args
+                            .iter()
+                            .position(|a| matches!(a.op(), AstOp::BVV(..)))
+                        {
+                            let neg_c = ctx.neg(&add_args[bvv_idx])?;
+                            let remaining: Vec<_> = add_args
+                                .iter()
+                                .enumerate()
+                                .filter(|(i, _)| *i != bvv_idx)
+                                .map(|(_, a)| a.clone())
+                                .collect();
+                            let lhs = if remaining.len() == 1 {
+                                remaining.into_iter().next().unwrap()
+                            } else {
+                                ctx.add_many(remaining)?
+                            };
+                            state.rerun(ctx.eq_(lhs, neg_c)?)
+                        } else {
+                            unreachable!()
+                        }
+                    }
+
+                    _ => Ok(ctx.eq_(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
+                }
             }
         },
         AstOp::Neq(..) => match state.get_child_available(0).ty() {
             AstType::Bool => {
-            let early_lhs = state.get_bool_available(0)?;
-            let early_rhs = state.get_bool_available(1)?;
+                let early_lhs = state.get_bool_available(0)?;
+                let early_rhs = state.get_bool_available(1)?;
 
-            match (early_lhs.op(), early_rhs.op()) {
-                (AstOp::BoolV(arc), AstOp::BoolV(arc1)) => Ok(ctx.boolv(arc != arc1)?),
-                (AstOp::BoolV(true), _) => Ok(ctx.not(state.get_bool_simplified(1)?)?),
-                (_, AstOp::BoolV(true)) => Ok(ctx.not(state.get_bool_simplified(0)?)?),
-                (AstOp::BoolV(false), _) => Ok(state.get_bool_simplified(1)?),
-                (_, AstOp::BoolV(false)) => Ok(state.get_bool_simplified(0)?),
-                // a != a -> false. Even when floats are involved, this is a boolean
-                // identity: both sides are the same expression and evaluate to the same
-                // value (NaN only affects fp!= itself, not bool!= of two equal booleans).
-                _ if early_lhs == early_rhs => Ok(ctx.false_()?),
-                _ => Ok(ctx.neq(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
-            }
+                match (early_lhs.op(), early_rhs.op()) {
+                    (AstOp::BoolV(arc), AstOp::BoolV(arc1)) => Ok(ctx.boolv(arc != arc1)?),
+                    (AstOp::BoolV(true), _) => Ok(ctx.not(state.get_bool_simplified(1)?)?),
+                    (_, AstOp::BoolV(true)) => Ok(ctx.not(state.get_bool_simplified(0)?)?),
+                    (AstOp::BoolV(false), _) => Ok(state.get_bool_simplified(1)?),
+                    (_, AstOp::BoolV(false)) => Ok(state.get_bool_simplified(0)?),
+                    // a != a -> false. Even when floats are involved, this is a boolean
+                    // identity: both sides are the same expression and evaluate to the same
+                    // value (NaN only affects fp!= itself, not bool!= of two equal booleans).
+                    _ if early_lhs == early_rhs => Ok(ctx.false_()?),
+                    _ => Ok(ctx.neq(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
+                }
             }
             AstType::Float(_) => {
-            let early_lhs = state.get_fp_available(0)?;
-            let early_rhs = state.get_fp_available(1)?;
+                let early_lhs = state.get_fp_available(0)?;
+                let early_rhs = state.get_fp_available(1)?;
 
-            match (early_lhs.op(), early_rhs.op()) {
-                (AstOp::FPV(arc), AstOp::FPV(arc1)) => Ok(ctx.boolv(!arc.compare_fp(arc1))?),
-                _ => Ok(ctx.fp_neq(state.get_fp_simplified(0)?, state.get_fp_simplified(1)?)?),
-            }
+                match (early_lhs.op(), early_rhs.op()) {
+                    (AstOp::FPV(arc), AstOp::FPV(arc1)) => Ok(ctx.boolv(!arc.compare_fp(arc1))?),
+                    _ => Ok(ctx.fp_neq(state.get_fp_simplified(0)?, state.get_fp_simplified(1)?)?),
+                }
             }
             AstType::String => {
-            let early_lhs = state.get_string_available(0)?;
-            let early_rhs = state.get_string_available(1)?;
+                let early_lhs = state.get_string_available(0)?;
+                let early_rhs = state.get_string_available(1)?;
 
-            match (early_lhs.op(), early_rhs.op()) {
-                (AstOp::StringV(str1), AstOp::StringV(str2)) => Ok(ctx.boolv(str1 != str2)?),
-                _ => Ok(ctx.str_neq(
-                    state.get_string_simplified(0)?,
-                    state.get_string_simplified(1)?,
-                )?),
-            }
+                match (early_lhs.op(), early_rhs.op()) {
+                    (AstOp::StringV(str1), AstOp::StringV(str2)) => Ok(ctx.boolv(str1 != str2)?),
+                    _ => Ok(ctx.str_neq(
+                        state.get_string_simplified(0)?,
+                        state.get_string_simplified(1)?,
+                    )?),
+                }
             }
             AstType::BitVec(_) => {
-            let early_lhs = state.get_bv_available(0)?;
-            let early_rhs = state.get_bv_available(1)?;
+                let early_lhs = state.get_bv_available(0)?;
+                let early_rhs = state.get_bv_available(1)?;
 
-            match (early_lhs.op(), early_rhs.op()) {
-                (AstOp::BVV(arc), AstOp::BVV(arc1)) => Ok(ctx.boolv(arc != arc1)?),
-                (lhs, rhs) if lhs == rhs => Ok(ctx.false_()?),
+                match (early_lhs.op(), early_rhs.op()) {
+                    (AstOp::BVV(arc), AstOp::BVV(arc1)) => Ok(ctx.boolv(arc != arc1)?),
+                    (lhs, rhs) if lhs == rhs => Ok(ctx.false_()?),
 
-                // If on one side there is an AND where one of the operands is a mask, and on the
-                // other side, there is a BVV which matches the masked part of the AND, we can
-                // extract the AND operand directly, and extract the other side and rerun
-                (AstOp::And(and_args), AstOp::BVV(bvv))
-                    if and_args
-                        .iter()
-                        .any(|a| matches!(a.op(), AstOp::BVV(v) if v.is_mask().is_some())) =>
-                {
-                    let mask_idx = and_args
-                        .iter()
-                        .position(|a| matches!(a.op(), AstOp::BVV(v) if v.is_mask().is_some()))
-                        .unwrap();
-                    let mask = &and_args[mask_idx];
-                    let remaining: Vec<_> = and_args
-                        .iter()
-                        .enumerate()
-                        .filter(|(i, _)| *i != mask_idx)
-                        .map(|(_, a)| a.clone())
-                        .collect();
-                    let lhs_and = if remaining.len() == 1 {
-                        remaining.into_iter().next().unwrap()
-                    } else {
-                        ctx.bv_and_many(remaining)?
-                    };
-                    let (mask_high, mask_low) = if let AstOp::BVV(mask_val) = mask.op() {
-                        mask_val.is_mask()
-                    } else {
-                        None
-                    }
-                    .expect("Checked above, switch to if let when stabilized");
-                    state.rerun(ctx.neq(
-                        ctx.extract(&lhs_and, mask_high, mask_low)?,
-                        ctx.bvv(bvv.extract(mask_low, mask_high)?)?,
-                    )?)
-                }
-
-                // If one side is a = ZeroExt and the other side is a BVV with those bits set to zero,
-                // we can extract the relevant bits and compare directly
-                (AstOp::ZeroExt(innner, ext_size), AstOp::BVV(outer))
-                | (AstOp::BVV(outer), AstOp::ZeroExt(innner, ext_size))
-                    if outer.leading_zeros() as u32 >= *ext_size =>
-                {
-                    state.rerun(ctx.neq(
-                        innner.clone(),
-                        ctx.extract(ctx.bvv(outer.clone())?, innner.size() - 1, 0)?,
-                    )?)
-                }
-
-                // If both sides are ZeroExt of the same size, we can compare the inner values directly
-                (AstOp::ZeroExt(inner_lhs, _), AstOp::ZeroExt(inner_rhs, _)) => {
-                    state.rerun(ctx.neq(inner_lhs.clone(), inner_rhs.clone())?)
-                }
-
-                // (ite cond 1 0) != 0  ==>  cond
-                (AstOp::ITE(cond, then_val, else_val), AstOp::BVV(val))
-                | (AstOp::BVV(val), AstOp::ITE(cond, then_val, else_val))
-                    if val.is_zero() =>
-                {
-                    if let (AstOp::BVV(then_bvv), AstOp::BVV(else_bvv)) =
-                        (then_val.op(), else_val.op())
+                    // If on one side there is an AND where one of the operands is a mask, and on the
+                    // other side, there is a BVV which matches the masked part of the AND, we can
+                    // extract the AND operand directly, and extract the other side and rerun
+                    (AstOp::And(and_args), AstOp::BVV(bvv))
+                        if and_args
+                            .iter()
+                            .any(|a| matches!(a.op(), AstOp::BVV(v) if v.is_mask().is_some())) =>
                     {
-                        if then_bvv.is_one() && else_bvv.is_zero() {
-                            // (ite cond 1 0) != 0  ==>  cond
-                            return state.rerun(cond.clone());
-                        } else if then_bvv.is_zero() && else_bvv.is_one() {
-                            // (ite cond 0 1) != 0  ==>  !cond
-                            return state.rerun(ctx.not(cond.clone())?);
-                        }
-                    }
-                    Ok(ctx.neq(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?)
-                }
-
-                // (ite cond 1 0) != 1  ==>  !cond
-                (AstOp::ITE(cond, then_val, else_val), AstOp::BVV(val))
-                | (AstOp::BVV(val), AstOp::ITE(cond, then_val, else_val))
-                    if val.is_one() =>
-                {
-                    if let (AstOp::BVV(then_bvv), AstOp::BVV(else_bvv)) =
-                        (then_val.op(), else_val.op())
-                    {
-                        if then_bvv.is_one() && else_bvv.is_zero() {
-                            // (ite cond 1 0) != 1  ==>  !cond
-                            return state.rerun(ctx.not(cond.clone())?);
-                        } else if then_bvv.is_zero() && else_bvv.is_one() {
-                            // (ite cond 0 1) != 1  ==>  cond
-                            return state.rerun(cond.clone());
-                        }
-                    }
-                    Ok(ctx.neq(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?)
-                }
-
-                // (x - C) != 0  ==>  x != C
-                (AstOp::Sub(lhs_sub, rhs_sub), AstOp::BVV(val))
-                | (AstOp::BVV(val), AstOp::Sub(lhs_sub, rhs_sub))
-                    if val.is_zero() && matches!(rhs_sub.op(), AstOp::BVV(..)) =>
-                {
-                    state.rerun(ctx.neq(lhs_sub.clone(), rhs_sub.clone())?)
-                }
-
-                // (sum + C) != 0  ==>  sum != -C
-                (AstOp::Add(add_args), AstOp::BVV(val))
-                | (AstOp::BVV(val), AstOp::Add(add_args))
-                    if val.is_zero()
-                        && add_args.iter().any(|a| matches!(a.op(), AstOp::BVV(..))) =>
-                {
-                    if let Some(bvv_idx) = add_args
-                        .iter()
-                        .position(|a| matches!(a.op(), AstOp::BVV(..)))
-                    {
-                        let neg_c = ctx.neg(&add_args[bvv_idx])?;
-                        let remaining: Vec<_> = add_args
+                        let mask_idx = and_args
+                            .iter()
+                            .position(|a| matches!(a.op(), AstOp::BVV(v) if v.is_mask().is_some()))
+                            .unwrap();
+                        let mask = &and_args[mask_idx];
+                        let remaining: Vec<_> = and_args
                             .iter()
                             .enumerate()
-                            .filter(|(i, _)| *i != bvv_idx)
+                            .filter(|(i, _)| *i != mask_idx)
                             .map(|(_, a)| a.clone())
                             .collect();
-                        let lhs = if remaining.len() == 1 {
+                        let lhs_and = if remaining.len() == 1 {
                             remaining.into_iter().next().unwrap()
                         } else {
-                            ctx.add_many(remaining)?
+                            ctx.bv_and_many(remaining)?
                         };
-                        state.rerun(ctx.neq(lhs, neg_c)?)
-                    } else {
-                        unreachable!()
+                        let (mask_high, mask_low) = if let AstOp::BVV(mask_val) = mask.op() {
+                            mask_val.is_mask()
+                        } else {
+                            None
+                        }
+                        .expect("Checked above, switch to if let when stabilized");
+                        state.rerun(ctx.neq(
+                            ctx.extract(&lhs_and, mask_high, mask_low)?,
+                            ctx.bvv(bvv.extract(mask_low, mask_high)?)?,
+                        )?)
                     }
-                }
 
-                _ => Ok(ctx.neq(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
-            }
+                    // If one side is a = ZeroExt and the other side is a BVV with those bits set to zero,
+                    // we can extract the relevant bits and compare directly
+                    (AstOp::ZeroExt(innner, ext_size), AstOp::BVV(outer))
+                    | (AstOp::BVV(outer), AstOp::ZeroExt(innner, ext_size))
+                        if outer.leading_zeros() as u32 >= *ext_size =>
+                    {
+                        state.rerun(ctx.neq(
+                            innner.clone(),
+                            ctx.extract(ctx.bvv(outer.clone())?, innner.size() - 1, 0)?,
+                        )?)
+                    }
+
+                    // If both sides are ZeroExt of the same size, we can compare the inner values directly
+                    (AstOp::ZeroExt(inner_lhs, _), AstOp::ZeroExt(inner_rhs, _)) => {
+                        state.rerun(ctx.neq(inner_lhs.clone(), inner_rhs.clone())?)
+                    }
+
+                    // (ite cond 1 0) != 0  ==>  cond
+                    (AstOp::ITE(cond, then_val, else_val), AstOp::BVV(val))
+                    | (AstOp::BVV(val), AstOp::ITE(cond, then_val, else_val))
+                        if val.is_zero() =>
+                    {
+                        if let (AstOp::BVV(then_bvv), AstOp::BVV(else_bvv)) =
+                            (then_val.op(), else_val.op())
+                        {
+                            if then_bvv.is_one() && else_bvv.is_zero() {
+                                // (ite cond 1 0) != 0  ==>  cond
+                                return state.rerun(cond.clone());
+                            } else if then_bvv.is_zero() && else_bvv.is_one() {
+                                // (ite cond 0 1) != 0  ==>  !cond
+                                return state.rerun(ctx.not(cond.clone())?);
+                            }
+                        }
+                        Ok(ctx.neq(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?)
+                    }
+
+                    // (ite cond 1 0) != 1  ==>  !cond
+                    (AstOp::ITE(cond, then_val, else_val), AstOp::BVV(val))
+                    | (AstOp::BVV(val), AstOp::ITE(cond, then_val, else_val))
+                        if val.is_one() =>
+                    {
+                        if let (AstOp::BVV(then_bvv), AstOp::BVV(else_bvv)) =
+                            (then_val.op(), else_val.op())
+                        {
+                            if then_bvv.is_one() && else_bvv.is_zero() {
+                                // (ite cond 1 0) != 1  ==>  !cond
+                                return state.rerun(ctx.not(cond.clone())?);
+                            } else if then_bvv.is_zero() && else_bvv.is_one() {
+                                // (ite cond 0 1) != 1  ==>  cond
+                                return state.rerun(cond.clone());
+                            }
+                        }
+                        Ok(ctx.neq(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?)
+                    }
+
+                    // (x - C) != 0  ==>  x != C
+                    (AstOp::Sub(lhs_sub, rhs_sub), AstOp::BVV(val))
+                    | (AstOp::BVV(val), AstOp::Sub(lhs_sub, rhs_sub))
+                        if val.is_zero() && matches!(rhs_sub.op(), AstOp::BVV(..)) =>
+                    {
+                        state.rerun(ctx.neq(lhs_sub.clone(), rhs_sub.clone())?)
+                    }
+
+                    // (sum + C) != 0  ==>  sum != -C
+                    (AstOp::Add(add_args), AstOp::BVV(val))
+                    | (AstOp::BVV(val), AstOp::Add(add_args))
+                        if val.is_zero()
+                            && add_args.iter().any(|a| matches!(a.op(), AstOp::BVV(..))) =>
+                    {
+                        if let Some(bvv_idx) = add_args
+                            .iter()
+                            .position(|a| matches!(a.op(), AstOp::BVV(..)))
+                        {
+                            let neg_c = ctx.neg(&add_args[bvv_idx])?;
+                            let remaining: Vec<_> = add_args
+                                .iter()
+                                .enumerate()
+                                .filter(|(i, _)| *i != bvv_idx)
+                                .map(|(_, a)| a.clone())
+                                .collect();
+                            let lhs = if remaining.len() == 1 {
+                                remaining.into_iter().next().unwrap()
+                            } else {
+                                ctx.add_many(remaining)?
+                            };
+                            state.rerun(ctx.neq(lhs, neg_c)?)
+                        } else {
+                            unreachable!()
+                        }
+                    }
+
+                    _ => Ok(ctx.neq(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
+                }
             }
         },
         AstOp::ULT(..) => {
@@ -1558,18 +1558,10 @@ pub(crate) fn simplify_bool<'c>(
                 (_, AstOp::BoolV(false), AstOp::BoolV(true)) => Ok(ctx.not(cond)?),
 
                 // When condition equals one branch with concrete other branch
-                (cond_op, AstOp::BoolV(true), else_op) if else_op == cond_op => {
-                    Ok(cond.clone())
-                }
-                (cond_op, AstOp::BoolV(false), else_op) if else_op == cond_op => {
-                    Ok(ctx.false_()?)
-                }
-                (cond_op, then_op, AstOp::BoolV(true)) if then_op == cond_op => {
-                    Ok(ctx.true_()?)
-                }
-                (cond_op, then_op, AstOp::BoolV(false)) if then_op == cond_op => {
-                    Ok(cond.clone())
-                }
+                (cond_op, AstOp::BoolV(true), else_op) if else_op == cond_op => Ok(cond.clone()),
+                (cond_op, AstOp::BoolV(false), else_op) if else_op == cond_op => Ok(ctx.false_()?),
+                (cond_op, then_op, AstOp::BoolV(true)) if then_op == cond_op => Ok(ctx.true_()?),
+                (cond_op, then_op, AstOp::BoolV(false)) if then_op == cond_op => Ok(cond.clone()),
 
                 // Default case
                 _ => Ok(ctx.ite(

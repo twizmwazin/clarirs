@@ -87,11 +87,7 @@ impl<'c, S: Solver<'c>> Solver<'c> for SimplificationMixin<'c, S> {
         self.inner.max_signed(&expr.simplify()?)
     }
 
-    fn eval_bool_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+    fn eval_bool_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         self.inner.eval_bool_n(&expr.simplify()?, n)
     }
 
@@ -103,11 +99,7 @@ impl<'c, S: Solver<'c>> Solver<'c> for SimplificationMixin<'c, S> {
         self.inner.eval_bitvec_n(&expr.simplify()?, n)
     }
 
-    fn eval_float_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+    fn eval_float_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         self.inner.eval_float_n(&expr.simplify()?, n)
     }
 

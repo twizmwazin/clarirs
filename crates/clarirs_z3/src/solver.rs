@@ -476,11 +476,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
             .ok_or(ClarirsError::TypeError("Expected AstRef".to_string()))
     }
 
-    fn eval_bool_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+    fn eval_bool_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         let mut results = Vec::new();
 
         // Simplify and check if concrete
@@ -564,11 +560,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         Ok(results)
     }
 
-    fn eval_float_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+    fn eval_float_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         let mut results = Vec::new();
 
         // Simplify and check if concrete

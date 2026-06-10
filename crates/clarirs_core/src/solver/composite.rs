@@ -216,11 +216,7 @@ impl<'c, S: Solver<'c>> Solver<'c> for CompositeSolver<'c, S> {
         self.with_solver_for(&vars, |s| s.max_signed(expr))
     }
 
-    fn eval_bool_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+    fn eval_bool_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         let vars = expr.variables().clone();
         self.with_solver_for(&vars, |s| s.eval_bool_n(expr, n))
     }
@@ -234,11 +230,7 @@ impl<'c, S: Solver<'c>> Solver<'c> for CompositeSolver<'c, S> {
         self.with_solver_for(&vars, |s| s.eval_bitvec_n(expr, n))
     }
 
-    fn eval_float_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+    fn eval_float_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         let vars = expr.variables().clone();
         self.with_solver_for(&vars, |s| s.eval_float_n(expr, n))
     }

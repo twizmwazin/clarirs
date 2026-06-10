@@ -9,8 +9,18 @@ impl ToOpString for AstRef<'static> {
         match self.op() {
             // Polymorphic ops whose name depends on whether the node is boolean
             // or a bitvector.
-            AstOp::Not(..) => if self.ty().is_bool() { "Not" } else { "__neg__" }.to_string(),
-            AstOp::And(..) => if self.ty().is_bool() { "And" } else { "__and__" }.to_string(),
+            AstOp::Not(..) => if self.ty().is_bool() {
+                "Not"
+            } else {
+                "__neg__"
+            }
+            .to_string(),
+            AstOp::And(..) => if self.ty().is_bool() {
+                "And"
+            } else {
+                "__and__"
+            }
+            .to_string(),
             AstOp::Or(..) => if self.ty().is_bool() { "Or" } else { "__or__" }.to_string(),
             AstOp::ITE(..) => "If".to_string(),
 

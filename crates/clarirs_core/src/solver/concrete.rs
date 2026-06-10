@@ -110,11 +110,7 @@ impl<'c> Solver<'c> for ConcreteSolver<'c> {
         self.eval_bitvec(expr)
     }
 
-    fn eval_bool_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+    fn eval_bool_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         if n == 0 {
             return Ok(Vec::new());
         }
@@ -134,11 +130,7 @@ impl<'c> Solver<'c> for ConcreteSolver<'c> {
         Ok(vec![val])
     }
 
-    fn eval_float_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+    fn eval_float_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         if n == 0 {
             return Ok(Vec::new());
         }

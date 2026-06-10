@@ -131,11 +131,7 @@ impl<'c, S: Solver<'c>> Solver<'c> for ConcreteEarlyResolutionMixin<'c, S> {
         self.inner.max_signed(expr)
     }
 
-    fn eval_bool_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+    fn eval_bool_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         // If concrete, return the value without invoking the solver
         if expr.concrete() {
             if n == 0 {
@@ -168,11 +164,7 @@ impl<'c, S: Solver<'c>> Solver<'c> for ConcreteEarlyResolutionMixin<'c, S> {
         self.inner.eval_bitvec_n(expr, n)
     }
 
-    fn eval_float_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+    fn eval_float_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         // If concrete, return the value without invoking the solver
         if expr.concrete() {
             if n == 0 {
@@ -270,11 +262,7 @@ mod tests {
             panic!("PanickingSolver::max_signed should not be called");
         }
 
-        fn eval_bool_n(
-            &mut self,
-            _: &AstRef<'c>,
-            _: u32,
-        ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+        fn eval_bool_n(&mut self, _: &AstRef<'c>, _: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
             panic!("PanickingSolver::eval_bool_n should not be called");
         }
 

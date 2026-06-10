@@ -28,8 +28,7 @@ pub(crate) fn excavate_ite<'c>(
                 .position(|arg| matches!(arg.op(), AstOp::ITE(..)));
 
             if let Some(idx) = ite_idx {
-                let (cond, then_, else_) = if let AstOp::ITE(c, t, e) = excavated_args[idx].op()
-                {
+                let (cond, then_, else_) = if let AstOp::ITE(c, t, e) = excavated_args[idx].op() {
                     (c.clone(), t.clone(), e.clone())
                 } else {
                     unreachable!()
@@ -59,8 +58,7 @@ pub(crate) fn excavate_ite<'c>(
                 .position(|arg| matches!(arg.op(), AstOp::ITE(..)));
 
             if let Some(idx) = ite_idx {
-                let (cond, then_, else_) = if let AstOp::ITE(c, t, e) = excavated_args[idx].op()
-                {
+                let (cond, then_, else_) = if let AstOp::ITE(c, t, e) = excavated_args[idx].op() {
                     (c.clone(), t.clone(), e.clone())
                 } else {
                     unreachable!()
@@ -90,8 +88,7 @@ pub(crate) fn excavate_ite<'c>(
                 .position(|arg| matches!(arg.op(), AstOp::ITE(..)));
 
             if let Some(idx) = ite_idx {
-                let (cond, then_, else_) = if let AstOp::ITE(c, t, e) = excavated_args[idx].op()
-                {
+                let (cond, then_, else_) = if let AstOp::ITE(c, t, e) = excavated_args[idx].op() {
                     (c.clone(), t.clone(), e.clone())
                 } else {
                     unreachable!()
@@ -130,8 +127,7 @@ pub(crate) fn excavate_ite<'c>(
                 .position(|arg| matches!(arg.op(), AstOp::ITE(..)));
 
             if let Some(idx) = ite_idx {
-                let (cond, then_, else_) = if let AstOp::ITE(c, t, e) = excavated_args[idx].op()
-                {
+                let (cond, then_, else_) = if let AstOp::ITE(c, t, e) = excavated_args[idx].op() {
                     (c.clone(), t.clone(), e.clone())
                 } else {
                     unreachable!()
@@ -175,8 +171,7 @@ pub(crate) fn excavate_ite<'c>(
                 .position(|arg| matches!(arg.op(), AstOp::ITE(..)));
 
             if let Some(idx) = ite_idx {
-                let (cond, then_, else_) = if let AstOp::ITE(c, t, e) = excavated_args[idx].op()
-                {
+                let (cond, then_, else_) = if let AstOp::ITE(c, t, e) = excavated_args[idx].op() {
                     (c.clone(), t.clone(), e.clone())
                 } else {
                     unreachable!()
@@ -429,8 +424,7 @@ pub(crate) fn excavate_ite<'c>(
 
             if let Some(idx) = ite_idx {
                 // Clone the condition/then/else before we move excavated_args
-                let (cond, then_, else_) = if let AstOp::ITE(c, t, e) = excavated_args[idx].op()
-                {
+                let (cond, then_, else_) = if let AstOp::ITE(c, t, e) = excavated_args[idx].op() {
                     (c.clone(), t.clone(), e.clone())
                 } else {
                     unreachable!()

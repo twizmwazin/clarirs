@@ -130,10 +130,7 @@ impl Solver<'static> for DynSolver {
         dispatch!(self, eval_bool, expr)
     }
 
-    fn eval_bitvec(
-        &mut self,
-        expr: &AstRef<'static>,
-    ) -> Result<AstRef<'static>, ClarirsError> {
+    fn eval_bitvec(&mut self, expr: &AstRef<'static>) -> Result<AstRef<'static>, ClarirsError> {
         dispatch!(self, eval_bitvec, expr)
     }
 
@@ -141,10 +138,7 @@ impl Solver<'static> for DynSolver {
         dispatch!(self, eval_float, expr)
     }
 
-    fn eval_string(
-        &mut self,
-        expr: &AstRef<'static>,
-    ) -> Result<AstRef<'static>, ClarirsError> {
+    fn eval_string(&mut self, expr: &AstRef<'static>) -> Result<AstRef<'static>, ClarirsError> {
         dispatch!(self, eval_string, expr)
     }
 
@@ -164,31 +158,19 @@ impl Solver<'static> for DynSolver {
         dispatch!(self, has_false, expr)
     }
 
-    fn min_unsigned(
-        &mut self,
-        expr: &AstRef<'static>,
-    ) -> Result<AstRef<'static>, ClarirsError> {
+    fn min_unsigned(&mut self, expr: &AstRef<'static>) -> Result<AstRef<'static>, ClarirsError> {
         dispatch!(self, min_unsigned, expr)
     }
 
-    fn max_unsigned(
-        &mut self,
-        expr: &AstRef<'static>,
-    ) -> Result<AstRef<'static>, ClarirsError> {
+    fn max_unsigned(&mut self, expr: &AstRef<'static>) -> Result<AstRef<'static>, ClarirsError> {
         dispatch!(self, max_unsigned, expr)
     }
 
-    fn min_signed(
-        &mut self,
-        expr: &AstRef<'static>,
-    ) -> Result<AstRef<'static>, ClarirsError> {
+    fn min_signed(&mut self, expr: &AstRef<'static>) -> Result<AstRef<'static>, ClarirsError> {
         dispatch!(self, min_signed, expr)
     }
 
-    fn max_signed(
-        &mut self,
-        expr: &AstRef<'static>,
-    ) -> Result<AstRef<'static>, ClarirsError> {
+    fn max_signed(&mut self, expr: &AstRef<'static>) -> Result<AstRef<'static>, ClarirsError> {
         dispatch!(self, max_signed, expr)
     }
 

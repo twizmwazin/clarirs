@@ -4,10 +4,7 @@ use clarirs_z3_sys as z3;
 use super::AstExtZ3;
 use crate::{Z3_CONTEXT, rc::RcAst};
 
-fn round_trip<'c>(
-    ctx: &'c Context<'c>,
-    ast: &AstRef<'c>,
-) -> Result<AstRef<'c>, ClarirsError> {
+fn round_trip<'c>(ctx: &'c Context<'c>, ast: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
     AstRef::from_z3(ctx, ast.to_z3()?)
 }
 

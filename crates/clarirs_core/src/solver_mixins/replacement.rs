@@ -106,9 +106,9 @@ impl<'c, S: Solver<'c>> ReplacementSolver<'c, S> {
         match constraint.op() {
             AstOp::Eq(lhs, rhs) => {
                 if lhs.symbolic() && !rhs.symbolic() {
-                    self.add_replacement(lhs.clone() , rhs.clone() );
+                    self.add_replacement(lhs.clone(), rhs.clone());
                 } else if !lhs.symbolic() && rhs.symbolic() {
-                    self.add_replacement(rhs.clone() , lhs.clone() );
+                    self.add_replacement(rhs.clone(), lhs.clone());
                 }
             }
             AstOp::Not(inner) => {
@@ -116,10 +116,7 @@ impl<'c, S: Solver<'c>> ReplacementSolver<'c, S> {
                 if inner.symbolic()
                     && let Ok(false_val) = constraint.context().false_()
                 {
-                    self.add_replacement(
-                        inner.clone() ,
-                        false_val ,
-                    );
+                    self.add_replacement(inner.clone(), false_val);
                 }
             }
             _ => {}
@@ -199,11 +196,7 @@ impl<'c, S: Solver<'c>> Solver<'c> for ReplacementSolver<'c, S> {
         self.inner.max_signed(&replaced)
     }
 
-    fn eval_bool_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+    fn eval_bool_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         let replaced = self.replace_bool(expr)?;
         self.inner.eval_bool_n(&replaced, n)
     }
@@ -217,11 +210,7 @@ impl<'c, S: Solver<'c>> Solver<'c> for ReplacementSolver<'c, S> {
         self.inner.eval_bitvec_n(&replaced, n)
     }
 
-    fn eval_float_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+    fn eval_float_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         let replaced = self.replace_float(expr)?;
         self.inner.eval_float_n(&replaced, n)
     }
@@ -251,7 +240,7 @@ mod tests {
         let five = ctx.bvv_prim(5u8)?;
 
         // Add explicit replacement: x -> 5
-        solver.add_replacement(x.clone() , five.clone() );
+        solver.add_replacement(x.clone(), five.clone());
 
         // Evaluating x should now return 5
         let result = solver.eval_bitvec(&x)?;
@@ -291,7 +280,7 @@ mod tests {
         let three = ctx.bvv_prim(3u8)?;
 
         // Replace x with 5
-        solver.add_replacement(x.clone() , five.clone() );
+        solver.add_replacement(x.clone(), five.clone());
 
         // Evaluating x + 3 should return 8
         let expr = ctx.add(&x, &three)?;
@@ -311,7 +300,7 @@ mod tests {
         let x = ctx.bvs("x", 8)?;
         let five = ctx.bvv_prim(5u8)?;
 
-        solver.add_replacement(x.clone() , five.clone() );
+        solver.add_replacement(x.clone(), five.clone());
         assert!(!solver.replacements().is_empty());
 
         solver.clear_replacements();
@@ -329,7 +318,7 @@ mod tests {
         let x = ctx.bools("x")?;
 
         // Replace x with true
-        solver.add_replacement(x.clone() , ctx.true_()? );
+        solver.add_replacement(x.clone(), ctx.true_()?);
 
         assert!(solver.is_true(&x)?);
         assert!(!solver.is_false(&x)?);

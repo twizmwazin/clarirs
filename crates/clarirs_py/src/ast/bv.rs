@@ -285,17 +285,16 @@ impl BV {
     }
 
     pub fn identical(&self, other: Bound<'_, Base>) -> Result<bool, ClaripyError> {
-        let structural = structurally_match(
-            &self.inner,
-            &Base::to_dynast(other.clone())?,
-        )?;
+        let structural = structurally_match(&self.inner, &Base::to_dynast(other.clone())?)?;
         if structural {
             return Ok(true);
         }
         // Fall back to VSA reduction comparison
         if let Ok(other_bv) = other.into_any().cast::<BV>()
-            && let (Ok(a_reduced), Ok(b_reduced)) =
-                (self.inner.reduce().and_then(|r| r.into_bv()), other_bv.get().inner.reduce().and_then(|r| r.into_bv()))
+            && let (Ok(a_reduced), Ok(b_reduced)) = (
+                self.inner.reduce().and_then(|r| r.into_bv()),
+                other_bv.get().inner.reduce().and_then(|r| r.into_bv()),
+            )
         {
             return Ok(a_reduced == b_reduced);
         }

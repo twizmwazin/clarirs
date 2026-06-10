@@ -87,27 +87,16 @@ pub trait Solver<'c>: Clone + HasContext<'c> {
     fn max_signed(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError>;
 
     /// Find multiple solutions for a boolean expression
-    fn eval_bool_n(&mut self, expr: &AstRef<'c>, n: u32)
-    -> Result<Vec<AstRef<'c>>, ClarirsError>;
+    fn eval_bool_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError>;
 
     /// Find multiple solutions for a bitvector expression
-    fn eval_bitvec_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError>;
+    fn eval_bitvec_n(&mut self, expr: &AstRef<'c>, n: u32)
+    -> Result<Vec<AstRef<'c>>, ClarirsError>;
 
     /// Find multiple solutions for a float expression
-    fn eval_float_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError>;
+    fn eval_float_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError>;
 
     /// Find multiple solutions for a string expression
-    fn eval_string_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError>;
+    fn eval_string_n(&mut self, expr: &AstRef<'c>, n: u32)
+    -> Result<Vec<AstRef<'c>>, ClarirsError>;
 }
