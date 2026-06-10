@@ -34,14 +34,13 @@ impl ReduceResult {
     }
 }
 
-/// The Reduce trait transforms expressions into abstract domains:
+/// Reduces expressions into abstract domains:
 /// - BitVec expressions are reduced to StridedIntervals
 /// - Bool expressions are reduced to ComparisonResults
 /// - Float and String expressions return errors
 ///
-/// Because there is now a single AST type, a single implementation produces a
-/// [`ReduceResult`]; callers extract the relevant variant via
-/// [`ReduceResult::into_bv`]/[`ReduceResult::into_bool`].
+/// The result is wrapped in a [`ReduceResult`]; callers extract the relevant
+/// variant via [`ReduceResult::into_bv`]/[`ReduceResult::into_bool`].
 pub trait Reduce<'c>: Sized {
     fn reduce(&self) -> Result<ReduceResult, ClarirsError>;
 }

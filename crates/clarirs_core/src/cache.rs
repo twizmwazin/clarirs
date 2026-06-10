@@ -63,8 +63,8 @@ impl<K: Hash + Eq, V: Clone> Cache<K, V> for GenericCache<K, V> {
 }
 
 /// A special cache for when the result type is an AST. Unlike the generic cache,
-/// this cache stores weak references to the AST nodes. Because there is now a
-/// single node type, the value is just a `Weak<AstNode>`.
+/// this cache stores weak references to the AST nodes; the value is a
+/// `Weak<AstNode>`.
 #[derive(Debug, Default)]
 pub struct AstCache<'c>(RwLock<HashMap<u64, Weak<AstNode<'c>>>>);
 

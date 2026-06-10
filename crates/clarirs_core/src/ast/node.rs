@@ -10,9 +10,8 @@ use crate::{
     prelude::*,
 };
 
-/// A node in an AST. Unlike the previous design there is a single node type for
-/// all sorts; the node caches its [`AstType`] so its sort can be queried in O(1)
-/// without inspecting the operation.
+/// A node in an AST. A single node type serves every sort; the node caches its
+/// [`AstType`] so its sort can be queried in O(1) without inspecting the operation.
 #[derive(Clone, Eq, serde::Serialize)]
 pub struct AstNode<'c> {
     op: AstOp<'c>,
