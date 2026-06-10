@@ -1,17 +1,18 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use crate::{
     algorithms::{pre_order::walk_pre_order, reconstruct::reconstruct_node},
     prelude::*,
 };
 
-pub trait Replace<'c>: Sized {
-    fn replace<T: Clone + Into<AstRef<'c>>>(&self, from: &T, to: &T) -> Result<Self, ClarirsError>;
-    fn replace_many(&self, replacements: &HashMap<u64, AstRef<'c>>) -> Result<Self, ClarirsError>;
-}
-
-impl<'c> Replace<'c> for AstRef<'c> {
-    fn replace<T: Clone + Into<AstRef<'c>>>(&self, from: &T, to: &T) -> Result<Self, ClarirsError> {
+impl<'c> AstNode<'c> {
+    /// Replaces every occurrence of `from` in this AST with `to`.
+    pub fn replace<T: Clone + Into<AstRef<'c>>>(
+        self: &Arc<Self>,
+        from: &T,
+        to: &T,
+    ) -> Result<AstRef<'c>, ClarirsError> {
         let from = from.clone().into();
         let to = to.clone().into();
 
@@ -37,7 +38,11 @@ impl<'c> Replace<'c> for AstRef<'c> {
         )
     }
 
-    fn replace_many(&self, replacements: &HashMap<u64, AstRef<'c>>) -> Result<Self, ClarirsError> {
+    /// Replaces subtrees by hash, using the given hash-to-replacement map.
+    pub fn replace_many(
+        self: &Arc<Self>,
+        replacements: &HashMap<u64, AstRef<'c>>,
+    ) -> Result<AstRef<'c>, ClarirsError> {
         if replacements.is_empty() {
             return Ok(self.clone());
         }

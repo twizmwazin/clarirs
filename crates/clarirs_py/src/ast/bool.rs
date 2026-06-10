@@ -17,7 +17,6 @@ use pyo3::types::{PyDict, PyFrozenSet, PyWeakrefMethods, PyWeakrefReference};
 
 use crate::ast::{and, not, or, xor};
 use crate::prelude::*;
-use clarirs_core::smtlib::ToSmtLib;
 
 use super::r#if;
 
@@ -324,7 +323,6 @@ impl Bool {
         from: Bound<'py, Base>,
         to: Bound<'py, Base>,
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
-        use clarirs_core::algorithms::Replace;
         let from_ast = Base::to_dynast(from)?;
         let to_ast = Base::to_dynast(to)?;
         let replaced = self.inner.replace(&from_ast, &to_ast)?;

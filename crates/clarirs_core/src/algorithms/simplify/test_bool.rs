@@ -1,7 +1,6 @@
 use anyhow::Result;
 
 use crate::{
-    algorithms::Simplify,
     ast::{
         AstFactory,
         annotation::{Annotation, AnnotationType},

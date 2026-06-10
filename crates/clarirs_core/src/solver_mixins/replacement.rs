@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{algorithms::Replace, prelude::*};
+use crate::prelude::*;
 
 /// A solver mixin that applies expression replacements before delegating to
 /// the inner solver. This mirrors claripy's `ReplacementFrontend`.

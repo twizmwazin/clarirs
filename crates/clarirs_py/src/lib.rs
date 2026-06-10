@@ -13,7 +13,6 @@ pub mod pyslicemethodsext;
 pub mod solver;
 pub mod vsa;
 
-use clarirs_core::algorithms::{ExcavateIte, Replace};
 use num_bigint::BigInt;
 use prelude::*;
 

@@ -8,26 +8,20 @@ mod test_bool;
 #[cfg(test)]
 mod test_bv;
 
+use std::sync::Arc;
+
 use crate::{cache::Cache, prelude::*};
 
-pub trait Simplify<'c>: Sized {
-    fn simplify(&self) -> Result<Self, ClarirsError> {
+impl<'c> AstNode<'c> {
+    pub fn simplify(self: &Arc<Self>) -> Result<AstRef<'c>, ClarirsError> {
         self.simplify_ext(true, false)
     }
 
-    fn simplify_ext(
-        &self,
+    pub fn simplify_ext(
+        self: &Arc<Self>,
         respect_annotations: bool,
         error_on_dbz: bool,
-    ) -> Result<Self, ClarirsError>;
-}
-
-impl<'c> Simplify<'c> for AstRef<'c> {
-    fn simplify_ext(
-        &self,
-        respect_annotations: bool,
-        error_on_dbz: bool,
-    ) -> Result<Self, ClarirsError> {
+    ) -> Result<AstRef<'c>, ClarirsError> {
         simplify(self, respect_annotations, error_on_dbz)
     }
 }

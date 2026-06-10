@@ -51,10 +51,13 @@ use clarirs_z3_sys as z3;
 
 use crate::{Z3_AST_CACHE, Z3_CONTEXT, rc::RcAst};
 
-pub(crate) trait AstExtZ3<'c>: HasContext<'c> + Simplify<'c> + Sized {
+pub(crate) trait AstExtZ3<'c>: HasContext<'c> + Sized {
     fn to_z3(&self) -> Result<RcAst, ClarirsError>;
     fn from_z3(ctx: &'c Context<'c>, ast: impl Into<RcAst>) -> Result<Self, ClarirsError>;
+    fn simplify_z3(&self) -> Result<Self, ClarirsError>;
+}
 
+impl<'c> AstExtZ3<'c> for AstRef<'c> {
     fn simplify_z3(&self) -> Result<Self, ClarirsError> {
         let ast = self.simplify()?.to_z3()?;
         Z3_CONTEXT.with(|ctx| unsafe {
@@ -62,9 +65,7 @@ pub(crate) trait AstExtZ3<'c>: HasContext<'c> + Simplify<'c> + Sized {
             Self::from_z3(self.context(), simplified_ast)
         })
     }
-}
 
-impl<'c> AstExtZ3<'c> for AstRef<'c> {
     fn to_z3(&self) -> Result<RcAst, ClarirsError> {
         Z3_AST_CACHE.with(|cache| {
             walk_post_order(

@@ -17,7 +17,6 @@ use crate::ast::fp::{PyFSort, PyRM};
 use crate::ast::{and, not, or, xor};
 use crate::prelude::*;
 use crate::pyslicemethodsext::PySliceMethodsExt;
-use clarirs_core::smtlib::ToSmtLib;
 
 static BVS_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static PY_BV_CACHE: LazyLock<DashMap<u64, Py<PyWeakrefReference>>> = LazyLock::new(DashMap::new);
@@ -337,7 +336,6 @@ impl BV {
         from: Bound<'py, Base>,
         to: Bound<'py, Base>,
     ) -> Result<Bound<'py, BV>, ClaripyError> {
-        use clarirs_core::algorithms::Replace;
         let from_ast = Base::to_dynast(from)?;
         let to_ast = Base::to_dynast(to)?;
         let replaced = self.inner.replace(&from_ast, &to_ast)?;

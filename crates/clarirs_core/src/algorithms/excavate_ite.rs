@@ -1,27 +1,19 @@
+use std::sync::Arc;
+
 use crate::{
     algorithms::{reconstruct::reconstruct_node, walk_post_order},
     ast::op::AstOp,
     prelude::*,
 };
 
-/// Trait for excavating if-then-else expressions to the top level of an AST.
-///
-/// This transformation takes an AST containing nested ITE expressions and returns
-/// an equivalent AST where the ITE expressions have been "excavated" (moved up) to the top level.
-///
-/// For example, if we have an expression like: `a + (if cond then b else c)`
-///
-/// After excavation, it would become: `if cond then (a + b) else (a + c)`
-pub trait ExcavateIte<'c>: Sized {
-    /// Transforms the AST by moving ITE expressions to the top level.
+impl<'c> AstNode<'c> {
+    /// Excavates if-then-else expressions to the top level of the AST.
     ///
-    /// Returns a new AST that is semantically equivalent to the original,
-    /// but with ITE expressions moved to the top level where possible.
-    fn excavate_ite(&self) -> Result<Self, ClarirsError>;
-}
-
-impl<'c> ExcavateIte<'c> for AstRef<'c> {
-    fn excavate_ite(&self) -> Result<Self, ClarirsError> {
+    /// Returns a semantically equivalent AST where nested ITE expressions have
+    /// been "excavated" (moved up) to the top level where possible. For
+    /// example, `a + (if cond then b else c)` becomes
+    /// `if cond then (a + b) else (a + c)`.
+    pub fn excavate_ite(self: &Arc<Self>) -> Result<AstRef<'c>, ClarirsError> {
         walk_post_order(
             self.clone(),
             |node, children| excavate_node(&node, children),

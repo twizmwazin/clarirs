@@ -12,10 +12,7 @@ use dashmap::DashMap;
 use pyo3::types::{PyFrozenSet, PyWeakrefReference};
 
 use crate::prelude::*;
-use clarirs_core::{
-    algorithms::{canonicalize, structurally_match},
-    smtlib::ToSmtLib,
-};
+use clarirs_core::algorithms::{canonicalize, structurally_match};
 
 static STRINGS_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static PY_STRING_CACHE: LazyLock<DashMap<u64, Py<PyWeakrefReference>>> =
@@ -221,7 +218,6 @@ impl PyAstString {
         from: Bound<'py, Base>,
         to: Bound<'py, Base>,
     ) -> Result<Bound<'py, PyAstString>, ClaripyError> {
-        use clarirs_core::algorithms::Replace;
         let from_ast = Base::to_dynast(from)?;
         let to_ast = Base::to_dynast(to)?;
         let replaced = self.inner.replace(&from_ast, &to_ast)?;

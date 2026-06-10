@@ -1,4 +1,5 @@
 use std::fmt;
+use std::sync::Arc;
 
 use crate::{algorithms::walk_post_order, prelude::*};
 
@@ -230,17 +231,9 @@ fn to_smtlib_limited(ast: &AstRef<'_>, remaining_depth: usize) -> String {
     to_smtlib_op(ast, &children)
 }
 
-/// Trait for converting an AST to an SMT-LIB 2.6 string representation.
-pub trait ToSmtLib {
-    fn to_smtlib(&self) -> String;
-
-    /// Returns a depth-limited SMT-LIB representation. Children beyond
-    /// `max_depth` levels are replaced with `...`.
-    fn to_smtlib_shallow(&self, max_depth: usize) -> String;
-}
-
-impl ToSmtLib for AstRef<'_> {
-    fn to_smtlib(&self) -> String {
+impl<'c> AstNode<'c> {
+    /// Converts the AST to an SMT-LIB 2.6 string representation.
+    pub fn to_smtlib(self: &Arc<Self>) -> String {
         walk_post_order(
             self.clone(),
             |node, children| Ok(to_smtlib_op(&node, children)),
@@ -249,27 +242,28 @@ impl ToSmtLib for AstRef<'_> {
         .expect("infallible")
     }
 
-    fn to_smtlib_shallow(&self, max_depth: usize) -> String {
+    /// Returns a depth-limited SMT-LIB representation. Children beyond
+    /// `max_depth` levels are replaced with `...`.
+    pub fn to_smtlib_shallow(self: &Arc<Self>, max_depth: usize) -> String {
         to_smtlib_limited(self, max_depth)
     }
 }
 
-/// Blanket `Display` implementation for any type implementing `ToSmtLib`.
-impl<T: ToSmtLib> fmt::Display for SmtLibDisplay<'_, T> {
+impl fmt::Display for SmtLibDisplay<'_, '_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0.to_smtlib())
     }
 }
 
-/// Wrapper to display any `ToSmtLib` type via `fmt::Display`.
+/// Wrapper to display an AST as SMT-LIB via `fmt::Display`.
 ///
 /// # Example
 /// ```ignore
-/// use clarirs_core::smtlib::{SmtLibDisplay, ToSmtLib};
+/// use clarirs_core::smtlib::SmtLibDisplay;
 /// let ast = ctx.bvs("x", 64).unwrap();
 /// println!("{}", SmtLibDisplay(&ast));
 /// ```
-pub struct SmtLibDisplay<'a, T: ToSmtLib>(pub &'a T);
+pub struct SmtLibDisplay<'a, 'c>(pub &'a AstRef<'c>);
 
 #[cfg(test)]
 mod tests {

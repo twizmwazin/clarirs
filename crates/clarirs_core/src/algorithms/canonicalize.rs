@@ -5,7 +5,6 @@ use std::collections::HashMap;
 use crate::prelude::*;
 
 use super::collect_vars::collect_vars;
-use super::replace::Replace;
 
 /// Checks if two ASTs are structurally matching by comparing their canonical forms.
 ///

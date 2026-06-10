@@ -13,7 +13,6 @@ use dashmap::DashMap;
 use pyo3::types::{PyFrozenSet, PyTuple, PyWeakrefReference};
 
 use crate::prelude::*;
-use clarirs_core::smtlib::ToSmtLib;
 
 static FPS_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static PY_FP_CACHE: LazyLock<DashMap<u64, Py<PyWeakrefReference>>> = LazyLock::new(DashMap::new);
@@ -430,7 +429,6 @@ impl FP {
         from: Bound<'py, Base>,
         to: Bound<'py, Base>,
     ) -> Result<Bound<'py, FP>, ClaripyError> {
-        use clarirs_core::algorithms::Replace;
         let from_ast = Base::to_dynast(from)?;
         let to_ast = Base::to_dynast(to)?;
         let replaced = self.inner.replace(&from_ast, &to_ast)?;
