@@ -255,14 +255,16 @@ pub(crate) fn simplify_bool<'c>(
                 1 => rest[0].clone(),
                 _ => ctx.xor(rest)?,
             };
-            Ok(if parity {
+            if parity {
                 match combined.op() {
-                    AstOp::BoolV(b) => ctx.boolv(!b)?,
-                    _ => ctx.not(combined)?,
+                    AstOp::BoolV(b) => Ok(ctx.boolv(!b)?),
+                    // Re-simplify the produced negation so Not(comparison) ->
+                    // inverse-comparison rules apply, matching a directly-built Not.
+                    _ => state.rerun(ctx.not(combined)?),
                 }
             } else {
-                combined
-            })
+                Ok(combined)
+            }
         }
         AstOp::Eq(..) => match state.get_child_available(0).ty() {
             AstType::Bool => {
@@ -273,8 +275,9 @@ pub(crate) fn simplify_bool<'c>(
                     (AstOp::BoolV(arc), AstOp::BoolV(arc1)) => Ok(ctx.boolv(arc == arc1)?),
                     (AstOp::BoolV(true), _) => Ok(state.get_child_simplified(1)?),
                     (_, AstOp::BoolV(true)) => Ok(state.get_child_simplified(0)?),
-                    (AstOp::BoolV(false), _) => Ok(ctx.not(state.get_child_simplified(1)?)?),
-                    (_, AstOp::BoolV(false)) => Ok(ctx.not(state.get_child_simplified(0)?)?),
+                    // x == false -> !x; rerun so the produced Not canonicalizes.
+                    (AstOp::BoolV(false), _) => state.rerun(ctx.not(&early_rhs)?),
+                    (_, AstOp::BoolV(false)) => state.rerun(ctx.not(&early_lhs)?),
                     // a == a -> true. Even when floats are involved, this is a boolean
                     // identity: both sides are the same expression and evaluate to the same
                     // value (NaN only affects fp== itself, not bool== of two equal booleans).
@@ -464,8 +467,9 @@ pub(crate) fn simplify_bool<'c>(
 
                 match (early_lhs.op(), early_rhs.op()) {
                     (AstOp::BoolV(arc), AstOp::BoolV(arc1)) => Ok(ctx.boolv(arc != arc1)?),
-                    (AstOp::BoolV(true), _) => Ok(ctx.not(state.get_child_simplified(1)?)?),
-                    (_, AstOp::BoolV(true)) => Ok(ctx.not(state.get_child_simplified(0)?)?),
+                    // x != true -> !x; rerun so the produced Not canonicalizes.
+                    (AstOp::BoolV(true), _) => state.rerun(ctx.not(&early_rhs)?),
+                    (_, AstOp::BoolV(true)) => state.rerun(ctx.not(&early_lhs)?),
                     (AstOp::BoolV(false), _) => Ok(state.get_child_simplified(1)?),
                     (_, AstOp::BoolV(false)) => Ok(state.get_child_simplified(0)?),
                     // a != a -> false. Even when floats are involved, this is a boolean
@@ -1649,7 +1653,8 @@ pub(crate) fn simplify_bool<'c>(
 
                 // Known then/else cases
                 (_, AstOp::BoolV(true), AstOp::BoolV(false)) => Ok(cond.clone()),
-                (_, AstOp::BoolV(false), AstOp::BoolV(true)) => Ok(ctx.not(cond)?),
+                // ite(c, false, true) -> !c; rerun so the produced Not canonicalizes.
+                (_, AstOp::BoolV(false), AstOp::BoolV(true)) => state.rerun(ctx.not(cond)?),
 
                 // When condition equals one branch with concrete other branch
                 (cond_op, AstOp::BoolV(true), else_op) if else_op == cond_op => Ok(cond.clone()),
