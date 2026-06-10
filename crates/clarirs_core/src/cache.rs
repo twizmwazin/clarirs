@@ -335,6 +335,24 @@ mod tests {
     }
 
     #[test]
+    fn test_ephemeral_asts_do_not_corrupt_cache() -> Result<(), ClarirsError> {
+        // Build then immediately drop many ephemeral ASTs. With lazy
+        // weakref cleanup, stale Weaks accumulate in the cache; verify
+        // that subsequent inserts at the same hash overwrite cleanly and
+        // produce the right Arc.
+        let ctx = crate::context::Context::new();
+        for _ in 0..1000 {
+            let _ = ctx.bvv_prim_with_size(42u64, 64)?;
+        }
+        // The interned BVV(42, 64) should still resolve identically — the
+        // cache must not have returned a stale Weak.
+        let a = ctx.bvv_prim_with_size(42u64, 64)?;
+        let b = ctx.bvv_prim_with_size(42u64, 64)?;
+        assert_eq!(a, b);
+        Ok(())
+    }
+
+    #[test]
     fn test_generic_cache_basic() {
         let cache = GenericCache::<u64, String>::default();
 
