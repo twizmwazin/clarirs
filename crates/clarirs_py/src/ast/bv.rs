@@ -25,20 +25,20 @@ static PY_BV_CACHE: LazyLock<DashMap<u64, Py<PyWeakrefReference>>> = LazyLock::n
 
 #[pyclass(extends=Bits, subclass, frozen, weakref, module="claripy.ast.bv")]
 pub struct BV {
-    pub(crate) inner: BitVecAst<'static>,
+    pub(crate) inner: AstRef<'static>,
 }
 
 impl BV {
     pub fn new<'py>(
         py: Python<'py>,
-        inner: &BitVecAst<'static>,
+        inner: &AstRef<'static>,
     ) -> Result<Bound<'py, BV>, ClaripyError> {
         Self::new_with_name(py, inner, None)
     }
 
     pub fn new_with_name<'py>(
         py: Python<'py>,
-        inner: &BitVecAst<'static>,
+        inner: &AstRef<'static>,
         name: Option<String>,
     ) -> Result<Bound<'py, BV>, ClaripyError> {
         let inner = &inner.simplify_ext(true, true)?;
@@ -314,7 +314,7 @@ impl BV {
     pub fn is_true(&self) -> bool {
         // A BV is "true" if it's a concrete non-zero value
         if let Ok(simplified) = self.inner.simplify()
-            && let BitVecOp::BVV(bv) = simplified.op()
+            && let AstOp::BVV(bv) = simplified.op()
         {
             return !bv.is_zero();
         }
@@ -324,7 +324,7 @@ impl BV {
     pub fn is_false(&self) -> bool {
         // A BV is "false" if it's a concrete zero value
         if let Ok(simplified) = self.inner.simplify()
-            && let BitVecOp::BVV(bv) = simplified.op()
+            && let AstOp::BVV(bv) = simplified.op()
         {
             return bv.is_zero();
         }
@@ -369,7 +369,7 @@ impl BV {
     #[getter]
     pub fn concrete_value(&self) -> Result<Option<BigUint>, ClaripyError> {
         Ok(match self.inner.simplify_ext(false, false)?.op() {
-            BitVecOp::BVV(bv) => Some(bv.to_biguint()),
+            AstOp::BVV(bv) => Some(bv.to_biguint()),
             _ => None,
         })
     }

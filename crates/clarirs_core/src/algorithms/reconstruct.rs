@@ -10,9 +10,9 @@ use crate::{ast::op::AstOp, prelude::*};
 /// the node's type is re-inferred from the (same-typed) children.
 pub fn reconstruct_node<'c>(
     ctx: &'c Context<'c>,
-    ast: &DynAst<'c>,
-    children: &[DynAst<'c>],
-) -> Result<DynAst<'c>, ClarirsError> {
+    ast: &AstRef<'c>,
+    children: &[AstRef<'c>],
+) -> Result<AstRef<'c>, ClarirsError> {
     let c = |i: usize| children[i].clone();
     let op = match ast.op() {
         // Leaves have no children and are returned unchanged.
@@ -59,8 +59,6 @@ pub fn reconstruct_node<'c>(
 
         // Binary
         AstOp::BoolXor(..) => AstOp::BoolXor(c(0), c(1)),
-        AstOp::BoolEq(..) => AstOp::BoolEq(c(0), c(1)),
-        AstOp::BoolNeq(..) => AstOp::BoolNeq(c(0), c(1)),
         AstOp::Eq(..) => AstOp::Eq(c(0), c(1)),
         AstOp::Neq(..) => AstOp::Neq(c(0), c(1)),
         AstOp::ULT(..) => AstOp::ULT(c(0), c(1)),
@@ -71,8 +69,6 @@ pub fn reconstruct_node<'c>(
         AstOp::SLE(..) => AstOp::SLE(c(0), c(1)),
         AstOp::SGT(..) => AstOp::SGT(c(0), c(1)),
         AstOp::SGE(..) => AstOp::SGE(c(0), c(1)),
-        AstOp::FpEq(..) => AstOp::FpEq(c(0), c(1)),
-        AstOp::FpNeq(..) => AstOp::FpNeq(c(0), c(1)),
         AstOp::FpLt(..) => AstOp::FpLt(c(0), c(1)),
         AstOp::FpLeq(..) => AstOp::FpLeq(c(0), c(1)),
         AstOp::FpGt(..) => AstOp::FpGt(c(0), c(1)),
@@ -80,8 +76,6 @@ pub fn reconstruct_node<'c>(
         AstOp::StrContains(..) => AstOp::StrContains(c(0), c(1)),
         AstOp::StrPrefixOf(..) => AstOp::StrPrefixOf(c(0), c(1)),
         AstOp::StrSuffixOf(..) => AstOp::StrSuffixOf(c(0), c(1)),
-        AstOp::StrEq(..) => AstOp::StrEq(c(0), c(1)),
-        AstOp::StrNeq(..) => AstOp::StrNeq(c(0), c(1)),
         AstOp::Sub(..) => AstOp::Sub(c(0), c(1)),
         AstOp::UDiv(..) => AstOp::UDiv(c(0), c(1)),
         AstOp::SDiv(..) => AstOp::SDiv(c(0), c(1)),

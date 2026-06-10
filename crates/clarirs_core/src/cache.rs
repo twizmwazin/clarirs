@@ -68,12 +68,12 @@ impl<K: Hash + Eq, V: Clone> Cache<K, V> for GenericCache<K, V> {
 #[derive(Debug, Default)]
 pub struct AstCache<'c>(RwLock<HashMap<u64, Weak<AstNode<'c>>>>);
 
-impl<'c> Cache<u64, DynAst<'c>> for AstCache<'c> {
+impl<'c> Cache<u64, AstRef<'c>> for AstCache<'c> {
     fn get_or_insert<E>(
         &self,
         hash: u64,
-        f: impl FnOnce() -> Result<DynAst<'c>, E>,
-    ) -> Result<DynAst<'c>, E> {
+        f: impl FnOnce() -> Result<AstRef<'c>, E>,
+    ) -> Result<AstRef<'c>, E> {
         #[cfg(not(feature = "panic-on-hash-collision"))]
         {
             // Normal mode: Try to get from cache first, compute only if needed
@@ -145,7 +145,7 @@ mod tests {
         let hash1 = 12345u64; // Arbitrary hash for testing
 
         // Insert into cache
-        let result1 = cache.get_or_insert::<ClarirsError>(hash1, || Ok(Clone::clone(&ast1)))?;
+        let result1 = cache.get_or_insert::<ClarirsError>(hash1, || Ok(ast1.clone()))?;
 
         // Verify we can retrieve it without recomputing
         let result2 = cache.get_or_insert::<ClarirsError>(hash1, || {
@@ -166,11 +166,11 @@ mod tests {
         let hash1 = 12345u64; // Arbitrary hash for testing
 
         // Insert into cache
-        let result1 = cache.get_or_insert::<ClarirsError>(hash1, || Ok(Clone::clone(&ast1)))?;
+        let result1 = cache.get_or_insert::<ClarirsError>(hash1, || Ok(ast1.clone()))?;
 
         // In collision mode, it will always recompute, so provide a valid computation
         let ast2 = ctx.bvv_prim_with_size(42u64, 64)?;
-        let result2 = cache.get_or_insert::<ClarirsError>(hash1, || Ok(Clone::clone(&ast2)))?;
+        let result2 = cache.get_or_insert::<ClarirsError>(hash1, || Ok(ast2.clone()))?;
         assert_eq!(result1, result2);
         Ok(())
     }
@@ -183,8 +183,8 @@ mod tests {
         let ast1 = ctx.bvv_prim_with_size(42u64, 64)?;
         let ast2 = ctx.bvv_prim_with_size(99u64, 64)?;
 
-        let result1 = cache.get_or_insert::<ClarirsError>(1, || Ok(Clone::clone(&ast1)))?;
-        let result2 = cache.get_or_insert::<ClarirsError>(2, || Ok(Clone::clone(&ast2)))?;
+        let result1 = cache.get_or_insert::<ClarirsError>(1, || Ok(ast1.clone()))?;
+        let result2 = cache.get_or_insert::<ClarirsError>(2, || Ok(ast2.clone()))?;
 
         // Different hashes should cache different values
         assert_ne!(result1, result2);
@@ -201,7 +201,7 @@ mod tests {
         {
             // Create and cache an AST
             let ast = ctx.bvv_prim_with_size(42u64, 64)?;
-            let _result = cache.get_or_insert::<ClarirsError>(hash, || Ok(Clone::clone(&ast)))?;
+            let _result = cache.get_or_insert::<ClarirsError>(hash, || Ok(ast.clone()))?;
             // ast and _result go out of scope here
         }
 
@@ -210,7 +210,7 @@ mod tests {
         let ast2 = ctx.bvv_prim_with_size(42u64, 64)?;
         let _result = cache.get_or_insert::<ClarirsError>(hash, || {
             computed = true;
-            Ok(Clone::clone(&ast2))
+            Ok(ast2.clone())
         })?;
 
         assert!(
@@ -232,13 +232,13 @@ mod tests {
         // Insert first value
         let ast1 = ctx.bvv_prim_with_size(42u64, 64).unwrap();
         let _ = cache
-            .get_or_insert::<ClarirsError>(hash, || Ok(Clone::clone(&ast1)))
+            .get_or_insert::<ClarirsError>(hash, || Ok(ast1.clone()))
             .unwrap();
 
         // Try to insert different value with same hash - should panic
         let ast2 = ctx.bvv_prim_with_size(99u64, 64).unwrap();
         let _ = cache
-            .get_or_insert::<ClarirsError>(hash, || Ok(Clone::clone(&ast2)))
+            .get_or_insert::<ClarirsError>(hash, || Ok(ast2.clone()))
             .unwrap();
     }
 
@@ -251,11 +251,11 @@ mod tests {
 
         // Insert first value
         let ast1 = ctx.bvv_prim_with_size(42u64, 64)?;
-        let result1 = cache.get_or_insert::<ClarirsError>(hash, || Ok(Clone::clone(&ast1)))?;
+        let result1 = cache.get_or_insert::<ClarirsError>(hash, || Ok(ast1.clone()))?;
 
         // Insert same value with same hash - should be fine
         let ast2 = ctx.bvv_prim_with_size(42u64, 64)?;
-        let result2 = cache.get_or_insert::<ClarirsError>(hash, || Ok(Clone::clone(&ast2)))?;
+        let result2 = cache.get_or_insert::<ClarirsError>(hash, || Ok(ast2.clone()))?;
 
         assert_eq!(result1, result2);
         Ok(())
@@ -271,7 +271,7 @@ mod tests {
         // Insert first value
         let ast1 = ctx.bvv_prim_with_size(42u64, 64).unwrap();
         let _ = cache
-            .get_or_insert::<ClarirsError>(hash, || Ok(Clone::clone(&ast1)))
+            .get_or_insert::<ClarirsError>(hash, || Ok(ast1.clone()))
             .unwrap();
 
         // This should always compute, even though the value is in cache
@@ -280,7 +280,7 @@ mod tests {
         let _ = cache
             .get_or_insert::<ClarirsError>(hash, || {
                 computed = true;
-                Ok(Clone::clone(&ast2))
+                Ok(ast2.clone())
             })
             .unwrap();
 

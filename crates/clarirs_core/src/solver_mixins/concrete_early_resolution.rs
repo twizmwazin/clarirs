@@ -37,7 +37,7 @@ impl<'c, S: Solver<'c>> HasContext<'c> for ConcreteEarlyResolutionMixin<'c, S> {
 }
 
 impl<'c, S: Solver<'c>> Solver<'c> for ConcreteEarlyResolutionMixin<'c, S> {
-    fn add(&mut self, constraint: &BoolAst<'c>) -> Result<(), ClarirsError> {
+    fn add(&mut self, constraint: &AstRef<'c>) -> Result<(), ClarirsError> {
         self.inner.add(constraint)
     }
 
@@ -45,7 +45,7 @@ impl<'c, S: Solver<'c>> Solver<'c> for ConcreteEarlyResolutionMixin<'c, S> {
         self.inner.clear()
     }
 
-    fn constraints(&self) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
+    fn constraints(&self) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         self.inner.constraints()
     }
 
@@ -57,25 +57,25 @@ impl<'c, S: Solver<'c>> Solver<'c> for ConcreteEarlyResolutionMixin<'c, S> {
         self.inner.satisfiable()
     }
 
-    fn is_true(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+    fn is_true(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
         // If the expression is concrete, we can determine the result without the solver
         // Assumes the expression is already simplified
         if expr.concrete() {
-            return Ok(matches!(expr.op(), BooleanOp::BoolV(true)));
+            return Ok(matches!(expr.op(), AstOp::BoolV(true)));
         }
         self.inner.is_true(expr)
     }
 
-    fn is_false(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+    fn is_false(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
         // If the expression is concrete, we can determine the result without the solver
         // Assumes the expression is already simplified
         if expr.concrete() {
-            return Ok(matches!(expr.op(), BooleanOp::BoolV(false)));
+            return Ok(matches!(expr.op(), AstOp::BoolV(false)));
         }
         self.inner.is_false(expr)
     }
 
-    fn has_true(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+    fn has_true(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
         // If the expression is concrete, has_true is equivalent to is_true
         if expr.concrete() {
             return self.is_true(expr);
@@ -83,7 +83,7 @@ impl<'c, S: Solver<'c>> Solver<'c> for ConcreteEarlyResolutionMixin<'c, S> {
         self.inner.has_true(expr)
     }
 
-    fn has_false(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+    fn has_false(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
         // If the expression is concrete, has_false is equivalent to is_false
         if expr.concrete() {
             return self.is_false(expr);
@@ -91,40 +91,40 @@ impl<'c, S: Solver<'c>> Solver<'c> for ConcreteEarlyResolutionMixin<'c, S> {
         self.inner.has_false(expr)
     }
 
-    fn min_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn min_unsigned(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         if expr.concrete() {
             let simplified = expr.simplify_ext(false, true)?;
-            if matches!(simplified.op(), BitVecOp::BVV(..)) {
+            if matches!(simplified.op(), AstOp::BVV(..)) {
                 return Ok(simplified);
             }
         }
         self.inner.min_unsigned(expr)
     }
 
-    fn max_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn max_unsigned(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         if expr.concrete() {
             let simplified = expr.simplify_ext(false, true)?;
-            if matches!(simplified.op(), BitVecOp::BVV(..)) {
+            if matches!(simplified.op(), AstOp::BVV(..)) {
                 return Ok(simplified);
             }
         }
         self.inner.max_unsigned(expr)
     }
 
-    fn min_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn min_signed(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         if expr.concrete() {
             let simplified = expr.simplify_ext(false, true)?;
-            if matches!(simplified.op(), BitVecOp::BVV(..)) {
+            if matches!(simplified.op(), AstOp::BVV(..)) {
                 return Ok(simplified);
             }
         }
         self.inner.min_signed(expr)
     }
 
-    fn max_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn max_signed(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         if expr.concrete() {
             let simplified = expr.simplify_ext(false, true)?;
-            if matches!(simplified.op(), BitVecOp::BVV(..)) {
+            if matches!(simplified.op(), AstOp::BVV(..)) {
                 return Ok(simplified);
             }
         }
@@ -133,9 +133,9 @@ impl<'c, S: Solver<'c>> Solver<'c> for ConcreteEarlyResolutionMixin<'c, S> {
 
     fn eval_bool_n(
         &mut self,
-        expr: &BoolAst<'c>,
+        expr: &AstRef<'c>,
         n: u32,
-    ) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
+    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         // If concrete, return the value without invoking the solver
         if expr.concrete() {
             if n == 0 {
@@ -148,9 +148,9 @@ impl<'c, S: Solver<'c>> Solver<'c> for ConcreteEarlyResolutionMixin<'c, S> {
 
     fn eval_bitvec_n(
         &mut self,
-        expr: &BitVecAst<'c>,
+        expr: &AstRef<'c>,
         n: u32,
-    ) -> Result<Vec<BitVecAst<'c>>, ClarirsError> {
+    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         // If concrete, try to simplify to a constant value
         if expr.concrete() {
             if n == 0 {
@@ -161,7 +161,7 @@ impl<'c, S: Solver<'c>> Solver<'c> for ConcreteEarlyResolutionMixin<'c, S> {
             // VSA ops (Union, Intersection, Widen) on concrete values are
             // "concrete" (no variables) but multi-valued, and need the full
             // solver to enumerate values.
-            if matches!(simplified.op(), BitVecOp::BVV(..)) {
+            if matches!(simplified.op(), AstOp::BVV(..)) {
                 return Ok(vec![simplified]);
             }
         }
@@ -170,9 +170,9 @@ impl<'c, S: Solver<'c>> Solver<'c> for ConcreteEarlyResolutionMixin<'c, S> {
 
     fn eval_float_n(
         &mut self,
-        expr: &FloatAst<'c>,
+        expr: &AstRef<'c>,
         n: u32,
-    ) -> Result<Vec<FloatAst<'c>>, ClarirsError> {
+    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         // If concrete, return the value without invoking the solver
         if expr.concrete() {
             if n == 0 {
@@ -185,9 +185,9 @@ impl<'c, S: Solver<'c>> Solver<'c> for ConcreteEarlyResolutionMixin<'c, S> {
 
     fn eval_string_n(
         &mut self,
-        expr: &StringAst<'c>,
+        expr: &AstRef<'c>,
         n: u32,
-    ) -> Result<Vec<StringAst<'c>>, ClarirsError> {
+    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         // If concrete, return the value without invoking the solver (assumes already simplified)
         if expr.concrete() {
             if n == 0 {
@@ -222,7 +222,7 @@ mod tests {
     }
 
     impl<'c> Solver<'c> for PanickingSolver<'c> {
-        fn add(&mut self, _: &BoolAst<'c>) -> Result<(), ClarirsError> {
+        fn add(&mut self, _: &AstRef<'c>) -> Result<(), ClarirsError> {
             panic!("PanickingSolver::add should not be called");
         }
 
@@ -230,7 +230,7 @@ mod tests {
             panic!("PanickingSolver::clear should not be called");
         }
 
-        fn constraints(&self) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
+        fn constraints(&self) -> Result<Vec<AstRef<'c>>, ClarirsError> {
             panic!("PanickingSolver::constraints should not be called");
         }
 
@@ -238,67 +238,67 @@ mod tests {
             panic!("PanickingSolver::satisfiable should not be called");
         }
 
-        fn is_true(&mut self, _: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+        fn is_true(&mut self, _: &AstRef<'c>) -> Result<bool, ClarirsError> {
             panic!("PanickingSolver::is_true should not be called");
         }
 
-        fn is_false(&mut self, _: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+        fn is_false(&mut self, _: &AstRef<'c>) -> Result<bool, ClarirsError> {
             panic!("PanickingSolver::is_false should not be called");
         }
 
-        fn has_true(&mut self, _: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+        fn has_true(&mut self, _: &AstRef<'c>) -> Result<bool, ClarirsError> {
             panic!("PanickingSolver::has_true should not be called");
         }
 
-        fn has_false(&mut self, _: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+        fn has_false(&mut self, _: &AstRef<'c>) -> Result<bool, ClarirsError> {
             panic!("PanickingSolver::has_false should not be called");
         }
 
-        fn min_unsigned(&mut self, _: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        fn min_unsigned(&mut self, _: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
             panic!("PanickingSolver::min_unsigned should not be called");
         }
 
-        fn max_unsigned(&mut self, _: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        fn max_unsigned(&mut self, _: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
             panic!("PanickingSolver::max_unsigned should not be called");
         }
 
-        fn min_signed(&mut self, _: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        fn min_signed(&mut self, _: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
             panic!("PanickingSolver::min_signed should not be called");
         }
 
-        fn max_signed(&mut self, _: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+        fn max_signed(&mut self, _: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
             panic!("PanickingSolver::max_signed should not be called");
         }
 
         fn eval_bool_n(
             &mut self,
-            _: &BoolAst<'c>,
+            _: &AstRef<'c>,
             _: u32,
-        ) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
+        ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
             panic!("PanickingSolver::eval_bool_n should not be called");
         }
 
         fn eval_bitvec_n(
             &mut self,
-            _: &BitVecAst<'c>,
+            _: &AstRef<'c>,
             _: u32,
-        ) -> Result<Vec<BitVecAst<'c>>, ClarirsError> {
+        ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
             panic!("PanickingSolver::eval_bitvec_n should not be called");
         }
 
         fn eval_float_n(
             &mut self,
-            _: &FloatAst<'c>,
+            _: &AstRef<'c>,
             _: u32,
-        ) -> Result<Vec<FloatAst<'c>>, ClarirsError> {
+        ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
             panic!("PanickingSolver::eval_float_n should not be called");
         }
 
         fn eval_string_n(
             &mut self,
-            _: &StringAst<'c>,
+            _: &AstRef<'c>,
             _: u32,
-        ) -> Result<Vec<StringAst<'c>>, ClarirsError> {
+        ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
             panic!("PanickingSolver::eval_string_n should not be called");
         }
 
@@ -349,7 +349,7 @@ mod tests {
 
         assert_eq!(results.len(), 1);
         assert!(results[0].concrete());
-        assert!(matches!(results[0].op(), BitVecOp::BVV(_)));
+        assert!(matches!(results[0].op(), AstOp::BVV(_)));
     }
 
     #[test]
@@ -367,8 +367,8 @@ mod tests {
         assert!(min.concrete());
         assert!(max.concrete());
         // Verify they're the same as the input
-        assert!(matches!(min.op(), BitVecOp::BVV(_)));
-        assert!(matches!(max.op(), BitVecOp::BVV(_)));
+        assert!(matches!(min.op(), AstOp::BVV(_)));
+        assert!(matches!(max.op(), AstOp::BVV(_)));
     }
 
     #[test]
@@ -414,6 +414,6 @@ mod tests {
 
         assert_eq!(results.len(), 1);
         assert!(results[0].concrete());
-        assert!(matches!(results[0].op(), BooleanOp::BoolV(true)));
+        assert!(matches!(results[0].op(), AstOp::BoolV(true)));
     }
 }

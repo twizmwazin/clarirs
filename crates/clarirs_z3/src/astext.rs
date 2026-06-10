@@ -64,7 +64,7 @@ pub(crate) trait AstExtZ3<'c>: HasContext<'c> + Simplify<'c> + Sized {
     }
 }
 
-impl<'c> AstExtZ3<'c> for DynAst<'c> {
+impl<'c> AstExtZ3<'c> for AstRef<'c> {
     fn to_z3(&self) -> Result<RcAst, ClarirsError> {
         Z3_AST_CACHE.with(|cache| {
             walk_post_order(

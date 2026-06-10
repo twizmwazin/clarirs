@@ -11,7 +11,7 @@ pub trait ExtractPyArgs {
 /// child's runtime type.
 fn wrap_child<'py>(
     py: Python<'py>,
-    child: &DynAst<'static>,
+    child: &AstRef<'static>,
 ) -> Result<Bound<'py, PyAny>, ClaripyError> {
     Ok(match child.ty() {
         AstType::Bool => Bool::new(py, child)?.into_any(),
@@ -21,7 +21,7 @@ fn wrap_child<'py>(
     })
 }
 
-impl ExtractPyArgs for DynAst<'static> {
+impl ExtractPyArgs for AstRef<'static> {
     fn extract_py_args<'py>(
         &self,
         py: Python<'py>,
@@ -79,8 +79,6 @@ impl ExtractPyArgs for DynAst<'static> {
 
             // Binary ops
             AstOp::BoolXor(a, b)
-            | AstOp::BoolEq(a, b)
-            | AstOp::BoolNeq(a, b)
             | AstOp::Eq(a, b)
             | AstOp::Neq(a, b)
             | AstOp::ULT(a, b)
@@ -91,8 +89,6 @@ impl ExtractPyArgs for DynAst<'static> {
             | AstOp::SLE(a, b)
             | AstOp::SGT(a, b)
             | AstOp::SGE(a, b)
-            | AstOp::FpEq(a, b)
-            | AstOp::FpNeq(a, b)
             | AstOp::FpLt(a, b)
             | AstOp::FpLeq(a, b)
             | AstOp::FpGt(a, b)
@@ -100,8 +96,6 @@ impl ExtractPyArgs for DynAst<'static> {
             | AstOp::StrContains(a, b)
             | AstOp::StrPrefixOf(a, b)
             | AstOp::StrSuffixOf(a, b)
-            | AstOp::StrEq(a, b)
-            | AstOp::StrNeq(a, b)
             | AstOp::StrConcat(a, b)
             | AstOp::Sub(a, b)
             | AstOp::UDiv(a, b)

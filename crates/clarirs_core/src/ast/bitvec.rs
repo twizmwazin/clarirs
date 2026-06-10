@@ -1,11 +1,6 @@
 //! Bitvector-flavored aliases and helpers over the unified [`AstOp`]/[`AstRef`].
 //!
-//! `BitVecOp` and `BitVecAst` are aliases for the single op enum and node
-//! reference; they are kept for readability and to preserve existing import
-//! paths.
-
-pub use super::node::BitVecAst;
-pub use super::op::AstOp as BitVecOp;
+//! These extension traits provide `size()`/`sort()` for ops and nodes.
 
 use crate::prelude::*;
 
@@ -16,13 +11,13 @@ pub trait BitVecOpExt<'c> {
     fn size(&self) -> u32;
 }
 
-impl<'c> BitVecOpExt<'c> for BitVecOp<'c> {
+impl<'c> BitVecOpExt<'c> for AstOp<'c> {
     fn size(&self) -> u32 {
         self.infer_type().size()
     }
 }
 
-impl<'c> BitVecOpExt<'c> for BitVecAst<'c> {
+impl<'c> BitVecOpExt<'c> for AstRef<'c> {
     fn size(&self) -> u32 {
         self.ty().size()
     }
@@ -30,11 +25,11 @@ impl<'c> BitVecOpExt<'c> for BitVecAst<'c> {
 
 pub trait BitVecAstExt<'c> {
     /// Chop the BV into `bits` sized pieces. Returns in little-endian order.
-    fn chop(&self, bits: u32) -> Result<Vec<BitVecAst<'c>>, ClarirsError>;
+    fn chop(&self, bits: u32) -> Result<Vec<AstRef<'c>>, ClarirsError>;
 }
 
-impl<'c> BitVecAstExt<'c> for BitVecAst<'c> {
-    fn chop(&self, bits: u32) -> Result<Vec<BitVecAst<'c>>, ClarirsError> {
+impl<'c> BitVecAstExt<'c> for AstRef<'c> {
+    fn chop(&self, bits: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         if self.size() % bits != 0 {
             return Err(ClarirsError::InvalidChopSize {
                 size: self.size(),

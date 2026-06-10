@@ -20,16 +20,16 @@ fn fsort_to_z3(sort: FSort) -> z3::Sort {
     Z3_CONTEXT.with(|&z3_ctx| unsafe { z3::mk_fpa_sort(z3_ctx, sort.exponent, sort.mantissa + 1) })
 }
 
-pub(crate) fn to_z3(ast: &FloatAst, children: &[RcAst]) -> Result<RcAst, ClarirsError> {
+pub(crate) fn to_z3(ast: &AstRef, children: &[RcAst]) -> Result<RcAst, ClarirsError> {
     Z3_CONTEXT.with(|&z3_ctx| unsafe {
         Ok(match ast.op() {
-            FloatOp::FPS(s, sort) => {
+            AstOp::FPS(s, sort) => {
                 let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
                 let sym = z3::mk_string_symbol(z3_ctx, s_cstr.as_ptr());
                 let z3_sort = fsort_to_z3(*sort);
                 RcAst::try_from(z3::mk_const(z3_ctx, sym, z3_sort))?
             }
-            FloatOp::FPV(f) => {
+            AstOp::FPV(f) => {
                 let sort = fsort_to_z3(f.fsort());
                 match f {
                     Float::F32(val) => {
@@ -40,67 +40,67 @@ pub(crate) fn to_z3(ast: &FloatAst, children: &[RcAst]) -> Result<RcAst, Clarirs
                     }
                 }
             }
-            FloatOp::FpNeg(..) => unop!(z3_ctx, children, mk_fpa_neg),
-            FloatOp::FpAbs(..) => unop!(z3_ctx, children, mk_fpa_abs),
-            FloatOp::FpAdd(_, _, rm) => {
+            AstOp::FpNeg(..) => unop!(z3_ctx, children, mk_fpa_neg),
+            AstOp::FpAbs(..) => unop!(z3_ctx, children, mk_fpa_abs),
+            AstOp::FpAdd(_, _, rm) => {
                 let rm_ast = fprm_to_z3(*rm)?;
                 let a = child(children, 0)?;
                 let b = child(children, 1)?;
                 RcAst::try_from(z3::mk_fpa_add(z3_ctx, *rm_ast, **a, **b))?
             }
-            FloatOp::FpSub(_, _, rm) => {
+            AstOp::FpSub(_, _, rm) => {
                 let rm_ast = fprm_to_z3(*rm)?;
                 let a = child(children, 0)?;
                 let b = child(children, 1)?;
                 RcAst::try_from(z3::mk_fpa_sub(z3_ctx, *rm_ast, **a, **b))?
             }
-            FloatOp::FpMul(_, _, rm) => {
+            AstOp::FpMul(_, _, rm) => {
                 let rm_ast = fprm_to_z3(*rm)?;
                 let a = child(children, 0)?;
                 let b = child(children, 1)?;
                 RcAst::try_from(z3::mk_fpa_mul(z3_ctx, *rm_ast, **a, **b))?
             }
-            FloatOp::FpDiv(_, _, rm) => {
+            AstOp::FpDiv(_, _, rm) => {
                 let rm_ast = fprm_to_z3(*rm)?;
                 let a = child(children, 0)?;
                 let b = child(children, 1)?;
                 RcAst::try_from(z3::mk_fpa_div(z3_ctx, *rm_ast, **a, **b))?
             }
-            FloatOp::FpSqrt(_, rm) => {
+            AstOp::FpSqrt(_, rm) => {
                 let rm_ast = fprm_to_z3(*rm)?;
                 let a = child(children, 0)?;
                 RcAst::try_from(z3::mk_fpa_sqrt(z3_ctx, *rm_ast, **a))?
             }
-            FloatOp::FpToFp(_, sort, rm) => {
+            AstOp::FpToFp(_, sort, rm) => {
                 let rm_ast = fprm_to_z3(*rm)?;
                 let a = child(children, 0)?;
                 let z3_sort = fsort_to_z3(*sort);
                 RcAst::try_from(z3::mk_fpa_to_fp_float(z3_ctx, *rm_ast, **a, z3_sort))?
             }
-            FloatOp::FpFP(..) => {
+            AstOp::FpFP(..) => {
                 let sign = child(children, 0)?;
                 let exp = child(children, 1)?;
                 let sig = child(children, 2)?;
                 RcAst::try_from(z3::mk_fpa_fp(z3_ctx, **sign, **exp, **sig))?
             }
-            FloatOp::BvToFp(_, sort) => {
+            AstOp::BvToFp(_, sort) => {
                 let a = child(children, 0)?;
                 let z3_sort = fsort_to_z3(*sort);
                 RcAst::try_from(z3::mk_fpa_to_fp_bv(z3_ctx, **a, z3_sort))?
             }
-            FloatOp::BvToFpSigned(_, sort, rm) => {
+            AstOp::BvToFpSigned(_, sort, rm) => {
                 let rm_ast = fprm_to_z3(*rm)?;
                 let a = child(children, 0)?;
                 let z3_sort = fsort_to_z3(*sort);
                 RcAst::try_from(z3::mk_fpa_to_fp_signed(z3_ctx, *rm_ast, **a, z3_sort))?
             }
-            FloatOp::BvToFpUnsigned(_, sort, rm) => {
+            AstOp::BvToFpUnsigned(_, sort, rm) => {
                 let rm_ast = fprm_to_z3(*rm)?;
                 let a = child(children, 0)?;
                 let z3_sort = fsort_to_z3(*sort);
                 RcAst::try_from(z3::mk_fpa_to_fp_unsigned(z3_ctx, *rm_ast, **a, z3_sort))?
             }
-            FloatOp::ITE(..) => {
+            AstOp::ITE(..) => {
                 let cond = child(children, 0)?;
                 let then = child(children, 1)?;
                 let else_ = child(children, 2)?;
@@ -118,7 +118,7 @@ pub(crate) fn to_z3(ast: &FloatAst, children: &[RcAst]) -> Result<RcAst, Clarirs
 pub(crate) fn from_z3<'c>(
     ctx: &'c Context<'c>,
     ast: impl Into<RcAst>,
-) -> Result<FloatAst<'c>, ClarirsError> {
+) -> Result<AstRef<'c>, ClarirsError> {
     Z3_CONTEXT.with(|z3_ctx| unsafe {
         let ast = ast.into();
         let ast_kind = z3::get_ast_kind(*z3_ctx, *ast);
@@ -195,12 +195,12 @@ pub(crate) fn from_z3<'c>(
                     }
                     z3::DeclKind::FpaNeg => {
                         let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
-                        let inner = FloatAst::from_z3(ctx, arg)?;
+                        let inner = AstRef::from_z3(ctx, arg)?;
                         ctx.fp_neg(inner)
                     }
                     z3::DeclKind::FpaAbs => {
                         let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;
-                        let inner = FloatAst::from_z3(ctx, arg)?;
+                        let inner = AstRef::from_z3(ctx, arg)?;
                         ctx.fp_abs(inner)
                     }
                     z3::DeclKind::FpaAdd
@@ -212,8 +212,8 @@ pub(crate) fn from_z3<'c>(
                         let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 2))?;
 
                         let rm = parse_fprm_from_z3(*z3_ctx, *rm_arg)?;
-                        let a = FloatAst::from_z3(ctx, arg0)?;
-                        let b = FloatAst::from_z3(ctx, arg1)?;
+                        let a = AstRef::from_z3(ctx, arg0)?;
+                        let b = AstRef::from_z3(ctx, arg1)?;
 
                         match decl_kind {
                             z3::DeclKind::FpaAdd => ctx.fp_add(a, b, rm),
@@ -228,7 +228,7 @@ pub(crate) fn from_z3<'c>(
                         let arg = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
 
                         let rm = parse_fprm_from_z3(*z3_ctx, *rm_arg)?;
-                        let inner = FloatAst::from_z3(ctx, arg)?;
+                        let inner = AstRef::from_z3(ctx, arg)?;
                         ctx.fp_sqrt(inner, rm)
                     }
                     z3::DeclKind::FpaToFp => {
@@ -254,7 +254,7 @@ pub(crate) fn from_z3<'c>(
                             let sort_kind = z3::get_sort_kind(*z3_ctx, arg_sort);
                             match sort_kind {
                                 z3::SortKind::FloatingPoint => {
-                                    let fp = FloatAst::from_z3(ctx, arg)?;
+                                    let fp = AstRef::from_z3(ctx, arg)?;
                                     ctx.fp_to_fp(fp, fsort, rm)
                                 }
                                 z3::SortKind::Bv => {
@@ -287,8 +287,8 @@ pub(crate) fn from_z3<'c>(
                         let then = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
                         let else_ = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 2))?;
                         let cond = crate::astext::bool::from_z3(ctx, cond)?;
-                        let then = FloatAst::from_z3(ctx, then)?;
-                        let else_ = FloatAst::from_z3(ctx, else_)?;
+                        let then = AstRef::from_z3(ctx, then)?;
+                        let else_ = AstRef::from_z3(ctx, else_)?;
                         ctx.ite(cond, then, else_)
                     }
                     _ => Err(ClarirsError::ConversionError(

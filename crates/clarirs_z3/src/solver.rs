@@ -33,11 +33,11 @@ fn next_solver_id() -> u64 {
 #[derive(Debug)]
 pub struct Z3Solver<'c> {
     ctx: &'c Context<'c>,
-    assertions: Vec<BoolAst<'c>>,
+    assertions: Vec<AstRef<'c>>,
     timeout: Option<u32>,
     unsat_core: bool,
     // Maps constraint index to tracking variable
-    tracking_vars: HashMap<usize, BoolAst<'c>>,
+    tracking_vars: HashMap<usize, AstRef<'c>>,
     /// Identifies this solver's incremental z3 solver in [`SOLVER_CACHE`].
     cache_id: u64,
 }
@@ -136,8 +136,8 @@ impl<'c> Z3Solver<'c> {
 
             for i in 0..core_size {
                 let core_ast = core_vector.get(i)?;
-                // Convert the Z3 AST back to a BoolAst to get its variable name
-                let bool_ast = BoolAst::from_z3(self.ctx, &core_ast)?;
+                // Convert the Z3 AST back to a AstRef to get its variable name
+                let bool_ast = AstRef::from_z3(self.ctx, &core_ast)?;
                 if let Some(vars) = bool_ast.variables().iter().next()
                     && let Some(idx) = track_to_idx.get(&vars.to_string())
                 {
@@ -266,11 +266,11 @@ impl<'c> Z3Solver<'c> {
         })
     }
 
-    fn simplify_dynast(expr: &DynAst<'c>) -> Result<DynAst<'c>, ClarirsError> {
+    fn simplify_dynast(expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         expr.simplify_z3()
     }
 
-    fn eval(&self, expr: &DynAst<'c>) -> Result<DynAst<'c>, ClarirsError> {
+    fn eval(&self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         let expr = Z3Solver::simplify_dynast(&expr.simplify()?)?;
 
         // If the expression is concrete, we can return it directly
@@ -282,12 +282,12 @@ impl<'c> Z3Solver<'c> {
         // replace the variables with the values from the model
         let model = self.make_model()?;
 
-        DynAst::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)
+        AstRef::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)
     }
 }
 
 impl<'c> Solver<'c> for Z3Solver<'c> {
-    fn add(&mut self, constraint: &BoolAst<'c>) -> Result<(), ClarirsError> {
+    fn add(&mut self, constraint: &AstRef<'c>) -> Result<(), ClarirsError> {
         let idx = self.assertions.len();
         self.assertions.push(constraint.clone());
 
@@ -308,7 +308,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         Ok(())
     }
 
-    fn constraints(&self) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
+    fn constraints(&self) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         Ok(self.assertions.clone())
     }
 
@@ -334,53 +334,53 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         self.with_cached_solver(|z3_solver| Ok(z3_solver.check()? == z3::Lbool::True))
     }
 
-    fn eval_bool(&mut self, expr: &BoolAst<'c>) -> Result<BoolAst<'c>, ClarirsError> {
+    fn eval_bool(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         self.eval(expr)?
             .into_bool()
-            .ok_or(ClarirsError::TypeError("Expected BoolAst".to_string()))
+            .ok_or(ClarirsError::TypeError("Expected AstRef".to_string()))
     }
 
-    fn eval_bitvec(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn eval_bitvec(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         self.eval(expr)?
             .into_bitvec()
-            .ok_or(ClarirsError::TypeError("Expected BitVecAst".to_string()))
+            .ok_or(ClarirsError::TypeError("Expected AstRef".to_string()))
     }
 
-    fn eval_float(&mut self, expr: &FloatAst<'c>) -> Result<FloatAst<'c>, ClarirsError> {
+    fn eval_float(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         self.eval(expr)?
             .into_float()
-            .ok_or(ClarirsError::TypeError("Expected FloatAst".to_string()))
+            .ok_or(ClarirsError::TypeError("Expected AstRef".to_string()))
     }
 
-    fn eval_string(&mut self, expr: &StringAst<'c>) -> Result<StringAst<'c>, ClarirsError> {
+    fn eval_string(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         self.eval(expr)?
             .into_string()
-            .ok_or(ClarirsError::TypeError("Expected StringAst".to_string()))
+            .ok_or(ClarirsError::TypeError("Expected AstRef".to_string()))
     }
 
-    fn is_true(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+    fn is_true(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
         let expr = expr.simplify_z3()?;
         Ok(expr.concrete() && expr.is_true())
     }
 
-    fn is_false(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+    fn is_false(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
         let expr = expr.simplify_z3()?;
         Ok(expr.concrete() && expr.is_false())
     }
 
-    fn has_true(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+    fn has_true(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
         let mut solver = self.clone();
         solver.add(expr)?;
         solver.satisfiable()
     }
 
-    fn has_false(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+    fn has_false(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
         let mut solver = self.clone();
         solver.add(&self.context().not(expr)?)?;
         solver.satisfiable()
     }
 
-    fn min_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn min_unsigned(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         let mut optimize = self.mk_filled_optimize()?;
         optimize.minimize(&expr.to_z3()?)?;
         if optimize.check()? != z3::Lbool::True {
@@ -388,12 +388,12 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         }
 
         let model = optimize.get_model()?;
-        DynAst::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)?
+        AstRef::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)?
             .into_bitvec()
-            .ok_or(ClarirsError::TypeError("Expected BitVecAst".to_string()))
+            .ok_or(ClarirsError::TypeError("Expected AstRef".to_string()))
     }
 
-    fn max_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn max_unsigned(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         let mut optimize = self.mk_filled_optimize()?;
         optimize.maximize(&expr.to_z3()?)?;
         if optimize.check()? != z3::Lbool::True {
@@ -401,12 +401,12 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         }
 
         let model = optimize.get_model()?;
-        DynAst::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)?
+        AstRef::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)?
             .into_bitvec()
-            .ok_or(ClarirsError::TypeError("Expected BitVecAst".to_string()))
+            .ok_or(ClarirsError::TypeError("Expected AstRef".to_string()))
     }
 
-    fn min_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn min_signed(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         let mut optimize = self.mk_filled_optimize()?;
         // Get the size of the bitvector
         let size = expr.size();
@@ -436,12 +436,12 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         }
 
         let model = optimize.get_model()?;
-        DynAst::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)?
+        AstRef::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)?
             .into_bitvec()
-            .ok_or(ClarirsError::TypeError("Expected BitVecAst".to_string()))
+            .ok_or(ClarirsError::TypeError("Expected AstRef".to_string()))
     }
 
-    fn max_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn max_signed(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         let mut optimize = self.mk_filled_optimize()?;
         // Get the size of the bitvector
         let size = expr.size();
@@ -471,16 +471,16 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         }
 
         let model = optimize.get_model()?;
-        DynAst::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)?
+        AstRef::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)?
             .into_bitvec()
-            .ok_or(ClarirsError::TypeError("Expected BitVecAst".to_string()))
+            .ok_or(ClarirsError::TypeError("Expected AstRef".to_string()))
     }
 
     fn eval_bool_n(
         &mut self,
-        expr: &BoolAst<'c>,
+        expr: &AstRef<'c>,
         n: u32,
-    ) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
+    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         let mut results = Vec::new();
 
         // Simplify and check if concrete
@@ -508,7 +508,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
             let model = z3_solver.model()?;
             let eval_result = model.eval(&z3_expr)?;
 
-            let solution = BoolAst::from_z3(self.context(), eval_result)?;
+            let solution = AstRef::from_z3(self.context(), eval_result)?;
             results.push(solution.clone());
 
             // Add constraint to exclude this solution
@@ -522,9 +522,9 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
 
     fn eval_bitvec_n(
         &mut self,
-        expr: &BitVecAst<'c>,
+        expr: &AstRef<'c>,
         n: u32,
-    ) -> Result<Vec<BitVecAst<'c>>, ClarirsError> {
+    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         let mut results = Vec::new();
 
         // Simplify and check if concrete
@@ -552,7 +552,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
             let model = z3_solver.model()?;
             let eval_result = model.eval(&z3_expr)?;
 
-            let solution = BitVecAst::from_z3(self.context(), eval_result)?;
+            let solution = AstRef::from_z3(self.context(), eval_result)?;
             results.push(solution.clone());
 
             // Add constraint to exclude this solution
@@ -566,9 +566,9 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
 
     fn eval_float_n(
         &mut self,
-        expr: &FloatAst<'c>,
+        expr: &AstRef<'c>,
         n: u32,
-    ) -> Result<Vec<FloatAst<'c>>, ClarirsError> {
+    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         let mut results = Vec::new();
 
         // Simplify and check if concrete
@@ -596,7 +596,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
             let model = z3_solver.model()?;
             let eval_result = model.eval(&z3_expr)?;
 
-            let solution = FloatAst::from_z3(self.context(), eval_result)?;
+            let solution = AstRef::from_z3(self.context(), eval_result)?;
             results.push(solution.clone());
 
             // Add constraint to exclude this solution
@@ -610,9 +610,9 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
 
     fn eval_string_n(
         &mut self,
-        expr: &StringAst<'c>,
+        expr: &AstRef<'c>,
         n: u32,
-    ) -> Result<Vec<StringAst<'c>>, ClarirsError> {
+    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         let mut results = Vec::new();
 
         // Simplify and check if concrete
@@ -640,7 +640,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
             let model = z3_solver.model()?;
             let eval_result = model.eval(&z3_expr)?;
 
-            let solution = StringAst::from_z3(self.context(), eval_result)?;
+            let solution = AstRef::from_z3(self.context(), eval_result)?;
             results.push(solution.clone());
 
             // Add constraint to exclude this solution

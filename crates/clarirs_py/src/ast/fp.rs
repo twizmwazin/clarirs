@@ -161,20 +161,20 @@ pub fn fsort_double() -> PyFSort {
 
 #[pyclass(extends=Bits, subclass, frozen, weakref, module="claripy.ast.fp")]
 pub struct FP {
-    pub(crate) inner: FloatAst<'static>,
+    pub(crate) inner: AstRef<'static>,
 }
 
 impl FP {
     pub fn new<'py>(
         py: Python<'py>,
-        inner: &FloatAst<'static>,
+        inner: &AstRef<'static>,
     ) -> Result<Bound<'py, FP>, ClaripyError> {
         Self::new_with_name(py, inner, None)
     }
 
     pub fn new_with_name<'py>(
         py: Python<'py>,
-        inner: &FloatAst<'static>,
+        inner: &AstRef<'static>,
         name: Option<String>,
     ) -> Result<Bound<'py, FP>, ClaripyError> {
         let inner = &inner.simplify()?;
@@ -409,7 +409,7 @@ impl FP {
     pub fn is_true(&self) -> bool {
         // A FP is "true" if it's a concrete non-zero value
         if let Ok(simplified) = self.inner.simplify()
-            && let FloatOp::FPV(fp) = simplified.op()
+            && let AstOp::FPV(fp) = simplified.op()
         {
             return !fp.is_zero();
         }
@@ -419,7 +419,7 @@ impl FP {
     pub fn is_false(&self) -> bool {
         // A FP is "false" if it's a concrete zero value
         if let Ok(simplified) = self.inner.simplify()
-            && let FloatOp::FPV(fp) = simplified.op()
+            && let AstOp::FPV(fp) = simplified.op()
         {
             return fp.is_zero();
         }
@@ -459,7 +459,7 @@ impl FP {
     #[getter]
     pub fn concrete_value(&self) -> Result<Option<f64>, ClaripyError> {
         Ok(match self.inner.simplify_ext(false, false)?.op() {
-            FloatOp::FPV(value) => value.to_f64(),
+            AstOp::FPV(value) => value.to_f64(),
             _ => None,
         })
     }

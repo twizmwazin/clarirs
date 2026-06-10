@@ -2,10 +2,19 @@ use crate::prelude::*;
 
 use super::walk_post_order;
 
+fn extract_child<'c>(children: &[AstRef<'c>], index: usize) -> Result<AstRef<'c>, ClarirsError> {
+    children
+        .get(index)
+        .cloned()
+        .ok_or(ClarirsError::InvalidArguments(format!(
+            "missing child at index {index}"
+        )))
+}
+
 fn extract_bool_child<'c>(
-    children: &[DynAst<'c>],
+    children: &[AstRef<'c>],
     index: usize,
-) -> Result<BoolAst<'c>, ClarirsError> {
+) -> Result<AstRef<'c>, ClarirsError> {
     children
         .get(index)
         .and_then(|child| child.clone().into_bool())
@@ -15,9 +24,9 @@ fn extract_bool_child<'c>(
 }
 
 fn extract_bitvec_child<'c>(
-    children: &[DynAst<'c>],
+    children: &[AstRef<'c>],
     index: usize,
-) -> Result<BitVecAst<'c>, ClarirsError> {
+) -> Result<AstRef<'c>, ClarirsError> {
     children
         .get(index)
         .and_then(|child| child.clone().into_bitvec())
@@ -27,9 +36,9 @@ fn extract_bitvec_child<'c>(
 }
 
 fn extract_float_child<'c>(
-    children: &[DynAst<'c>],
+    children: &[AstRef<'c>],
     index: usize,
-) -> Result<FloatAst<'c>, ClarirsError> {
+) -> Result<AstRef<'c>, ClarirsError> {
     children
         .get(index)
         .and_then(|child| child.clone().into_float())
@@ -39,9 +48,9 @@ fn extract_float_child<'c>(
 }
 
 fn extract_string_child<'c>(
-    children: &[DynAst<'c>],
+    children: &[AstRef<'c>],
     index: usize,
-) -> Result<StringAst<'c>, ClarirsError> {
+) -> Result<AstRef<'c>, ClarirsError> {
     children
         .get(index)
         .and_then(|child| child.clone().into_string())
@@ -66,7 +75,7 @@ pub trait ExcavateIte<'c>: Sized {
     fn excavate_ite(&self) -> Result<Self, ClarirsError>;
 }
 
-impl<'c> ExcavateIte<'c> for DynAst<'c> {
+impl<'c> ExcavateIte<'c> for AstRef<'c> {
     fn excavate_ite(&self) -> Result<Self, ClarirsError> {
         walk_post_order(
             self.clone(),

@@ -7,12 +7,12 @@ use crate::{
 };
 
 pub trait Replace<'c>: Sized {
-    fn replace<T: Clone + Into<DynAst<'c>>>(&self, from: &T, to: &T) -> Result<Self, ClarirsError>;
-    fn replace_many(&self, replacements: &HashMap<u64, DynAst<'c>>) -> Result<Self, ClarirsError>;
+    fn replace<T: Clone + Into<AstRef<'c>>>(&self, from: &T, to: &T) -> Result<Self, ClarirsError>;
+    fn replace_many(&self, replacements: &HashMap<u64, AstRef<'c>>) -> Result<Self, ClarirsError>;
 }
 
-impl<'c> Replace<'c> for DynAst<'c> {
-    fn replace<T: Clone + Into<DynAst<'c>>>(&self, from: &T, to: &T) -> Result<Self, ClarirsError> {
+impl<'c> Replace<'c> for AstRef<'c> {
+    fn replace<T: Clone + Into<AstRef<'c>>>(&self, from: &T, to: &T) -> Result<Self, ClarirsError> {
         let from = from.clone().into();
         let to = to.clone().into();
 
@@ -52,7 +52,7 @@ impl<'c> Replace<'c> for DynAst<'c> {
         )
     }
 
-    fn replace_many(&self, replacements: &HashMap<u64, DynAst<'c>>) -> Result<Self, ClarirsError> {
+    fn replace_many(&self, replacements: &HashMap<u64, AstRef<'c>>) -> Result<Self, ClarirsError> {
         if replacements.is_empty() {
             return Ok(self.clone());
         }

@@ -22,7 +22,7 @@ pub trait Simplify<'c>: Sized {
     ) -> Result<Self, ClarirsError>;
 }
 
-impl<'c> Simplify<'c> for DynAst<'c> {
+impl<'c> Simplify<'c> for AstRef<'c> {
     fn simplify_ext(
         &self,
         respect_annotations: bool,
@@ -40,7 +40,7 @@ enum SimplifyError<'c> {
     MissingChildren(Vec<usize>),
     #[error("Re-run simplification")]
     #[allow(dead_code)]
-    ReRun(DynAst<'c>),
+    ReRun(AstRef<'c>),
     #[error("Clarirs error: {0}")]
     Error(ClarirsError),
 }
@@ -55,13 +55,13 @@ where
 }
 
 struct SimplifyState<'c> {
-    expr: DynAst<'c>,
-    children: Vec<Option<DynAst<'c>>>,
+    expr: AstRef<'c>,
+    children: Vec<Option<AstRef<'c>>>,
     last_missed_child: Option<usize>,
 }
 
 impl<'c> SimplifyState<'c> {
-    fn new(expr: DynAst<'c>) -> Self {
+    fn new(expr: AstRef<'c>) -> Self {
         Self {
             expr: expr.clone(),
             children: vec![None; expr.child_iter().count()],
@@ -70,7 +70,7 @@ impl<'c> SimplifyState<'c> {
     }
 
     /// Get the simplified child at the given index, or return an error if it is missing.
-    fn get_child_simplified(&mut self, index: usize) -> Result<DynAst<'c>, SimplifyError<'c>> {
+    fn get_child_simplified(&mut self, index: usize) -> Result<AstRef<'c>, SimplifyError<'c>> {
         if let Some(child) = &self.children[index] {
             Ok(child.clone())
         } else {
@@ -84,7 +84,7 @@ impl<'c> SimplifyState<'c> {
     /// main simplify loop can schedule them in one batch. This is crucial for
     /// n-ary ops (like Concat) with many children: fetching them one at a
     /// time causes quadratic re-runs of simplify_inner.
-    fn get_all_simplified(&self) -> Result<Vec<DynAst<'c>>, SimplifyError<'c>> {
+    fn get_all_simplified(&self) -> Result<Vec<AstRef<'c>>, SimplifyError<'c>> {
         let missing: Vec<usize> = self
             .children
             .iter()
@@ -97,7 +97,7 @@ impl<'c> SimplifyState<'c> {
         Ok(self.children.iter().map(|c| c.clone().unwrap()).collect())
     }
 
-    fn get_all_bool_simplified(&self) -> Result<Vec<BoolAst<'c>>, SimplifyError<'c>> {
+    fn get_all_bool_simplified(&self) -> Result<Vec<AstRef<'c>>, SimplifyError<'c>> {
         self.get_all_simplified()?
             .into_iter()
             .map(|c| {
@@ -109,7 +109,7 @@ impl<'c> SimplifyState<'c> {
             .collect()
     }
 
-    fn get_all_bv_simplified(&self) -> Result<Vec<BitVecAst<'c>>, SimplifyError<'c>> {
+    fn get_all_bv_simplified(&self) -> Result<Vec<AstRef<'c>>, SimplifyError<'c>> {
         self.get_all_simplified()?
             .into_iter()
             .map(|c| {
@@ -121,7 +121,7 @@ impl<'c> SimplifyState<'c> {
             .collect()
     }
 
-    fn get_bool_simplified(&mut self, index: usize) -> Result<BoolAst<'c>, SimplifyError<'c>> {
+    fn get_bool_simplified(&mut self, index: usize) -> Result<AstRef<'c>, SimplifyError<'c>> {
         self.get_child_simplified(index)?
             .into_bool()
             .ok_or(SimplifyError::Error(ClarirsError::TypeError(
@@ -129,7 +129,7 @@ impl<'c> SimplifyState<'c> {
             )))
     }
 
-    fn get_bv_simplified(&mut self, index: usize) -> Result<BitVecAst<'c>, SimplifyError<'c>> {
+    fn get_bv_simplified(&mut self, index: usize) -> Result<AstRef<'c>, SimplifyError<'c>> {
         self.get_child_simplified(index)?
             .into_bitvec()
             .ok_or(SimplifyError::Error(ClarirsError::TypeError(
@@ -137,7 +137,7 @@ impl<'c> SimplifyState<'c> {
             )))
     }
 
-    fn get_fp_simplified(&mut self, index: usize) -> Result<FloatAst<'c>, SimplifyError<'c>> {
+    fn get_fp_simplified(&mut self, index: usize) -> Result<AstRef<'c>, SimplifyError<'c>> {
         self.get_child_simplified(index)?
             .into_float()
             .ok_or(SimplifyError::Error(ClarirsError::TypeError(
@@ -145,7 +145,7 @@ impl<'c> SimplifyState<'c> {
             )))
     }
 
-    fn get_string_simplified(&mut self, index: usize) -> Result<StringAst<'c>, SimplifyError<'c>> {
+    fn get_string_simplified(&mut self, index: usize) -> Result<AstRef<'c>, SimplifyError<'c>> {
         self.get_child_simplified(index)?
             .into_string()
             .ok_or(SimplifyError::Error(ClarirsError::TypeError(
@@ -155,7 +155,7 @@ impl<'c> SimplifyState<'c> {
 
     /// Get the best available child: if we have a simplified version, return that,
     /// otherwise return the original child.
-    fn get_child_available(&self, index: usize) -> DynAst<'c> {
+    fn get_child_available(&self, index: usize) -> AstRef<'c> {
         if let Some(child) = &self.children[index] {
             child.clone()
         } else {
@@ -163,31 +163,31 @@ impl<'c> SimplifyState<'c> {
         }
     }
 
-    fn get_bool_available(&self, index: usize) -> Result<BoolAst<'c>, ClarirsError> {
+    fn get_bool_available(&self, index: usize) -> Result<AstRef<'c>, ClarirsError> {
         self.get_child_available(index)
             .into_bool()
             .ok_or(ClarirsError::TypeError("Expected bool child".into()))
     }
 
-    fn get_bv_available(&self, index: usize) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn get_bv_available(&self, index: usize) -> Result<AstRef<'c>, ClarirsError> {
         self.get_child_available(index)
             .into_bitvec()
             .ok_or(ClarirsError::TypeError("Expected bitvector child".into()))
     }
 
-    fn get_fp_available(&self, index: usize) -> Result<FloatAst<'c>, ClarirsError> {
+    fn get_fp_available(&self, index: usize) -> Result<AstRef<'c>, ClarirsError> {
         self.get_child_available(index)
             .into_float()
             .ok_or(ClarirsError::TypeError("Expected float child".into()))
     }
 
-    fn get_string_available(&self, index: usize) -> Result<StringAst<'c>, ClarirsError> {
+    fn get_string_available(&self, index: usize) -> Result<AstRef<'c>, ClarirsError> {
         self.get_child_available(index)
             .into_string()
             .ok_or(ClarirsError::TypeError("Expected string child".into()))
     }
 
-    fn rerun(&self, new_ast: DynAst<'c>) -> Result<DynAst<'c>, SimplifyError<'c>> {
+    fn rerun(&self, new_ast: AstRef<'c>) -> Result<AstRef<'c>, SimplifyError<'c>> {
         Err(SimplifyError::ReRun(new_ast))
     }
 }
@@ -195,7 +195,7 @@ impl<'c> SimplifyState<'c> {
 fn simplify_inner<'c>(
     state: &mut SimplifyState<'c>,
     error_on_dbz: bool,
-) -> Result<DynAst<'c>, SimplifyError<'c>> {
+) -> Result<AstRef<'c>, SimplifyError<'c>> {
     let expr = &state.expr.clone();
     expr.context()
         .simplification_cache
@@ -208,12 +208,12 @@ fn simplify_inner<'c>(
 }
 
 fn simplify<'c>(
-    ast: &DynAst<'c>,
+    ast: &AstRef<'c>,
     respect_annotations: bool,
     error_on_dbz: bool,
-) -> Result<DynAst<'c>, ClarirsError> {
+) -> Result<AstRef<'c>, ClarirsError> {
     let mut work_stack: Vec<SimplifyState<'c>> = Vec::new();
-    let mut last_result: Option<DynAst<'c>> = None;
+    let mut last_result: Option<AstRef<'c>> = None;
 
     work_stack.push(SimplifyState::new(ast.clone()));
 

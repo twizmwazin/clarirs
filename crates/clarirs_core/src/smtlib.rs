@@ -16,16 +16,26 @@ fn fprm_to_smtlib(fprm: &FPRM) -> &'static str {
 /// Renders a single node to SMT-LIB given its already-rendered children. A
 /// single match over the unified op enum replaces the previous per-sort
 /// functions.
-fn to_smtlib_op(ast: &DynAst<'_>, children: &[String]) -> String {
+fn to_smtlib_op(ast: &AstRef<'_>, children: &[String]) -> String {
     match ast.op() {
         // Booleans
         AstOp::BoolS(s) => s.to_string(),
         AstOp::BoolV(b) => b.to_string(),
         AstOp::BoolXor(..) => format!("(xor {} {})", children[0], children[1]),
-        AstOp::BoolEq(..) => format!("(= {} {})", children[0], children[1]),
-        AstOp::BoolNeq(..) => format!("(distinct {} {})", children[0], children[1]),
-        AstOp::Eq(..) => format!("(= {} {})", children[0], children[1]),
-        AstOp::Neq(..) => format!("(distinct {} {})", children[0], children[1]),
+        AstOp::Eq(a, _) => {
+            if a.ty().is_float() {
+                format!("(fp.eq {} {})", children[0], children[1])
+            } else {
+                format!("(= {} {})", children[0], children[1])
+            }
+        }
+        AstOp::Neq(a, _) => {
+            if a.ty().is_float() {
+                format!("(not (fp.eq {} {}))", children[0], children[1])
+            } else {
+                format!("(distinct {} {})", children[0], children[1])
+            }
+        }
         AstOp::ULT(..) => format!("(bvult {} {})", children[0], children[1]),
         AstOp::ULE(..) => format!("(bvule {} {})", children[0], children[1]),
         AstOp::UGT(..) => format!("(bvugt {} {})", children[0], children[1]),
@@ -34,8 +44,6 @@ fn to_smtlib_op(ast: &DynAst<'_>, children: &[String]) -> String {
         AstOp::SLE(..) => format!("(bvsle {} {})", children[0], children[1]),
         AstOp::SGT(..) => format!("(bvsgt {} {})", children[0], children[1]),
         AstOp::SGE(..) => format!("(bvsge {} {})", children[0], children[1]),
-        AstOp::FpEq(..) => format!("(fp.eq {} {})", children[0], children[1]),
-        AstOp::FpNeq(..) => format!("(not (fp.eq {} {}))", children[0], children[1]),
         AstOp::FpLt(..) => format!("(fp.lt {} {})", children[0], children[1]),
         AstOp::FpLeq(..) => format!("(fp.leq {} {})", children[0], children[1]),
         AstOp::FpGt(..) => format!("(fp.gt {} {})", children[0], children[1]),
@@ -46,8 +54,6 @@ fn to_smtlib_op(ast: &DynAst<'_>, children: &[String]) -> String {
         AstOp::StrPrefixOf(..) => format!("(str.prefixof {} {})", children[0], children[1]),
         AstOp::StrSuffixOf(..) => format!("(str.suffixof {} {})", children[0], children[1]),
         AstOp::StrIsDigit(..) => format!("(str.is_digit {})", children[0]),
-        AstOp::StrEq(..) => format!("(= {} {})", children[0], children[1]),
-        AstOp::StrNeq(..) => format!("(not (= {} {}))", children[0], children[1]),
 
         // Polymorphic
         AstOp::Not(..) if ast.ty().is_bool() => format!("(not {})", children[0]),
@@ -210,7 +216,7 @@ fn to_smtlib_op(ast: &DynAst<'_>, children: &[String]) -> String {
 
 /// Depth-limited SMT-LIB rendering. When `remaining_depth` reaches 0,
 /// children are replaced with `...` instead of being recursed into.
-fn to_smtlib_limited(ast: &DynAst<'_>, remaining_depth: usize) -> String {
+fn to_smtlib_limited(ast: &AstRef<'_>, remaining_depth: usize) -> String {
     let children: Vec<String> = if remaining_depth == 0 {
         // At depth limit: replace every child with "..."
         (0..ast.child_iter().len())
@@ -233,7 +239,7 @@ pub trait ToSmtLib {
     fn to_smtlib_shallow(&self, max_depth: usize) -> String;
 }
 
-impl ToSmtLib for DynAst<'_> {
+impl ToSmtLib for AstRef<'_> {
     fn to_smtlib(&self) -> String {
         walk_post_order(
             self.clone(),

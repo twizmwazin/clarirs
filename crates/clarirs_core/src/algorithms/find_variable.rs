@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-pub fn find_variable<'c>(ast: DynAst<'c>, name: &InternedString) -> Option<DynAst<'c>> {
+pub fn find_variable<'c>(ast: AstRef<'c>, name: &InternedString) -> Option<AstRef<'c>> {
     if !ast.variables().contains(name) {
         return None;
     }

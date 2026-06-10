@@ -391,25 +391,25 @@ impl PySolver {
                 .into_iter()
                 .filter_map(|r| {
                     if let Ok(bv_value) = r.clone().into_any().cast::<BV>() {
-                        if let BitVecOp::BVV(bv) = bv_value.get().inner.op() {
+                        if let AstOp::BVV(bv) = bv_value.get().inner.op() {
                             Some(bv.to_biguint().into_bound_py_any(py))
                         } else {
                             None
                         }
                     } else if let Ok(bool_value) = r.clone().into_any().cast::<Bool>() {
-                        if let BooleanOp::BoolV(b) = bool_value.get().inner.op() {
+                        if let AstOp::BoolV(b) = bool_value.get().inner.op() {
                             Some(b.into_bound_py_any(py))
                         } else {
                             None
                         }
                     } else if let Ok(fp_value) = r.clone().into_any().cast::<FP>() {
-                        if let FloatOp::FPV(fp) = fp_value.get().inner.op() {
+                        if let AstOp::FPV(fp) = fp_value.get().inner.op() {
                             fp.to_f64().map(|f| f.into_bound_py_any(py))
                         } else {
                             None
                         }
                     } else if let Ok(string_value) = r.clone().into_any().cast::<PyAstString>() {
-                        if let StringOp::StringV(s) = string_value.get().inner.op() {
+                        if let AstOp::StringV(s) = string_value.get().inner.op() {
                             Some(s.into_bound_py_any(py))
                         } else {
                             None
@@ -541,12 +541,12 @@ impl PySolver {
             // Handle different expression types
             if let Ok(bool_expr) = expr.cast::<Bool>() {
                 match bool_expr.get().inner.op() {
-                    BooleanOp::BoolV(b) => Ok(*b),
+                    AstOp::BoolV(b) => Ok(*b),
                     _ => Ok(solver.is_true(&bool_expr.get().inner)?),
                 }
             } else if let Ok(bv_expr) = expr.cast::<BV>() {
                 // For bitvectors, check if it's concrete and non-zero
-                if let BitVecOp::BVV(bv) = bv_expr.get().inner.op() {
+                if let AstOp::BVV(bv) = bv_expr.get().inner.op() {
                     Ok(!bv.is_zero())
                 } else {
                     // For symbolic BVs, check if it can be non-zero
@@ -587,7 +587,7 @@ impl PySolver {
                 Ok(solver.is_false(&bool_expr.get().inner)?)
             } else if let Ok(bv_expr) = expr.cast::<BV>() {
                 // For bitvectors, check if it's concrete and zero
-                if let BitVecOp::BVV(bv) = bv_expr.get().inner.op() {
+                if let AstOp::BVV(bv) = bv_expr.get().inner.op() {
                     Ok(bv.is_zero())
                 } else {
                     // For symbolic BVs, check if it must be zero
@@ -647,7 +647,7 @@ impl PySolver {
                 solver.min_unsigned(&expr.get().inner)?
             };
 
-            if let BitVecOp::BVV(bv) = result.op() {
+            if let AstOp::BVV(bv) = result.op() {
                 Ok(BigInt::from(bv.to_biguint()))
             } else {
                 Err(ClaripyError::TypeError(
@@ -673,7 +673,7 @@ impl PySolver {
                 solver.max_unsigned(&expr.get().inner)?
             };
 
-            if let BitVecOp::BVV(bv) = result.op() {
+            if let AstOp::BVV(bv) = result.op() {
                 Ok(BigInt::from(bv.to_biguint()))
             } else {
                 Err(ClaripyError::TypeError(

@@ -188,7 +188,7 @@ impl<'c> AstNode<'c> {
     }
 
     // Runtime-checked accessors. These replace the previous static dispatch on
-    // the `DynAst` enum.
+    // the `AstRef` enum.
 
     pub fn as_bool(&self) -> Option<&Self> {
         self.ty.is_bool().then_some(self)
@@ -223,20 +223,10 @@ impl<'c> AstNode<'c> {
     }
 }
 
-/// A reference-counted handle to an [`AstNode`]. This is the universal AST type;
-/// the more specific aliases below are kept for readability and documentation of
-/// intent but are all the same type.
+/// A reference-counted handle to an [`AstNode`]. This is the single, universal
+/// AST type for every sort; the node's cached [`AstType`] distinguishes sorts
+/// at runtime.
 pub type AstRef<'c> = Arc<AstNode<'c>>;
-
-pub type BoolAst<'c> = AstRef<'c>;
-pub type BitVecAst<'c> = AstRef<'c>;
-pub type FloatAst<'c> = AstRef<'c>;
-pub type StringAst<'c> = AstRef<'c>;
-
-/// Formerly an enum over the four AST sorts. Now that there is a single node
-/// type, `DynAst` is simply an alias for [`AstRef`]; it is retained so existing
-/// signatures keep compiling.
-pub type DynAst<'c> = AstRef<'c>;
 
 pub trait IntoOwned<T> {
     fn into_owned(self) -> T;

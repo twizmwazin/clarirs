@@ -23,20 +23,20 @@ static PY_STRING_CACHE: LazyLock<DashMap<u64, Py<PyWeakrefReference>>> =
 
 #[pyclass(name="String", extends=Base, subclass, frozen, module="claripy.ast.strings")]
 pub struct PyAstString {
-    pub(crate) inner: StringAst<'static>,
+    pub(crate) inner: AstRef<'static>,
 }
 
 impl PyAstString {
     pub fn new<'py>(
         py: Python<'py>,
-        inner: &StringAst<'static>,
+        inner: &AstRef<'static>,
     ) -> Result<Bound<'py, PyAstString>, ClaripyError> {
         Self::new_with_name(py, inner, None)
     }
 
     pub fn new_with_name<'py>(
         py: Python<'py>,
-        inner: &StringAst<'static>,
+        inner: &AstRef<'static>,
         name: Option<String>,
     ) -> Result<Bound<'py, PyAstString>, ClaripyError> {
         let inner = &inner.simplify()?;
@@ -241,7 +241,7 @@ impl PyAstString {
     #[getter]
     pub fn concrete_value(&self) -> Result<Option<String>, ClaripyError> {
         Ok(match self.inner.simplify_ext(false, false)?.op() {
-            StringOp::StringV(value) => Some(value.clone()),
+            AstOp::StringV(value) => Some(value.clone()),
             _ => None,
         })
     }

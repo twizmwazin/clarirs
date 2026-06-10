@@ -46,7 +46,7 @@ pub trait Reduce<'c>: Sized {
     fn reduce(&self) -> Result<ReduceResult, ClarirsError>;
 }
 
-impl<'c> Reduce<'c> for DynAst<'c> {
+impl<'c> Reduce<'c> for AstRef<'c> {
     fn reduce(&self) -> Result<ReduceResult, ClarirsError> {
         walk_post_order(
             self.clone(),

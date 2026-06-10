@@ -4,7 +4,7 @@ use std::hash::{Hash, Hasher};
 
 use serde::Serialize;
 
-use crate::ast::node::{AstRef, BitVecAst, BoolAst, FloatAst, StringAst};
+use crate::ast::node::AstRef;
 use crate::prelude::*;
 
 /// The runtime type ("sort") of an AST node. Stored on every [`AstNode`] so the
@@ -63,109 +63,105 @@ pub enum AstOp<'c> {
     // Boolean leaves and operations
     BoolS(InternedString),
     BoolV(bool),
-    BoolXor(BoolAst<'c>, BoolAst<'c>),
-    BoolEq(BoolAst<'c>, BoolAst<'c>),
-    BoolNeq(BoolAst<'c>, BoolAst<'c>),
+    BoolXor(AstRef<'c>, AstRef<'c>),
 
     // Polymorphic boolean/bitvector operations (the child type determines the
     // result type)
     Not(AstRef<'c>),
     And(Vec<AstRef<'c>>),
     Or(Vec<AstRef<'c>>),
-    ITE(BoolAst<'c>, AstRef<'c>, AstRef<'c>),
+    ITE(AstRef<'c>, AstRef<'c>, AstRef<'c>),
 
-    // Bitvector comparisons (produce a bool)
-    Eq(BitVecAst<'c>, BitVecAst<'c>),
-    Neq(BitVecAst<'c>, BitVecAst<'c>),
-    ULT(BitVecAst<'c>, BitVecAst<'c>),
-    ULE(BitVecAst<'c>, BitVecAst<'c>),
-    UGT(BitVecAst<'c>, BitVecAst<'c>),
-    UGE(BitVecAst<'c>, BitVecAst<'c>),
-    SLT(BitVecAst<'c>, BitVecAst<'c>),
-    SLE(BitVecAst<'c>, BitVecAst<'c>),
-    SGT(BitVecAst<'c>, BitVecAst<'c>),
-    SGE(BitVecAst<'c>, BitVecAst<'c>),
+    // Equality (any sort) and bitvector comparisons (all produce a bool).
+    // `Eq`/`Neq` apply to any sort; for floats they have IEEE `fp.eq`
+    // semantics, otherwise they are structural.
+    Eq(AstRef<'c>, AstRef<'c>),
+    Neq(AstRef<'c>, AstRef<'c>),
+    ULT(AstRef<'c>, AstRef<'c>),
+    ULE(AstRef<'c>, AstRef<'c>),
+    UGT(AstRef<'c>, AstRef<'c>),
+    UGE(AstRef<'c>, AstRef<'c>),
+    SLT(AstRef<'c>, AstRef<'c>),
+    SLE(AstRef<'c>, AstRef<'c>),
+    SGT(AstRef<'c>, AstRef<'c>),
+    SGE(AstRef<'c>, AstRef<'c>),
 
     // Float comparisons (produce a bool)
-    FpEq(FloatAst<'c>, FloatAst<'c>),
-    FpNeq(FloatAst<'c>, FloatAst<'c>),
-    FpLt(FloatAst<'c>, FloatAst<'c>),
-    FpLeq(FloatAst<'c>, FloatAst<'c>),
-    FpGt(FloatAst<'c>, FloatAst<'c>),
-    FpGeq(FloatAst<'c>, FloatAst<'c>),
-    FpIsNan(FloatAst<'c>),
-    FpIsInf(FloatAst<'c>),
+    FpLt(AstRef<'c>, AstRef<'c>),
+    FpLeq(AstRef<'c>, AstRef<'c>),
+    FpGt(AstRef<'c>, AstRef<'c>),
+    FpGeq(AstRef<'c>, AstRef<'c>),
+    FpIsNan(AstRef<'c>),
+    FpIsInf(AstRef<'c>),
 
     // String predicates (produce a bool)
-    StrContains(StringAst<'c>, StringAst<'c>),
-    StrPrefixOf(StringAst<'c>, StringAst<'c>),
-    StrSuffixOf(StringAst<'c>, StringAst<'c>),
-    StrIsDigit(StringAst<'c>),
-    StrEq(StringAst<'c>, StringAst<'c>),
-    StrNeq(StringAst<'c>, StringAst<'c>),
+    StrContains(AstRef<'c>, AstRef<'c>),
+    StrPrefixOf(AstRef<'c>, AstRef<'c>),
+    StrSuffixOf(AstRef<'c>, AstRef<'c>),
+    StrIsDigit(AstRef<'c>),
 
     // Bitvector leaves and operations
     BVS(InternedString, u32),
     BVV(BitVec),
-    Neg(BitVecAst<'c>),
-    Xor(Vec<BitVecAst<'c>>),
-    Add(Vec<BitVecAst<'c>>),
-    Sub(BitVecAst<'c>, BitVecAst<'c>),
-    Mul(Vec<BitVecAst<'c>>),
-    UDiv(BitVecAst<'c>, BitVecAst<'c>),
-    SDiv(BitVecAst<'c>, BitVecAst<'c>),
-    URem(BitVecAst<'c>, BitVecAst<'c>),
-    SRem(BitVecAst<'c>, BitVecAst<'c>),
-    ShL(BitVecAst<'c>, BitVecAst<'c>),
-    LShR(BitVecAst<'c>, BitVecAst<'c>),
-    AShR(BitVecAst<'c>, BitVecAst<'c>),
-    RotateLeft(BitVecAst<'c>, BitVecAst<'c>),
-    RotateRight(BitVecAst<'c>, BitVecAst<'c>),
-    ZeroExt(BitVecAst<'c>, u32),
-    SignExt(BitVecAst<'c>, u32),
-    Extract(BitVecAst<'c>, u32, u32),
-    Concat(Vec<BitVecAst<'c>>),
-    ByteReverse(BitVecAst<'c>),
-    FpToIEEEBV(FloatAst<'c>),
-    FpToUBV(FloatAst<'c>, u32, FPRM),
-    FpToSBV(FloatAst<'c>, u32, FPRM),
-    StrLen(StringAst<'c>),
-    StrIndexOf(StringAst<'c>, StringAst<'c>, BitVecAst<'c>),
-    StrToBV(StringAst<'c>),
+    Neg(AstRef<'c>),
+    Xor(Vec<AstRef<'c>>),
+    Add(Vec<AstRef<'c>>),
+    Sub(AstRef<'c>, AstRef<'c>),
+    Mul(Vec<AstRef<'c>>),
+    UDiv(AstRef<'c>, AstRef<'c>),
+    SDiv(AstRef<'c>, AstRef<'c>),
+    URem(AstRef<'c>, AstRef<'c>),
+    SRem(AstRef<'c>, AstRef<'c>),
+    ShL(AstRef<'c>, AstRef<'c>),
+    LShR(AstRef<'c>, AstRef<'c>),
+    AShR(AstRef<'c>, AstRef<'c>),
+    RotateLeft(AstRef<'c>, AstRef<'c>),
+    RotateRight(AstRef<'c>, AstRef<'c>),
+    ZeroExt(AstRef<'c>, u32),
+    SignExt(AstRef<'c>, u32),
+    Extract(AstRef<'c>, u32, u32),
+    Concat(Vec<AstRef<'c>>),
+    ByteReverse(AstRef<'c>),
+    FpToIEEEBV(AstRef<'c>),
+    FpToUBV(AstRef<'c>, u32, FPRM),
+    FpToSBV(AstRef<'c>, u32, FPRM),
+    StrLen(AstRef<'c>),
+    StrIndexOf(AstRef<'c>, AstRef<'c>, AstRef<'c>),
+    StrToBV(AstRef<'c>),
 
     // VSA bitvector operations (always symbolic)
-    Union(BitVecAst<'c>, BitVecAst<'c>),
-    Intersection(BitVecAst<'c>, BitVecAst<'c>),
-    Widen(BitVecAst<'c>, BitVecAst<'c>),
+    Union(AstRef<'c>, AstRef<'c>),
+    Intersection(AstRef<'c>, AstRef<'c>),
+    Widen(AstRef<'c>, AstRef<'c>),
 
     // Float leaves and operations
     FPS(InternedString, FSort),
     FPV(Float),
-    FpNeg(FloatAst<'c>),
-    FpAbs(FloatAst<'c>),
-    FpAdd(FloatAst<'c>, FloatAst<'c>, FPRM),
-    FpSub(FloatAst<'c>, FloatAst<'c>, FPRM),
-    FpMul(FloatAst<'c>, FloatAst<'c>, FPRM),
-    FpDiv(FloatAst<'c>, FloatAst<'c>, FPRM),
-    FpSqrt(FloatAst<'c>, FPRM),
+    FpNeg(AstRef<'c>),
+    FpAbs(AstRef<'c>),
+    FpAdd(AstRef<'c>, AstRef<'c>, FPRM),
+    FpSub(AstRef<'c>, AstRef<'c>, FPRM),
+    FpMul(AstRef<'c>, AstRef<'c>, FPRM),
+    FpDiv(AstRef<'c>, AstRef<'c>, FPRM),
+    FpSqrt(AstRef<'c>, FPRM),
     /// Transform a float to another float of a different size, preserving the value.
-    FpToFp(FloatAst<'c>, FSort, FPRM),
+    FpToFp(AstRef<'c>, FSort, FPRM),
     /// Construct a float from sign, exponent, and significand bitvectors
-    FpFP(BitVecAst<'c>, BitVecAst<'c>, BitVecAst<'c>),
+    FpFP(AstRef<'c>, AstRef<'c>, AstRef<'c>),
     /// Transform an IEEE 754 bitvector to a float
-    BvToFp(BitVecAst<'c>, FSort),
+    BvToFp(AstRef<'c>, FSort),
     /// Transform a signed 2's complement bitvector to a float
-    BvToFpSigned(BitVecAst<'c>, FSort, FPRM),
+    BvToFpSigned(AstRef<'c>, FSort, FPRM),
     /// Transform an unsigned 2's complement bitvector to a float
-    BvToFpUnsigned(BitVecAst<'c>, FSort, FPRM),
+    BvToFpUnsigned(AstRef<'c>, FSort, FPRM),
 
     // String leaves and operations
     StringS(InternedString),
     StringV(String),
-    StrConcat(StringAst<'c>, StringAst<'c>),
-    StrSubstr(StringAst<'c>, BitVecAst<'c>, BitVecAst<'c>),
-    StrReplace(StringAst<'c>, StringAst<'c>, StringAst<'c>),
-    BVToStr(BitVecAst<'c>),
+    StrConcat(AstRef<'c>, AstRef<'c>),
+    StrSubstr(AstRef<'c>, AstRef<'c>, AstRef<'c>),
+    StrReplace(AstRef<'c>, AstRef<'c>, AstRef<'c>),
+    BVToStr(AstRef<'c>),
 }
 
 impl<'c> AstOp<'c> {
@@ -216,8 +212,6 @@ impl<'c> AstOp<'c> {
 
             // Binary operations
             AstOp::BoolXor(a, b)
-            | AstOp::BoolEq(a, b)
-            | AstOp::BoolNeq(a, b)
             | AstOp::Eq(a, b)
             | AstOp::Neq(a, b)
             | AstOp::ULT(a, b)
@@ -228,8 +222,6 @@ impl<'c> AstOp<'c> {
             | AstOp::SLE(a, b)
             | AstOp::SGT(a, b)
             | AstOp::SGE(a, b)
-            | AstOp::FpEq(a, b)
-            | AstOp::FpNeq(a, b)
             | AstOp::FpLt(a, b)
             | AstOp::FpLeq(a, b)
             | AstOp::FpGt(a, b)
@@ -237,8 +229,6 @@ impl<'c> AstOp<'c> {
             | AstOp::StrContains(a, b)
             | AstOp::StrPrefixOf(a, b)
             | AstOp::StrSuffixOf(a, b)
-            | AstOp::StrEq(a, b)
-            | AstOp::StrNeq(a, b)
             | AstOp::Sub(a, b)
             | AstOp::UDiv(a, b)
             | AstOp::SDiv(a, b)
@@ -319,8 +309,6 @@ impl<'c> AstOp<'c> {
             | AstOp::BVToStr(_) => 1,
 
             AstOp::BoolXor(..)
-            | AstOp::BoolEq(..)
-            | AstOp::BoolNeq(..)
             | AstOp::Eq(..)
             | AstOp::Neq(..)
             | AstOp::ULT(..)
@@ -331,8 +319,6 @@ impl<'c> AstOp<'c> {
             | AstOp::SLE(..)
             | AstOp::SGT(..)
             | AstOp::SGE(..)
-            | AstOp::FpEq(..)
-            | AstOp::FpNeq(..)
             | AstOp::FpLt(..)
             | AstOp::FpLeq(..)
             | AstOp::FpGt(..)
@@ -340,8 +326,6 @@ impl<'c> AstOp<'c> {
             | AstOp::StrContains(..)
             | AstOp::StrPrefixOf(..)
             | AstOp::StrSuffixOf(..)
-            | AstOp::StrEq(..)
-            | AstOp::StrNeq(..)
             | AstOp::Sub(..)
             | AstOp::UDiv(..)
             | AstOp::SDiv(..)
@@ -421,8 +405,6 @@ impl<'c> AstOp<'c> {
             AstOp::BoolS(..)
             | AstOp::BoolV(..)
             | AstOp::BoolXor(..)
-            | AstOp::BoolEq(..)
-            | AstOp::BoolNeq(..)
             | AstOp::Eq(..)
             | AstOp::Neq(..)
             | AstOp::ULT(..)
@@ -433,8 +415,6 @@ impl<'c> AstOp<'c> {
             | AstOp::SLE(..)
             | AstOp::SGT(..)
             | AstOp::SGE(..)
-            | AstOp::FpEq(..)
-            | AstOp::FpNeq(..)
             | AstOp::FpLt(..)
             | AstOp::FpLeq(..)
             | AstOp::FpGt(..)
@@ -444,9 +424,7 @@ impl<'c> AstOp<'c> {
             | AstOp::StrContains(..)
             | AstOp::StrPrefixOf(..)
             | AstOp::StrSuffixOf(..)
-            | AstOp::StrIsDigit(..)
-            | AstOp::StrEq(..)
-            | AstOp::StrNeq(..) => AstType::Bool,
+            | AstOp::StrIsDigit(..) => AstType::Bool,
 
             // Polymorphic: result type follows a child's type
             AstOp::Not(a) => a.ty(),
@@ -617,8 +595,6 @@ impl Hash for AstOp<'_> {
 
             // Binary with no extra payload
             AstOp::BoolXor(a, b)
-            | AstOp::BoolEq(a, b)
-            | AstOp::BoolNeq(a, b)
             | AstOp::Eq(a, b)
             | AstOp::Neq(a, b)
             | AstOp::ULT(a, b)
@@ -629,8 +605,6 @@ impl Hash for AstOp<'_> {
             | AstOp::SLE(a, b)
             | AstOp::SGT(a, b)
             | AstOp::SGE(a, b)
-            | AstOp::FpEq(a, b)
-            | AstOp::FpNeq(a, b)
             | AstOp::FpLt(a, b)
             | AstOp::FpLeq(a, b)
             | AstOp::FpGt(a, b)
@@ -638,8 +612,6 @@ impl Hash for AstOp<'_> {
             | AstOp::StrContains(a, b)
             | AstOp::StrPrefixOf(a, b)
             | AstOp::StrSuffixOf(a, b)
-            | AstOp::StrEq(a, b)
-            | AstOp::StrNeq(a, b)
             | AstOp::Sub(a, b)
             | AstOp::UDiv(a, b)
             | AstOp::SDiv(a, b)

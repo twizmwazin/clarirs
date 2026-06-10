@@ -497,7 +497,7 @@ fn test_booleq_identity_simplification_without_floats() -> Result<()> {
     let simplified = eq_check.simplify()?;
 
     assert!(
-        matches!(simplified.op(), crate::ast::bool::BooleanOp::BoolV(true)),
+        matches!(simplified.op(), crate::ast::bool::AstOp::BoolV(true)),
         "BoolEq(x, x) should simplify to true when no floats are involved, got: {:?}",
         simplified.op()
     );
@@ -519,7 +519,7 @@ fn test_booleq_identity_simplification_with_floats() -> Result<()> {
     let simplified = eq_check.simplify()?;
 
     assert!(
-        matches!(simplified.op(), crate::ast::bool::BooleanOp::BoolV(true)),
+        matches!(simplified.op(), crate::ast::bool::AstOp::BoolV(true)),
         "BoolEq(x, x) should simplify to true even when floats are involved, got: {:?}",
         simplified.op()
     );

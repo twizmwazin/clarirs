@@ -4,7 +4,7 @@ pub trait ToOpString {
     fn to_opstring(&self) -> String;
 }
 
-impl ToOpString for DynAst<'static> {
+impl ToOpString for AstRef<'static> {
     fn to_opstring(&self) -> String {
         match self.op() {
             // Polymorphic ops whose name depends on whether the node is boolean
@@ -18,8 +18,10 @@ impl ToOpString for DynAst<'static> {
             AstOp::BoolS(..) => "BoolS".to_string(),
             AstOp::BoolV(..) => "BoolV".to_string(),
             AstOp::BoolXor(..) => "Xor".to_string(),
-            AstOp::BoolEq(..) | AstOp::Eq(..) | AstOp::StrEq(..) => "__eq__".to_string(),
-            AstOp::BoolNeq(..) | AstOp::Neq(..) | AstOp::StrNeq(..) => "__ne__".to_string(),
+            AstOp::Eq(a, _) if a.ty().is_float() => "fpEQ".to_string(),
+            AstOp::Neq(a, _) if a.ty().is_float() => "fpNEQ".to_string(),
+            AstOp::Eq(..) => "__eq__".to_string(),
+            AstOp::Neq(..) => "__ne__".to_string(),
             AstOp::ULT(..) => "ULT".to_string(),
             AstOp::ULE(..) => "ULE".to_string(),
             AstOp::UGT(..) => "UGT".to_string(),
@@ -28,8 +30,6 @@ impl ToOpString for DynAst<'static> {
             AstOp::SLE(..) => "SLE".to_string(),
             AstOp::SGT(..) => "SGT".to_string(),
             AstOp::SGE(..) => "SGE".to_string(),
-            AstOp::FpEq(..) => "fpEQ".to_string(),
-            AstOp::FpNeq(..) => "fpNEQ".to_string(),
             AstOp::FpLt(..) => "fpLT".to_string(),
             AstOp::FpLeq(..) => "fpLEQ".to_string(),
             AstOp::FpGt(..) => "fpGT".to_string(),

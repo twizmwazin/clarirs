@@ -20,8 +20,8 @@ use std::collections::VecDeque;
 /// performance for trees with repeated subtrees. If you do not want to use a
 /// cache, pass `&()` as the cache.
 pub fn walk_post_order<'c, T>(
-    ast: DynAst<'c>,
-    mut callback: impl FnMut(DynAst<'c>, &[T]) -> Result<T, ClarirsError>,
+    ast: AstRef<'c>,
+    mut callback: impl FnMut(AstRef<'c>, &[T]) -> Result<T, ClarirsError>,
     cache: &impl Cache<u64, T>,
 ) -> Result<T, ClarirsError> {
     // For each node, we need to track:
@@ -29,7 +29,7 @@ pub fn walk_post_order<'c, T>(
     // 2. Whether all its children have been processed
     // 3. The transformed results of its children
     struct NodeState<'c, T> {
-        node: DynAst<'c>,
+        node: AstRef<'c>,
         children_processed: usize,
         num_children: usize,
         child_results: Vec<T>,
@@ -85,9 +85,9 @@ pub fn walk_post_order<'c, T>(
     result_queue.pop_front().ok_or(ClarirsError::EmptyTraversal)
 }
 
-// Helper functions to extract typed children from DynAst
+// Helper functions to extract typed children from AstRef
 
-pub fn bool_child<'c>(children: &[DynAst<'c>], index: usize) -> Result<BoolAst<'c>, ClarirsError> {
+pub fn bool_child<'c>(children: &[AstRef<'c>], index: usize) -> Result<AstRef<'c>, ClarirsError> {
     children
         .get(index)
         .and_then(|child| child.clone().into_bool())
@@ -97,9 +97,9 @@ pub fn bool_child<'c>(children: &[DynAst<'c>], index: usize) -> Result<BoolAst<'
 }
 
 pub fn bitvec_child<'c>(
-    children: &[DynAst<'c>],
+    children: &[AstRef<'c>],
     index: usize,
-) -> Result<BitVecAst<'c>, ClarirsError> {
+) -> Result<AstRef<'c>, ClarirsError> {
     children
         .get(index)
         .and_then(|child| child.clone().into_bitvec())
@@ -109,9 +109,9 @@ pub fn bitvec_child<'c>(
 }
 
 pub fn float_child<'c>(
-    children: &[DynAst<'c>],
+    children: &[AstRef<'c>],
     index: usize,
-) -> Result<FloatAst<'c>, ClarirsError> {
+) -> Result<AstRef<'c>, ClarirsError> {
     children
         .get(index)
         .and_then(|child| child.clone().into_float())
@@ -121,9 +121,9 @@ pub fn float_child<'c>(
 }
 
 pub fn string_child<'c>(
-    children: &[DynAst<'c>],
+    children: &[AstRef<'c>],
     index: usize,
-) -> Result<StringAst<'c>, ClarirsError> {
+) -> Result<AstRef<'c>, ClarirsError> {
     children
         .get(index)
         .and_then(|child| child.clone().into_string())
@@ -148,11 +148,11 @@ mod tests {
         // Track visited nodes and transformations
         let mut visited = Vec::new();
         walk_post_order(
-            Clone::clone(&add),
+            add.clone(),
             |node, children| {
                 let node_type = match node.as_bitvec().unwrap().op() {
-                    BitVecOp::BVS(s, _) => format!("var({s})"),
-                    BitVecOp::Add(_) => "add".to_string(),
+                    AstOp::BVS(s, _) => format!("var({s})"),
+                    AstOp::Add(_) => "add".to_string(),
                     op => format!("other({op:?})"),
                 };
                 let info = format!("{} with {} children", node_type, children.len());
@@ -180,7 +180,7 @@ mod tests {
         let x = ctx.bvs("x", 64)?;
 
         let result = walk_post_order(
-            Clone::clone(&x),
+            x.clone(),
             |_node, _children| -> Result<String, ClarirsError> {
                 Err(ClarirsError::InvalidArguments("test error".to_string()))
             },
@@ -214,7 +214,7 @@ mod tests {
 
         // First traversal populates the cache
         walk_post_order(
-            Clone::clone(&mul),
+            mul.clone(),
             |node, _| {
                 first_visited.push(node.clone());
                 Ok(())
@@ -226,7 +226,7 @@ mod tests {
 
         // Second traversal should use the cache for common subexpressions
         walk_post_order(
-            Clone::clone(&mul),
+            mul.clone(),
             |node, _| {
                 second_visited.push(node.clone());
                 Ok(())

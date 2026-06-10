@@ -21,7 +21,7 @@ impl<'c> ConcreteSolver<'c> {
 }
 
 impl<'c> Solver<'c> for ConcreteSolver<'c> {
-    fn add(&mut self, _: &BoolAst<'c>) -> Result<(), ClarirsError> {
+    fn add(&mut self, _: &AstRef<'c>) -> Result<(), ClarirsError> {
         Ok(())
     }
 
@@ -29,7 +29,7 @@ impl<'c> Solver<'c> for ConcreteSolver<'c> {
         Ok(())
     }
 
-    fn constraints(&self) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
+    fn constraints(&self) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         Ok(Vec::new())
     }
 
@@ -42,7 +42,7 @@ impl<'c> Solver<'c> for ConcreteSolver<'c> {
         Ok(true)
     }
 
-    fn eval_bool(&mut self, expr: &BoolAst<'c>) -> Result<BoolAst<'c>, ClarirsError> {
+    fn eval_bool(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         if expr.symbolic() {
             return Err(ClarirsError::UnsupportedOperation(
                 "Concrete solver does not support symbolic expressions".to_string(),
@@ -51,7 +51,7 @@ impl<'c> Solver<'c> for ConcreteSolver<'c> {
         expr.simplify_ext(false, true)
     }
 
-    fn eval_bitvec(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn eval_bitvec(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         if expr.symbolic() {
             return Err(ClarirsError::UnsupportedOperation(
                 "Concrete solver does not support symbolic expressions".to_string(),
@@ -60,7 +60,7 @@ impl<'c> Solver<'c> for ConcreteSolver<'c> {
         expr.simplify_ext(false, true)
     }
 
-    fn eval_float(&mut self, expr: &FloatAst<'c>) -> Result<FloatAst<'c>, ClarirsError> {
+    fn eval_float(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         if expr.symbolic() {
             return Err(ClarirsError::UnsupportedOperation(
                 "Concrete solver does not support symbolic expressions".to_string(),
@@ -69,7 +69,7 @@ impl<'c> Solver<'c> for ConcreteSolver<'c> {
         expr.simplify_ext(false, true)
     }
 
-    fn eval_string(&mut self, expr: &StringAst<'c>) -> Result<StringAst<'c>, ClarirsError> {
+    fn eval_string(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         if expr.symbolic() {
             return Err(ClarirsError::UnsupportedOperation(
                 "Concrete solver does not support symbolic expressions".to_string(),
@@ -78,43 +78,43 @@ impl<'c> Solver<'c> for ConcreteSolver<'c> {
         expr.simplify_ext(false, true)
     }
 
-    fn is_true(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+    fn is_true(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
         Ok(expr.simplify()?.is_true())
     }
 
-    fn is_false(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+    fn is_false(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
         Ok(expr.simplify()?.is_false())
     }
 
-    fn has_true(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+    fn has_true(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
         Ok(expr.simplify()?.is_true())
     }
 
-    fn has_false(&mut self, expr: &BoolAst<'c>) -> Result<bool, ClarirsError> {
+    fn has_false(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
         Ok(expr.simplify()?.is_false())
     }
 
-    fn min_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn min_unsigned(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         self.eval_bitvec(expr)
     }
 
-    fn max_unsigned(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn max_unsigned(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         self.eval_bitvec(expr)
     }
 
-    fn min_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn min_signed(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         self.eval_bitvec(expr)
     }
 
-    fn max_signed(&mut self, expr: &BitVecAst<'c>) -> Result<BitVecAst<'c>, ClarirsError> {
+    fn max_signed(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         self.eval_bitvec(expr)
     }
 
     fn eval_bool_n(
         &mut self,
-        expr: &BoolAst<'c>,
+        expr: &AstRef<'c>,
         n: u32,
-    ) -> Result<Vec<BoolAst<'c>>, ClarirsError> {
+    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         if n == 0 {
             return Ok(Vec::new());
         }
@@ -124,9 +124,9 @@ impl<'c> Solver<'c> for ConcreteSolver<'c> {
 
     fn eval_bitvec_n(
         &mut self,
-        expr: &BitVecAst<'c>,
+        expr: &AstRef<'c>,
         n: u32,
-    ) -> Result<Vec<BitVecAst<'c>>, ClarirsError> {
+    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         if n == 0 {
             return Ok(Vec::new());
         }
@@ -136,9 +136,9 @@ impl<'c> Solver<'c> for ConcreteSolver<'c> {
 
     fn eval_float_n(
         &mut self,
-        expr: &FloatAst<'c>,
+        expr: &AstRef<'c>,
         n: u32,
-    ) -> Result<Vec<FloatAst<'c>>, ClarirsError> {
+    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         if n == 0 {
             return Ok(Vec::new());
         }
@@ -148,9 +148,9 @@ impl<'c> Solver<'c> for ConcreteSolver<'c> {
 
     fn eval_string_n(
         &mut self,
-        expr: &StringAst<'c>,
+        expr: &AstRef<'c>,
         n: u32,
-    ) -> Result<Vec<StringAst<'c>>, ClarirsError> {
+    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         if n == 0 {
             return Ok(Vec::new());
         }
