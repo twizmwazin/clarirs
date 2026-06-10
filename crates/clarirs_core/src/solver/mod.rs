@@ -34,23 +34,12 @@ pub trait Solver<'c>: Clone + HasContext<'c> {
     /// Check if the current set of constraints is satisfiable
     fn satisfiable(&mut self) -> Result<bool, ClarirsError>;
 
-    /// Evaluate an expression in the current model.
+    /// Evaluate an expression in the current model. The result has the same
+    /// sort as the input expression.
     ///
     /// If the constraints are unsatisfiable, an error is returned.
-    fn eval_bool(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        let mut results = self.eval_bool_n(expr, 1)?;
-        results.pop().ok_or(ClarirsError::Unsat)
-    }
-    fn eval_bitvec(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        let mut results = self.eval_bitvec_n(expr, 1)?;
-        results.pop().ok_or(ClarirsError::Unsat)
-    }
-    fn eval_float(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        let mut results = self.eval_float_n(expr, 1)?;
-        results.pop().ok_or(ClarirsError::Unsat)
-    }
-    fn eval_string(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        let mut results = self.eval_string_n(expr, 1)?;
+    fn eval(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
+        let mut results = self.eval_n(expr, 1)?;
         results.pop().ok_or(ClarirsError::Unsat)
     }
 
@@ -86,17 +75,7 @@ pub trait Solver<'c>: Clone + HasContext<'c> {
     /// If the constraints are unsatisfiable, an error is returned.
     fn max_signed(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError>;
 
-    /// Find multiple solutions for a boolean expression
-    fn eval_bool_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError>;
-
-    /// Find multiple solutions for a bitvector expression
-    fn eval_bitvec_n(&mut self, expr: &AstRef<'c>, n: u32)
-    -> Result<Vec<AstRef<'c>>, ClarirsError>;
-
-    /// Find multiple solutions for a float expression
-    fn eval_float_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError>;
-
-    /// Find multiple solutions for a string expression
-    fn eval_string_n(&mut self, expr: &AstRef<'c>, n: u32)
-    -> Result<Vec<AstRef<'c>>, ClarirsError>;
+    /// Find up to `n` solutions for an expression. The results have the same
+    /// sort as the input expression.
+    fn eval_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError>;
 }

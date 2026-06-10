@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use num_bigint::BigUint;
 
-use crate::ast::op::{AstOp, AstType};
+use crate::ast::op::AstOp;
 use crate::error::ClarirsError;
 use crate::prelude::*;
 
@@ -66,13 +66,7 @@ pub trait AstFactory<'c>: Sized {
 
     /// Logical/bitwise negation. Requires a boolean or bitvector operand.
     fn not(&'c self, ast: impl IntoOwned<AstRef<'c>>) -> Result<AstRef<'c>, ClarirsError> {
-        let ast = ast.into_owned();
-        match ast.ty() {
-            AstType::Bool | AstType::BitVec(_) => self.make(AstOp::Not(ast)),
-            ty => Err(ClarirsError::TypeError(format!(
-                "not() requires a boolean or bitvector operand, got {ty:?}"
-            ))),
-        }
+        self.make(AstOp::Not(ast.into_owned()))
     }
 
     fn and(
@@ -120,21 +114,14 @@ pub trait AstFactory<'c>: Sized {
         self.make(AstOp::Xor(vec![lhs.into_owned(), rhs.into_owned()]))
     }
 
-    /// Structural equality. The operands must have the same sort; the
-    /// appropriate equality operation is chosen based on that sort.
+    /// Equality over operands of any matching sort. For floats this has IEEE
+    /// `fp.eq` semantics, otherwise it is structural.
     fn eq_(
         &'c self,
         lhs: impl IntoOwned<AstRef<'c>>,
         rhs: impl IntoOwned<AstRef<'c>>,
     ) -> Result<AstRef<'c>, ClarirsError> {
-        let lhs = lhs.into_owned();
-        let rhs = rhs.into_owned();
-        if !lhs.check_same_sort(&rhs) {
-            return Err(ClarirsError::TypeError(format!(
-                "Sort mismatch in eq: {lhs:?} and {rhs:?}"
-            )));
-        }
-        self.make(AstOp::Eq(lhs, rhs))
+        self.make(AstOp::Eq(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn neq(
@@ -142,14 +129,7 @@ pub trait AstFactory<'c>: Sized {
         lhs: impl IntoOwned<AstRef<'c>>,
         rhs: impl IntoOwned<AstRef<'c>>,
     ) -> Result<AstRef<'c>, ClarirsError> {
-        let lhs = lhs.into_owned();
-        let rhs = rhs.into_owned();
-        if !lhs.check_same_sort(&rhs) {
-            return Err(ClarirsError::TypeError(format!(
-                "Sort mismatch in neq: {lhs:?} and {rhs:?}"
-            )));
-        }
-        self.make(AstOp::Neq(lhs, rhs))
+        self.make(AstOp::Neq(lhs.into_owned(), rhs.into_owned()))
     }
 
     fn neg(&'c self, ast: impl IntoOwned<AstRef<'c>>) -> Result<AstRef<'c>, ClarirsError> {
@@ -672,27 +652,19 @@ pub trait AstFactory<'c>: Sized {
     }
 
     /// If-then-else. `then` and `else_` must have the same sort.
+    /// If-then-else. The condition must be boolean and both branches must have
+    /// the same sort.
     fn ite(
         &'c self,
         cond: impl IntoOwned<AstRef<'c>>,
         then: impl IntoOwned<AstRef<'c>>,
         else_: impl IntoOwned<AstRef<'c>>,
     ) -> Result<AstRef<'c>, ClarirsError> {
-        let cond = cond.into_owned();
-        let then = then.into_owned();
-        let else_ = else_.into_owned();
-        if !cond.ty().is_bool() {
-            return Err(ClarirsError::TypeError(format!(
-                "ite() condition must be boolean, got {:?}",
-                cond.ty()
-            )));
-        }
-        if !then.check_same_sort(&else_) {
-            return Err(ClarirsError::TypeError(format!(
-                "Sort mismatch in if-then-else: {then:?} and {else_:?}"
-            )));
-        }
-        self.make(AstOp::ITE(cond, then, else_))
+        self.make(AstOp::ITE(
+            cond.into_owned(),
+            then.into_owned(),
+            else_.into_owned(),
+        ))
     }
 
     fn annotate(

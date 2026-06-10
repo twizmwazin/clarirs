@@ -146,6 +146,10 @@ impl<'c> AstFactory<'c> for Context<'c> {
         op: AstOp<'c>,
         mut annotations: BTreeSet<Annotation>,
     ) -> Result<AstRef<'c>, ClarirsError> {
+        // Every construction funnels through here, so checking the op's child
+        // types in this one place gives the whole API runtime type checking.
+        op.validate()?;
+
         annotations.extend(
             op.child_iter()
                 .flat_map(|c| c.annotations().clone())

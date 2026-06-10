@@ -81,23 +81,8 @@ impl<'c, S: Solver<'c>> ReplacementSolver<'c, S> {
         &self.replacements
     }
 
-    /// Apply known replacements to a AstRef.
-    fn replace_bool(&self, ast: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        ast.replace_many(&self.replacement_cache)
-    }
-
-    /// Apply known replacements to a AstRef.
-    fn replace_bitvec(&self, ast: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        ast.replace_many(&self.replacement_cache)
-    }
-
-    /// Apply known replacements to a AstRef.
-    fn replace_float(&self, ast: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        ast.replace_many(&self.replacement_cache)
-    }
-
-    /// Apply known replacements to a AstRef.
-    fn replace_string(&self, ast: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
+    /// Apply known replacements to an AstRef.
+    fn apply_replacements(&self, ast: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         ast.replace_many(&self.replacement_cache)
     }
 
@@ -136,7 +121,7 @@ impl<'c, S: Solver<'c>> Solver<'c> for ReplacementSolver<'c, S> {
             self.try_extract_replacement(constraint);
         }
 
-        let replaced = self.replace_bool(constraint)?;
+        let replaced = self.apply_replacements(constraint)?;
         self.inner.add(&replaced)
     }
 
@@ -157,71 +142,48 @@ impl<'c, S: Solver<'c>> Solver<'c> for ReplacementSolver<'c, S> {
     }
 
     fn is_true(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
-        let replaced = self.replace_bool(expr)?;
+        let replaced = self.apply_replacements(expr)?;
         self.inner.is_true(&replaced)
     }
 
     fn is_false(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
-        let replaced = self.replace_bool(expr)?;
+        let replaced = self.apply_replacements(expr)?;
         self.inner.is_false(&replaced)
     }
 
     fn has_true(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
-        let replaced = self.replace_bool(expr)?;
+        let replaced = self.apply_replacements(expr)?;
         self.inner.has_true(&replaced)
     }
 
     fn has_false(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
-        let replaced = self.replace_bool(expr)?;
+        let replaced = self.apply_replacements(expr)?;
         self.inner.has_false(&replaced)
     }
 
     fn min_unsigned(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        let replaced = self.replace_bitvec(expr)?;
+        let replaced = self.apply_replacements(expr)?;
         self.inner.min_unsigned(&replaced)
     }
 
     fn max_unsigned(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        let replaced = self.replace_bitvec(expr)?;
+        let replaced = self.apply_replacements(expr)?;
         self.inner.max_unsigned(&replaced)
     }
 
     fn min_signed(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        let replaced = self.replace_bitvec(expr)?;
+        let replaced = self.apply_replacements(expr)?;
         self.inner.min_signed(&replaced)
     }
 
     fn max_signed(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        let replaced = self.replace_bitvec(expr)?;
+        let replaced = self.apply_replacements(expr)?;
         self.inner.max_signed(&replaced)
     }
 
-    fn eval_bool_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        let replaced = self.replace_bool(expr)?;
-        self.inner.eval_bool_n(&replaced, n)
-    }
-
-    fn eval_bitvec_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        let replaced = self.replace_bitvec(expr)?;
-        self.inner.eval_bitvec_n(&replaced, n)
-    }
-
-    fn eval_float_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        let replaced = self.replace_float(expr)?;
-        self.inner.eval_float_n(&replaced, n)
-    }
-
-    fn eval_string_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        let replaced = self.replace_string(expr)?;
-        self.inner.eval_string_n(&replaced, n)
+    fn eval_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+        let replaced = self.apply_replacements(expr)?;
+        self.inner.eval_n(&replaced, n)
     }
 }
 
@@ -243,7 +205,7 @@ mod tests {
         solver.add_replacement(x.clone(), five.clone());
 
         // Evaluating x should now return 5
-        let result = solver.eval_bitvec(&x)?;
+        let result = solver.eval(&x)?;
         assert_eq!(result, five);
 
         Ok(())
@@ -263,7 +225,7 @@ mod tests {
         solver.add(&eq_constraint)?;
 
         // Evaluating x should now return 5
-        let result = solver.eval_bitvec(&x)?;
+        let result = solver.eval(&x)?;
         assert_eq!(result, five);
 
         Ok(())
@@ -284,7 +246,7 @@ mod tests {
 
         // Evaluating x + 3 should return 8
         let expr = ctx.add(&x, &three)?;
-        let result = solver.eval_bitvec(&expr)?;
+        let result = solver.eval(&expr)?;
         let expected = ctx.bvv_prim(8u8)?;
         assert_eq!(result, expected);
 

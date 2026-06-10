@@ -126,22 +126,6 @@ impl Solver<'static> for DynSolver {
         dispatch!(self, satisfiable)
     }
 
-    fn eval_bool(&mut self, expr: &AstRef<'static>) -> Result<AstRef<'static>, ClarirsError> {
-        dispatch!(self, eval_bool, expr)
-    }
-
-    fn eval_bitvec(&mut self, expr: &AstRef<'static>) -> Result<AstRef<'static>, ClarirsError> {
-        dispatch!(self, eval_bitvec, expr)
-    }
-
-    fn eval_float(&mut self, expr: &AstRef<'static>) -> Result<AstRef<'static>, ClarirsError> {
-        dispatch!(self, eval_float, expr)
-    }
-
-    fn eval_string(&mut self, expr: &AstRef<'static>) -> Result<AstRef<'static>, ClarirsError> {
-        dispatch!(self, eval_string, expr)
-    }
-
     fn is_true(&mut self, expr: &AstRef<'static>) -> Result<bool, ClarirsError> {
         dispatch!(self, is_true, expr)
     }
@@ -174,35 +158,11 @@ impl Solver<'static> for DynSolver {
         dispatch!(self, max_signed, expr)
     }
 
-    fn eval_bool_n(
+    fn eval_n(
         &mut self,
         expr: &AstRef<'static>,
         n: u32,
     ) -> Result<Vec<AstRef<'static>>, ClarirsError> {
-        dispatch!(self, eval_bool_n, expr, n)
-    }
-
-    fn eval_bitvec_n(
-        &mut self,
-        expr: &AstRef<'static>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'static>>, ClarirsError> {
-        dispatch!(self, eval_bitvec_n, expr, n)
-    }
-
-    fn eval_float_n(
-        &mut self,
-        expr: &AstRef<'static>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'static>>, ClarirsError> {
-        dispatch!(self, eval_float_n, expr, n)
-    }
-
-    fn eval_string_n(
-        &mut self,
-        expr: &AstRef<'static>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'static>>, ClarirsError> {
-        dispatch!(self, eval_string_n, expr, n)
+        dispatch!(self, eval_n, expr, n)
     }
 }

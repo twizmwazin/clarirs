@@ -331,7 +331,7 @@ impl PySolver {
         self.with_extra_constraints(extra_constraints, exact, |solver| {
             // Get multiple solutions based on expression type
             if let Ok(bv_value) = expr.clone().into_any().cast::<BV>() {
-                let solutions = solver.eval_bitvec_n(&bv_value.get().inner, n)?;
+                let solutions = solver.eval_n(&bv_value.get().inner, n)?;
                 let py_solutions = solutions
                     .into_iter()
                     .map(|sol| BV::new(py, &sol))
@@ -341,7 +341,7 @@ impl PySolver {
                     .map(|sol| sol.into_any().cast::<Base>().unwrap().clone())
                     .collect())
             } else if let Ok(bool_value) = expr.clone().into_any().cast::<Bool>() {
-                let solutions = solver.eval_bool_n(&bool_value.get().inner, n)?;
+                let solutions = solver.eval_n(&bool_value.get().inner, n)?;
                 let py_solutions = solutions
                     .into_iter()
                     .map(|sol| Bool::new(py, &sol))
@@ -351,7 +351,7 @@ impl PySolver {
                     .map(|sol| sol.into_any().cast::<Base>().unwrap().clone())
                     .collect())
             } else if let Ok(fp_value) = expr.clone().into_any().cast::<FP>() {
-                let solutions = solver.eval_float_n(&fp_value.get().inner, n)?;
+                let solutions = solver.eval_n(&fp_value.get().inner, n)?;
                 let py_solutions = solutions
                     .into_iter()
                     .map(|sol| FP::new(py, &sol))
@@ -361,7 +361,7 @@ impl PySolver {
                     .map(|sol| sol.into_any().cast::<Base>().unwrap().clone())
                     .collect())
             } else if let Ok(string_value) = expr.clone().into_any().cast::<PyAstString>() {
-                let solutions = solver.eval_string_n(&string_value.get().inner, n)?;
+                let solutions = solver.eval_n(&string_value.get().inner, n)?;
                 let py_solutions = solutions
                     .into_iter()
                     .map(|sol| PyAstString::new(py, &sol))

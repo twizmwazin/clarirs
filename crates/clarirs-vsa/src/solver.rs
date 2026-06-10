@@ -43,58 +43,37 @@ impl<'c> Solver<'c> for VSASolver<'c> {
         Ok(true)
     }
 
-    fn eval_bool_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        expr.simplify()?
-            .reduce()?
-            .into_bool()
-            .and_then(|comp_result| match comp_result {
-                ComparisonResult::True => Ok(vec![self.context().boolv(true)?]),
-                ComparisonResult::False => Ok(vec![self.context().boolv(false)?]),
-                ComparisonResult::Maybe => match n {
-                    0 => Ok(vec![]),
-                    1 => Ok(vec![self.context().boolv(true)?]),
-                    _ => Ok(vec![
-                        self.context().boolv(true)?,
-                        self.context().boolv(false)?,
-                    ]),
-                },
-            })
-    }
-
-    fn eval_bitvec_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        expr.simplify()?.reduce()?.into_bv().and_then(|si| {
-            if si.is_empty() {
-                return Ok(vec![]);
-            }
-            si.eval(n)
-                .into_iter()
-                .map(|bv| self.context().bvv_from_biguint_with_size(&bv, expr.size()))
-                .collect()
-        })
-    }
-
-    fn eval_float_n(
-        &mut self,
-        _expr: &AstRef<'c>,
-        _n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        Err(ClarirsError::UnsupportedOperation(
-            "Floating-point evaluation is not supported in VSASolver".to_string(),
-        ))
-    }
-
-    fn eval_string_n(
-        &mut self,
-        _expr: &AstRef<'c>,
-        _n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        Err(ClarirsError::UnsupportedOperation(
-            "String evaluation is not supported in VSASolver".to_string(),
-        ))
+    fn eval_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+        match expr.ty() {
+            AstType::Bool => expr
+                .simplify()?
+                .reduce()?
+                .into_bool()
+                .and_then(|comp_result| match comp_result {
+                    ComparisonResult::True => Ok(vec![self.context().boolv(true)?]),
+                    ComparisonResult::False => Ok(vec![self.context().boolv(false)?]),
+                    ComparisonResult::Maybe => match n {
+                        0 => Ok(vec![]),
+                        1 => Ok(vec![self.context().boolv(true)?]),
+                        _ => Ok(vec![
+                            self.context().boolv(true)?,
+                            self.context().boolv(false)?,
+                        ]),
+                    },
+                }),
+            AstType::BitVec(_) => expr.simplify()?.reduce()?.into_bv().and_then(|si| {
+                if si.is_empty() {
+                    return Ok(vec![]);
+                }
+                si.eval(n)
+                    .into_iter()
+                    .map(|bv| self.context().bvv_from_biguint_with_size(&bv, expr.size()))
+                    .collect()
+            }),
+            AstType::Float(_) | AstType::String => Err(ClarirsError::UnsupportedOperation(
+                "Only boolean and bitvector evaluation is supported in VSASolver".to_string(),
+            )),
+        }
     }
 
     fn is_true(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {

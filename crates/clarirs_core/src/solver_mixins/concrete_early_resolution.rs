@@ -131,63 +131,24 @@ impl<'c, S: Solver<'c>> Solver<'c> for ConcreteEarlyResolutionMixin<'c, S> {
         self.inner.max_signed(expr)
     }
 
-    fn eval_bool_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        // If concrete, return the value without invoking the solver
-        if expr.concrete() {
-            if n == 0 {
-                return Ok(Vec::new());
-            }
-            return Ok(vec![expr.simplify_ext(false, true)?]);
-        }
-        self.inner.eval_bool_n(expr, n)
-    }
-
-    fn eval_bitvec_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        // If concrete, try to simplify to a constant value
+    fn eval_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+        // If concrete, try to resolve the value without invoking the solver
         if expr.concrete() {
             if n == 0 {
                 return Ok(Vec::new());
             }
             let simplified = expr.simplify_ext(false, true)?;
-            // Only use the shortcut if simplification produced a BVV constant.
-            // VSA ops (Union, Intersection, Widen) on concrete values are
-            // "concrete" (no variables) but multi-valued, and need the full
-            // solver to enumerate values.
-            if matches!(simplified.op(), AstOp::BVV(..)) {
+            // Only use the shortcut if simplification folded the expression to
+            // a constant; anything else (e.g. an op the simplifier cannot
+            // fold) needs the full solver.
+            if matches!(
+                simplified.op(),
+                AstOp::BoolV(..) | AstOp::BVV(..) | AstOp::FPV(..) | AstOp::StringV(..)
+            ) {
                 return Ok(vec![simplified]);
             }
         }
-        self.inner.eval_bitvec_n(expr, n)
-    }
-
-    fn eval_float_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        // If concrete, return the value without invoking the solver
-        if expr.concrete() {
-            if n == 0 {
-                return Ok(Vec::new());
-            }
-            return Ok(vec![expr.simplify_ext(false, true)?]);
-        }
-        self.inner.eval_float_n(expr, n)
-    }
-
-    fn eval_string_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        // If concrete, return the value without invoking the solver (assumes already simplified)
-        if expr.concrete() {
-            if n == 0 {
-                return Ok(Vec::new());
-            }
-            return Ok(vec![expr.simplify_ext(false, true)?]);
-        }
-        self.inner.eval_string_n(expr, n)
+        self.inner.eval_n(expr, n)
     }
 }
 
@@ -262,32 +223,8 @@ mod tests {
             panic!("PanickingSolver::max_signed should not be called");
         }
 
-        fn eval_bool_n(&mut self, _: &AstRef<'c>, _: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-            panic!("PanickingSolver::eval_bool_n should not be called");
-        }
-
-        fn eval_bitvec_n(
-            &mut self,
-            _: &AstRef<'c>,
-            _: u32,
-        ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-            panic!("PanickingSolver::eval_bitvec_n should not be called");
-        }
-
-        fn eval_float_n(
-            &mut self,
-            _: &AstRef<'c>,
-            _: u32,
-        ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-            panic!("PanickingSolver::eval_float_n should not be called");
-        }
-
-        fn eval_string_n(
-            &mut self,
-            _: &AstRef<'c>,
-            _: u32,
-        ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-            panic!("PanickingSolver::eval_string_n should not be called");
+        fn eval_n(&mut self, _: &AstRef<'c>, _: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+            panic!("PanickingSolver::eval_n should not be called");
         }
 
         fn simplify(&mut self) -> Result<(), ClarirsError> {
@@ -333,7 +270,7 @@ mod tests {
 
         // Test concrete bitvec value - should NOT call underlying solver
         let value = ctx.bvv_prim(42u64).unwrap();
-        let results = solver.eval_bitvec_n(&value, 1).unwrap();
+        let results = solver.eval_n(&value, 1).unwrap();
 
         assert_eq!(results.len(), 1);
         assert!(results[0].concrete());
@@ -385,7 +322,7 @@ mod tests {
 
         // Test that requesting 0 results returns empty vec WITHOUT calling solver
         let value = ctx.bvv_prim(42u64).unwrap();
-        let results = solver.eval_bitvec_n(&value, 0).unwrap();
+        let results = solver.eval_n(&value, 0).unwrap();
 
         assert_eq!(results.len(), 0);
     }
@@ -398,7 +335,7 @@ mod tests {
 
         // Test concrete bool evaluation - should NOT call underlying solver
         let true_expr = ctx.true_().unwrap();
-        let results = solver.eval_bool_n(&true_expr, 1).unwrap();
+        let results = solver.eval_n(&true_expr, 1).unwrap();
 
         assert_eq!(results.len(), 1);
         assert!(results[0].concrete());

@@ -42,42 +42,6 @@ impl<'c> Solver<'c> for ConcreteSolver<'c> {
         Ok(true)
     }
 
-    fn eval_bool(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        if expr.symbolic() {
-            return Err(ClarirsError::UnsupportedOperation(
-                "Concrete solver does not support symbolic expressions".to_string(),
-            ));
-        }
-        expr.simplify_ext(false, true)
-    }
-
-    fn eval_bitvec(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        if expr.symbolic() {
-            return Err(ClarirsError::UnsupportedOperation(
-                "Concrete solver does not support symbolic expressions".to_string(),
-            ));
-        }
-        expr.simplify_ext(false, true)
-    }
-
-    fn eval_float(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        if expr.symbolic() {
-            return Err(ClarirsError::UnsupportedOperation(
-                "Concrete solver does not support symbolic expressions".to_string(),
-            ));
-        }
-        expr.simplify_ext(false, true)
-    }
-
-    fn eval_string(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        if expr.symbolic() {
-            return Err(ClarirsError::UnsupportedOperation(
-                "Concrete solver does not support symbolic expressions".to_string(),
-            ));
-        }
-        expr.simplify_ext(false, true)
-    }
-
     fn is_true(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
         Ok(expr.simplify()?.is_true())
     }
@@ -95,59 +59,31 @@ impl<'c> Solver<'c> for ConcreteSolver<'c> {
     }
 
     fn min_unsigned(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.eval_bitvec(expr)
+        self.eval(expr)
     }
 
     fn max_unsigned(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.eval_bitvec(expr)
+        self.eval(expr)
     }
 
     fn min_signed(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.eval_bitvec(expr)
+        self.eval(expr)
     }
 
     fn max_signed(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.eval_bitvec(expr)
+        self.eval(expr)
     }
 
-    fn eval_bool_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+    fn eval_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         if n == 0 {
             return Ok(Vec::new());
         }
-        let val = self.eval_bool(expr)?;
-        Ok(vec![val])
-    }
-
-    fn eval_bitvec_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        if n == 0 {
-            return Ok(Vec::new());
+        if expr.symbolic() {
+            return Err(ClarirsError::UnsupportedOperation(
+                "Concrete solver does not support symbolic expressions".to_string(),
+            ));
         }
-        let val = self.eval_bitvec(expr)?;
-        Ok(vec![val])
-    }
-
-    fn eval_float_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        if n == 0 {
-            return Ok(Vec::new());
-        }
-        let val = self.eval_float(expr)?;
-        Ok(vec![val])
-    }
-
-    fn eval_string_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        if n == 0 {
-            return Ok(Vec::new());
-        }
-        let val = self.eval_string(expr)?;
-        Ok(vec![val])
+        Ok(vec![expr.simplify_ext(false, true)?])
     }
 }
 
@@ -162,16 +98,16 @@ mod tests {
         let mut solver = ConcreteSolver::new(&context);
 
         // Bool tests
-        solver.eval_bool(&context.true_()?)?;
-        solver.eval_bool(&context.false_()?)?;
-        assert!(solver.eval_bool(&context.bools("test")?).is_err());
+        solver.eval(&context.true_()?)?;
+        solver.eval(&context.false_()?)?;
+        assert!(solver.eval(&context.bools("test")?).is_err());
 
         // BV tests
         assert!(
-            solver.eval_bitvec(&context.add(&context.bvv_prim(1u8)?, &context.bvv_prim(1u8)?)?)?
+            solver.eval(&context.add(&context.bvv_prim(1u8)?, &context.bvv_prim(1u8)?)?)?
                 == context.bvv_prim(2u8)?
         );
-        assert!(solver.eval_bitvec(&context.bvs("test", 8)?).is_err());
+        assert!(solver.eval(&context.bvs("test", 8)?).is_err());
 
         Ok(())
     }

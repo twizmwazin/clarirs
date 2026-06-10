@@ -269,7 +269,10 @@ impl<'c> Z3Solver<'c> {
         expr.simplify_z3()
     }
 
-    fn eval(&self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
+    /// Evaluate `expr` against a single model. More efficient than the generic
+    /// `eval_n(_, 1)` path, which rebuilds the solver and adds an exclusion
+    /// constraint; used to back the `Solver::eval` override below.
+    fn eval_in_model(&self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         let expr = Z3Solver::simplify_dynast(&expr.simplify()?)?;
 
         // If the expression is concrete, we can return it directly
@@ -333,28 +336,8 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         self.with_cached_solver(|z3_solver| Ok(z3_solver.check()? == z3::Lbool::True))
     }
 
-    fn eval_bool(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.eval(expr)?
-            .into_bool()
-            .ok_or(ClarirsError::TypeError("Expected AstRef".to_string()))
-    }
-
-    fn eval_bitvec(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.eval(expr)?
-            .into_bitvec()
-            .ok_or(ClarirsError::TypeError("Expected AstRef".to_string()))
-    }
-
-    fn eval_float(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.eval(expr)?
-            .into_float()
-            .ok_or(ClarirsError::TypeError("Expected AstRef".to_string()))
-    }
-
-    fn eval_string(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        self.eval(expr)?
-            .into_string()
-            .ok_or(ClarirsError::TypeError("Expected AstRef".to_string()))
+    fn eval(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
+        self.eval_in_model(expr)
     }
 
     fn is_true(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
@@ -475,135 +458,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
             .ok_or(ClarirsError::TypeError("Expected AstRef".to_string()))
     }
 
-    fn eval_bool_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        let mut results = Vec::new();
-
-        // Simplify and check if concrete
-        let expr = expr.simplify_z3()?;
-        if expr.concrete() {
-            return Ok(vec![expr; n as usize]);
-        }
-
-        // Convert to Z3 once
-        let z3_expr = expr.to_z3()?;
-
-        // Create and fill the Z3 solver once
-        let mut z3_solver = RcSolver::new()?;
-
-        for assertion in &self.assertions {
-            let converted = assertion.to_z3()?;
-            z3_solver.assert(&converted)?;
-        }
-
-        for _ in 0..n {
-            if z3_solver.check()? != z3::Lbool::True {
-                break;
-            }
-
-            let model = z3_solver.model()?;
-            let eval_result = model.eval(&z3_expr)?;
-
-            let solution = AstRef::from_z3(self.context(), eval_result)?;
-            results.push(solution.clone());
-
-            // Add constraint to exclude this solution
-            let neq_constraint = self.context().neq(&expr, &solution)?;
-            let z3_neq = neq_constraint.to_z3()?;
-            z3_solver.assert(&z3_neq)?;
-        }
-
-        Ok(results)
-    }
-
-    fn eval_bitvec_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        let mut results = Vec::new();
-
-        // Simplify and check if concrete
-        let expr = expr.simplify_z3()?;
-        if expr.concrete() {
-            return Ok(vec![expr; n as usize]);
-        }
-
-        // Convert to Z3 once
-        let z3_expr = expr.to_z3()?;
-
-        // Create and fill the Z3 solver once
-        let mut z3_solver = RcSolver::new()?;
-
-        for assertion in &self.assertions {
-            let converted = assertion.to_z3()?;
-            z3_solver.assert(&converted)?;
-        }
-
-        for _ in 0..n {
-            if z3_solver.check()? != z3::Lbool::True {
-                break;
-            }
-
-            let model = z3_solver.model()?;
-            let eval_result = model.eval(&z3_expr)?;
-
-            let solution = AstRef::from_z3(self.context(), eval_result)?;
-            results.push(solution.clone());
-
-            // Add constraint to exclude this solution
-            let neq_constraint = self.context().neq(&expr, &solution)?;
-            let z3_neq = neq_constraint.to_z3()?;
-            z3_solver.assert(&z3_neq)?;
-        }
-
-        Ok(results)
-    }
-
-    fn eval_float_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        let mut results = Vec::new();
-
-        // Simplify and check if concrete
-        let expr = expr.simplify_z3()?;
-        if expr.concrete() {
-            return Ok(vec![expr; n as usize]);
-        }
-
-        // Convert to Z3 once
-        let z3_expr = expr.to_z3()?;
-
-        // Create and fill the Z3 solver once
-        let mut z3_solver = RcSolver::new()?;
-
-        for assertion in &self.assertions {
-            let converted = assertion.to_z3()?;
-            z3_solver.assert(&converted)?;
-        }
-
-        for _ in 0..n {
-            if z3_solver.check()? != z3::Lbool::True {
-                break;
-            }
-
-            let model = z3_solver.model()?;
-            let eval_result = model.eval(&z3_expr)?;
-
-            let solution = AstRef::from_z3(self.context(), eval_result)?;
-            results.push(solution.clone());
-
-            // Add constraint to exclude this solution
-            let neq_constraint = self.context().neq(&expr, &solution)?;
-            let z3_neq = neq_constraint.to_z3()?;
-            z3_solver.assert(&z3_neq)?;
-        }
-
-        Ok(results)
-    }
-
-    fn eval_string_n(
-        &mut self,
-        expr: &AstRef<'c>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+    fn eval_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         let mut results = Vec::new();
 
         // Simplify and check if concrete
@@ -659,8 +514,8 @@ mod tests {
 
         solver.add(&ctx.neq(&x, &y)?)?;
 
-        let x_val = solver.eval_bool(&x).unwrap();
-        let y_val = solver.eval_bool(&y).unwrap();
+        let x_val = solver.eval(&x).unwrap();
+        let y_val = solver.eval(&y).unwrap();
 
         assert_ne!(x_val, y_val);
 
@@ -696,8 +551,8 @@ mod tests {
         solver.add(&ctx.not(&ctx.eq_(&x, &y)?)?).unwrap();
         solver.add(&ctx.eq_(&x, &ctx.true_()?)?).unwrap();
 
-        let x_val = solver.eval_bool(&x).unwrap();
-        let y_val = solver.eval_bool(&y).unwrap();
+        let x_val = solver.eval(&x).unwrap();
+        let y_val = solver.eval(&y).unwrap();
 
         assert_ne!(x_val, y_val);
         assert!(x_val.is_true());
@@ -717,7 +572,7 @@ mod tests {
             let x = ctx.bools("x")?;
             solver.add(&ctx.eq_(&x, &ctx.true_()?)?)?;
 
-            let result = solver.eval_bool(&x)?;
+            let result = solver.eval(&x)?;
             assert!(result.is_true());
 
             Ok(())
@@ -732,8 +587,8 @@ mod tests {
             let f = ctx.false_()?;
 
             assert!(solver.satisfiable()?);
-            let t_result = solver.eval_bool(&t)?;
-            let f_result = solver.eval_bool(&f)?;
+            let t_result = solver.eval(&t)?;
+            let f_result = solver.eval(&f)?;
 
             assert!(t_result.is_true());
             assert!(f_result.is_false());
@@ -749,14 +604,14 @@ mod tests {
             // Test with concrete value
             let t = ctx.true_()?;
             let not_t = ctx.not(&t)?;
-            let result = solver.eval_bool(&not_t)?;
+            let result = solver.eval(&not_t)?;
             assert!(result.is_false());
 
             // Test with symbolic value
             let x = ctx.bools("x")?;
             solver.add(&ctx.eq_(&x, &ctx.true_()?)?)?;
             let not_x = ctx.not(&x)?;
-            let result = solver.eval_bool(&not_x)?;
+            let result = solver.eval(&not_x)?;
             assert!(result.is_false());
 
             Ok(())
@@ -771,10 +626,10 @@ mod tests {
             let t = ctx.true_()?;
             let f = ctx.false_()?;
 
-            let tt = solver.eval_bool(&ctx.and2(&t, &t)?)?;
-            let tf = solver.eval_bool(&ctx.and2(&t, &f)?)?;
-            let ft = solver.eval_bool(&ctx.and2(&f, &t)?)?;
-            let ff = solver.eval_bool(&ctx.and2(&f, &f)?)?;
+            let tt = solver.eval(&ctx.and2(&t, &t)?)?;
+            let tf = solver.eval(&ctx.and2(&t, &f)?)?;
+            let ft = solver.eval(&ctx.and2(&f, &t)?)?;
+            let ff = solver.eval(&ctx.and2(&f, &f)?)?;
 
             assert!(tt.is_true());
             assert!(tf.is_false());
@@ -787,7 +642,7 @@ mod tests {
             solver.add(&ctx.eq_(&x, &ctx.true_()?)?)?;
             solver.add(&ctx.eq_(&y, &ctx.false_()?)?)?;
 
-            let result = solver.eval_bool(&ctx.and2(&x, &y)?)?;
+            let result = solver.eval(&ctx.and2(&x, &y)?)?;
             assert!(result.is_false());
 
             Ok(())
@@ -802,10 +657,10 @@ mod tests {
             let t = ctx.true_()?;
             let f = ctx.false_()?;
 
-            let tt = solver.eval_bool(&ctx.or2(&t, &t)?)?;
-            let tf = solver.eval_bool(&ctx.or2(&t, &f)?)?;
-            let ft = solver.eval_bool(&ctx.or2(&f, &t)?)?;
-            let ff = solver.eval_bool(&ctx.or2(&f, &f)?)?;
+            let tt = solver.eval(&ctx.or2(&t, &t)?)?;
+            let tf = solver.eval(&ctx.or2(&t, &f)?)?;
+            let ft = solver.eval(&ctx.or2(&f, &t)?)?;
+            let ff = solver.eval(&ctx.or2(&f, &f)?)?;
 
             assert!(tt.is_true());
             assert!(tf.is_true());
@@ -818,7 +673,7 @@ mod tests {
             solver.add(&ctx.eq_(&x, &ctx.false_()?)?)?;
             solver.add(&ctx.eq_(&y, &ctx.true_()?)?)?;
 
-            let result = solver.eval_bool(&ctx.or2(&x, &y)?)?;
+            let result = solver.eval(&ctx.or2(&x, &y)?)?;
             assert!(result.is_true());
 
             Ok(())
@@ -833,10 +688,10 @@ mod tests {
             let t = ctx.true_()?;
             let f = ctx.false_()?;
 
-            let tt = solver.eval_bool(&ctx.xor2(&t, &t)?)?;
-            let tf = solver.eval_bool(&ctx.xor2(&t, &f)?)?;
-            let ft = solver.eval_bool(&ctx.xor2(&f, &t)?)?;
-            let ff = solver.eval_bool(&ctx.xor2(&f, &f)?)?;
+            let tt = solver.eval(&ctx.xor2(&t, &t)?)?;
+            let tf = solver.eval(&ctx.xor2(&t, &f)?)?;
+            let ft = solver.eval(&ctx.xor2(&f, &t)?)?;
+            let ff = solver.eval(&ctx.xor2(&f, &f)?)?;
 
             assert!(tt.is_false());
             assert!(tf.is_true());
@@ -849,7 +704,7 @@ mod tests {
             solver.add(&ctx.eq_(&x, &ctx.true_()?)?)?;
             solver.add(&ctx.eq_(&y, &ctx.true_()?)?)?;
 
-            let result = solver.eval_bool(&ctx.xor2(&x, &y)?)?;
+            let result = solver.eval(&ctx.xor2(&x, &y)?)?;
             assert!(result.is_false());
 
             Ok(())
@@ -864,8 +719,8 @@ mod tests {
             let t = ctx.true_()?;
             let f = ctx.false_()?;
 
-            let tt = solver.eval_bool(&ctx.eq_(&t, &t)?)?;
-            let tf = solver.eval_bool(&ctx.eq_(&t, &f)?)?;
+            let tt = solver.eval(&ctx.eq_(&t, &t)?)?;
+            let tf = solver.eval(&ctx.eq_(&t, &f)?)?;
 
             assert!(tt.is_true());
             assert!(tf.is_false());
@@ -876,7 +731,7 @@ mod tests {
             solver.add(&ctx.eq_(&x, &ctx.true_()?)?)?;
             solver.add(&ctx.eq_(&y, &ctx.true_()?)?)?;
 
-            let result = solver.eval_bool(&ctx.eq_(&x, &y)?)?;
+            let result = solver.eval(&ctx.eq_(&x, &y)?)?;
             assert!(result.is_true());
 
             Ok(())
@@ -891,8 +746,8 @@ mod tests {
             let t = ctx.true_()?;
             let f = ctx.false_()?;
 
-            let tt = solver.eval_bool(&ctx.neq(&t, &t)?)?;
-            let tf = solver.eval_bool(&ctx.neq(&t, &f)?)?;
+            let tt = solver.eval(&ctx.neq(&t, &t)?)?;
+            let tf = solver.eval(&ctx.neq(&t, &f)?)?;
 
             assert!(tt.is_false());
             assert!(tf.is_true());
@@ -903,7 +758,7 @@ mod tests {
             solver.add(&ctx.eq_(&x, &ctx.true_()?)?)?;
             solver.add(&ctx.eq_(&y, &ctx.false_()?)?)?;
 
-            let result = solver.eval_bool(&ctx.neq(&x, &y)?)?;
+            let result = solver.eval(&ctx.neq(&x, &y)?)?;
             assert!(result.is_true());
 
             Ok(())
@@ -918,8 +773,8 @@ mod tests {
             let t = ctx.true_()?;
             let f = ctx.false_()?;
 
-            let tt = solver.eval_bool(&ctx.ite(&t, &t, &f)?)?;
-            let tf = solver.eval_bool(&ctx.ite(&f, &t, &f)?)?;
+            let tt = solver.eval(&ctx.ite(&t, &t, &f)?)?;
+            let tf = solver.eval(&ctx.ite(&f, &t, &f)?)?;
 
             assert!(tt.is_true());
             assert!(tf.is_false());
@@ -933,7 +788,7 @@ mod tests {
             solver.add(&ctx.eq_(&x, &ctx.true_()?)?)?;
             solver.add(&ctx.eq_(&y, &ctx.false_()?)?)?;
 
-            let result = solver.eval_bool(&ctx.ite(c, x, y)?)?;
+            let result = solver.eval(&ctx.ite(c, x, y)?)?;
             assert!(result.is_true());
 
             Ok(())
