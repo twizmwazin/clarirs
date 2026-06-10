@@ -11,8 +11,8 @@ pub(crate) fn simplify_string<'c>(
         AstOp::StringS(_) | AstOp::StringV(_) => Ok(string_expr),
         AstOp::StrConcat(..) => {
             let (arc, arc1) = (
-                state.get_string_simplified(0)?,
-                state.get_string_simplified(1)?,
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
             );
             match (arc.op(), arc1.op()) {
                 (AstOp::StringV(str1), AstOp::StringV(str2)) => {
@@ -24,9 +24,9 @@ pub(crate) fn simplify_string<'c>(
         }
         AstOp::StrSubstr(..) => {
             let (arc, arc1, arc2) = (
-                state.get_string_simplified(0)?,
-                state.get_bv_simplified(1)?,
-                state.get_bv_simplified(2)?,
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+                state.get_child_simplified(2)?,
             );
             match (arc.op(), arc1.op(), arc2.op()) {
                 (AstOp::StringV(s), AstOp::BVV(start_bv), AstOp::BVV(length_bv)) => {
@@ -53,9 +53,9 @@ pub(crate) fn simplify_string<'c>(
         }
         AstOp::StrReplace(..) => {
             let (arc, arc1, arc2) = (
-                state.get_string_simplified(0)?,
-                state.get_string_simplified(1)?,
-                state.get_string_simplified(2)?,
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+                state.get_child_simplified(2)?,
             );
             match (arc.op(), arc1.op(), arc2.op()) {
                 (AstOp::StringV(initial), AstOp::StringV(pattern), AstOp::StringV(replacement)) => {
@@ -69,7 +69,7 @@ pub(crate) fn simplify_string<'c>(
             }
         }
         AstOp::BVToStr(..) => {
-            let arc = state.get_bv_simplified(0)?;
+            let arc = state.get_child_simplified(0)?;
             match arc.op() {
                 AstOp::BVV(value) => {
                     // Convert the BitVec value to an integer, then to a string
@@ -83,9 +83,9 @@ pub(crate) fn simplify_string<'c>(
         }
         AstOp::ITE(..) => {
             let (if_, then_, else_) = (
-                state.get_bool_simplified(0)?,
-                state.get_string_simplified(1)?,
-                state.get_string_simplified(2)?,
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+                state.get_child_simplified(2)?,
             );
 
             // If both branches are identical, return either one

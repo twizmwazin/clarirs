@@ -50,7 +50,7 @@ pub fn walk_post_order<'c, T>(
     while let Some(mut state) = stack.pop() {
         if state.children_processed == state.num_children {
             // All children processed, process this node
-            result_queue.push_back(cache.get_or_insert(state.node.inner_hash(), || {
+            result_queue.push_back(cache.get_or_insert(state.node.hash(), || {
                 callback(state.node.clone(), &state.child_results)
             })?);
         } else {
@@ -83,44 +83,6 @@ pub fn walk_post_order<'c, T>(
 
     // The final result should be the only one in the queue
     result_queue.pop_front().ok_or(ClarirsError::EmptyTraversal)
-}
-
-// Helper functions to extract typed children from AstRef
-
-pub fn bool_child<'c>(children: &[AstRef<'c>], index: usize) -> Result<AstRef<'c>, ClarirsError> {
-    children
-        .get(index)
-        .and_then(|child| child.clone().into_bool())
-        .ok_or(ClarirsError::InvalidArguments(format!(
-            "missing or invalid bool child at index {index}"
-        )))
-}
-
-pub fn bitvec_child<'c>(children: &[AstRef<'c>], index: usize) -> Result<AstRef<'c>, ClarirsError> {
-    children
-        .get(index)
-        .and_then(|child| child.clone().into_bitvec())
-        .ok_or(ClarirsError::InvalidArguments(format!(
-            "missing or invalid bitvec child at index {index}"
-        )))
-}
-
-pub fn float_child<'c>(children: &[AstRef<'c>], index: usize) -> Result<AstRef<'c>, ClarirsError> {
-    children
-        .get(index)
-        .and_then(|child| child.clone().into_float())
-        .ok_or(ClarirsError::InvalidArguments(format!(
-            "missing or invalid float child at index {index}"
-        )))
-}
-
-pub fn string_child<'c>(children: &[AstRef<'c>], index: usize) -> Result<AstRef<'c>, ClarirsError> {
-    children
-        .get(index)
-        .and_then(|child| child.clone().into_string())
-        .ok_or(ClarirsError::InvalidArguments(format!(
-            "missing or invalid string child at index {index}"
-        )))
 }
 
 #[cfg(test)]

@@ -101,7 +101,7 @@ pub fn canonicalize<'c>(
                 AstType::Float(sort) => ctx.fps(canonical_name.as_str(), sort)?,
                 AstType::String => ctx.strings(canonical_name.as_str())?,
             };
-            replacement_map.insert(var.inner_hash(), canonical_var.clone());
+            replacement_map.insert(var.hash(), canonical_var.clone());
             replacements.insert(var.clone(), canonical_var);
         }
     }

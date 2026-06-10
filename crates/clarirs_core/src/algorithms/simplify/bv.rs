@@ -1,7 +1,7 @@
 use num_bigint::{BigInt, BigUint};
 use num_traits::{Num, One, Zero};
 
-use crate::{algorithms::simplify::SimplifyError, ast::bitvec::BitVecOpExt, prelude::*};
+use crate::{algorithms::simplify::SimplifyError, prelude::*};
 
 pub(crate) fn simplify_bv<'c>(
     state: &mut super::SimplifyState<'c>,
@@ -13,7 +13,7 @@ pub(crate) fn simplify_bv<'c>(
     match bv_expr.op() {
         AstOp::BVS(..) | AstOp::BVV(..) => Ok(bv_expr),
         AstOp::Not(..) => {
-            let arc = state.get_bv_simplified(0)?;
+            let arc = state.get_child_simplified(0)?;
             match arc.op() {
                 AstOp::BVV(value) => Ok(ctx.bvv((!value.clone())?)?),
                 _ => Ok(ctx.not(arc)?),
@@ -21,7 +21,7 @@ pub(crate) fn simplify_bv<'c>(
         }
         AstOp::And(_) => {
             // Simplify all children in one batch to avoid quadratic re-runs.
-            let simplified = state.get_all_bv_simplified()?;
+            let simplified = state.get_all_simplified()?;
 
             let size = simplified[0].size();
 
@@ -227,7 +227,7 @@ pub(crate) fn simplify_bv<'c>(
         }
         AstOp::Or(_) => {
             // Simplify all children in one batch to avoid quadratic re-runs.
-            let simplified = state.get_all_bv_simplified()?;
+            let simplified = state.get_all_simplified()?;
 
             let size = simplified[0].size();
             let all_ones =
@@ -345,7 +345,7 @@ pub(crate) fn simplify_bv<'c>(
         }
         AstOp::Xor(_) => {
             // Simplify all children in one batch to avoid quadratic re-runs.
-            let simplified = state.get_all_bv_simplified()?;
+            let simplified = state.get_all_simplified()?;
 
             let size = simplified[0].size();
 
@@ -461,7 +461,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         AstOp::Neg(..) => {
-            let arc = state.get_bv_simplified(0)?;
+            let arc = state.get_child_simplified(0)?;
             match arc.op() {
                 AstOp::BVV(value) => Ok(ctx.bvv((-value.clone())?)?),
                 // -(-x) = x (double negation)
@@ -471,7 +471,7 @@ pub(crate) fn simplify_bv<'c>(
         }
         AstOp::Add(_) => {
             // Simplify all children in one batch to avoid quadratic re-runs.
-            let simplified = state.get_all_bv_simplified()?;
+            let simplified = state.get_all_simplified()?;
 
             let size = simplified[0].size();
 
@@ -569,7 +569,10 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         AstOp::Sub(..) => {
-            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
+            let (arc, arc1) = (
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+            );
             match (arc.op(), arc1.op()) {
                 (AstOp::BVV(value1), AstOp::BVV(value2)) => {
                     Ok(ctx.bvv((value1.clone() - value2.clone())?)?)
@@ -619,7 +622,7 @@ pub(crate) fn simplify_bv<'c>(
         }
         AstOp::Mul(_) => {
             // Simplify all children in one batch to avoid quadratic re-runs.
-            let simplified = state.get_all_bv_simplified()?;
+            let simplified = state.get_all_simplified()?;
 
             let size = simplified[0].size();
 
@@ -689,7 +692,10 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         AstOp::UDiv(..) => {
-            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
+            let (arc, arc1) = (
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+            );
             match (arc.op(), arc1.op()) {
                 (_, AstOp::BVV(v)) if error_on_dbz && v.is_zero() => {
                     Err(SimplifyError::Error(ClarirsError::DivisionByZero))
@@ -702,8 +708,10 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         AstOp::SDiv(..) => {
-            let (dividend_ast, divisor_ast) =
-                (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
+            let (dividend_ast, divisor_ast) = (
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+            );
             match (dividend_ast.op(), divisor_ast.op()) {
                 (_, AstOp::BVV(v)) if error_on_dbz && v.is_zero() => {
                     Err(SimplifyError::Error(ClarirsError::DivisionByZero))
@@ -716,15 +724,20 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         AstOp::URem(..) => {
-            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
+            let (arc, arc1) = (
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+            );
             match (arc.op(), arc1.op()) {
                 (AstOp::BVV(value1), AstOp::BVV(value2)) => Ok(ctx.bvv(value1.urem(value2))?),
                 _ => Ok(ctx.urem(arc, arc1)?),
             }
         }
         AstOp::SRem(..) => {
-            let (dividend_ast, divisor_ast) =
-                (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
+            let (dividend_ast, divisor_ast) = (
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+            );
             match (dividend_ast.op(), divisor_ast.op()) {
                 (AstOp::BVV(dividend_val), AstOp::BVV(divisor_val)) => {
                     Ok(ctx.bvv((dividend_val.srem(divisor_val))?)?)
@@ -733,7 +746,10 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         AstOp::ShL(..) => {
-            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
+            let (arc, arc1) = (
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+            );
             match (arc.op(), arc1.op()) {
                 // Base value is zero
                 (AstOp::BVV(v), _) if v.is_zero() => Ok(arc),
@@ -798,7 +814,10 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         AstOp::LShR(..) => {
-            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
+            let (arc, arc1) = (
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+            );
             match (arc.op(), arc1.op()) {
                 // Base value is zero
                 (AstOp::BVV(v), _) if v.is_zero() => Ok(arc),
@@ -884,7 +903,10 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         AstOp::AShR(..) => {
-            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
+            let (arc, arc1) = (
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+            );
             match (arc.op(), arc1.op()) {
                 // Base value is zero
                 (AstOp::BVV(v), _) if v.is_zero() => Ok(arc),
@@ -935,7 +957,10 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         AstOp::RotateLeft(..) => {
-            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
+            let (arc, arc1) = (
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+            );
             match (arc.op(), arc1.op()) {
                 // Base value is zero
                 (AstOp::BVV(v), _) if v.is_zero() => Ok(arc),
@@ -973,7 +998,10 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         AstOp::RotateRight(..) => {
-            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
+            let (arc, arc1) = (
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+            );
             match (arc.op(), arc1.op()) {
                 // Base value is zero
                 (AstOp::BVV(v), _) if v.is_zero() => Ok(arc),
@@ -1012,7 +1040,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         AstOp::ZeroExt(_, num_bits) => {
-            let arc = state.get_bv_simplified(0)?;
+            let arc = state.get_child_simplified(0)?;
             match (arc.op(), num_bits) {
                 // Zero extension
                 (_, 0) => Ok(arc.clone()),
@@ -1034,7 +1062,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         AstOp::SignExt(_, num_bits) => {
-            let arc = state.get_bv_simplified(0)?;
+            let arc = state.get_child_simplified(0)?;
             match (arc.op(), num_bits) {
                 // Sign extension
                 (_, 0) => Ok(arc.clone()),
@@ -1050,7 +1078,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         AstOp::Extract(_, high, low) => {
-            let arc = state.get_bv_simplified(0)?;
+            let arc = state.get_child_simplified(0)?;
 
             // If the extract bounds are the entire BV, return the inner value as-is
             if *high == arc.size() - 1 && *low == 0 {
@@ -1220,7 +1248,7 @@ pub(crate) fn simplify_bv<'c>(
             // Simplify all children in one batch. Fetching them one at a
             // time would make simplify_inner re-run for every child and
             // turn wide Concats into a quadratic cost.
-            let simplified_args = state.get_all_bv_simplified()?;
+            let simplified_args = state.get_all_simplified()?;
 
             // Flatten nested Concats and filter zero-size args
             let mut flattened: Vec<AstRef<'c>> = Vec::new();
@@ -1334,7 +1362,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         AstOp::ByteReverse(..) => {
-            let arc = state.get_bv_simplified(0)?;
+            let arc = state.get_child_simplified(0)?;
             // Reversing a single byte (or smaller) is the identity.
             if arc.size() <= 8 {
                 return Ok(arc);
@@ -1372,7 +1400,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         AstOp::FpToIEEEBV(..) => {
-            let arc = state.get_fp_simplified(0)?;
+            let arc = state.get_child_simplified(0)?;
             match arc.op() {
                 AstOp::FPV(float) => {
                     // Convert the floating-point value to its IEEE 754 bit representation
@@ -1389,7 +1417,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         AstOp::FpToUBV(_, bit_size, fprm) => {
-            let arc = state.get_fp_simplified(0)?;
+            let arc = state.get_child_simplified(0)?;
             match arc.op() {
                 AstOp::FPV(float) => {
                     // Convert the float to an unsigned integer representation (BigUint)
@@ -1404,7 +1432,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         AstOp::FpToSBV(_, bit_size, fprm) => {
-            let arc = state.get_fp_simplified(0)?;
+            let arc = state.get_child_simplified(0)?;
             match arc.op() {
                 AstOp::FPV(float) => {
                     // Convert the float to a signed integer representation (BigInt)
@@ -1422,7 +1450,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         AstOp::StrLen(..) => {
-            let arc = state.get_string_simplified(0)?;
+            let arc = state.get_child_simplified(0)?;
             match arc.op() {
                 AstOp::StringV(value) => {
                     // chars().count() returns the number of Unicode scalar values
@@ -1434,9 +1462,9 @@ pub(crate) fn simplify_bv<'c>(
         }
         AstOp::StrIndexOf(..) => {
             let (arc, arc1, arc2) = (
-                state.get_string_simplified(0)?,
-                state.get_string_simplified(1)?,
-                state.get_bv_simplified(2)?,
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+                state.get_child_simplified(2)?,
             );
 
             match (arc.op(), arc1.op(), arc2.op()) {
@@ -1479,7 +1507,7 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         AstOp::StrToBV(..) => {
-            let arc = state.get_string_simplified(0)?;
+            let arc = state.get_child_simplified(0)?;
             match arc.op() {
                 AstOp::StringV(string) => {
                     if string.is_empty() {
@@ -1507,9 +1535,9 @@ pub(crate) fn simplify_bv<'c>(
         }
         AstOp::ITE(..) => {
             let (if_, then_, else_) = (
-                state.get_bool_simplified(0)?,
-                state.get_bv_simplified(1)?,
-                state.get_bv_simplified(2)?,
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+                state.get_child_simplified(2)?,
             );
 
             // If both branches are identical, return either one
@@ -1532,21 +1560,30 @@ pub(crate) fn simplify_bv<'c>(
             }
         }
         AstOp::Union(..) => {
-            let (lhs, rhs) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
+            let (lhs, rhs) = (
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+            );
             if lhs == rhs {
                 return Ok(lhs.clone());
             }
             Ok(ctx.union(lhs, rhs)?)
         }
         AstOp::Intersection(..) => {
-            let (lhs, rhs) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
+            let (lhs, rhs) = (
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+            );
             if lhs == rhs {
                 return Ok(lhs.clone());
             }
             Ok(ctx.intersection(lhs, rhs)?)
         }
         AstOp::Widen(..) => {
-            let (lhs, rhs) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
+            let (lhs, rhs) = (
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+            );
             if lhs == rhs {
                 return Ok(lhs.clone());
             }

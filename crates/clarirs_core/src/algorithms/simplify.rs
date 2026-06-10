@@ -97,62 +97,6 @@ impl<'c> SimplifyState<'c> {
         Ok(self.children.iter().map(|c| c.clone().unwrap()).collect())
     }
 
-    fn get_all_bool_simplified(&self) -> Result<Vec<AstRef<'c>>, SimplifyError<'c>> {
-        self.get_all_simplified()?
-            .into_iter()
-            .map(|c| {
-                c.into_bool()
-                    .ok_or(SimplifyError::Error(ClarirsError::TypeError(
-                        "Expected bool child".into(),
-                    )))
-            })
-            .collect()
-    }
-
-    fn get_all_bv_simplified(&self) -> Result<Vec<AstRef<'c>>, SimplifyError<'c>> {
-        self.get_all_simplified()?
-            .into_iter()
-            .map(|c| {
-                c.into_bitvec()
-                    .ok_or(SimplifyError::Error(ClarirsError::TypeError(
-                        "Expected bitvector child".into(),
-                    )))
-            })
-            .collect()
-    }
-
-    fn get_bool_simplified(&mut self, index: usize) -> Result<AstRef<'c>, SimplifyError<'c>> {
-        self.get_child_simplified(index)?
-            .into_bool()
-            .ok_or(SimplifyError::Error(ClarirsError::TypeError(
-                "Expected bool child".into(),
-            )))
-    }
-
-    fn get_bv_simplified(&mut self, index: usize) -> Result<AstRef<'c>, SimplifyError<'c>> {
-        self.get_child_simplified(index)?
-            .into_bitvec()
-            .ok_or(SimplifyError::Error(ClarirsError::TypeError(
-                "Expected bitvector child".into(),
-            )))
-    }
-
-    fn get_fp_simplified(&mut self, index: usize) -> Result<AstRef<'c>, SimplifyError<'c>> {
-        self.get_child_simplified(index)?
-            .into_float()
-            .ok_or(SimplifyError::Error(ClarirsError::TypeError(
-                "Expected float child".into(),
-            )))
-    }
-
-    fn get_string_simplified(&mut self, index: usize) -> Result<AstRef<'c>, SimplifyError<'c>> {
-        self.get_child_simplified(index)?
-            .into_string()
-            .ok_or(SimplifyError::Error(ClarirsError::TypeError(
-                "Expected string child".into(),
-            )))
-    }
-
     /// Get the best available child: if we have a simplified version, return that,
     /// otherwise return the original child.
     fn get_child_available(&self, index: usize) -> AstRef<'c> {
@@ -161,30 +105,6 @@ impl<'c> SimplifyState<'c> {
         } else {
             self.expr.get_child(index).unwrap()
         }
-    }
-
-    fn get_bool_available(&self, index: usize) -> Result<AstRef<'c>, ClarirsError> {
-        self.get_child_available(index)
-            .into_bool()
-            .ok_or(ClarirsError::TypeError("Expected bool child".into()))
-    }
-
-    fn get_bv_available(&self, index: usize) -> Result<AstRef<'c>, ClarirsError> {
-        self.get_child_available(index)
-            .into_bitvec()
-            .ok_or(ClarirsError::TypeError("Expected bitvector child".into()))
-    }
-
-    fn get_fp_available(&self, index: usize) -> Result<AstRef<'c>, ClarirsError> {
-        self.get_child_available(index)
-            .into_float()
-            .ok_or(ClarirsError::TypeError("Expected float child".into()))
-    }
-
-    fn get_string_available(&self, index: usize) -> Result<AstRef<'c>, ClarirsError> {
-        self.get_child_available(index)
-            .into_string()
-            .ok_or(ClarirsError::TypeError("Expected string child".into()))
     }
 
     fn rerun(&self, new_ast: AstRef<'c>) -> Result<AstRef<'c>, SimplifyError<'c>> {
@@ -199,7 +119,7 @@ fn simplify_inner<'c>(
     let expr = &state.expr.clone();
     expr.context()
         .simplification_cache
-        .get_or_insert(state.expr.inner_hash(), || match expr.ty() {
+        .get_or_insert(state.expr.hash(), || match expr.ty() {
             AstType::Bool => bool::simplify_bool(state),
             AstType::BitVec(_) => bv::simplify_bv(state, error_on_dbz),
             AstType::Float(_) => float::simplify_float(state),
@@ -245,14 +165,14 @@ fn simplify<'c>(
                     let annotated = state
                         .expr
                         .context()
-                        .annotate_dyn(&result, relocatable_annotations)?;
+                        .annotate(&result, relocatable_annotations)?;
 
                     // Cache the mapping from the original expression to the
                     // simplified result so that identical unsimplified
                     // sub-expressions elsewhere in the tree get a cache hit.
-                    if state.expr.inner_hash() != annotated.inner_hash() {
+                    if state.expr.hash() != annotated.hash() {
                         let ctx = state.expr.context();
-                        let hash = state.expr.inner_hash();
+                        let hash = state.expr.hash();
                         let annotated_ref = annotated.clone();
                         let _ = ctx
                             .simplification_cache
@@ -306,7 +226,7 @@ fn simplify<'c>(
                         state
                             .expr
                             .context()
-                            .annotate_dyn(&new_ast, relocatable_annotations)?
+                            .annotate(&new_ast, relocatable_annotations)?
                     };
                     // Push a new state with the new_ast onto the stack
                     work_stack.push(SimplifyState::new(new_ast));

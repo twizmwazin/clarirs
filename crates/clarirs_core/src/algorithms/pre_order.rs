@@ -12,7 +12,7 @@ use crate::prelude::*;
 ///   Receives the original node and the transformed children. Only called when
 ///   `pre_visit` returned `None`.
 ///
-/// Shared subtrees (same `inner_hash`) are only processed once; subsequent
+/// Shared subtrees (same `hash`) are only processed once; subsequent
 /// encounters reuse the cached result.
 pub fn walk_pre_order<'c>(
     ast: AstRef<'c>,
@@ -46,21 +46,21 @@ pub fn walk_pre_order<'c>(
 
         if children_done == 0 {
             // First visit — check cache, then pre_visit
-            if let Some(cached) = cache.get(&state.node.inner_hash()) {
+            if let Some(cached) = cache.get(&state.node.hash()) {
                 last_result = Some(cached.clone());
                 continue;
             }
 
             match pre_visit(&state.node)? {
                 Some(result) => {
-                    cache.insert(state.node.inner_hash(), result.clone());
+                    cache.insert(state.node.hash(), result.clone());
                     last_result = Some(result);
                     continue;
                 }
                 None if state.num_children == 0 => {
                     // Leaf node — call post_visit immediately
                     let result = post_visit(state.node.clone(), &[])?;
-                    cache.insert(state.node.inner_hash(), result.clone());
+                    cache.insert(state.node.hash(), result.clone());
                     last_result = Some(result);
                     continue;
                 }
@@ -92,7 +92,7 @@ pub fn walk_pre_order<'c>(
         } else {
             // All children done — call post_visit
             let result = post_visit(state.node.clone(), &state.child_results)?;
-            cache.insert(state.node.inner_hash(), result.clone());
+            cache.insert(state.node.hash(), result.clone());
             last_result = Some(result);
         }
     }

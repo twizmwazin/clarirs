@@ -1,7 +1,5 @@
 pub mod annotation;
-pub mod bitvec;
 pub mod factory;
-pub mod float;
 pub mod node;
 pub mod op;
 pub use annotation::{Annotation, AnnotationType};

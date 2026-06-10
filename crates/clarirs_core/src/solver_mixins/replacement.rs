@@ -56,7 +56,7 @@ impl<'c, S: Solver<'c>> ReplacementSolver<'c, S> {
     /// Add an explicit replacement mapping: occurrences of `old` will be
     /// replaced with `new` in all future queries.
     pub fn add_replacement(&mut self, old: AstRef<'c>, new: AstRef<'c>) {
-        let hash = old.inner_hash();
+        let hash = old.hash();
         self.replacements.insert(hash, new.clone());
         self.replacement_cache.insert(hash, new);
     }

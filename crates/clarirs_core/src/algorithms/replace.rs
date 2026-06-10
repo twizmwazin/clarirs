@@ -61,7 +61,7 @@ impl<'c> Replace<'c> for AstRef<'c> {
         walk_pre_order(
             self.clone(),
             |node| {
-                if let Some(replacement) = replacements.get(&node.inner_hash()) {
+                if let Some(replacement) = replacements.get(&node.hash()) {
                     Ok(Some(replacement.clone()))
                 } else {
                     Ok(None)

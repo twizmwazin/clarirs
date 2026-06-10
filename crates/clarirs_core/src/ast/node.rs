@@ -131,10 +131,6 @@ impl<'c> AstNode<'c> {
         self.hash
     }
 
-    pub fn inner_hash(&self) -> u64 {
-        self.hash
-    }
-
     pub fn symbolic(&self) -> bool {
         self.symbolic
     }
@@ -155,6 +151,25 @@ impl<'c> AstNode<'c> {
     /// default and should not be relied upon; check [`AstType::is_float`] first.
     pub fn sort(&self) -> FSort {
         self.ty.fsort().unwrap_or_else(FSort::f64)
+    }
+
+    /// Chop a bitvector into `bits`-sized pieces, returned in little-endian order.
+    pub fn chop(self: &Arc<Self>, bits: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+        if self.size() % bits != 0 {
+            return Err(ClarirsError::InvalidChopSize {
+                size: self.size(),
+                bits,
+            });
+        }
+        let mut res = vec![];
+        for i in 0..self.size() / bits {
+            res.push(
+                self.context()
+                    .extract(self, ((i + 1) * bits) - 1, i * bits)?,
+            );
+        }
+        res.reverse();
+        Ok(res)
     }
 
     pub fn depth(&self) -> u32 {
@@ -187,7 +202,7 @@ impl<'c> AstNode<'c> {
     }
 
     // Runtime-checked accessors. These replace the previous static dispatch on
-    // the `AstRef` enum.
+    // the `DynAst` enum; each checks the node's cached type tag.
 
     pub fn as_bool(&self) -> Option<&Self> {
         self.ty.is_bool().then_some(self)

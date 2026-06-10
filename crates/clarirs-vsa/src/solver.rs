@@ -1,4 +1,4 @@
-use clarirs_core::{ast::bitvec::BitVecOpExt, prelude::*};
+use clarirs_core::prelude::*;
 use num_traits::Signed;
 
 use crate::{reduce::Reduce, strided_interval::ComparisonResult};

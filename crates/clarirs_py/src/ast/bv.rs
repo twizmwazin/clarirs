@@ -6,7 +6,6 @@ use std::sync::LazyLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use clarirs_core::algorithms::{canonicalize, structurally_match};
-use clarirs_core::ast::bitvec::{BitVecAstExt, BitVecOpExt};
 use clarirs_vsa::cardinality::Cardinality;
 use clarirs_vsa::reduce::Reduce;
 use dashmap::DashMap;
@@ -523,7 +522,7 @@ impl BV {
         let inner = self
             .inner
             .context()
-            .make_bitvec_annotated(self.inner.op().clone(), new_annotations)?;
+            .make_annotated(self.inner.op().clone(), new_annotations)?;
         Self::new(py, &inner)
     }
 
@@ -544,7 +543,7 @@ impl BV {
         py: Python<'py>,
         annotations: Vec<PyAnnotation>,
     ) -> Result<Bound<'py, Self>, ClaripyError> {
-        let inner = self.inner.context().make_bitvec_annotated(
+        let inner = self.inner.context().make_annotated(
             self.inner.op().clone(),
             annotations.into_iter().map(|a| a.0).collect(),
         )?;
@@ -556,7 +555,7 @@ impl BV {
         py: Python<'py>,
         annotation: PyAnnotation,
     ) -> Result<Bound<'py, Self>, ClaripyError> {
-        let inner = self.inner.context().make_bitvec_annotated(
+        let inner = self.inner.context().make_annotated(
             self.inner.op().clone(),
             self.inner
                 .annotations()
@@ -574,7 +573,7 @@ impl BV {
         annotations: Vec<PyAnnotation>,
     ) -> Result<Bound<'py, Self>, ClaripyError> {
         let annotations_set: BTreeSet<_> = annotations.into_iter().map(|a| a.0).collect();
-        let inner = self.inner.context().make_bitvec_annotated(
+        let inner = self.inner.context().make_annotated(
             self.inner.op().clone(),
             self.inner
                 .annotations()
@@ -590,7 +589,7 @@ impl BV {
         &self,
         py: Python<'py>,
     ) -> Result<Bound<'py, Self>, ClaripyError> {
-        let inner = self.inner.context().make_bitvec(self.inner.op().clone())?;
+        let inner = self.inner.context().make(self.inner.op().clone())?;
         Self::new(py, &inner)
     }
 
@@ -599,7 +598,7 @@ impl BV {
         py: Python<'py>,
         annotation_type: PyAnnotationType,
     ) -> Result<Bound<'py, Self>, ClaripyError> {
-        let inner = self.inner.context().make_bitvec_annotated(
+        let inner = self.inner.context().make_annotated(
             self.inner.op().clone(),
             self.inner
                 .annotations()

@@ -1,5 +1,5 @@
 use super::SimplifyError;
-use crate::{ast::bitvec::BitVecOpExt, prelude::*};
+use crate::prelude::*;
 
 pub(crate) fn simplify_bool<'c>(
     state: &mut super::SimplifyState<'c>,
@@ -10,7 +10,7 @@ pub(crate) fn simplify_bool<'c>(
     match bool_ast.op() {
         AstOp::BoolS(_) | AstOp::BoolV(_) => Ok(bool_ast),
         AstOp::Not(..) => {
-            let arc = state.get_bool_simplified(0)?;
+            let arc = state.get_child_simplified(0)?;
 
             match arc.op() {
                 AstOp::Not(arc) => Ok(arc.clone()),
@@ -41,8 +41,8 @@ pub(crate) fn simplify_bool<'c>(
         }
         AstOp::And(args) => {
             let available_args = (0..args.len())
-                .map(|i| state.get_bool_available(i))
-                .collect::<Result<Vec<_>, _>>()?;
+                .map(|i| state.get_child_available(i))
+                .collect::<Vec<_>>();
 
             // Absorption simplification
             let absorbed_args = available_args
@@ -126,13 +126,13 @@ pub(crate) fn simplify_bool<'c>(
 
             // Simplify all children in one batch to avoid quadratic re-runs
             // for wide And.
-            let simplified_args = state.get_all_bool_simplified()?;
+            let simplified_args = state.get_all_simplified()?;
             Ok(ctx.and(simplified_args)?)
         }
         AstOp::Or(args) => {
             let available_args = (0..args.len())
-                .map(|i| state.get_bool_available(i))
-                .collect::<Result<Vec<_>, _>>()?;
+                .map(|i| state.get_child_available(i))
+                .collect::<Vec<_>>();
 
             // Absorption simplification
             let absorbed_args = available_args
@@ -216,68 +216,77 @@ pub(crate) fn simplify_bool<'c>(
 
             // Simplify all children in one batch to avoid quadratic re-runs
             // for wide Or.
-            let simplified_args = state.get_all_bool_simplified()?;
+            let simplified_args = state.get_all_simplified()?;
             Ok(ctx.or(simplified_args)?)
         }
         AstOp::BoolXor(..) => {
-            let early_lhs = state.get_bool_available(0)?;
-            let early_rhs = state.get_bool_available(1)?;
+            let early_lhs = state.get_child_available(0);
+            let early_rhs = state.get_child_available(1);
 
             match (early_lhs.op(), early_rhs.op()) {
                 (AstOp::BoolV(lhs), AstOp::BoolV(rhs)) => Ok(ctx.boolv(*lhs ^ *rhs)?),
-                (AstOp::BoolV(true), _) => Ok(ctx.not(state.get_bool_simplified(1)?)?),
-                (_, AstOp::BoolV(true)) => Ok(ctx.not(state.get_bool_simplified(0)?)?),
-                (AstOp::BoolV(false), _) => Ok(state.get_bool_simplified(1)?),
-                (_, AstOp::BoolV(false)) => Ok(state.get_bool_simplified(0)?),
+                (AstOp::BoolV(true), _) => Ok(ctx.not(state.get_child_simplified(1)?)?),
+                (_, AstOp::BoolV(true)) => Ok(ctx.not(state.get_child_simplified(0)?)?),
+                (AstOp::BoolV(false), _) => Ok(state.get_child_simplified(1)?),
+                (_, AstOp::BoolV(false)) => Ok(state.get_child_simplified(0)?),
                 (AstOp::Not(lhs), rhs) if lhs.op() == rhs => Ok(ctx.true_()?),
                 (lhs, AstOp::Not(rhs)) if lhs == rhs.op() => Ok(ctx.true_()?),
                 (AstOp::Not(lhs), AstOp::Not(rhs)) => state.rerun(ctx.xor(lhs, rhs)?),
                 _ if early_lhs == early_rhs => Ok(ctx.false_()?),
-                _ => Ok(ctx.xor(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
+                _ => Ok(ctx.xor(
+                    state.get_child_simplified(0)?,
+                    state.get_child_simplified(1)?,
+                )?),
             }
         }
         AstOp::Eq(..) => match state.get_child_available(0).ty() {
             AstType::Bool => {
-                let early_lhs = state.get_bool_available(0)?;
-                let early_rhs = state.get_bool_available(1)?;
+                let early_lhs = state.get_child_available(0);
+                let early_rhs = state.get_child_available(1);
 
                 match (early_lhs.op(), early_rhs.op()) {
                     (AstOp::BoolV(arc), AstOp::BoolV(arc1)) => Ok(ctx.boolv(arc == arc1)?),
-                    (AstOp::BoolV(true), _) => Ok(state.get_bool_simplified(1)?),
-                    (_, AstOp::BoolV(true)) => Ok(state.get_bool_simplified(0)?),
-                    (AstOp::BoolV(false), _) => Ok(ctx.not(state.get_bool_simplified(1)?)?),
-                    (_, AstOp::BoolV(false)) => Ok(ctx.not(state.get_bool_simplified(0)?)?),
+                    (AstOp::BoolV(true), _) => Ok(state.get_child_simplified(1)?),
+                    (_, AstOp::BoolV(true)) => Ok(state.get_child_simplified(0)?),
+                    (AstOp::BoolV(false), _) => Ok(ctx.not(state.get_child_simplified(1)?)?),
+                    (_, AstOp::BoolV(false)) => Ok(ctx.not(state.get_child_simplified(0)?)?),
                     // a == a -> true. Even when floats are involved, this is a boolean
                     // identity: both sides are the same expression and evaluate to the same
                     // value (NaN only affects fp== itself, not bool== of two equal booleans).
                     _ if early_lhs == early_rhs => Ok(ctx.true_()?),
-                    _ => Ok(ctx.eq_(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
+                    _ => Ok(ctx.eq_(
+                        state.get_child_simplified(0)?,
+                        state.get_child_simplified(1)?,
+                    )?),
                 }
             }
             AstType::Float(_) => {
-                let early_lhs = state.get_fp_available(0)?;
-                let early_rhs = state.get_fp_available(1)?;
+                let early_lhs = state.get_child_available(0);
+                let early_rhs = state.get_child_available(1);
 
                 match (early_lhs.op(), early_rhs.op()) {
                     (AstOp::FPV(arc), AstOp::FPV(arc1)) => Ok(ctx.boolv(arc.compare_fp(arc1))?),
-                    _ => Ok(ctx.fp_eq(state.get_fp_simplified(0)?, state.get_fp_simplified(1)?)?),
+                    _ => Ok(ctx.fp_eq(
+                        state.get_child_simplified(0)?,
+                        state.get_child_simplified(1)?,
+                    )?),
                 }
             }
             AstType::String => {
-                let early_lhs = state.get_string_available(0)?;
-                let early_rhs = state.get_string_available(1)?;
+                let early_lhs = state.get_child_available(0);
+                let early_rhs = state.get_child_available(1);
 
                 match (early_lhs.op(), early_rhs.op()) {
                     (AstOp::StringV(str1), AstOp::StringV(str2)) => Ok(ctx.boolv(str1 == str2)?),
                     _ => Ok(ctx.str_eq(
-                        state.get_string_simplified(0)?,
-                        state.get_string_simplified(1)?,
+                        state.get_child_simplified(0)?,
+                        state.get_child_simplified(1)?,
                     )?),
                 }
             }
             AstType::BitVec(_) => {
-                let early_lhs = state.get_bv_available(0)?;
-                let early_rhs = state.get_bv_available(1)?;
+                let early_lhs = state.get_child_available(0);
+                let early_rhs = state.get_child_available(1);
 
                 match (early_lhs.op(), early_rhs.op()) {
                     (lhs, rhs) if lhs == rhs => Ok(ctx.true_()?),
@@ -352,7 +361,10 @@ pub(crate) fn simplify_bool<'c>(
                                 return state.rerun(cond.clone());
                             }
                         }
-                        Ok(ctx.eq_(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?)
+                        Ok(ctx.eq_(
+                            state.get_child_simplified(0)?,
+                            state.get_child_simplified(1)?,
+                        )?)
                     }
 
                     // (ite cond 1 0) == 1  ==>  cond
@@ -371,7 +383,10 @@ pub(crate) fn simplify_bool<'c>(
                                 return state.rerun(ctx.not(cond.clone())?);
                             }
                         }
-                        Ok(ctx.eq_(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?)
+                        Ok(ctx.eq_(
+                            state.get_child_simplified(0)?,
+                            state.get_child_simplified(1)?,
+                        )?)
                     }
 
                     // (x - C) == 0  ==>  x == C
@@ -410,52 +425,61 @@ pub(crate) fn simplify_bool<'c>(
                         }
                     }
 
-                    _ => Ok(ctx.eq_(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
+                    _ => Ok(ctx.eq_(
+                        state.get_child_simplified(0)?,
+                        state.get_child_simplified(1)?,
+                    )?),
                 }
             }
         },
         AstOp::Neq(..) => match state.get_child_available(0).ty() {
             AstType::Bool => {
-                let early_lhs = state.get_bool_available(0)?;
-                let early_rhs = state.get_bool_available(1)?;
+                let early_lhs = state.get_child_available(0);
+                let early_rhs = state.get_child_available(1);
 
                 match (early_lhs.op(), early_rhs.op()) {
                     (AstOp::BoolV(arc), AstOp::BoolV(arc1)) => Ok(ctx.boolv(arc != arc1)?),
-                    (AstOp::BoolV(true), _) => Ok(ctx.not(state.get_bool_simplified(1)?)?),
-                    (_, AstOp::BoolV(true)) => Ok(ctx.not(state.get_bool_simplified(0)?)?),
-                    (AstOp::BoolV(false), _) => Ok(state.get_bool_simplified(1)?),
-                    (_, AstOp::BoolV(false)) => Ok(state.get_bool_simplified(0)?),
+                    (AstOp::BoolV(true), _) => Ok(ctx.not(state.get_child_simplified(1)?)?),
+                    (_, AstOp::BoolV(true)) => Ok(ctx.not(state.get_child_simplified(0)?)?),
+                    (AstOp::BoolV(false), _) => Ok(state.get_child_simplified(1)?),
+                    (_, AstOp::BoolV(false)) => Ok(state.get_child_simplified(0)?),
                     // a != a -> false. Even when floats are involved, this is a boolean
                     // identity: both sides are the same expression and evaluate to the same
                     // value (NaN only affects fp!= itself, not bool!= of two equal booleans).
                     _ if early_lhs == early_rhs => Ok(ctx.false_()?),
-                    _ => Ok(ctx.neq(state.get_bool_simplified(0)?, state.get_bool_simplified(1)?)?),
+                    _ => Ok(ctx.neq(
+                        state.get_child_simplified(0)?,
+                        state.get_child_simplified(1)?,
+                    )?),
                 }
             }
             AstType::Float(_) => {
-                let early_lhs = state.get_fp_available(0)?;
-                let early_rhs = state.get_fp_available(1)?;
+                let early_lhs = state.get_child_available(0);
+                let early_rhs = state.get_child_available(1);
 
                 match (early_lhs.op(), early_rhs.op()) {
                     (AstOp::FPV(arc), AstOp::FPV(arc1)) => Ok(ctx.boolv(!arc.compare_fp(arc1))?),
-                    _ => Ok(ctx.fp_neq(state.get_fp_simplified(0)?, state.get_fp_simplified(1)?)?),
+                    _ => Ok(ctx.fp_neq(
+                        state.get_child_simplified(0)?,
+                        state.get_child_simplified(1)?,
+                    )?),
                 }
             }
             AstType::String => {
-                let early_lhs = state.get_string_available(0)?;
-                let early_rhs = state.get_string_available(1)?;
+                let early_lhs = state.get_child_available(0);
+                let early_rhs = state.get_child_available(1);
 
                 match (early_lhs.op(), early_rhs.op()) {
                     (AstOp::StringV(str1), AstOp::StringV(str2)) => Ok(ctx.boolv(str1 != str2)?),
                     _ => Ok(ctx.str_neq(
-                        state.get_string_simplified(0)?,
-                        state.get_string_simplified(1)?,
+                        state.get_child_simplified(0)?,
+                        state.get_child_simplified(1)?,
                     )?),
                 }
             }
             AstType::BitVec(_) => {
-                let early_lhs = state.get_bv_available(0)?;
-                let early_rhs = state.get_bv_available(1)?;
+                let early_lhs = state.get_child_available(0);
+                let early_rhs = state.get_child_available(1);
 
                 match (early_lhs.op(), early_rhs.op()) {
                     (AstOp::BVV(arc), AstOp::BVV(arc1)) => Ok(ctx.boolv(arc != arc1)?),
@@ -530,7 +554,10 @@ pub(crate) fn simplify_bool<'c>(
                                 return state.rerun(ctx.not(cond.clone())?);
                             }
                         }
-                        Ok(ctx.neq(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?)
+                        Ok(ctx.neq(
+                            state.get_child_simplified(0)?,
+                            state.get_child_simplified(1)?,
+                        )?)
                     }
 
                     // (ite cond 1 0) != 1  ==>  !cond
@@ -549,7 +576,10 @@ pub(crate) fn simplify_bool<'c>(
                                 return state.rerun(cond.clone());
                             }
                         }
-                        Ok(ctx.neq(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?)
+                        Ok(ctx.neq(
+                            state.get_child_simplified(0)?,
+                            state.get_child_simplified(1)?,
+                        )?)
                     }
 
                     // (x - C) != 0  ==>  x != C
@@ -588,12 +618,18 @@ pub(crate) fn simplify_bool<'c>(
                         }
                     }
 
-                    _ => Ok(ctx.neq(state.get_bv_simplified(0)?, state.get_bv_simplified(1)?)?),
+                    _ => Ok(ctx.neq(
+                        state.get_child_simplified(0)?,
+                        state.get_child_simplified(1)?,
+                    )?),
                 }
             }
         },
         AstOp::ULT(..) => {
-            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
+            let (arc, arc1) = (
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+            );
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => Ok(ctx.false_()?),
                 (AstOp::BVV(arc), AstOp::BVV(arc1)) => Ok(ctx.boolv(arc < arc1)?),
@@ -801,7 +837,10 @@ pub(crate) fn simplify_bool<'c>(
             }
         }
         AstOp::ULE(..) => {
-            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
+            let (arc, arc1) = (
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+            );
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => Ok(ctx.true_()?),
                 (AstOp::BVV(arc), AstOp::BVV(arc1)) => Ok(ctx.boolv(arc <= arc1)?),
@@ -1004,7 +1043,10 @@ pub(crate) fn simplify_bool<'c>(
             }
         }
         AstOp::UGT(..) => {
-            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
+            let (arc, arc1) = (
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+            );
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => Ok(ctx.false_()?),
                 (AstOp::BVV(arc), AstOp::BVV(arc1)) => Ok(ctx.boolv(arc > arc1)?),
@@ -1206,7 +1248,10 @@ pub(crate) fn simplify_bool<'c>(
             }
         }
         AstOp::UGE(..) => {
-            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
+            let (arc, arc1) = (
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+            );
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => Ok(ctx.true_()?),
                 (AstOp::BVV(arc), AstOp::BVV(arc1)) => Ok(ctx.boolv(arc >= arc1)?),
@@ -1414,7 +1459,10 @@ pub(crate) fn simplify_bool<'c>(
             }
         }
         AstOp::SLT(..) => {
-            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
+            let (arc, arc1) = (
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+            );
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => Ok(ctx.false_()?),
                 (AstOp::BVV(arc), AstOp::BVV(arc1)) => Ok(ctx.boolv(arc.signed_lt(arc1))?),
@@ -1422,7 +1470,10 @@ pub(crate) fn simplify_bool<'c>(
             }
         }
         AstOp::SLE(..) => {
-            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
+            let (arc, arc1) = (
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+            );
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => Ok(ctx.true_()?),
                 (AstOp::BVV(arc), AstOp::BVV(arc1)) => Ok(ctx.boolv(arc.signed_le(arc1))?),
@@ -1430,7 +1481,10 @@ pub(crate) fn simplify_bool<'c>(
             }
         }
         AstOp::SGT(..) => {
-            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
+            let (arc, arc1) = (
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+            );
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => Ok(ctx.false_()?),
                 (AstOp::BVV(arc), AstOp::BVV(arc1)) => Ok(ctx.boolv(arc.signed_gt(arc1))?),
@@ -1438,7 +1492,10 @@ pub(crate) fn simplify_bool<'c>(
             }
         }
         AstOp::SGE(..) => {
-            let (arc, arc1) = (state.get_bv_simplified(0)?, state.get_bv_simplified(1)?);
+            let (arc, arc1) = (
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+            );
             match (arc.op(), arc1.op()) {
                 (lhs, rhs) if lhs == rhs => Ok(ctx.true_()?),
                 (AstOp::BVV(arc), AstOp::BVV(arc1)) => Ok(ctx.boolv(arc.signed_ge(arc1))?),
@@ -1446,42 +1503,54 @@ pub(crate) fn simplify_bool<'c>(
             }
         }
         AstOp::FpLt(..) => {
-            let (arc, arc1) = (state.get_fp_simplified(0)?, state.get_fp_simplified(1)?);
+            let (arc, arc1) = (
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+            );
             match (arc.op(), arc1.op()) {
                 (AstOp::FPV(arc), AstOp::FPV(arc1)) => Ok(ctx.boolv(arc.lt(arc1))?),
                 _ => Ok(ctx.fp_lt(arc, arc1)?),
             }
         }
         AstOp::FpLeq(..) => {
-            let (arc, arc1) = (state.get_fp_simplified(0)?, state.get_fp_simplified(1)?);
+            let (arc, arc1) = (
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+            );
             match (arc.op(), arc1.op()) {
                 (AstOp::FPV(arc), AstOp::FPV(arc1)) => Ok(ctx.boolv(arc.leq(arc1))?),
                 _ => Ok(ctx.fp_leq(arc, arc1)?),
             }
         }
         AstOp::FpGt(..) => {
-            let (arc, arc1) = (state.get_fp_simplified(0)?, state.get_fp_simplified(1)?);
+            let (arc, arc1) = (
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+            );
             match (arc.op(), arc1.op()) {
                 (AstOp::FPV(arc), AstOp::FPV(arc1)) => Ok(ctx.boolv(arc.gt(arc1))?),
                 _ => Ok(ctx.fp_gt(arc, arc1)?),
             }
         }
         AstOp::FpGeq(..) => {
-            let (arc, arc1) = (state.get_fp_simplified(0)?, state.get_fp_simplified(1)?);
+            let (arc, arc1) = (
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
+            );
             match (arc.op(), arc1.op()) {
                 (AstOp::FPV(arc), AstOp::FPV(arc1)) => Ok(ctx.boolv(arc.geq(arc1))?),
                 _ => Ok(ctx.fp_geq(arc, arc1)?),
             }
         }
         AstOp::FpIsNan(..) => {
-            let arc = state.get_fp_simplified(0)?;
+            let arc = state.get_child_simplified(0)?;
             match arc.op() {
                 AstOp::FPV(arc) => Ok(ctx.boolv(arc.is_nan())?),
                 _ => Ok(ctx.fp_is_nan(arc)?),
             }
         }
         AstOp::FpIsInf(..) => {
-            let arc = state.get_fp_simplified(0)?;
+            let arc = state.get_child_simplified(0)?;
             match arc.op() {
                 AstOp::FPV(arc) => Ok(ctx.boolv(arc.is_infinity())?),
                 _ => Ok(ctx.fp_is_inf(arc)?),
@@ -1489,8 +1558,8 @@ pub(crate) fn simplify_bool<'c>(
         }
         AstOp::StrContains(..) => {
             let (arc, arc1) = (
-                state.get_string_simplified(0)?,
-                state.get_string_simplified(1)?,
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
             );
             match (arc.op(), arc1.op()) {
                 // Check if `input_string` contains `substring`
@@ -1502,8 +1571,8 @@ pub(crate) fn simplify_bool<'c>(
         }
         AstOp::StrPrefixOf(..) => {
             let (arc, arc1) = (
-                state.get_string_simplified(0)?,
-                state.get_string_simplified(1)?,
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
             );
             match (arc.op(), arc1.op()) {
                 // Check if `input_string` starts with `prefix substring`
@@ -1515,8 +1584,8 @@ pub(crate) fn simplify_bool<'c>(
         }
         AstOp::StrSuffixOf(..) => {
             let (arc, arc1) = (
-                state.get_string_simplified(0)?,
-                state.get_string_simplified(1)?,
+                state.get_child_simplified(0)?,
+                state.get_child_simplified(1)?,
             );
             match (arc.op(), arc1.op()) {
                 // Check if `input_string` ends with `suffix substring`
@@ -1527,7 +1596,7 @@ pub(crate) fn simplify_bool<'c>(
             }
         }
         AstOp::StrIsDigit(..) => {
-            let arc = state.get_string_simplified(0)?;
+            let arc = state.get_child_simplified(0)?;
             match arc.op() {
                 AstOp::StringV(input_string) => {
                     if input_string.is_empty() {
@@ -1541,17 +1610,17 @@ pub(crate) fn simplify_bool<'c>(
         }
 
         AstOp::ITE(..) => {
-            let cond = state.get_bool_simplified(0)?;
-            let early_then = state.get_bool_available(1)?;
-            let early_else = state.get_bool_available(2)?;
+            let cond = state.get_child_simplified(0)?;
+            let early_then = state.get_child_available(1);
+            let early_else = state.get_child_available(2);
 
             match (cond.op(), early_then.op(), early_else.op()) {
                 // Concrete condition cases
-                (AstOp::BoolV(true), _, _) => state.get_bool_simplified(1),
-                (AstOp::BoolV(false), _, _) => state.get_bool_simplified(2),
+                (AstOp::BoolV(true), _, _) => state.get_child_simplified(1),
+                (AstOp::BoolV(false), _, _) => state.get_child_simplified(2),
 
                 // Same branch cases
-                (_, _, _) if early_then == early_else => state.get_bool_simplified(1),
+                (_, _, _) if early_then == early_else => state.get_child_simplified(1),
 
                 // Known then/else cases
                 (_, AstOp::BoolV(true), AstOp::BoolV(false)) => Ok(cond.clone()),
@@ -1566,8 +1635,8 @@ pub(crate) fn simplify_bool<'c>(
                 // Default case
                 _ => Ok(ctx.ite(
                     cond,
-                    state.get_bool_simplified(1)?,
-                    state.get_bool_simplified(2)?,
+                    state.get_child_simplified(1)?,
+                    state.get_child_simplified(2)?,
                 )?),
             }
         }

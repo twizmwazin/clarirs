@@ -2,7 +2,6 @@ use std::collections::BTreeSet;
 
 use crate::ast::{and, or};
 use crate::{dynsolver::DynSolver, prelude::*};
-use clarirs_core::ast::bitvec::BitVecOpExt;
 use clarirs_core::solver::HybridSolver;
 use clarirs_core::solver_mixins::{ConcreteEarlyResolutionMixin, SimplificationMixin};
 use clarirs_vsa::VSASolver;

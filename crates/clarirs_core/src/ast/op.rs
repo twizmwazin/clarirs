@@ -487,6 +487,17 @@ impl<'c> AstOp<'c> {
             | AstOp::BVToStr(..) => AstType::String,
         }
     }
+
+    /// The bit width of this op's result (bitvectors and floats); 0 for bools
+    /// and strings. Convenience for callers holding a bare op; nodes cache this.
+    pub fn size(&self) -> u32 {
+        self.infer_type().size()
+    }
+
+    /// The float sort of this op's result. Only meaningful for float-typed ops.
+    pub fn sort(&self) -> FSort {
+        self.infer_type().fsort().unwrap_or_else(FSort::f64)
+    }
 }
 
 pub struct AstOpChildIter<'a, 'c> {
