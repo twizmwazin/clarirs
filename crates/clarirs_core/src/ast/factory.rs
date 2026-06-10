@@ -107,10 +107,17 @@ pub trait AstFactory<'c>: Sized {
 
     fn xor(
         &'c self,
+        args: impl IntoIterator<Item = AstRef<'c>>,
+    ) -> Result<AstRef<'c>, ClarirsError> {
+        self.make(AstOp::Xor(args.into_iter().collect()))
+    }
+
+    fn xor2(
+        &'c self,
         lhs: impl IntoOwned<AstRef<'c>>,
         rhs: impl IntoOwned<AstRef<'c>>,
     ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make(AstOp::BoolXor(lhs.into_owned(), rhs.into_owned()))
+        self.make(AstOp::Xor(vec![lhs.into_owned(), rhs.into_owned()]))
     }
 
     /// Structural equality. The operands must have the same sort; the
@@ -147,54 +154,6 @@ pub trait AstFactory<'c>: Sized {
 
     fn neg(&'c self, ast: impl IntoOwned<AstRef<'c>>) -> Result<AstRef<'c>, ClarirsError> {
         self.make(AstOp::Neg(ast.into_owned()))
-    }
-
-    fn bv_and(
-        &'c self,
-        lhs: impl IntoOwned<AstRef<'c>>,
-        rhs: impl IntoOwned<AstRef<'c>>,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make(AstOp::And(vec![lhs.into_owned(), rhs.into_owned()]))
-    }
-
-    fn bv_and_many(
-        &'c self,
-        args: impl IntoIterator<Item = AstRef<'c>>,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        let args: Vec<AstRef<'c>> = args.into_iter().collect();
-        self.make(AstOp::And(args))
-    }
-
-    fn bv_or(
-        &'c self,
-        lhs: impl IntoOwned<AstRef<'c>>,
-        rhs: impl IntoOwned<AstRef<'c>>,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make(AstOp::Or(vec![lhs.into_owned(), rhs.into_owned()]))
-    }
-
-    fn bv_or_many(
-        &'c self,
-        args: impl IntoIterator<Item = AstRef<'c>>,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        let args: Vec<AstRef<'c>> = args.into_iter().collect();
-        self.make(AstOp::Or(args))
-    }
-
-    fn bv_xor(
-        &'c self,
-        lhs: impl IntoOwned<AstRef<'c>>,
-        rhs: impl IntoOwned<AstRef<'c>>,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        self.make(AstOp::Xor(vec![lhs.into_owned(), rhs.into_owned()]))
-    }
-
-    fn bv_xor_many(
-        &'c self,
-        args: impl IntoIterator<Item = AstRef<'c>>,
-    ) -> Result<AstRef<'c>, ClarirsError> {
-        let args: Vec<AstRef<'c>> = args.into_iter().collect();
-        self.make(AstOp::Xor(args))
     }
 
     fn add(

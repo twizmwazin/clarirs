@@ -79,15 +79,15 @@ impl BV {
             "BVS" => GLOBAL_CONTEXT.bvs(args[0].extract::<String>(py)?, args[1].extract(py)?)?,
             "BVV" => GLOBAL_CONTEXT
                 .bvv_from_biguint_with_size(&args[0].extract(py)?, args[1].extract(py)?)?,
-            "__and__" => GLOBAL_CONTEXT.bv_and(
+            "__and__" => GLOBAL_CONTEXT.and2(
                 &args[0].cast_bound::<BV>(py)?.get().inner,
                 &args[1].cast_bound::<BV>(py)?.get().inner,
             )?,
-            "__or__" => GLOBAL_CONTEXT.bv_or(
+            "__or__" => GLOBAL_CONTEXT.or2(
                 &args[0].cast_bound::<BV>(py)?.get().inner,
                 &args[1].cast_bound::<BV>(py)?.get().inner,
             )?,
-            "__xor__" => GLOBAL_CONTEXT.bv_xor(
+            "__xor__" => GLOBAL_CONTEXT.xor2(
                 &args[0].cast_bound::<BV>(py)?.get().inner,
                 &args[1].cast_bound::<BV>(py)?.get().inner,
             )?,
@@ -265,14 +265,7 @@ impl BV {
         py: Python<'py>,
     ) -> Result<(HashMap<u64, Bound<'py, PyAny>>, usize, Bound<'py, BV>), ClaripyError> {
         let (replacement_map, counter, canonical) = canonicalize(&self.inner.clone().into())?;
-        let canonical_bv = BV::new(
-            py,
-            &canonical
-                .into_bitvec()
-                .ok_or(ClaripyError::InvalidOperation(
-                    "Canonicalization did not produce a BitVec".to_string(),
-                ))?,
-        )?;
+        let canonical_bv = BV::new(py, &canonical)?;
 
         let mut py_map = HashMap::new();
         for (hash, dynast) in replacement_map {
@@ -816,7 +809,7 @@ impl BV {
     ) -> Result<Bound<'py, BV>, ClaripyError> {
         BV::new(
             py,
-            &GLOBAL_CONTEXT.bv_and(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.and2(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -835,7 +828,7 @@ impl BV {
     ) -> Result<Bound<'py, BV>, ClaripyError> {
         BV::new(
             py,
-            &GLOBAL_CONTEXT.bv_or(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.or2(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 
@@ -854,7 +847,7 @@ impl BV {
     ) -> Result<Bound<'py, BV>, ClaripyError> {
         BV::new(
             py,
-            &GLOBAL_CONTEXT.bv_xor(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
+            &GLOBAL_CONTEXT.xor2(&self.inner, &other.unpack_like(py, self)?.get().inner)?,
         )
     }
 

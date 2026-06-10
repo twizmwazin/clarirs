@@ -1,3 +1,5 @@
+use std::collections::{HashMap, HashSet};
+
 use super::SimplifyError;
 use crate::prelude::*;
 
@@ -5,7 +7,7 @@ pub(crate) fn simplify_bool<'c>(
     state: &mut super::SimplifyState<'c>,
 ) -> Result<AstRef<'c>, SimplifyError<'c>> {
     let ctx = state.expr.context();
-    let bool_ast = state.expr.clone().into_bool().unwrap();
+    let bool_ast = state.expr.clone();
 
     match bool_ast.op() {
         AstOp::BoolS(_) | AstOp::BoolV(_) => Ok(bool_ast),
@@ -219,25 +221,48 @@ pub(crate) fn simplify_bool<'c>(
             let simplified_args = state.get_all_simplified()?;
             Ok(ctx.or(simplified_args)?)
         }
-        AstOp::BoolXor(..) => {
-            let early_lhs = state.get_child_available(0);
-            let early_rhs = state.get_child_available(1);
-
-            match (early_lhs.op(), early_rhs.op()) {
-                (AstOp::BoolV(lhs), AstOp::BoolV(rhs)) => Ok(ctx.boolv(*lhs ^ *rhs)?),
-                (AstOp::BoolV(true), _) => Ok(ctx.not(state.get_child_simplified(1)?)?),
-                (_, AstOp::BoolV(true)) => Ok(ctx.not(state.get_child_simplified(0)?)?),
-                (AstOp::BoolV(false), _) => Ok(state.get_child_simplified(1)?),
-                (_, AstOp::BoolV(false)) => Ok(state.get_child_simplified(0)?),
-                (AstOp::Not(lhs), rhs) if lhs.op() == rhs => Ok(ctx.true_()?),
-                (lhs, AstOp::Not(rhs)) if lhs == rhs.op() => Ok(ctx.true_()?),
-                (AstOp::Not(lhs), AstOp::Not(rhs)) => state.rerun(ctx.xor(lhs, rhs)?),
-                _ if early_lhs == early_rhs => Ok(ctx.false_()?),
-                _ => Ok(ctx.xor(
-                    state.get_child_simplified(0)?,
-                    state.get_child_simplified(1)?,
-                )?),
+        AstOp::Xor(..) => {
+            // n-ary boolean xor: fold constants into a parity bit, strip
+            // negations (Not(x) = x ^ true), and cancel repeated operands in
+            // pairs (x ^ x = false).
+            let args = state.get_all_simplified()?;
+            let mut parity = false;
+            let mut operands: Vec<AstRef> = Vec::with_capacity(args.len());
+            for arg in args {
+                match arg.op() {
+                    AstOp::BoolV(b) => parity ^= b,
+                    AstOp::Not(inner) => {
+                        parity = !parity;
+                        operands.push(inner.clone());
+                    }
+                    _ => operands.push(arg),
+                }
             }
+
+            // xor of k copies of x is x when k is odd, false when k is even
+            let mut counts: HashMap<u64, usize> = HashMap::new();
+            for o in &operands {
+                *counts.entry(o.hash()).or_default() += 1;
+            }
+            let mut seen = HashSet::new();
+            let rest: Vec<_> = operands
+                .into_iter()
+                .filter(|o| counts[&o.hash()] % 2 == 1 && seen.insert(o.hash()))
+                .collect();
+
+            let combined = match rest.len() {
+                0 => ctx.boolv(false)?,
+                1 => rest[0].clone(),
+                _ => ctx.xor(rest)?,
+            };
+            Ok(if parity {
+                match combined.op() {
+                    AstOp::BoolV(b) => ctx.boolv(!b)?,
+                    _ => ctx.not(combined)?,
+                }
+            } else {
+                combined
+            })
         }
         AstOp::Eq(..) => match state.get_child_available(0).ty() {
             AstType::Bool => {
@@ -314,7 +339,7 @@ pub(crate) fn simplify_bool<'c>(
                         let lhs_and = if remaining.len() == 1 {
                             remaining.into_iter().next().unwrap()
                         } else {
-                            ctx.bv_and_many(remaining)?
+                            ctx.and(remaining)?
                         };
                         let (mask_high, mask_low) = if let AstOp::BVV(mask_val) = mask.op() {
                             mask_val.is_mask()
@@ -507,7 +532,7 @@ pub(crate) fn simplify_bool<'c>(
                         let lhs_and = if remaining.len() == 1 {
                             remaining.into_iter().next().unwrap()
                         } else {
-                            ctx.bv_and_many(remaining)?
+                            ctx.and(remaining)?
                         };
                         let (mask_high, mask_low) = if let AstOp::BVV(mask_val) = mask.op() {
                             mask_val.is_mask()
@@ -656,7 +681,7 @@ pub(crate) fn simplify_bool<'c>(
                     let lhs_and = if remaining.len() == 1 {
                         remaining.into_iter().next().unwrap()
                     } else {
-                        ctx.bv_and_many(remaining)?
+                        ctx.and(remaining)?
                     };
                     let (mask_high, mask_low) = if let AstOp::BVV(mask_val) = mask.op() {
                         mask_val.is_mask()
@@ -688,7 +713,7 @@ pub(crate) fn simplify_bool<'c>(
                     let lhs_and = if remaining.len() == 1 {
                         remaining.into_iter().next().unwrap()
                     } else {
-                        ctx.bv_and_many(remaining)?
+                        ctx.and(remaining)?
                     };
                     let (mask_high, mask_low) = if let AstOp::BVV(mask_val) = mask.op() {
                         mask_val.is_mask()
@@ -867,7 +892,7 @@ pub(crate) fn simplify_bool<'c>(
                     let lhs_and = if remaining.len() == 1 {
                         remaining.into_iter().next().unwrap()
                     } else {
-                        ctx.bv_and_many(remaining)?
+                        ctx.and(remaining)?
                     };
                     let (mask_high, mask_low) = if let AstOp::BVV(mask_val) = mask.op() {
                         mask_val.is_mask()
@@ -899,7 +924,7 @@ pub(crate) fn simplify_bool<'c>(
                     let lhs_and = if remaining.len() == 1 {
                         remaining.into_iter().next().unwrap()
                     } else {
-                        ctx.bv_and_many(remaining)?
+                        ctx.and(remaining)?
                     };
                     let (mask_high, mask_low) = if let AstOp::BVV(mask_val) = mask.op() {
                         mask_val.is_mask()
@@ -1073,7 +1098,7 @@ pub(crate) fn simplify_bool<'c>(
                     let lhs_and = if remaining.len() == 1 {
                         remaining.into_iter().next().unwrap()
                     } else {
-                        ctx.bv_and_many(remaining)?
+                        ctx.and(remaining)?
                     };
                     let (mask_high, mask_low) = if let AstOp::BVV(mask_val) = mask.op() {
                         mask_val.is_mask()
@@ -1105,7 +1130,7 @@ pub(crate) fn simplify_bool<'c>(
                     let lhs_and = if remaining.len() == 1 {
                         remaining.into_iter().next().unwrap()
                     } else {
-                        ctx.bv_and_many(remaining)?
+                        ctx.and(remaining)?
                     };
                     let (mask_high, mask_low) = if let AstOp::BVV(mask_val) = mask.op() {
                         mask_val.is_mask()
@@ -1278,7 +1303,7 @@ pub(crate) fn simplify_bool<'c>(
                     let lhs_and = if remaining.len() == 1 {
                         remaining.into_iter().next().unwrap()
                     } else {
-                        ctx.bv_and_many(remaining)?
+                        ctx.and(remaining)?
                     };
                     let (mask_high, mask_low) = if let AstOp::BVV(mask_val) = mask.op() {
                         mask_val.is_mask()
@@ -1310,7 +1335,7 @@ pub(crate) fn simplify_bool<'c>(
                     let lhs_and = if remaining.len() == 1 {
                         remaining.into_iter().next().unwrap()
                     } else {
-                        ctx.bv_and_many(remaining)?
+                        ctx.and(remaining)?
                     };
                     let (mask_high, mask_low) = if let AstOp::BVV(mask_val) = mask.op() {
                         mask_val.is_mask()

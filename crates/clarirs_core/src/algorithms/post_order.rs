@@ -103,7 +103,7 @@ mod tests {
         walk_post_order(
             add.clone(),
             |node, children| {
-                let node_type = match node.as_bitvec().unwrap().op() {
+                let node_type = match node.op() {
                     AstOp::BVS(s, _) => format!("var({s})"),
                     AstOp::Add(_) => "add".to_string(),
                     op => format!("other({op:?})"),

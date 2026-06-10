@@ -4,7 +4,7 @@ pub(crate) fn simplify_float<'c>(
     state: &mut super::SimplifyState<'c>,
 ) -> Result<AstRef<'c>, SimplifyError<'c>> {
     let ctx = state.expr.context();
-    let float_expr = state.expr.clone().into_float().unwrap();
+    let float_expr = state.expr.clone();
 
     match float_expr.op() {
         AstOp::FPS(..) | AstOp::FPV(_) => Ok(float_expr),

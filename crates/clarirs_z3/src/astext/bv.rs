@@ -206,9 +206,9 @@ pub(crate) fn from_z3<'c>(
                             args.push(AstRef::from_z3(ctx, arg)?);
                         }
                         match decl_kind {
-                            z3::DeclKind::Band => ctx.bv_and_many(args),
-                            z3::DeclKind::Bor => ctx.bv_or_many(args),
-                            z3::DeclKind::Bxor => ctx.bv_xor_many(args),
+                            z3::DeclKind::Band => ctx.and(args),
+                            z3::DeclKind::Bor => ctx.or(args),
+                            z3::DeclKind::Bxor => ctx.xor(args),
                             z3::DeclKind::Badd => ctx.add_many(args),
                             z3::DeclKind::Bmul => ctx.mul_many(args),
                             _ => unreachable!(),

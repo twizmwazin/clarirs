@@ -78,8 +78,7 @@ impl ExtractPyArgs for AstRef<'static> {
             | AstOp::BvToFpUnsigned(a, _, _) => vec![wrap_child(py, a)?],
 
             // Binary ops
-            AstOp::BoolXor(a, b)
-            | AstOp::Eq(a, b)
+            AstOp::Eq(a, b)
             | AstOp::Neq(a, b)
             | AstOp::ULT(a, b)
             | AstOp::ULE(a, b)

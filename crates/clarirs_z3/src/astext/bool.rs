@@ -30,7 +30,7 @@ pub(crate) fn to_z3(ast: &AstRef, children: &[RcAst]) -> Result<RcAst, ClarirsEr
                 let args: Vec<_> = children.iter().map(|c| **c).collect();
                 z3::mk_or(z3_ctx, args.len() as u32, args.as_ptr()).try_into()?
             }
-            AstOp::BoolXor(..) => binop!(z3_ctx, children, mk_xor),
+            AstOp::Xor(..) => naryop!(z3_ctx, children, mk_xor),
             AstOp::ITE(..) => {
                 let cond = child(children, 0)?;
                 let then = child(children, 1)?;
@@ -142,7 +142,7 @@ pub(crate) fn from_z3<'c>(
                         let arg1 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 1))?;
                         let a = AstRef::from_z3(ctx, arg0)?;
                         let b = AstRef::from_z3(ctx, arg1)?;
-                        ctx.xor(a, b)
+                        ctx.xor2(a, b)
                     }
                     z3::DeclKind::Eq => {
                         let arg0 = RcAst::try_from(z3::get_app_arg(*z3_ctx, app, 0))?;

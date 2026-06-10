@@ -8,7 +8,7 @@ pub(crate) fn simplify_bv<'c>(
     error_on_dbz: bool,
 ) -> Result<AstRef<'c>, SimplifyError<'c>> {
     let ctx = state.expr.context();
-    let bv_expr = state.expr.clone().into_bitvec().unwrap();
+    let bv_expr = state.expr.clone();
 
     match bv_expr.op() {
         AstOp::BVS(..) | AstOp::BVV(..) => Ok(bv_expr),
@@ -115,7 +115,7 @@ pub(crate) fn simplify_bv<'c>(
                                 let arg_size = arg.size();
                                 let const_part =
                                     const_val.extract(offset, offset + arg_size - 1)?;
-                                parts.push(ctx.bv_and(&ctx.bvv(const_part)?, arg)?);
+                                parts.push(ctx.and2(&ctx.bvv(const_part)?, arg)?);
                                 offset += arg_size;
                             }
                             parts.reverse();
@@ -127,7 +127,7 @@ pub(crate) fn simplify_bv<'c>(
                         | (AstOp::ZeroExt(inner, ext_size), AstOp::BVV(const_val)) => {
                             let inner_size = inner.size();
                             let const_inner = const_val.extract(0, inner_size - 1)?;
-                            let inner_and = ctx.bv_and(&ctx.bvv(const_inner)?, inner)?;
+                            let inner_and = ctx.and2(&ctx.bvv(const_inner)?, inner)?;
                             let zero_extended = ctx.zero_ext(&inner_and, *ext_size)?;
                             state.rerun(zero_extended)
                         }
@@ -174,34 +174,34 @@ pub(crate) fn simplify_bv<'c>(
                                                         bitwidth as u32,
                                                     ))?;
                                                 let masked_a =
-                                                    ctx.bv_and(shl_inner.clone(), unrotated_bvv)?;
+                                                    ctx.and2(shl_inner.clone(), unrotated_bvv)?;
                                                 let new_shl =
                                                     ctx.shl(&masked_a, shl_amt.clone())?;
                                                 let new_lshr =
                                                     ctx.lshr(&masked_a, lshr_amt.clone())?;
-                                                let result = ctx.bv_or(new_shl, new_lshr)?;
+                                                let result = ctx.or2(new_shl, new_lshr)?;
                                                 state.rerun(result)
                                             } else if changed {
-                                                state.rerun(ctx.bv_and_many(sym_args)?)
+                                                state.rerun(ctx.and(sym_args)?)
                                             } else {
-                                                Ok(ctx.bv_and_many(sym_args)?)
+                                                Ok(ctx.and(sym_args)?)
                                             }
                                         } else if changed {
-                                            state.rerun(ctx.bv_and_many(sym_args)?)
+                                            state.rerun(ctx.and(sym_args)?)
                                         } else {
-                                            Ok(ctx.bv_and_many(sym_args)?)
+                                            Ok(ctx.and(sym_args)?)
                                         }
                                     } else if changed {
-                                        state.rerun(ctx.bv_and_many(sym_args)?)
+                                        state.rerun(ctx.and(sym_args)?)
                                     } else {
-                                        Ok(ctx.bv_and_many(sym_args)?)
+                                        Ok(ctx.and(sym_args)?)
                                     }
                                 }
                                 _ => {
                                     if changed {
-                                        state.rerun(ctx.bv_and_many(sym_args)?)
+                                        state.rerun(ctx.and(sym_args)?)
                                     } else {
-                                        Ok(ctx.bv_and_many(sym_args)?)
+                                        Ok(ctx.and(sym_args)?)
                                     }
                                 }
                             }
@@ -209,18 +209,18 @@ pub(crate) fn simplify_bv<'c>(
 
                         _ => {
                             if changed {
-                                state.rerun(ctx.bv_and_many(sym_args)?)
+                                state.rerun(ctx.and(sym_args)?)
                             } else {
-                                Ok(ctx.bv_and_many(sym_args)?)
+                                Ok(ctx.and(sym_args)?)
                             }
                         }
                     }
                 }
                 _ => {
                     if changed {
-                        state.rerun(ctx.bv_and_many(sym_args)?)
+                        state.rerun(ctx.and(sym_args)?)
                     } else {
-                        Ok(ctx.bv_and_many(sym_args)?)
+                        Ok(ctx.and(sym_args)?)
                     }
                 }
             }
@@ -319,7 +319,7 @@ pub(crate) fn simplify_bv<'c>(
                                 let arg_size = arg.size();
                                 let const_part =
                                     const_val.extract(offset, offset + arg_size - 1)?;
-                                parts.push(ctx.bv_or(&ctx.bvv(const_part)?, arg)?);
+                                parts.push(ctx.or2(&ctx.bvv(const_part)?, arg)?);
                                 offset += arg_size;
                             }
                             parts.reverse();
@@ -327,18 +327,18 @@ pub(crate) fn simplify_bv<'c>(
                         }
                         _ => {
                             if changed {
-                                state.rerun(ctx.bv_or_many(sym_args)?)
+                                state.rerun(ctx.or(sym_args)?)
                             } else {
-                                Ok(ctx.bv_or_many(sym_args)?)
+                                Ok(ctx.or(sym_args)?)
                             }
                         }
                     }
                 }
                 _ => {
                     if changed {
-                        state.rerun(ctx.bv_or_many(sym_args)?)
+                        state.rerun(ctx.or(sym_args)?)
                     } else {
-                        Ok(ctx.bv_or_many(sym_args)?)
+                        Ok(ctx.or(sym_args)?)
                     }
                 }
             }
@@ -421,7 +421,7 @@ pub(crate) fn simplify_bv<'c>(
                     let (a, b) = (&sym_args[0], &sym_args[1]);
                     match (a.op(), b.op()) {
                         // ¬a ^ ¬b = a ^ b
-                        (AstOp::Not(lhs), AstOp::Not(rhs)) => state.rerun(ctx.bv_xor(lhs, rhs)?),
+                        (AstOp::Not(lhs), AstOp::Not(rhs)) => state.rerun(ctx.xor2(lhs, rhs)?),
                         // Distribute XOR over CONCAT when one operand is constant
                         (AstOp::BVV(const_val), AstOp::Concat(concat_args))
                         | (AstOp::Concat(concat_args), AstOp::BVV(const_val)) => {
@@ -431,7 +431,7 @@ pub(crate) fn simplify_bv<'c>(
                                 let arg_size = arg.size();
                                 let const_part =
                                     const_val.extract(offset, offset + arg_size - 1)?;
-                                parts.push(ctx.bv_xor(&ctx.bvv(const_part)?, arg)?);
+                                parts.push(ctx.xor2(&ctx.bvv(const_part)?, arg)?);
                                 offset += arg_size;
                             }
                             parts.reverse();
@@ -442,9 +442,9 @@ pub(crate) fn simplify_bv<'c>(
                         (_, AstOp::BVV(v)) if v.is_all_ones() => state.rerun(ctx.not(a.clone())?),
                         _ => {
                             if changed {
-                                state.rerun(ctx.bv_xor_many(sym_args)?)
+                                state.rerun(ctx.xor(sym_args)?)
                             } else {
-                                Ok(ctx.bv_xor_many(sym_args)?)
+                                Ok(ctx.xor(sym_args)?)
                             }
                         }
                     }
@@ -453,9 +453,9 @@ pub(crate) fn simplify_bv<'c>(
                     // Check if there's an all-ones BVV among the args - if so, extract it
                     // and apply NOT to the XOR of the remaining args
                     if changed {
-                        state.rerun(ctx.bv_xor_many(sym_args)?)
+                        state.rerun(ctx.xor(sym_args)?)
                     } else {
-                        Ok(ctx.bv_xor_many(sym_args)?)
+                        Ok(ctx.xor(sym_args)?)
                     }
                 }
             }
@@ -1120,7 +1120,7 @@ pub(crate) fn simplify_bv<'c>(
                         .iter()
                         .map(|a| ctx.extract(a, *high, *low))
                         .collect::<Result<_, _>>()?;
-                    state.rerun(ctx.bv_and_many(extracted)?)
+                    state.rerun(ctx.and(extracted)?)
                 }
                 // extract(n, m, a | b | ...) = extract(n, m, a) | extract(n, m, b) | ...
                 AstOp::Or(or_args) => {
@@ -1128,7 +1128,7 @@ pub(crate) fn simplify_bv<'c>(
                         .iter()
                         .map(|a| ctx.extract(a, *high, *low))
                         .collect::<Result<_, _>>()?;
-                    state.rerun(ctx.bv_or_many(extracted)?)
+                    state.rerun(ctx.or(extracted)?)
                 }
                 // extract(n, m, a ^ b ^ ...) = extract(n, m, a) ^ extract(n, m, b) ^ ...
                 AstOp::Xor(xor_args) => {
@@ -1136,7 +1136,7 @@ pub(crate) fn simplify_bv<'c>(
                         .iter()
                         .map(|a| ctx.extract(a, *high, *low))
                         .collect::<Result<_, _>>()?;
-                    state.rerun(ctx.bv_xor_many(extracted)?)
+                    state.rerun(ctx.xor(extracted)?)
                 }
                 // extract(n, m, ~a) = ~extract(n, m, a)
                 AstOp::Not(inner) => {

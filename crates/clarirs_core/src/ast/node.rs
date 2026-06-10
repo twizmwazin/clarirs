@@ -201,24 +201,8 @@ impl<'c> AstNode<'c> {
         self.ty == other.ty
     }
 
-    // Runtime-checked accessors. These replace the previous static dispatch on
-    // the `DynAst` enum; each checks the node's cached type tag.
-
-    pub fn as_bool(&self) -> Option<&Self> {
-        self.ty.is_bool().then_some(self)
-    }
-
-    pub fn as_bitvec(&self) -> Option<&Self> {
-        self.ty.is_bitvec().then_some(self)
-    }
-
-    pub fn as_float(&self) -> Option<&Self> {
-        self.ty.is_float().then_some(self)
-    }
-
-    pub fn as_string(&self) -> Option<&Self> {
-        self.ty.is_string().then_some(self)
-    }
+    // Runtime-checked accessors: each returns the node back only if its cached
+    // type tag matches, for validating ASTs that cross an API boundary.
 
     pub fn into_bool(self: Arc<Self>) -> Option<Arc<Self>> {
         self.ty.is_bool().then_some(self)

@@ -117,7 +117,7 @@ mod to_z3 {
         let ctx = Context::new();
         let x = ctx.bools("x").unwrap();
         let y = ctx.bools("y").unwrap();
-        let xor = ctx.xor(x, y).unwrap();
+        let xor = ctx.xor2(x, y).unwrap();
         let z3_ast = xor.to_z3().unwrap();
 
         assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Xor);
@@ -496,7 +496,7 @@ mod from_z3 {
 
             let result = AstRef::from_z3(&ctx, xor_z3).unwrap();
             let expected = ctx
-                .xor(ctx.bools("x").unwrap(), ctx.bools("y").unwrap())
+                .xor2(ctx.bools("x").unwrap(), ctx.bools("y").unwrap())
                 .unwrap();
             assert_eq!(result, expected);
         });
@@ -1030,7 +1030,7 @@ mod roundtrip {
         let ctx = Context::new();
         let x = ctx.bools("x").unwrap();
         let y = ctx.bools("y").unwrap();
-        let ast = ctx.xor(x, y).unwrap();
+        let ast = ctx.xor2(x, y).unwrap();
         assert_eq!(ast, round_trip(&ctx, &ast).unwrap());
     }
 

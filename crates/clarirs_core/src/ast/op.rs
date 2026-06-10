@@ -63,7 +63,6 @@ pub enum AstOp<'c> {
     // Boolean leaves and operations
     BoolS(InternedString),
     BoolV(bool),
-    BoolXor(AstRef<'c>, AstRef<'c>),
 
     // Polymorphic boolean/bitvector operations (the child type determines the
     // result type)
@@ -166,7 +165,7 @@ pub enum AstOp<'c> {
 
 impl<'c> AstOp<'c> {
     /// Returns the child AST at the given index, or `None` if out of range.
-    pub fn child_at(&self, index: usize) -> Option<AstRef<'c>> {
+    pub fn get_child(&self, index: usize) -> Option<AstRef<'c>> {
         match self {
             // Leaves have no children
             AstOp::BoolS(..)
@@ -211,8 +210,7 @@ impl<'c> AstOp<'c> {
             | AstOp::BVToStr(a) => (index == 0).then(|| a.clone()),
 
             // Binary operations
-            AstOp::BoolXor(a, b)
-            | AstOp::Eq(a, b)
+            AstOp::Eq(a, b)
             | AstOp::Neq(a, b)
             | AstOp::ULT(a, b)
             | AstOp::ULE(a, b)
@@ -308,8 +306,7 @@ impl<'c> AstOp<'c> {
             | AstOp::StrIsDigit(_)
             | AstOp::BVToStr(_) => 1,
 
-            AstOp::BoolXor(..)
-            | AstOp::Eq(..)
+            AstOp::Eq(..)
             | AstOp::Neq(..)
             | AstOp::ULT(..)
             | AstOp::ULE(..)
@@ -357,10 +354,6 @@ impl<'c> AstOp<'c> {
         AstOpChildIter { op: self, index: 0 }
     }
 
-    pub fn get_child(&self, index: usize) -> Option<AstRef<'c>> {
-        self.child_at(index)
-    }
-
     pub fn is_true(&self) -> bool {
         matches!(self, AstOp::BoolV(true))
     }
@@ -404,7 +397,6 @@ impl<'c> AstOp<'c> {
             // Booleans
             AstOp::BoolS(..)
             | AstOp::BoolV(..)
-            | AstOp::BoolXor(..)
             | AstOp::Eq(..)
             | AstOp::Neq(..)
             | AstOp::ULT(..)
@@ -428,13 +420,15 @@ impl<'c> AstOp<'c> {
 
             // Polymorphic: result type follows a child's type
             AstOp::Not(a) => a.ty(),
-            AstOp::And(v) | AstOp::Or(v) => v.first().map(|a| a.ty()).unwrap_or(AstType::Bool),
+            AstOp::And(v) | AstOp::Or(v) | AstOp::Xor(v) => {
+                v.first().map(|a| a.ty()).unwrap_or(AstType::Bool)
+            }
             AstOp::ITE(_, t, _) => t.ty(),
 
             // Bitvectors
             AstOp::BVS(_, width) => AstType::BitVec(*width),
             AstOp::BVV(bv) => AstType::BitVec(bv.len()),
-            AstOp::Xor(v) | AstOp::Add(v) | AstOp::Mul(v) => {
+            AstOp::Add(v) | AstOp::Mul(v) => {
                 AstType::BitVec(v.first().map(|a| a.size()).unwrap_or(0))
             }
             AstOp::Neg(a)
@@ -509,7 +503,7 @@ impl<'c> Iterator for AstOpChildIter<'_, 'c> {
     type Item = AstRef<'c>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let result = self.op.child_at(self.index);
+        let result = self.op.get_child(self.index);
         if result.is_some() {
             self.index += 1;
         }
@@ -603,8 +597,7 @@ impl Hash for AstOp<'_> {
             }
 
             // Binary with no extra payload
-            AstOp::BoolXor(a, b)
-            | AstOp::Eq(a, b)
+            AstOp::Eq(a, b)
             | AstOp::Neq(a, b)
             | AstOp::ULT(a, b)
             | AstOp::ULE(a, b)

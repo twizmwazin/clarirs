@@ -181,14 +181,7 @@ impl PyAstString {
         ClaripyError,
     > {
         let (replacement_map, counter, canonical) = canonicalize(&self.inner.clone().into())?;
-        let canonical_string = PyAstString::new(
-            py,
-            &canonical
-                .into_string()
-                .ok_or(ClaripyError::InvalidOperation(
-                    "Canonicalization did not produce a String".to_string(),
-                ))?,
-        )?;
+        let canonical_string = PyAstString::new(py, &canonical)?;
 
         let mut py_map = HashMap::new();
         for (hash, dynast) in replacement_map {

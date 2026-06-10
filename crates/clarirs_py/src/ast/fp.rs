@@ -370,14 +370,7 @@ impl FP {
         py: Python<'py>,
     ) -> Result<(HashMap<u64, Bound<'py, PyAny>>, usize, Bound<'py, FP>), ClaripyError> {
         let (replacement_map, counter, canonical) = canonicalize(&self.inner.clone().into())?;
-        let canonical_fp = FP::new(
-            py,
-            &canonical
-                .into_float()
-                .ok_or(ClaripyError::InvalidOperation(
-                    "Canonicalization did not produce a Float".to_string(),
-                ))?,
-        )?;
+        let canonical_fp = FP::new(py, &canonical)?;
 
         let mut py_map = HashMap::new();
         for (hash, dynast) in replacement_map {

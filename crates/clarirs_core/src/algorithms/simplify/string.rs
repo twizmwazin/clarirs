@@ -5,7 +5,7 @@ pub(crate) fn simplify_string<'c>(
     state: &mut super::SimplifyState<'c>,
 ) -> Result<AstRef<'c>, SimplifyError<'c>> {
     let ctx = state.expr.context();
-    let string_expr = state.expr.clone().into_string().unwrap();
+    let string_expr = state.expr.clone();
 
     match string_expr.op() {
         AstOp::StringS(_) | AstOp::StringV(_) => Ok(string_expr),

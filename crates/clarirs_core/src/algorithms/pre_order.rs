@@ -188,8 +188,8 @@ mod tests {
                     Ok(node)
                 } else {
                     // Rebuild add with new children
-                    let lhs = children[0].clone().into_bitvec().unwrap();
-                    let rhs = children[1].clone().into_bitvec().unwrap();
+                    let lhs = children[0].clone();
+                    let rhs = children[1].clone();
                     Ok(ctx.add(&lhs, &rhs)?.clone())
                 }
             },

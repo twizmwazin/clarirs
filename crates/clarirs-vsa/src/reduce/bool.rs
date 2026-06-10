@@ -64,7 +64,17 @@ pub(crate) fn reduce_bool(
             }
             result
         }
-        AstOp::BoolXor(..) => child(children, 0)? ^ child(children, 1)?,
+        AstOp::Xor(..) => {
+            let mut result = ComparisonResult::False;
+            for c in children {
+                if let ReduceResult::Bool(b) = c {
+                    result = result ^ b.clone();
+                } else {
+                    return Err(ClarirsError::InvalidArguments("Expected Bool".to_string()));
+                }
+            }
+            result
+        }
         AstOp::Eq(a, _) => {
             if a.ty().is_bool() {
                 child(children, 0)?.eq_(child(children, 1)?)

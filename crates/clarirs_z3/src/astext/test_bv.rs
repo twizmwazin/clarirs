@@ -81,7 +81,7 @@ mod to_z3 {
         let ctx = Context::new();
         let x = ctx.bvs("x", 8).unwrap();
         let y = ctx.bvs("y", 8).unwrap();
-        let ast = ctx.bv_and(x, y).unwrap();
+        let ast = ctx.and2(x, y).unwrap();
         let z3_ast = ast.to_z3().unwrap();
 
         assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Band);
@@ -94,7 +94,7 @@ mod to_z3 {
         let ctx = Context::new();
         let x = ctx.bvs("x", 8).unwrap();
         let y = ctx.bvs("y", 8).unwrap();
-        let ast = ctx.bv_or(x, y).unwrap();
+        let ast = ctx.or2(x, y).unwrap();
         let z3_ast = ast.to_z3().unwrap();
 
         assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Bor);
@@ -107,7 +107,7 @@ mod to_z3 {
         let ctx = Context::new();
         let x = ctx.bvs("x", 8).unwrap();
         let y = ctx.bvs("y", 8).unwrap();
-        let ast = ctx.bv_xor(x, y).unwrap();
+        let ast = ctx.xor2(x, y).unwrap();
         let z3_ast = ast.to_z3().unwrap();
 
         assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Bxor);
@@ -465,7 +465,7 @@ mod from_z3 {
 
             let result = AstRef::from_z3(&ctx, z3_ast).unwrap();
             let expected = ctx
-                .bv_and(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
+                .and2(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
                 .unwrap();
             assert_eq!(result, expected);
         });
@@ -481,7 +481,7 @@ mod from_z3 {
 
             let result = AstRef::from_z3(&ctx, z3_ast).unwrap();
             let expected = ctx
-                .bv_or(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
+                .or2(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
                 .unwrap();
             assert_eq!(result, expected);
         });
@@ -497,7 +497,7 @@ mod from_z3 {
 
             let result = AstRef::from_z3(&ctx, z3_ast).unwrap();
             let expected = ctx
-                .bv_xor(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
+                .xor2(ctx.bvs("x", 8).unwrap(), ctx.bvs("y", 8).unwrap())
                 .unwrap();
             assert_eq!(result, expected);
         });
@@ -841,7 +841,7 @@ mod roundtrip {
         let ctx = Context::new();
         let x = ctx.bvs("x", 8).unwrap();
         let y = ctx.bvs("y", 8).unwrap();
-        let ast = ctx.bv_and(x, y).unwrap();
+        let ast = ctx.and2(x, y).unwrap();
         assert_eq!(ast, round_trip(&ctx, &ast).unwrap());
     }
 
@@ -850,7 +850,7 @@ mod roundtrip {
         let ctx = Context::new();
         let x = ctx.bvs("x", 8).unwrap();
         let y = ctx.bvs("y", 8).unwrap();
-        let ast = ctx.bv_or(x, y).unwrap();
+        let ast = ctx.or2(x, y).unwrap();
         assert_eq!(ast, round_trip(&ctx, &ast).unwrap());
     }
 
@@ -859,7 +859,7 @@ mod roundtrip {
         let ctx = Context::new();
         let x = ctx.bvs("x", 8).unwrap();
         let y = ctx.bvs("y", 8).unwrap();
-        let ast = ctx.bv_xor(x, y).unwrap();
+        let ast = ctx.xor2(x, y).unwrap();
         assert_eq!(ast, round_trip(&ctx, &ast).unwrap());
     }
 

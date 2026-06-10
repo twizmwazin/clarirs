@@ -87,7 +87,7 @@ impl Bool {
                 &args[0].cast_bound::<Bool>(py)?.get().inner,
                 &args[1].cast_bound::<Bool>(py)?.get().inner,
             )?,
-            "Xor" => GLOBAL_CONTEXT.xor(
+            "Xor" => GLOBAL_CONTEXT.xor2(
                 &args[0].cast_bound::<Bool>(py)?.get().inner,
                 &args[1].cast_bound::<Bool>(py)?.get().inner,
             )?,
@@ -284,12 +284,7 @@ impl Bool {
         py: Python<'py>,
     ) -> Result<(HashMap<u64, Bound<'py, PyAny>>, usize, Bound<'py, Bool>), ClaripyError> {
         let (replacement_map, counter, canonical) = canonicalize(&self.inner.clone().into())?;
-        let canonical_bool = Bool::new(
-            py,
-            &canonical.into_bool().ok_or(ClaripyError::InvalidOperation(
-                "Canonicalization did not produce a Bool".to_string(),
-            ))?,
-        )?;
+        let canonical_bool = Bool::new(py, &canonical)?;
 
         let mut py_map = HashMap::new();
         for (hash, dynast) in replacement_map {
@@ -566,7 +561,7 @@ impl Bool {
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
         Bool::new(
             py,
-            &GLOBAL_CONTEXT.xor(&self.inner, <CoerceBool as Into<AstRef>>::into(other))?,
+            &GLOBAL_CONTEXT.xor2(&self.inner, <CoerceBool as Into<AstRef>>::into(other))?,
         )
     }
 

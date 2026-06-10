@@ -21,7 +21,6 @@ fn to_smtlib_op(ast: &AstRef<'_>, children: &[String]) -> String {
         // Booleans
         AstOp::BoolS(s) => s.to_string(),
         AstOp::BoolV(b) => b.to_string(),
-        AstOp::BoolXor(..) => format!("(xor {} {})", children[0], children[1]),
         AstOp::Eq(a, _) => {
             if a.ty().is_float() {
                 format!("(fp.eq {} {})", children[0], children[1])
@@ -77,6 +76,7 @@ fn to_smtlib_op(ast: &AstRef<'_>, children: &[String]) -> String {
         // Bitvectors
         AstOp::BVS(s, _) => s.to_string(),
         AstOp::BVV(bit_vec) => format!("(_ bv{} {})", bit_vec.to_biguint(), bit_vec.len()),
+        AstOp::Xor(..) if ast.ty().is_bool() => format!("(xor {})", children.join(" ")),
         AstOp::Xor(..) => format!(
             "(bvxor{})",
             children

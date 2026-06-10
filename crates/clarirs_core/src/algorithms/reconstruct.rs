@@ -58,7 +58,6 @@ pub fn reconstruct_node<'c>(
         AstOp::BVToStr(..) => AstOp::BVToStr(c(0)),
 
         // Binary
-        AstOp::BoolXor(..) => AstOp::BoolXor(c(0), c(1)),
         AstOp::Eq(..) => AstOp::Eq(c(0), c(1)),
         AstOp::Neq(..) => AstOp::Neq(c(0), c(1)),
         AstOp::ULT(..) => AstOp::ULT(c(0), c(1)),

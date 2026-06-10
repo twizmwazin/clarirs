@@ -22,12 +22,17 @@ impl ToOpString for AstRef<'static> {
             }
             .to_string(),
             AstOp::Or(..) => if self.ty().is_bool() { "Or" } else { "__or__" }.to_string(),
+            AstOp::Xor(..) => if self.ty().is_bool() {
+                "Xor"
+            } else {
+                "__xor__"
+            }
+            .to_string(),
             AstOp::ITE(..) => "If".to_string(),
 
             // Booleans
             AstOp::BoolS(..) => "BoolS".to_string(),
             AstOp::BoolV(..) => "BoolV".to_string(),
-            AstOp::BoolXor(..) => "Xor".to_string(),
             AstOp::Eq(a, _) if a.ty().is_float() => "fpEQ".to_string(),
             AstOp::Neq(a, _) if a.ty().is_float() => "fpNEQ".to_string(),
             AstOp::Eq(..) => "__eq__".to_string(),
@@ -55,7 +60,6 @@ impl ToOpString for AstRef<'static> {
             AstOp::BVS(..) => "BVS".to_string(),
             AstOp::BVV(..) => "BVV".to_string(),
             AstOp::Neg(..) => "__neg__".to_string(),
-            AstOp::Xor(..) => "__xor__".to_string(),
             AstOp::Add(..) => "__add__".to_string(),
             AstOp::Sub(..) => "__sub__".to_string(),
             AstOp::Mul(..) => "__mul__".to_string(),
