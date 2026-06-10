@@ -368,7 +368,7 @@ impl FP {
         &self,
         py: Python<'py>,
     ) -> Result<(HashMap<u64, Bound<'py, PyAny>>, usize, Bound<'py, FP>), ClaripyError> {
-        let (replacement_map, counter, canonical) = canonicalize(&self.inner.clone().into())?;
+        let (replacement_map, counter, canonical) = canonicalize(&self.inner.clone())?;
         let canonical_fp = FP::new(py, &canonical)?;
 
         let mut py_map = HashMap::new();

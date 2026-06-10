@@ -282,7 +282,7 @@ impl Bool {
         &self,
         py: Python<'py>,
     ) -> Result<(HashMap<u64, Bound<'py, PyAny>>, usize, Bound<'py, Bool>), ClaripyError> {
-        let (replacement_map, counter, canonical) = canonicalize(&self.inner.clone().into())?;
+        let (replacement_map, counter, canonical) = canonicalize(&self.inner.clone())?;
         let canonical_bool = Bool::new(py, &canonical)?;
 
         let mut py_map = HashMap::new();

@@ -177,7 +177,7 @@ impl PyAstString {
         ),
         ClaripyError,
     > {
-        let (replacement_map, counter, canonical) = canonicalize(&self.inner.clone().into())?;
+        let (replacement_map, counter, canonical) = canonicalize(&self.inner.clone())?;
         let canonical_string = PyAstString::new(py, &canonical)?;
 
         let mut py_map = HashMap::new();

@@ -155,7 +155,7 @@ impl<'c> AstNode<'c> {
 
     /// Chop a bitvector into `bits`-sized pieces, returned in little-endian order.
     pub fn chop(self: &Arc<Self>, bits: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        if self.size() % bits != 0 {
+        if !self.size().is_multiple_of(bits) {
             return Err(ClarirsError::InvalidChopSize {
                 size: self.size(),
                 bits,

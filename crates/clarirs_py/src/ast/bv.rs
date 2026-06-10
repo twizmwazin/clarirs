@@ -263,7 +263,7 @@ impl BV {
         &self,
         py: Python<'py>,
     ) -> Result<(HashMap<u64, Bound<'py, PyAny>>, usize, Bound<'py, BV>), ClaripyError> {
-        let (replacement_map, counter, canonical) = canonicalize(&self.inner.clone().into())?;
+        let (replacement_map, counter, canonical) = canonicalize(&self.inner.clone())?;
         let canonical_bv = BV::new(py, &canonical)?;
 
         let mut py_map = HashMap::new();
