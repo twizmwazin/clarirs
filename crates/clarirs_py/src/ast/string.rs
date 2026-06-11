@@ -59,11 +59,6 @@ impl PyAstString {
 
 #[pymethods]
 impl PyAstString {
-    // __hash__ stays on each subclass: a class that defines __eq__ without
-    // __hash__ is treated as unhashable by Python, even if a base defines it.
-    pub fn __hash__(&self) -> usize {
-        self.inner.hash() as usize
-    }
     #[new]
     #[pyo3(signature = (op, args, annotations=None))]
     pub fn py_new<'py>(
@@ -143,6 +138,12 @@ impl PyAstString {
             py,
             &GLOBAL_CONTEXT.str_neq(&self.inner, &other.get().inner)?,
         )
+    }
+
+    // `Base` defines `__hash__`, but Python makes a class unhashable if it
+    // defines `__eq__` without its own `__hash__`, so it must be repeated here.
+    pub fn __hash__(&self) -> usize {
+        self.inner.hash() as usize
     }
 
     #[allow(clippy::type_complexity)]
