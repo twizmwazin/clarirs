@@ -13,12 +13,7 @@ fn wrap_child<'py>(
     py: Python<'py>,
     child: &AstRef<'static>,
 ) -> Result<Bound<'py, PyAny>, ClaripyError> {
-    Ok(match child.ty() {
-        AstType::Bool => Bool::new(py, child)?.into_any(),
-        AstType::BitVec(_) => BV::new(py, child)?.into_any(),
-        AstType::Float(_) => FP::new(py, child)?.into_any(),
-        AstType::String => PyAstString::new(py, child)?.into_any(),
-    })
+    Ok(Base::from_dynast(py, child.clone())?.into_any())
 }
 
 impl ExtractPyArgs for AstRef<'static> {

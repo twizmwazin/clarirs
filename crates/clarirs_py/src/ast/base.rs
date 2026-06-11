@@ -275,7 +275,7 @@ impl Base {
         let inner = self
             .inner
             .context()
-            .make_annotated(self.inner.op().clone(), new_annotations)?;
+            .make_ast_annotated(self.inner.op().clone(), new_annotations)?;
         Base::from_dynast(py, inner)
     }
 
@@ -296,7 +296,7 @@ impl Base {
         py: Python<'py>,
         annotations: Vec<PyAnnotation>,
     ) -> Result<Bound<'py, Base>, ClaripyError> {
-        let inner = self.inner.context().make_annotated(
+        let inner = self.inner.context().make_ast_annotated(
             self.inner.op().clone(),
             annotations.into_iter().map(|a| a.0).collect(),
         )?;
@@ -308,7 +308,7 @@ impl Base {
         py: Python<'py>,
         annotation: PyAnnotation,
     ) -> Result<Bound<'py, Base>, ClaripyError> {
-        let inner = self.inner.context().make_annotated(
+        let inner = self.inner.context().make_ast_annotated(
             self.inner.op().clone(),
             self.inner
                 .annotations()
@@ -326,7 +326,7 @@ impl Base {
         annotations: Vec<PyAnnotation>,
     ) -> Result<Bound<'py, Base>, ClaripyError> {
         let annotations_set: BTreeSet<_> = annotations.into_iter().map(|a| a.0).collect();
-        let inner = self.inner.context().make_annotated(
+        let inner = self.inner.context().make_ast_annotated(
             self.inner.op().clone(),
             self.inner
                 .annotations()
@@ -345,7 +345,7 @@ impl Base {
         let inner = self
             .inner
             .context()
-            .make_annotated(self.inner.op().clone(), Default::default())?;
+            .make_ast_annotated(self.inner.op().clone(), Default::default())?;
         Base::from_dynast(py, inner)
     }
 
@@ -354,7 +354,7 @@ impl Base {
         py: Python<'py>,
         annotation_type: PyAnnotationType,
     ) -> Result<Bound<'py, Base>, ClaripyError> {
-        let inner = self.inner.context().make_annotated(
+        let inner = self.inner.context().make_ast_annotated(
             self.inner.op().clone(),
             self.inner
                 .annotations()

@@ -123,7 +123,7 @@ impl<'c> AstNode<'c> {
             .cloned()
             .chain(annotations)
             .collect();
-        self.context().make_annotated(self.op.clone(), combined)
+        self.context().make_ast_annotated(self.op.clone(), combined)
     }
 
     pub fn hash(&self) -> u64 {
@@ -143,13 +143,21 @@ impl<'c> AstNode<'c> {
     }
 
     pub fn size(&self) -> u32 {
-        self.ty.size()
+        match self.ty {
+            AstType::BitVec(width) => width,
+            AstType::Float(sort) => sort.size(),
+            AstType::Bool | AstType::String => 0,
+        }
     }
 
     /// The float sort of this node. For non-float nodes this falls back to a
     /// default and should not be relied upon; check [`AstType::is_float`] first.
     pub fn sort(&self) -> FSort {
-        self.ty.fsort().unwrap_or_else(FSort::f64)
+        if let AstType::Float(sort) = self.ty {
+            sort
+        } else {
+            FSort::f64()
+        }
     }
 
     /// Chop a bitvector into `bits`-sized pieces, returned in little-endian order.

@@ -1,6 +1,5 @@
 use std::collections::BTreeSet;
 use std::fmt::Debug;
-use std::hash::{Hash, Hasher};
 
 use serde::Serialize;
 
@@ -19,25 +18,6 @@ pub enum AstType {
 }
 
 impl AstType {
-    /// The bit width associated with this type. Bitvectors report their width
-    /// and floats their total IEEE width; bools and strings report 0.
-    pub fn size(&self) -> u32 {
-        match self {
-            AstType::Bool => 0,
-            AstType::BitVec(width) => *width,
-            AstType::Float(sort) => sort.size(),
-            AstType::String => 0,
-        }
-    }
-
-    /// The float sort, if this is a float type.
-    pub fn fsort(&self) -> Option<FSort> {
-        match self {
-            AstType::Float(sort) => Some(*sort),
-            _ => None,
-        }
-    }
-
     pub fn is_bool(&self) -> bool {
         matches!(self, AstType::Bool)
     }
@@ -58,7 +38,7 @@ impl AstType {
 /// The single operation enum for all AST nodes. A node's type (bool, bitvec,
 /// float, string) is determined by its operation together with the types of its
 /// children, and is cached on the [`AstNode`] as an [`AstType`].
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 pub enum AstOp<'c> {
     // Boolean leaves and operations
     BoolS(InternedString),
@@ -482,17 +462,6 @@ impl<'c> AstOp<'c> {
         }
     }
 
-    /// The bit width of this op's result (bitvectors and floats); 0 for bools
-    /// and strings. Convenience for callers holding a bare op; nodes cache this.
-    pub fn size(&self) -> u32 {
-        self.infer_type().size()
-    }
-
-    /// The float sort of this op's result. Only meaningful for float-typed ops.
-    pub fn sort(&self) -> FSort {
-        self.infer_type().fsort().unwrap_or_else(FSort::f64)
-    }
-
     /// Validates that this operation's children have the types the operation
     /// requires (and that n-ary operations have at least one operand). Called
     /// once per construction by the factory; this is the runtime equivalent of
@@ -712,137 +681,5 @@ impl<'c> Iterator for AstOpChildIter<'_, 'c> {
 impl ExactSizeIterator for AstOpChildIter<'_, '_> {
     fn len(&self) -> usize {
         self.op.num_children().saturating_sub(self.index)
-    }
-}
-
-impl Hash for AstOp<'_> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        std::mem::discriminant(self).hash(state);
-        match self {
-            AstOp::BoolS(s) => s.hash(state),
-            AstOp::BoolV(b) => b.hash(state),
-            AstOp::BVS(s, size) => {
-                s.hash(state);
-                size.hash(state);
-            }
-            AstOp::BVV(bv) => bv.hash(state),
-            AstOp::FPS(s, sort) => {
-                s.hash(state);
-                sort.hash(state);
-            }
-            AstOp::FPV(f) => f.hash(state),
-            AstOp::StringS(s) => s.hash(state),
-            AstOp::StringV(s) => s.hash(state),
-
-            // N-ary
-            AstOp::And(v)
-            | AstOp::Or(v)
-            | AstOp::Xor(v)
-            | AstOp::Add(v)
-            | AstOp::Mul(v)
-            | AstOp::Concat(v) => v.hash(state),
-
-            // Unary with no extra payload
-            AstOp::Not(a)
-            | AstOp::Neg(a)
-            | AstOp::ByteReverse(a)
-            | AstOp::StrLen(a)
-            | AstOp::StrToBV(a)
-            | AstOp::FpToIEEEBV(a)
-            | AstOp::FpNeg(a)
-            | AstOp::FpAbs(a)
-            | AstOp::FpIsNan(a)
-            | AstOp::FpIsInf(a)
-            | AstOp::StrIsDigit(a)
-            | AstOp::BVToStr(a) => a.hash(state),
-
-            AstOp::ZeroExt(a, n) | AstOp::SignExt(a, n) => {
-                a.hash(state);
-                n.hash(state);
-            }
-            AstOp::Extract(a, high, low) => {
-                a.hash(state);
-                high.hash(state);
-                low.hash(state);
-            }
-            AstOp::FpToUBV(a, size, rm) | AstOp::FpToSBV(a, size, rm) => {
-                a.hash(state);
-                size.hash(state);
-                rm.hash(state);
-            }
-            AstOp::FpSqrt(a, rm) => {
-                a.hash(state);
-                rm.hash(state);
-            }
-            AstOp::FpToFp(a, sort, rm) => {
-                a.hash(state);
-                sort.hash(state);
-                rm.hash(state);
-            }
-            AstOp::BvToFp(a, sort) => {
-                a.hash(state);
-                sort.hash(state);
-            }
-            AstOp::BvToFpSigned(a, sort, rm) | AstOp::BvToFpUnsigned(a, sort, rm) => {
-                a.hash(state);
-                sort.hash(state);
-                rm.hash(state);
-            }
-
-            // Binary with no extra payload
-            AstOp::Eq(a, b)
-            | AstOp::Neq(a, b)
-            | AstOp::ULT(a, b)
-            | AstOp::ULE(a, b)
-            | AstOp::UGT(a, b)
-            | AstOp::UGE(a, b)
-            | AstOp::SLT(a, b)
-            | AstOp::SLE(a, b)
-            | AstOp::SGT(a, b)
-            | AstOp::SGE(a, b)
-            | AstOp::FpLt(a, b)
-            | AstOp::FpLeq(a, b)
-            | AstOp::FpGt(a, b)
-            | AstOp::FpGeq(a, b)
-            | AstOp::StrContains(a, b)
-            | AstOp::StrPrefixOf(a, b)
-            | AstOp::StrSuffixOf(a, b)
-            | AstOp::Sub(a, b)
-            | AstOp::UDiv(a, b)
-            | AstOp::SDiv(a, b)
-            | AstOp::URem(a, b)
-            | AstOp::SRem(a, b)
-            | AstOp::ShL(a, b)
-            | AstOp::LShR(a, b)
-            | AstOp::AShR(a, b)
-            | AstOp::RotateLeft(a, b)
-            | AstOp::RotateRight(a, b)
-            | AstOp::Union(a, b)
-            | AstOp::Intersection(a, b)
-            | AstOp::Widen(a, b)
-            | AstOp::StrConcat(a, b) => {
-                a.hash(state);
-                b.hash(state);
-            }
-            AstOp::FpAdd(a, b, rm)
-            | AstOp::FpSub(a, b, rm)
-            | AstOp::FpMul(a, b, rm)
-            | AstOp::FpDiv(a, b, rm) => {
-                a.hash(state);
-                b.hash(state);
-                rm.hash(state);
-            }
-
-            // Ternary
-            AstOp::ITE(a, b, c)
-            | AstOp::StrIndexOf(a, b, c)
-            | AstOp::FpFP(a, b, c)
-            | AstOp::StrSubstr(a, b, c)
-            | AstOp::StrReplace(a, b, c) => {
-                a.hash(state);
-                b.hash(state);
-                c.hash(state);
-            }
-        }
     }
 }

@@ -141,7 +141,7 @@ impl<'c> AstFactory<'c> for Context<'c> {
         self.intern_string(s)
     }
 
-    fn make_annotated(
+    fn make_ast_annotated(
         &'c self,
         op: AstOp<'c>,
         mut annotations: BTreeSet<Annotation>,

@@ -101,5 +101,5 @@ pub fn reconstruct_node<'c>(
         AstOp::StrSubstr(..) => AstOp::StrSubstr(c(0), c(1), c(2)),
         AstOp::StrReplace(..) => AstOp::StrReplace(c(0), c(1), c(2)),
     };
-    ctx.make(op)
+    ctx.make_ast(op)
 }
