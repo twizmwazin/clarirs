@@ -9,20 +9,25 @@ impl ToOpString for AstRef<'static> {
         match self.op() {
             // Polymorphic ops whose name depends on whether the node is boolean
             // or a bitvector.
-            AstOp::Not(..) => if self.ty().is_bool() {
+            AstOp::Not(..) => if self.ast_type().is_bool() {
                 "Not"
             } else {
                 "__neg__"
             }
             .to_string(),
-            AstOp::And(..) => if self.ty().is_bool() {
+            AstOp::And(..) => if self.ast_type().is_bool() {
                 "And"
             } else {
                 "__and__"
             }
             .to_string(),
-            AstOp::Or(..) => if self.ty().is_bool() { "Or" } else { "__or__" }.to_string(),
-            AstOp::Xor(..) => if self.ty().is_bool() {
+            AstOp::Or(..) => if self.ast_type().is_bool() {
+                "Or"
+            } else {
+                "__or__"
+            }
+            .to_string(),
+            AstOp::Xor(..) => if self.ast_type().is_bool() {
                 "Xor"
             } else {
                 "__xor__"
@@ -33,8 +38,8 @@ impl ToOpString for AstRef<'static> {
             // Booleans
             AstOp::BoolS(..) => "BoolS".to_string(),
             AstOp::BoolV(..) => "BoolV".to_string(),
-            AstOp::Eq(a, _) if a.ty().is_float() => "fpEQ".to_string(),
-            AstOp::Neq(a, _) if a.ty().is_float() => "fpNEQ".to_string(),
+            AstOp::Eq(a, _) if a.ast_type().is_float() => "fpEQ".to_string(),
+            AstOp::Neq(a, _) if a.ast_type().is_float() => "fpNEQ".to_string(),
             AstOp::Eq(..) => "__eq__".to_string(),
             AstOp::Neq(..) => "__ne__".to_string(),
             AstOp::ULT(..) => "ULT".to_string(),

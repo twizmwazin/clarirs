@@ -399,11 +399,11 @@ impl<'c> AstOp<'c> {
             | AstOp::StrIsDigit(..) => AstType::Bool,
 
             // Polymorphic: result type follows a child's type
-            AstOp::Not(a) => a.ty(),
+            AstOp::Not(a) => a.ast_type(),
             AstOp::And(v) | AstOp::Or(v) | AstOp::Xor(v) => {
-                v.first().map(|a| a.ty()).unwrap_or(AstType::Bool)
+                v.first().map(|a| a.ast_type()).unwrap_or(AstType::Bool)
             }
-            AstOp::ITE(_, t, _) => t.ty(),
+            AstOp::ITE(_, t, _) => t.ast_type(),
 
             // Bitvectors
             AstOp::BVS(_, width) => AstType::BitVec(*width),
@@ -442,7 +442,7 @@ impl<'c> AstOp<'c> {
             | AstOp::FpAdd(a, _, _)
             | AstOp::FpSub(a, _, _)
             | AstOp::FpMul(a, _, _)
-            | AstOp::FpDiv(a, _, _) => a.ty(),
+            | AstOp::FpDiv(a, _, _) => a.ast_type(),
             AstOp::FpToFp(_, sort, _)
             | AstOp::BvToFp(_, sort)
             | AstOp::BvToFpSigned(_, sort, _)
@@ -464,8 +464,8 @@ impl<'c> AstOp<'c> {
 
     /// Validates that this operation's children have the types the operation
     /// requires (and that n-ary operations have at least one operand). Called
-    /// once per construction by the factory; this is the runtime equivalent of
-    /// the typing the per-sort op enums used to provide statically.
+    /// once per construction by the factory, so every reachable node is
+    /// well-typed.
     pub fn validate(&self) -> Result<(), ClarirsError> {
         fn require(cond: bool, expected: &str) -> Result<(), ClarirsError> {
             if cond {
@@ -495,28 +495,31 @@ impl<'c> AstOp<'c> {
 
             // Polymorphic boolean/bitvector operations
             AstOp::Not(a) => require(
-                matches!(a.ty(), AstType::Bool | AstType::BitVec(_)),
+                matches!(a.ast_type(), AstType::Bool | AstType::BitVec(_)),
                 "Not requires a boolean or bitvector operand",
             ),
             AstOp::And(v) | AstOp::Or(v) | AstOp::Xor(v) => {
                 let first = nonempty(v)?;
                 require(
-                    matches!(first.ty(), AstType::Bool | AstType::BitVec(_)),
+                    matches!(first.ast_type(), AstType::Bool | AstType::BitVec(_)),
                     "And/Or/Xor require boolean or bitvector operands",
                 )?;
                 require(
-                    v.iter().all(|a| a.ty() == first.ty()),
+                    v.iter().all(|a| a.ast_type() == first.ast_type()),
                     "operands of an n-ary operation must all have the same sort",
                 )
             }
             AstOp::ITE(c, t, e) => {
-                require(c.ty().is_bool(), "ITE condition must be boolean")?;
-                require(t.ty() == e.ty(), "ITE branches must have the same sort")
+                require(c.ast_type().is_bool(), "ITE condition must be boolean")?;
+                require(
+                    t.ast_type() == e.ast_type(),
+                    "ITE branches must have the same sort",
+                )
             }
 
             // Equality over any sort
             AstOp::Eq(a, b) | AstOp::Neq(a, b) => require(
-                a.ty() == b.ty(),
+                a.ast_type() == b.ast_type(),
                 "equality operands must have the same sort",
             ),
 
@@ -529,7 +532,7 @@ impl<'c> AstOp<'c> {
             | AstOp::SLE(a, b)
             | AstOp::SGT(a, b)
             | AstOp::SGE(a, b) => require(
-                a.ty().is_bitvec() && a.ty() == b.ty(),
+                a.ast_type().is_bitvec() && a.ast_type() == b.ast_type(),
                 "bitvector comparison requires bitvector operands of equal width",
             ),
 
@@ -542,7 +545,7 @@ impl<'c> AstOp<'c> {
             | AstOp::FpSub(a, b, _)
             | AstOp::FpMul(a, b, _)
             | AstOp::FpDiv(a, b, _) => require(
-                a.ty().is_float() && a.ty() == b.ty(),
+                a.ast_type().is_float() && a.ast_type() == b.ast_type(),
                 "float operation requires float operands of the same sort",
             ),
 
@@ -556,7 +559,7 @@ impl<'c> AstOp<'c> {
             | AstOp::FpToIEEEBV(a)
             | AstOp::FpToUBV(a, _, _)
             | AstOp::FpToSBV(a, _, _) => require(
-                a.ty().is_float(),
+                a.ast_type().is_float(),
                 "float operation requires a float operand",
             ),
 
@@ -565,28 +568,29 @@ impl<'c> AstOp<'c> {
             | AstOp::StrPrefixOf(a, b)
             | AstOp::StrSuffixOf(a, b)
             | AstOp::StrConcat(a, b) => require(
-                a.ty().is_string() && b.ty().is_string(),
+                a.ast_type().is_string() && b.ast_type().is_string(),
                 "string operation requires string operands",
             ),
             AstOp::StrIsDigit(a) | AstOp::StrLen(a) | AstOp::StrToBV(a) => require(
-                a.ty().is_string(),
+                a.ast_type().is_string(),
                 "string operation requires a string operand",
             ),
             AstOp::StrReplace(a, b, c) => require(
-                a.ty().is_string() && b.ty().is_string() && c.ty().is_string(),
+                a.ast_type().is_string() && b.ast_type().is_string() && c.ast_type().is_string(),
                 "StrReplace requires string operands",
             ),
             AstOp::StrSubstr(a, b, c) => require(
-                a.ty().is_string() && b.ty().is_bitvec() && c.ty().is_bitvec(),
+                a.ast_type().is_string() && b.ast_type().is_bitvec() && c.ast_type().is_bitvec(),
                 "StrSubstr requires a string and two bitvector operands",
             ),
             AstOp::StrIndexOf(a, b, c) => require(
-                a.ty().is_string() && b.ty().is_string() && c.ty().is_bitvec(),
+                a.ast_type().is_string() && b.ast_type().is_string() && c.ast_type().is_bitvec(),
                 "StrIndexOf requires two strings and a bitvector operand",
             ),
-            AstOp::BVToStr(a) => {
-                require(a.ty().is_bitvec(), "BVToStr requires a bitvector operand")
-            }
+            AstOp::BVToStr(a) => require(
+                a.ast_type().is_bitvec(),
+                "BVToStr requires a bitvector operand",
+            ),
 
             // Unary bitvector operations
             AstOp::Neg(a)
@@ -596,7 +600,7 @@ impl<'c> AstOp<'c> {
             | AstOp::BvToFp(a, _)
             | AstOp::BvToFpSigned(a, _, _)
             | AstOp::BvToFpUnsigned(a, _, _) => require(
-                a.ty().is_bitvec(),
+                a.ast_type().is_bitvec(),
                 "bitvector operation requires a bitvector operand",
             ),
 
@@ -604,7 +608,8 @@ impl<'c> AstOp<'c> {
             AstOp::Add(v) | AstOp::Mul(v) => {
                 let first = nonempty(v)?;
                 require(
-                    first.ty().is_bitvec() && v.iter().all(|a| a.ty() == first.ty()),
+                    first.ast_type().is_bitvec()
+                        && v.iter().all(|a| a.ast_type() == first.ast_type()),
                     "bitvector arithmetic requires bitvector operands of equal width",
                 )
             }
@@ -623,12 +628,15 @@ impl<'c> AstOp<'c> {
             | AstOp::Union(a, b)
             | AstOp::Intersection(a, b)
             | AstOp::Widen(a, b) => require(
-                a.ty().is_bitvec() && a.ty() == b.ty(),
+                a.ast_type().is_bitvec() && a.ast_type() == b.ast_type(),
                 "bitvector operation requires bitvector operands of equal width",
             ),
 
             AstOp::Extract(a, high, low) => {
-                require(a.ty().is_bitvec(), "Extract requires a bitvector operand")?;
+                require(
+                    a.ast_type().is_bitvec(),
+                    "Extract requires a bitvector operand",
+                )?;
                 if low > high || *high >= a.size() {
                     return Err(ClarirsError::InvalidExtractBounds {
                         upper: *high,
@@ -643,13 +651,13 @@ impl<'c> AstOp<'c> {
             AstOp::Concat(v) => {
                 nonempty(v)?;
                 require(
-                    v.iter().all(|a| a.ty().is_bitvec()),
+                    v.iter().all(|a| a.ast_type().is_bitvec()),
                     "Concat requires bitvector operands",
                 )
             }
 
             AstOp::FpFP(s, e, m) => require(
-                s.ty().is_bitvec() && e.ty().is_bitvec() && m.ty().is_bitvec(),
+                s.ast_type().is_bitvec() && e.ast_type().is_bitvec() && m.ast_type().is_bitvec(),
                 "FpFP requires bitvector operands",
             ),
         }

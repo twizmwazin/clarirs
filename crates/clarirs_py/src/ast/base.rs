@@ -47,7 +47,7 @@ impl Base {
         py: Python<'py>,
         dynast: AstRef<'static>,
     ) -> Result<Bound<'py, Base>, ClaripyError> {
-        match dynast.ty() {
+        match dynast.ast_type() {
             AstType::Bool => {
                 Bool::new(py, &dynast).map(|b| b.into_any().cast_into::<Base>().unwrap())
             }

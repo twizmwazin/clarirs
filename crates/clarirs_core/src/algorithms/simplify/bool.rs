@@ -266,7 +266,7 @@ pub(crate) fn simplify_bool<'c>(
                 Ok(combined)
             }
         }
-        AstOp::Eq(..) => match state.get_child_available(0).ty() {
+        AstOp::Eq(..) => match state.get_child_available(0).ast_type() {
             AstType::Bool => {
                 let early_lhs = state.get_child_available(0);
                 let early_rhs = state.get_child_available(1);
@@ -460,7 +460,7 @@ pub(crate) fn simplify_bool<'c>(
                 }
             }
         },
-        AstOp::Neq(..) => match state.get_child_available(0).ty() {
+        AstOp::Neq(..) => match state.get_child_available(0).ast_type() {
             AstType::Bool => {
                 let early_lhs = state.get_child_available(0);
                 let early_rhs = state.get_child_available(1);

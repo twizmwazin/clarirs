@@ -76,14 +76,14 @@ pub(crate) fn reduce_bool(
             result
         }
         AstOp::Eq(a, _) => {
-            if a.ty().is_bool() {
+            if a.ast_type().is_bool() {
                 child(children, 0)?.eq_(child(children, 1)?)
             } else {
                 child_si(children, 0)?.eq_(&child_si(children, 1)?)
             }
         }
         AstOp::Neq(a, _) => {
-            if a.ty().is_bool() {
+            if a.ast_type().is_bool() {
                 !child(children, 0)?.eq_(child(children, 1)?)
             } else {
                 child_si(children, 0)?.ne_(&child_si(children, 1)?)

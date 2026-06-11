@@ -18,7 +18,7 @@ impl<'c> AstNode<'c> {
 
         // The replacement must preserve the sort, including bitvector width
         // and float format; comparing the cached types covers all of that.
-        if from.ty() != to.ty() {
+        if from.ast_type() != to.ast_type() {
             return Err(ClarirsError::TypeError(
                 "Replace types must match!".to_string(),
             ));

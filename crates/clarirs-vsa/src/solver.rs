@@ -44,7 +44,7 @@ impl<'c> Solver<'c> for VSASolver<'c> {
     }
 
     fn eval_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        match expr.ty() {
+        match expr.ast_type() {
             AstType::Bool => expr
                 .simplify()?
                 .reduce()?

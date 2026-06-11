@@ -94,7 +94,7 @@ pub fn canonicalize<'c>(
             && let Some(canonical_name) = var_mapping.get(original_name)
         {
             // Create the canonical variable with the same type and size as the original
-            let canonical_var = match var.ty() {
+            let canonical_var = match var.ast_type() {
                 AstType::Bool => ctx.bools(canonical_name.as_str())?,
                 AstType::BitVec(size) => ctx.bvs(canonical_name.as_str(), size)?,
                 AstType::Float(sort) => ctx.fps(canonical_name.as_str(), sort)?,

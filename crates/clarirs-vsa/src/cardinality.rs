@@ -10,7 +10,7 @@ pub trait Cardinality {
 
 impl Cardinality for AstRef<'_> {
     fn cardinality(&self) -> Result<BigUint, ClarirsError> {
-        match self.ty() {
+        match self.ast_type() {
             AstType::BitVec(_) => Ok(self.reduce()?.into_bv()?.cardinality()),
             AstType::Bool => match self.reduce()?.into_bool()? {
                 ComparisonResult::True | ComparisonResult::False => Ok(BigUint::one()),

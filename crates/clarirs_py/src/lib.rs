@@ -84,7 +84,7 @@ fn py_replace<'py>(
     let new_dyn = Base::to_dynast(new.clone())?;
 
     // Convert new type to old type, if they do not match and both are BV or FP
-    let new_coerced = match (old_dyn.ty(), new_dyn.ty()) {
+    let new_coerced = match (old_dyn.ast_type(), new_dyn.ast_type()) {
         (AstType::BitVec(_), AstType::Float(_)) => new_dyn.context().fp_to_ieeebv(&new_dyn)?,
         (AstType::Float(_), AstType::BitVec(_)) => {
             new_dyn.context().bv_to_fp(&new_dyn, old_dyn.sort())?

@@ -106,14 +106,14 @@ fn to_z3_op(ast: &AstRef, children: &[RcAst]) -> Result<RcAst, ClarirsError> {
         Ok(match ast.op() {
             // Polymorphic boolean/bitvector operations
             AstOp::Not(..) => {
-                if ast.ty().is_bool() {
+                if ast.ast_type().is_bool() {
                     unop!(z3_ctx, children, mk_not)
                 } else {
                     unop!(z3_ctx, children, mk_bvnot)
                 }
             }
             AstOp::And(..) => {
-                if ast.ty().is_bool() {
+                if ast.ast_type().is_bool() {
                     let args: Vec<_> = children.iter().map(|c| **c).collect();
                     z3::mk_and(z3_ctx, args.len() as u32, args.as_ptr()).try_into()?
                 } else {
@@ -121,7 +121,7 @@ fn to_z3_op(ast: &AstRef, children: &[RcAst]) -> Result<RcAst, ClarirsError> {
                 }
             }
             AstOp::Or(..) => {
-                if ast.ty().is_bool() {
+                if ast.ast_type().is_bool() {
                     let args: Vec<_> = children.iter().map(|c| **c).collect();
                     z3::mk_or(z3_ctx, args.len() as u32, args.as_ptr()).try_into()?
                 } else {
@@ -129,7 +129,7 @@ fn to_z3_op(ast: &AstRef, children: &[RcAst]) -> Result<RcAst, ClarirsError> {
                 }
             }
             AstOp::Xor(..) => {
-                if ast.ty().is_bool() {
+                if ast.ast_type().is_bool() {
                     naryop!(z3_ctx, children, mk_xor)
                 } else {
                     naryop!(z3_ctx, children, mk_bvxor)
@@ -157,7 +157,7 @@ fn to_z3_op(ast: &AstRef, children: &[RcAst]) -> Result<RcAst, ClarirsError> {
             .try_into()?,
             // Equality (any sort): floats use fp.eq, everything else structural =.
             AstOp::Eq(a, _) => {
-                if a.ty().is_float() {
+                if a.ast_type().is_float() {
                     binop!(z3_ctx, children, mk_fpa_eq)
                 } else {
                     binop!(z3_ctx, children, mk_eq)

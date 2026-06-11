@@ -23,14 +23,14 @@ fn to_smtlib_op(ast: &AstRef<'_>, children: &[String]) -> String {
         AstOp::BoolS(s) => s.to_string(),
         AstOp::BoolV(b) => b.to_string(),
         AstOp::Eq(a, _) => {
-            if a.ty().is_float() {
+            if a.ast_type().is_float() {
                 format!("(fp.eq {} {})", children[0], children[1])
             } else {
                 format!("(= {} {})", children[0], children[1])
             }
         }
         AstOp::Neq(a, _) => {
-            if a.ty().is_float() {
+            if a.ast_type().is_float() {
                 format!("(not (fp.eq {} {}))", children[0], children[1])
             } else {
                 format!("(distinct {} {})", children[0], children[1])
@@ -56,11 +56,11 @@ fn to_smtlib_op(ast: &AstRef<'_>, children: &[String]) -> String {
         AstOp::StrIsDigit(..) => format!("(str.is_digit {})", children[0]),
 
         // Polymorphic
-        AstOp::Not(..) if ast.ty().is_bool() => format!("(not {})", children[0]),
+        AstOp::Not(..) if ast.ast_type().is_bool() => format!("(not {})", children[0]),
         AstOp::Not(..) => format!("(bvnot {})", children[0]),
         AstOp::ITE(..) => format!("(ite {} {} {})", children[0], children[1], children[2]),
-        AstOp::And(..) if ast.ty().is_bool() => format!("(and {})", children.join(" ")),
-        AstOp::Or(..) if ast.ty().is_bool() => format!("(or {})", children.join(" ")),
+        AstOp::And(..) if ast.ast_type().is_bool() => format!("(and {})", children.join(" ")),
+        AstOp::Or(..) if ast.ast_type().is_bool() => format!("(or {})", children.join(" ")),
         AstOp::And(..) => format!(
             "(bvand{})",
             children
@@ -77,7 +77,7 @@ fn to_smtlib_op(ast: &AstRef<'_>, children: &[String]) -> String {
         // Bitvectors
         AstOp::BVS(s, _) => s.to_string(),
         AstOp::BVV(bit_vec) => format!("(_ bv{} {})", bit_vec.to_biguint(), bit_vec.len()),
-        AstOp::Xor(..) if ast.ty().is_bool() => format!("(xor {})", children.join(" ")),
+        AstOp::Xor(..) if ast.ast_type().is_bool() => format!("(xor {})", children.join(" ")),
         AstOp::Xor(..) => format!(
             "(bvxor{})",
             children

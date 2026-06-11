@@ -17,7 +17,7 @@ pub struct AstNode<'c> {
     op: AstOp<'c>,
     annotations: BTreeSet<Annotation>,
     #[serde(skip)]
-    ty: AstType,
+    ast_type: AstType,
     #[serde(skip)]
     ctx: &'c Context<'c>,
     #[serde(skip)]
@@ -68,7 +68,7 @@ impl<'c> AstNode<'c> {
         op: AstOp<'c>,
         annotations: BTreeSet<Annotation>,
         hash: u64,
-        ty: AstType,
+        ast_type: AstType,
     ) -> Self {
         let variables = op.variables();
         let depth = 1 + op.child_iter().map(|c| c.depth()).max().unwrap_or(0);
@@ -88,7 +88,7 @@ impl<'c> AstNode<'c> {
             op,
             ctx,
             hash,
-            ty,
+            ast_type,
             variables,
             depth,
             annotations,
@@ -105,8 +105,8 @@ impl<'c> AstNode<'c> {
         &self.op
     }
 
-    pub fn ty(&self) -> AstType {
-        self.ty
+    pub fn ast_type(&self) -> AstType {
+        self.ast_type
     }
 
     pub fn annotations(&self) -> &BTreeSet<Annotation> {
@@ -143,7 +143,7 @@ impl<'c> AstNode<'c> {
     }
 
     pub fn size(&self) -> u32 {
-        match self.ty {
+        match self.ast_type {
             AstType::BitVec(width) => width,
             AstType::Float(sort) => sort.size(),
             AstType::Bool | AstType::String => 0,
@@ -153,7 +153,7 @@ impl<'c> AstNode<'c> {
     /// The float sort of this node. For non-float nodes this falls back to a
     /// default and should not be relied upon; check [`AstType::is_float`] first.
     pub fn sort(&self) -> FSort {
-        if let AstType::Float(sort) = self.ty {
+        if let AstType::Float(sort) = self.ast_type {
             sort
         } else {
             FSort::f64()
@@ -205,26 +205,26 @@ impl<'c> AstNode<'c> {
 
     /// Returns true if both nodes have the same sort (type and size).
     pub fn check_same_sort(&self, other: &Self) -> bool {
-        self.ty == other.ty
+        self.ast_type == other.ast_type
     }
 
     // Runtime-checked accessors: each returns the node back only if its cached
     // type tag matches, for validating ASTs that cross an API boundary.
 
     pub fn into_bool(self: Arc<Self>) -> Option<Arc<Self>> {
-        self.ty.is_bool().then_some(self)
+        self.ast_type.is_bool().then_some(self)
     }
 
     pub fn into_bitvec(self: Arc<Self>) -> Option<Arc<Self>> {
-        self.ty.is_bitvec().then_some(self)
+        self.ast_type.is_bitvec().then_some(self)
     }
 
     pub fn into_float(self: Arc<Self>) -> Option<Arc<Self>> {
-        self.ty.is_float().then_some(self)
+        self.ast_type.is_float().then_some(self)
     }
 
     pub fn into_string(self: Arc<Self>) -> Option<Arc<Self>> {
-        self.ty.is_string().then_some(self)
+        self.ast_type.is_string().then_some(self)
     }
 }
 

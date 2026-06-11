@@ -159,10 +159,10 @@ impl<'c> AstFactory<'c> for Context<'c> {
         // The node's type is inferred from the op and its children's cached
         // types; this also provides domain separation in the hash so that
         // structurally-identical ops of different sorts hash differently.
-        let ty = op.infer_type();
+        let ast_type = op.infer_type();
 
         let mut hasher = AHasher::default();
-        ty.hash(&mut hasher);
+        ast_type.hash(&mut hasher);
         op.hash(&mut hasher);
         for a in &annotations {
             a.hash(&mut hasher);
@@ -175,7 +175,7 @@ impl<'c> AstFactory<'c> for Context<'c> {
                 op.clone(),
                 annotations.clone(),
                 hash,
-                ty,
+                ast_type,
             )))
         })
     }

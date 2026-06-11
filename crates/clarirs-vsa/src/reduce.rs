@@ -49,7 +49,7 @@ impl<'c> Reduce<'c> for AstRef<'c> {
     fn reduce(&self) -> Result<ReduceResult, ClarirsError> {
         walk_post_order(
             self.clone(),
-            |node, children| match node.ty() {
+            |node, children| match node.ast_type() {
                 AstType::BitVec(_) => bv::reduce_bv(&node, children).map(ReduceResult::BitVec),
                 AstType::Bool => bool::reduce_bool(&node, children).map(ReduceResult::Bool),
                 _ => Err(ClarirsError::UnsupportedOperation(

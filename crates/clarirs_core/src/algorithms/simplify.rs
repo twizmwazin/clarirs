@@ -113,7 +113,7 @@ fn simplify_inner<'c>(
     let expr = &state.expr.clone();
     expr.context()
         .simplification_cache
-        .get_or_insert(state.expr.hash(), || match expr.ty() {
+        .get_or_insert(state.expr.hash(), || match expr.ast_type() {
             AstType::Bool => bool::simplify_bool(state),
             AstType::BitVec(_) => bv::simplify_bv(state, error_on_dbz),
             AstType::Float(_) => float::simplify_float(state),
