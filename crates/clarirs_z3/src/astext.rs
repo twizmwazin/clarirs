@@ -163,10 +163,18 @@ fn to_z3_op(ast: &AstRef, children: &[RcAst]) -> Result<RcAst, ClarirsError> {
                     binop!(z3_ctx, children, mk_eq)
                 }
             }
-            AstOp::Neq(..) => {
-                let a = child(children, 0)?;
-                let b = child(children, 1)?;
-                z3::mk_distinct(z3_ctx, 2, [**a, **b].as_ptr()).try_into()?
+            AstOp::Neq(a, _) => {
+                if a.ast_type().is_float() {
+                    // IEEE inequality. Z3's `distinct` on floats is object
+                    // identity (NaN would equal NaN, +0 would differ from -0),
+                    // so emit not(fp.eq) instead.
+                    let eq = binop!(z3_ctx, children, mk_fpa_eq);
+                    z3::mk_not(z3_ctx, *eq).try_into()?
+                } else {
+                    let a = child(children, 0)?;
+                    let b = child(children, 1)?;
+                    z3::mk_distinct(z3_ctx, 2, [**a, **b].as_ptr()).try_into()?
+                }
             }
             AstOp::ULT(..) => binop!(z3_ctx, children, mk_bvult),
             AstOp::ULE(..) => binop!(z3_ctx, children, mk_bvule),

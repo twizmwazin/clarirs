@@ -287,7 +287,10 @@ mod to_z3 {
         let b = ctx.fps("b", FSort::f32()).unwrap();
         let r = ctx.fp_neq(a, b).unwrap();
         let z3_ast = r.to_z3().unwrap();
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Distinct);
+        // IEEE inequality lowers to not(fp.eq), not object-level `distinct`
+        // (under which NaN would equal itself and +0 would differ from -0).
+        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Not);
+        assert_eq!(z3_ast.arg(0).unwrap().decl_kind(), z3::DeclKind::FpaEq);
     }
 
     #[test]

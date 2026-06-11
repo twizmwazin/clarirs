@@ -523,6 +523,24 @@ mod tests {
     }
 
     #[test]
+    fn test_fp_neq_is_ieee() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+
+        // x != x is satisfiable for floats: NaN is IEEE-unequal to itself.
+        // An object-level `distinct` lowering would make this unsatisfiable.
+        let mut solver = Z3Solver::new(&ctx);
+        let x = ctx.fps("x", FSort::f64())?;
+        solver.add(&ctx.neq(&x, &x)?)?;
+        assert!(solver.satisfiable()?);
+
+        // ...and NaN is the only witness.
+        solver.add(&ctx.not(&ctx.fp_is_nan(&x)?)?)?;
+        assert!(!solver.satisfiable()?);
+
+        Ok(())
+    }
+
+    #[test]
     fn test_solver_unsat() -> Result<(), ClarirsError> {
         let ctx = Context::new();
 
