@@ -97,372 +97,6 @@ fn decode_custom_unicode(input: &str) -> String {
     .into_owned()
 }
 
-/// Builds a Z3 AST for a single node given its already-converted children.
-/// A single match over the unified op enum replaces the previous per-sort
-/// `to_z3` functions; polymorphic ops (Not/And/Or/Xor) pick the boolean or
-/// bitvector Z3 constructor from the node's type.
-fn to_z3_op(ast: &AstRef, children: &[RcAst]) -> Result<RcAst, ClarirsError> {
-    Z3_CONTEXT.with(|&z3_ctx| unsafe {
-        Ok(match ast.op() {
-            // Polymorphic boolean/bitvector operations
-            AstOp::Not(..) => {
-                if ast.ast_type().is_bool() {
-                    unop!(z3_ctx, children, mk_not)
-                } else {
-                    unop!(z3_ctx, children, mk_bvnot)
-                }
-            }
-            AstOp::And(..) => {
-                if ast.ast_type().is_bool() {
-                    let args: Vec<_> = children.iter().map(|c| **c).collect();
-                    z3::mk_and(z3_ctx, args.len() as u32, args.as_ptr()).try_into()?
-                } else {
-                    naryop!(z3_ctx, children, mk_bvand)
-                }
-            }
-            AstOp::Or(..) => {
-                if ast.ast_type().is_bool() {
-                    let args: Vec<_> = children.iter().map(|c| **c).collect();
-                    z3::mk_or(z3_ctx, args.len() as u32, args.as_ptr()).try_into()?
-                } else {
-                    naryop!(z3_ctx, children, mk_bvor)
-                }
-            }
-            AstOp::Xor(..) => {
-                if ast.ast_type().is_bool() {
-                    naryop!(z3_ctx, children, mk_xor)
-                } else {
-                    naryop!(z3_ctx, children, mk_bvxor)
-                }
-            }
-            AstOp::ITE(..) => {
-                let cond = child(children, 0)?;
-                let then = child(children, 1)?;
-                let else_ = child(children, 2)?;
-                z3::mk_ite(z3_ctx, **cond, **then, **else_).try_into()?
-            }
-
-            // Boolean leaves and predicates
-            AstOp::BoolS(s) => {
-                let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
-                let sym = z3::mk_string_symbol(z3_ctx, s_cstr.as_ptr());
-                let sort = z3::mk_bool_sort(z3_ctx);
-                RcAst::try_from(z3::mk_const(z3_ctx, sym, sort))?
-            }
-            AstOp::BoolV(b) => if *b {
-                z3::mk_true(z3_ctx)
-            } else {
-                z3::mk_false(z3_ctx)
-            }
-            .try_into()?,
-            // Equality (any sort): floats use fp.eq, everything else structural =.
-            AstOp::Eq(a, _) => {
-                if a.ast_type().is_float() {
-                    binop!(z3_ctx, children, mk_fpa_eq)
-                } else {
-                    binop!(z3_ctx, children, mk_eq)
-                }
-            }
-            AstOp::Neq(a, _) => {
-                if a.ast_type().is_float() {
-                    // IEEE inequality. Z3's `distinct` on floats is object
-                    // identity (NaN would equal NaN, +0 would differ from -0),
-                    // so emit not(fp.eq) instead.
-                    let eq = binop!(z3_ctx, children, mk_fpa_eq);
-                    z3::mk_not(z3_ctx, *eq).try_into()?
-                } else {
-                    let a = child(children, 0)?;
-                    let b = child(children, 1)?;
-                    z3::mk_distinct(z3_ctx, 2, [**a, **b].as_ptr()).try_into()?
-                }
-            }
-            AstOp::ULT(..) => binop!(z3_ctx, children, mk_bvult),
-            AstOp::ULE(..) => binop!(z3_ctx, children, mk_bvule),
-            AstOp::UGT(..) => binop!(z3_ctx, children, mk_bvugt),
-            AstOp::UGE(..) => binop!(z3_ctx, children, mk_bvuge),
-            AstOp::SLT(..) => binop!(z3_ctx, children, mk_bvslt),
-            AstOp::SLE(..) => binop!(z3_ctx, children, mk_bvsle),
-            AstOp::SGT(..) => binop!(z3_ctx, children, mk_bvsgt),
-            AstOp::SGE(..) => binop!(z3_ctx, children, mk_bvsge),
-            AstOp::FpLt(..) => binop!(z3_ctx, children, mk_fpa_lt),
-            AstOp::FpLeq(..) => binop!(z3_ctx, children, mk_fpa_leq),
-            AstOp::FpGt(..) => binop!(z3_ctx, children, mk_fpa_gt),
-            AstOp::FpGeq(..) => binop!(z3_ctx, children, mk_fpa_geq),
-            AstOp::FpIsNan(..) => unop!(z3_ctx, children, mk_fpa_is_nan),
-            AstOp::FpIsInf(..) => unop!(z3_ctx, children, mk_fpa_is_infinite),
-            AstOp::StrContains(..) => binop!(z3_ctx, children, mk_seq_contains),
-            AstOp::StrPrefixOf(..) => binop!(z3_ctx, children, mk_seq_prefix),
-            AstOp::StrSuffixOf(..) => binop!(z3_ctx, children, mk_seq_suffix),
-            AstOp::StrIsDigit(..) => {
-                let a = child(children, 0)?;
-                // str.to_int returns -1 for non-digit strings, so >= 0 means all digits
-                let int_val = z3::mk_str_to_int(z3_ctx, **a);
-                let int_sort = z3::mk_int_sort(z3_ctx);
-                let zero_cstr = std::ffi::CString::new("0").unwrap();
-                let zero = z3::mk_numeral(z3_ctx, zero_cstr.as_ptr(), int_sort);
-                let is_non_negative = z3::mk_ge(z3_ctx, int_val, zero);
-                let str_len = z3::mk_seq_length(z3_ctx, **a);
-                let zero_int_cstr = std::ffi::CString::new("0").unwrap();
-                let zero_int = z3::mk_numeral(z3_ctx, zero_int_cstr.as_ptr(), int_sort);
-                let is_non_empty = z3::mk_gt(z3_ctx, str_len, zero_int);
-                let args = [is_non_negative, is_non_empty];
-                z3::mk_and(z3_ctx, 2, args.as_ptr()).try_into()?
-            }
-
-            // Bitvector leaves and operations
-            AstOp::BVS(s, w) => {
-                let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
-                let sym = z3::mk_string_symbol(z3_ctx, s_cstr.as_ptr());
-                let sort = z3::mk_bv_sort(z3_ctx, *w);
-                RcAst::try_from(z3::mk_const(z3_ctx, sym, sort))?
-            }
-            AstOp::BVV(v) => {
-                let sort = z3::mk_bv_sort(z3_ctx, v.len());
-                let numeral = v.to_biguint().to_string();
-                let numeral_cstr = std::ffi::CString::new(numeral).unwrap();
-                RcAst::try_from(z3::mk_numeral(z3_ctx, numeral_cstr.as_ptr(), sort))?
-            }
-            AstOp::Neg(..) => unop!(z3_ctx, children, mk_bvneg),
-            AstOp::Add(..) => naryop!(z3_ctx, children, mk_bvadd),
-            AstOp::Sub(..) => binop!(z3_ctx, children, mk_bvsub),
-            AstOp::Mul(..) => naryop!(z3_ctx, children, mk_bvmul),
-            AstOp::UDiv(..) => binop!(z3_ctx, children, mk_bvudiv),
-            AstOp::SDiv(..) => binop!(z3_ctx, children, mk_bvsdiv),
-            AstOp::URem(..) => binop!(z3_ctx, children, mk_bvurem),
-            AstOp::SRem(..) => binop!(z3_ctx, children, mk_bvsrem),
-            AstOp::ShL(..) => binop!(z3_ctx, children, mk_bvshl),
-            AstOp::LShR(..) => binop!(z3_ctx, children, mk_bvlshr),
-            AstOp::AShR(..) => binop!(z3_ctx, children, mk_bvashr),
-            AstOp::RotateLeft(..) => binop!(z3_ctx, children, mk_ext_rotate_left),
-            AstOp::RotateRight(..) => binop!(z3_ctx, children, mk_ext_rotate_right),
-            AstOp::ZeroExt(_, i) => {
-                RcAst::try_from(z3::mk_zero_ext(z3_ctx, *i, **child(children, 0)?))?
-            }
-            AstOp::SignExt(_, i) => {
-                RcAst::try_from(z3::mk_sign_ext(z3_ctx, *i, **child(children, 0)?))?
-            }
-            AstOp::Extract(a, high, low) => {
-                if high >= &a.size() || low >= &a.size() {
-                    return Err(ClarirsError::ConversionError(
-                        "extract index is greater than bitvector size".to_string(),
-                    ));
-                }
-                if low > high {
-                    return Err(ClarirsError::ConversionError(
-                        "low index is greater than high index".to_string(),
-                    ));
-                }
-                RcAst::try_from(z3::mk_extract(z3_ctx, *high, *low, **child(children, 0)?))?
-            }
-            AstOp::Concat(args) => {
-                if args.is_empty() {
-                    return Err(ClarirsError::InvalidArguments(
-                        "Concat requires at least one argument".to_string(),
-                    ));
-                }
-                let mut result = child(children, 0)?.clone();
-                for i in 1..children.len() {
-                    result =
-                        RcAst::try_from(z3::mk_concat(z3_ctx, *result, **child(children, i)?))?;
-                }
-                result
-            }
-            AstOp::ByteReverse(a) => {
-                let size = a.size();
-                if size == 0 || size % 8 != 0 {
-                    return Err(ClarirsError::ConversionError(
-                        "reverse only supports bitvectors with size multiple of 8".to_string(),
-                    ));
-                }
-                let child_z3 = child(children, 0)?;
-                let num_bytes = size / 8;
-                let mut result = RcAst::try_from(z3::mk_extract(z3_ctx, 7, 0, **child_z3))?;
-                for i in 1..num_bytes {
-                    let high = (i + 1) * 8 - 1;
-                    let low = i * 8;
-                    let byte = RcAst::try_from(z3::mk_extract(z3_ctx, high, low, **child_z3))?;
-                    result = RcAst::try_from(z3::mk_concat(z3_ctx, *result, *byte))?;
-                }
-                result
-            }
-            AstOp::FpToIEEEBV(..) => {
-                RcAst::try_from(z3::mk_fpa_to_ieee_bv(z3_ctx, **child(children, 0)?))?
-            }
-            AstOp::FpToUBV(_, size, rm) => {
-                let rm_ast = fprm_to_z3(*rm)?;
-                RcAst::try_from(z3::mk_fpa_to_ubv(
-                    z3_ctx,
-                    *rm_ast,
-                    **child(children, 0)?,
-                    *size,
-                ))?
-            }
-            AstOp::FpToSBV(_, size, rm) => {
-                let rm_ast = fprm_to_z3(*rm)?;
-                RcAst::try_from(z3::mk_fpa_to_sbv(
-                    z3_ctx,
-                    *rm_ast,
-                    **child(children, 0)?,
-                    *size,
-                ))?
-            }
-            AstOp::StrLen(..) => {
-                let str_len = RcAst::try_from(z3::mk_seq_length(z3_ctx, **child(children, 0)?))?;
-                RcAst::try_from(z3::mk_int2bv(z3_ctx, 64, *str_len))?
-            }
-            AstOp::StrIndexOf(..) => {
-                let haystack = child(children, 0)?;
-                let needle = child(children, 1)?;
-                let offset_bv = child(children, 2)?;
-                let offset_int = RcAst::try_from(z3::mk_bv2int(z3_ctx, **offset_bv, false))?;
-                let index_int =
-                    RcAst::try_from(z3::mk_seq_index(z3_ctx, **haystack, **needle, *offset_int))?;
-                RcAst::try_from(z3::mk_int2bv(z3_ctx, 64, *index_int))?
-            }
-            AstOp::StrToBV(..) => {
-                let int_val = RcAst::try_from(z3::mk_str_to_int(z3_ctx, **child(children, 0)?))?;
-                RcAst::try_from(z3::mk_int2bv(z3_ctx, 64, *int_val))?
-            }
-            AstOp::Union(..) | AstOp::Intersection(..) | AstOp::Widen(..) => {
-                return Err(ClarirsError::ConversionError(
-                    "vsa types are not currently supported in the z3 backend".to_string(),
-                ));
-            }
-
-            // Float leaves and operations
-            AstOp::FPS(s, sort) => {
-                let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
-                let sym = z3::mk_string_symbol(z3_ctx, s_cstr.as_ptr());
-                RcAst::try_from(z3::mk_const(z3_ctx, sym, fsort_to_z3(*sort)))?
-            }
-            AstOp::FPV(f) => {
-                let sort = fsort_to_z3(f.fsort());
-                match f {
-                    Float::F32(val) => {
-                        RcAst::try_from(z3::mk_fpa_numeral_float(z3_ctx, *val, sort))?
-                    }
-                    Float::F64(val) => {
-                        RcAst::try_from(z3::mk_fpa_numeral_double(z3_ctx, *val, sort))?
-                    }
-                }
-            }
-            AstOp::FpNeg(..) => unop!(z3_ctx, children, mk_fpa_neg),
-            AstOp::FpAbs(..) => unop!(z3_ctx, children, mk_fpa_abs),
-            AstOp::FpAdd(_, _, rm) => {
-                let rm_ast = fprm_to_z3(*rm)?;
-                let a = child(children, 0)?;
-                let b = child(children, 1)?;
-                RcAst::try_from(z3::mk_fpa_add(z3_ctx, *rm_ast, **a, **b))?
-            }
-            AstOp::FpSub(_, _, rm) => {
-                let rm_ast = fprm_to_z3(*rm)?;
-                let a = child(children, 0)?;
-                let b = child(children, 1)?;
-                RcAst::try_from(z3::mk_fpa_sub(z3_ctx, *rm_ast, **a, **b))?
-            }
-            AstOp::FpMul(_, _, rm) => {
-                let rm_ast = fprm_to_z3(*rm)?;
-                let a = child(children, 0)?;
-                let b = child(children, 1)?;
-                RcAst::try_from(z3::mk_fpa_mul(z3_ctx, *rm_ast, **a, **b))?
-            }
-            AstOp::FpDiv(_, _, rm) => {
-                let rm_ast = fprm_to_z3(*rm)?;
-                let a = child(children, 0)?;
-                let b = child(children, 1)?;
-                RcAst::try_from(z3::mk_fpa_div(z3_ctx, *rm_ast, **a, **b))?
-            }
-            AstOp::FpSqrt(_, rm) => {
-                let rm_ast = fprm_to_z3(*rm)?;
-                RcAst::try_from(z3::mk_fpa_sqrt(z3_ctx, *rm_ast, **child(children, 0)?))?
-            }
-            AstOp::FpToFp(_, sort, rm) => {
-                let rm_ast = fprm_to_z3(*rm)?;
-                RcAst::try_from(z3::mk_fpa_to_fp_float(
-                    z3_ctx,
-                    *rm_ast,
-                    **child(children, 0)?,
-                    fsort_to_z3(*sort),
-                ))?
-            }
-            AstOp::FpFP(..) => {
-                let sign = child(children, 0)?;
-                let exp = child(children, 1)?;
-                let sig = child(children, 2)?;
-                RcAst::try_from(z3::mk_fpa_fp(z3_ctx, **sign, **exp, **sig))?
-            }
-            AstOp::BvToFp(_, sort) => RcAst::try_from(z3::mk_fpa_to_fp_bv(
-                z3_ctx,
-                **child(children, 0)?,
-                fsort_to_z3(*sort),
-            ))?,
-            AstOp::BvToFpSigned(_, sort, rm) => {
-                let rm_ast = fprm_to_z3(*rm)?;
-                RcAst::try_from(z3::mk_fpa_to_fp_signed(
-                    z3_ctx,
-                    *rm_ast,
-                    **child(children, 0)?,
-                    fsort_to_z3(*sort),
-                ))?
-            }
-            AstOp::BvToFpUnsigned(_, sort, rm) => {
-                let rm_ast = fprm_to_z3(*rm)?;
-                RcAst::try_from(z3::mk_fpa_to_fp_unsigned(
-                    z3_ctx,
-                    *rm_ast,
-                    **child(children, 0)?,
-                    fsort_to_z3(*sort),
-                ))?
-            }
-
-            // String leaves and operations
-            AstOp::StringS(s) => {
-                let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
-                let sym = z3::mk_string_symbol(z3_ctx, s_cstr.as_ptr());
-                let sort = z3::mk_seq_sort(z3_ctx, z3::mk_char_sort(z3_ctx));
-                RcAst::try_from(z3::mk_const(z3_ctx, sym, sort))?
-            }
-            AstOp::StringV(s) => {
-                let mut encoded = String::new();
-                for ch in s.chars() {
-                    if ch.is_ascii() {
-                        encoded.push(ch);
-                    } else {
-                        encoded.push_str(&format!("\\u{{{:04X}}}", ch as u32));
-                    }
-                }
-                let cstr = std::ffi::CString::new(encoded).unwrap();
-                RcAst::try_from(z3::mk_string(z3_ctx, cstr.as_ptr()))?
-            }
-            AstOp::StrConcat(..) => {
-                let a = child(children, 0)?;
-                let b = child(children, 1)?;
-                RcAst::try_from(z3::mk_seq_concat(z3_ctx, 2, [**a, **b].as_ptr()))?
-            }
-            AstOp::StrSubstr(..) => {
-                let a = child(children, 0)?;
-                let offset_int = mk_bv2int(child(children, 1)?)?;
-                let len_int = mk_bv2int(child(children, 2)?)?;
-                RcAst::try_from(z3::mk_seq_extract(z3_ctx, **a, *offset_int, *len_int))?
-            }
-            AstOp::StrReplace(..) => {
-                let a = child(children, 0)?;
-                let b = child(children, 1)?;
-                let c = child(children, 2)?;
-                RcAst::try_from(z3::mk_seq_replace(z3_ctx, **a, **b, **c))?
-            }
-            AstOp::BVToStr(_) => {
-                let int_val = mk_bv2int(child(children, 0)?)?;
-                RcAst::try_from(z3::mk_int_to_str(z3_ctx, *int_val))?
-            }
-        })
-        .and_then(|maybe_null| {
-            check_z3_error()?;
-            Ok(maybe_null)
-        })
-    })
-}
-
 pub(crate) trait AstExtZ3<'c>: HasContext<'c> + Sized {
     fn to_z3(&self) -> Result<RcAst, ClarirsError>;
     fn from_z3(ctx: &'c Context<'c>, ast: impl Into<RcAst>) -> Result<Self, ClarirsError>;
@@ -479,10 +113,416 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
     }
 
     fn to_z3(&self) -> Result<RcAst, ClarirsError> {
+        // Builds a Z3 AST for a single node given its already-converted
+        // children. A single match over the unified op enum handles all sorts;
+        // polymorphic ops (Not/And/Or/Xor) pick the boolean or bitvector Z3
+        // constructor from the node's type.
         Z3_AST_CACHE.with(|cache| {
             walk_post_order(
                 self.clone(),
-                |node, children| to_z3_op(&node, children),
+                |ast, children| {
+                    Z3_CONTEXT.with(|&z3_ctx| unsafe {
+                        Ok(match ast.op() {
+                            // Polymorphic boolean/bitvector operations
+                            AstOp::Not(..) => {
+                                if ast.ast_type().is_bool() {
+                                    unop!(z3_ctx, children, mk_not)
+                                } else {
+                                    unop!(z3_ctx, children, mk_bvnot)
+                                }
+                            }
+                            AstOp::And(..) => {
+                                if ast.ast_type().is_bool() {
+                                    let args: Vec<_> = children.iter().map(|c| **c).collect();
+                                    z3::mk_and(z3_ctx, args.len() as u32, args.as_ptr())
+                                        .try_into()?
+                                } else {
+                                    naryop!(z3_ctx, children, mk_bvand)
+                                }
+                            }
+                            AstOp::Or(..) => {
+                                if ast.ast_type().is_bool() {
+                                    let args: Vec<_> = children.iter().map(|c| **c).collect();
+                                    z3::mk_or(z3_ctx, args.len() as u32, args.as_ptr())
+                                        .try_into()?
+                                } else {
+                                    naryop!(z3_ctx, children, mk_bvor)
+                                }
+                            }
+                            AstOp::Xor(..) => {
+                                if ast.ast_type().is_bool() {
+                                    naryop!(z3_ctx, children, mk_xor)
+                                } else {
+                                    naryop!(z3_ctx, children, mk_bvxor)
+                                }
+                            }
+                            AstOp::ITE(..) => {
+                                let cond = child(children, 0)?;
+                                let then = child(children, 1)?;
+                                let else_ = child(children, 2)?;
+                                z3::mk_ite(z3_ctx, **cond, **then, **else_).try_into()?
+                            }
+
+                            // Boolean leaves and predicates
+                            AstOp::BoolS(s) => {
+                                let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
+                                let sym = z3::mk_string_symbol(z3_ctx, s_cstr.as_ptr());
+                                let sort = z3::mk_bool_sort(z3_ctx);
+                                RcAst::try_from(z3::mk_const(z3_ctx, sym, sort))?
+                            }
+                            AstOp::BoolV(b) => if *b {
+                                z3::mk_true(z3_ctx)
+                            } else {
+                                z3::mk_false(z3_ctx)
+                            }
+                            .try_into()?,
+                            // Equality (any sort): floats use fp.eq, everything else structural =.
+                            AstOp::Eq(a, _) => {
+                                if a.ast_type().is_float() {
+                                    binop!(z3_ctx, children, mk_fpa_eq)
+                                } else {
+                                    binop!(z3_ctx, children, mk_eq)
+                                }
+                            }
+                            AstOp::Neq(a, _) => {
+                                if a.ast_type().is_float() {
+                                    // IEEE inequality. Z3's `distinct` on floats is object
+                                    // identity (NaN would equal NaN, +0 would differ from -0),
+                                    // so emit not(fp.eq) instead.
+                                    let eq = binop!(z3_ctx, children, mk_fpa_eq);
+                                    z3::mk_not(z3_ctx, *eq).try_into()?
+                                } else {
+                                    let a = child(children, 0)?;
+                                    let b = child(children, 1)?;
+                                    z3::mk_distinct(z3_ctx, 2, [**a, **b].as_ptr()).try_into()?
+                                }
+                            }
+                            AstOp::ULT(..) => binop!(z3_ctx, children, mk_bvult),
+                            AstOp::ULE(..) => binop!(z3_ctx, children, mk_bvule),
+                            AstOp::UGT(..) => binop!(z3_ctx, children, mk_bvugt),
+                            AstOp::UGE(..) => binop!(z3_ctx, children, mk_bvuge),
+                            AstOp::SLT(..) => binop!(z3_ctx, children, mk_bvslt),
+                            AstOp::SLE(..) => binop!(z3_ctx, children, mk_bvsle),
+                            AstOp::SGT(..) => binop!(z3_ctx, children, mk_bvsgt),
+                            AstOp::SGE(..) => binop!(z3_ctx, children, mk_bvsge),
+                            AstOp::FpLt(..) => binop!(z3_ctx, children, mk_fpa_lt),
+                            AstOp::FpLeq(..) => binop!(z3_ctx, children, mk_fpa_leq),
+                            AstOp::FpGt(..) => binop!(z3_ctx, children, mk_fpa_gt),
+                            AstOp::FpGeq(..) => binop!(z3_ctx, children, mk_fpa_geq),
+                            AstOp::FpIsNan(..) => unop!(z3_ctx, children, mk_fpa_is_nan),
+                            AstOp::FpIsInf(..) => unop!(z3_ctx, children, mk_fpa_is_infinite),
+                            AstOp::StrContains(..) => binop!(z3_ctx, children, mk_seq_contains),
+                            AstOp::StrPrefixOf(..) => binop!(z3_ctx, children, mk_seq_prefix),
+                            AstOp::StrSuffixOf(..) => binop!(z3_ctx, children, mk_seq_suffix),
+                            AstOp::StrIsDigit(..) => {
+                                let a = child(children, 0)?;
+                                // str.to_int returns -1 for non-digit strings, so >= 0 means all digits
+                                let int_val = z3::mk_str_to_int(z3_ctx, **a);
+                                let int_sort = z3::mk_int_sort(z3_ctx);
+                                let zero_cstr = std::ffi::CString::new("0").unwrap();
+                                let zero = z3::mk_numeral(z3_ctx, zero_cstr.as_ptr(), int_sort);
+                                let is_non_negative = z3::mk_ge(z3_ctx, int_val, zero);
+                                let str_len = z3::mk_seq_length(z3_ctx, **a);
+                                let zero_int_cstr = std::ffi::CString::new("0").unwrap();
+                                let zero_int =
+                                    z3::mk_numeral(z3_ctx, zero_int_cstr.as_ptr(), int_sort);
+                                let is_non_empty = z3::mk_gt(z3_ctx, str_len, zero_int);
+                                let args = [is_non_negative, is_non_empty];
+                                z3::mk_and(z3_ctx, 2, args.as_ptr()).try_into()?
+                            }
+
+                            // Bitvector leaves and operations
+                            AstOp::BVS(s, w) => {
+                                let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
+                                let sym = z3::mk_string_symbol(z3_ctx, s_cstr.as_ptr());
+                                let sort = z3::mk_bv_sort(z3_ctx, *w);
+                                RcAst::try_from(z3::mk_const(z3_ctx, sym, sort))?
+                            }
+                            AstOp::BVV(v) => {
+                                let sort = z3::mk_bv_sort(z3_ctx, v.len());
+                                let numeral = v.to_biguint().to_string();
+                                let numeral_cstr = std::ffi::CString::new(numeral).unwrap();
+                                RcAst::try_from(z3::mk_numeral(
+                                    z3_ctx,
+                                    numeral_cstr.as_ptr(),
+                                    sort,
+                                ))?
+                            }
+                            AstOp::Neg(..) => unop!(z3_ctx, children, mk_bvneg),
+                            AstOp::Add(..) => naryop!(z3_ctx, children, mk_bvadd),
+                            AstOp::Sub(..) => binop!(z3_ctx, children, mk_bvsub),
+                            AstOp::Mul(..) => naryop!(z3_ctx, children, mk_bvmul),
+                            AstOp::UDiv(..) => binop!(z3_ctx, children, mk_bvudiv),
+                            AstOp::SDiv(..) => binop!(z3_ctx, children, mk_bvsdiv),
+                            AstOp::URem(..) => binop!(z3_ctx, children, mk_bvurem),
+                            AstOp::SRem(..) => binop!(z3_ctx, children, mk_bvsrem),
+                            AstOp::ShL(..) => binop!(z3_ctx, children, mk_bvshl),
+                            AstOp::LShR(..) => binop!(z3_ctx, children, mk_bvlshr),
+                            AstOp::AShR(..) => binop!(z3_ctx, children, mk_bvashr),
+                            AstOp::RotateLeft(..) => binop!(z3_ctx, children, mk_ext_rotate_left),
+                            AstOp::RotateRight(..) => binop!(z3_ctx, children, mk_ext_rotate_right),
+                            AstOp::ZeroExt(_, i) => {
+                                RcAst::try_from(z3::mk_zero_ext(z3_ctx, *i, **child(children, 0)?))?
+                            }
+                            AstOp::SignExt(_, i) => {
+                                RcAst::try_from(z3::mk_sign_ext(z3_ctx, *i, **child(children, 0)?))?
+                            }
+                            AstOp::Extract(a, high, low) => {
+                                if high >= &a.size() || low >= &a.size() {
+                                    return Err(ClarirsError::ConversionError(
+                                        "extract index is greater than bitvector size".to_string(),
+                                    ));
+                                }
+                                if low > high {
+                                    return Err(ClarirsError::ConversionError(
+                                        "low index is greater than high index".to_string(),
+                                    ));
+                                }
+                                RcAst::try_from(z3::mk_extract(
+                                    z3_ctx,
+                                    *high,
+                                    *low,
+                                    **child(children, 0)?,
+                                ))?
+                            }
+                            AstOp::Concat(args) => {
+                                if args.is_empty() {
+                                    return Err(ClarirsError::InvalidArguments(
+                                        "Concat requires at least one argument".to_string(),
+                                    ));
+                                }
+                                let mut result = child(children, 0)?.clone();
+                                for i in 1..children.len() {
+                                    result = RcAst::try_from(z3::mk_concat(
+                                        z3_ctx,
+                                        *result,
+                                        **child(children, i)?,
+                                    ))?;
+                                }
+                                result
+                            }
+                            AstOp::ByteReverse(a) => {
+                                let size = a.size();
+                                if size == 0 || size % 8 != 0 {
+                                    return Err(ClarirsError::ConversionError(
+                                        "reverse only supports bitvectors with size multiple of 8"
+                                            .to_string(),
+                                    ));
+                                }
+                                let child_z3 = child(children, 0)?;
+                                let num_bytes = size / 8;
+                                let mut result =
+                                    RcAst::try_from(z3::mk_extract(z3_ctx, 7, 0, **child_z3))?;
+                                for i in 1..num_bytes {
+                                    let high = (i + 1) * 8 - 1;
+                                    let low = i * 8;
+                                    let byte = RcAst::try_from(z3::mk_extract(
+                                        z3_ctx, high, low, **child_z3,
+                                    ))?;
+                                    result =
+                                        RcAst::try_from(z3::mk_concat(z3_ctx, *result, *byte))?;
+                                }
+                                result
+                            }
+                            AstOp::FpToIEEEBV(..) => RcAst::try_from(z3::mk_fpa_to_ieee_bv(
+                                z3_ctx,
+                                **child(children, 0)?,
+                            ))?,
+                            AstOp::FpToUBV(_, size, rm) => {
+                                let rm_ast = fprm_to_z3(*rm)?;
+                                RcAst::try_from(z3::mk_fpa_to_ubv(
+                                    z3_ctx,
+                                    *rm_ast,
+                                    **child(children, 0)?,
+                                    *size,
+                                ))?
+                            }
+                            AstOp::FpToSBV(_, size, rm) => {
+                                let rm_ast = fprm_to_z3(*rm)?;
+                                RcAst::try_from(z3::mk_fpa_to_sbv(
+                                    z3_ctx,
+                                    *rm_ast,
+                                    **child(children, 0)?,
+                                    *size,
+                                ))?
+                            }
+                            AstOp::StrLen(..) => {
+                                let str_len = RcAst::try_from(z3::mk_seq_length(
+                                    z3_ctx,
+                                    **child(children, 0)?,
+                                ))?;
+                                RcAst::try_from(z3::mk_int2bv(z3_ctx, 64, *str_len))?
+                            }
+                            AstOp::StrIndexOf(..) => {
+                                let haystack = child(children, 0)?;
+                                let needle = child(children, 1)?;
+                                let offset_bv = child(children, 2)?;
+                                let offset_int =
+                                    RcAst::try_from(z3::mk_bv2int(z3_ctx, **offset_bv, false))?;
+                                let index_int = RcAst::try_from(z3::mk_seq_index(
+                                    z3_ctx,
+                                    **haystack,
+                                    **needle,
+                                    *offset_int,
+                                ))?;
+                                RcAst::try_from(z3::mk_int2bv(z3_ctx, 64, *index_int))?
+                            }
+                            AstOp::StrToBV(..) => {
+                                let int_val = RcAst::try_from(z3::mk_str_to_int(
+                                    z3_ctx,
+                                    **child(children, 0)?,
+                                ))?;
+                                RcAst::try_from(z3::mk_int2bv(z3_ctx, 64, *int_val))?
+                            }
+                            AstOp::Union(..) | AstOp::Intersection(..) | AstOp::Widen(..) => {
+                                return Err(ClarirsError::ConversionError(
+                                    "vsa types are not currently supported in the z3 backend"
+                                        .to_string(),
+                                ));
+                            }
+
+                            // Float leaves and operations
+                            AstOp::FPS(s, sort) => {
+                                let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
+                                let sym = z3::mk_string_symbol(z3_ctx, s_cstr.as_ptr());
+                                RcAst::try_from(z3::mk_const(z3_ctx, sym, fsort_to_z3(*sort)))?
+                            }
+                            AstOp::FPV(f) => {
+                                let sort = fsort_to_z3(f.fsort());
+                                match f {
+                                    Float::F32(val) => RcAst::try_from(z3::mk_fpa_numeral_float(
+                                        z3_ctx, *val, sort,
+                                    ))?,
+                                    Float::F64(val) => RcAst::try_from(z3::mk_fpa_numeral_double(
+                                        z3_ctx, *val, sort,
+                                    ))?,
+                                }
+                            }
+                            AstOp::FpNeg(..) => unop!(z3_ctx, children, mk_fpa_neg),
+                            AstOp::FpAbs(..) => unop!(z3_ctx, children, mk_fpa_abs),
+                            AstOp::FpAdd(_, _, rm) => {
+                                let rm_ast = fprm_to_z3(*rm)?;
+                                let a = child(children, 0)?;
+                                let b = child(children, 1)?;
+                                RcAst::try_from(z3::mk_fpa_add(z3_ctx, *rm_ast, **a, **b))?
+                            }
+                            AstOp::FpSub(_, _, rm) => {
+                                let rm_ast = fprm_to_z3(*rm)?;
+                                let a = child(children, 0)?;
+                                let b = child(children, 1)?;
+                                RcAst::try_from(z3::mk_fpa_sub(z3_ctx, *rm_ast, **a, **b))?
+                            }
+                            AstOp::FpMul(_, _, rm) => {
+                                let rm_ast = fprm_to_z3(*rm)?;
+                                let a = child(children, 0)?;
+                                let b = child(children, 1)?;
+                                RcAst::try_from(z3::mk_fpa_mul(z3_ctx, *rm_ast, **a, **b))?
+                            }
+                            AstOp::FpDiv(_, _, rm) => {
+                                let rm_ast = fprm_to_z3(*rm)?;
+                                let a = child(children, 0)?;
+                                let b = child(children, 1)?;
+                                RcAst::try_from(z3::mk_fpa_div(z3_ctx, *rm_ast, **a, **b))?
+                            }
+                            AstOp::FpSqrt(_, rm) => {
+                                let rm_ast = fprm_to_z3(*rm)?;
+                                RcAst::try_from(z3::mk_fpa_sqrt(
+                                    z3_ctx,
+                                    *rm_ast,
+                                    **child(children, 0)?,
+                                ))?
+                            }
+                            AstOp::FpToFp(_, sort, rm) => {
+                                let rm_ast = fprm_to_z3(*rm)?;
+                                RcAst::try_from(z3::mk_fpa_to_fp_float(
+                                    z3_ctx,
+                                    *rm_ast,
+                                    **child(children, 0)?,
+                                    fsort_to_z3(*sort),
+                                ))?
+                            }
+                            AstOp::FpFP(..) => {
+                                let sign = child(children, 0)?;
+                                let exp = child(children, 1)?;
+                                let sig = child(children, 2)?;
+                                RcAst::try_from(z3::mk_fpa_fp(z3_ctx, **sign, **exp, **sig))?
+                            }
+                            AstOp::BvToFp(_, sort) => RcAst::try_from(z3::mk_fpa_to_fp_bv(
+                                z3_ctx,
+                                **child(children, 0)?,
+                                fsort_to_z3(*sort),
+                            ))?,
+                            AstOp::BvToFpSigned(_, sort, rm) => {
+                                let rm_ast = fprm_to_z3(*rm)?;
+                                RcAst::try_from(z3::mk_fpa_to_fp_signed(
+                                    z3_ctx,
+                                    *rm_ast,
+                                    **child(children, 0)?,
+                                    fsort_to_z3(*sort),
+                                ))?
+                            }
+                            AstOp::BvToFpUnsigned(_, sort, rm) => {
+                                let rm_ast = fprm_to_z3(*rm)?;
+                                RcAst::try_from(z3::mk_fpa_to_fp_unsigned(
+                                    z3_ctx,
+                                    *rm_ast,
+                                    **child(children, 0)?,
+                                    fsort_to_z3(*sort),
+                                ))?
+                            }
+
+                            // String leaves and operations
+                            AstOp::StringS(s) => {
+                                let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
+                                let sym = z3::mk_string_symbol(z3_ctx, s_cstr.as_ptr());
+                                let sort = z3::mk_seq_sort(z3_ctx, z3::mk_char_sort(z3_ctx));
+                                RcAst::try_from(z3::mk_const(z3_ctx, sym, sort))?
+                            }
+                            AstOp::StringV(s) => {
+                                let mut encoded = String::new();
+                                for ch in s.chars() {
+                                    if ch.is_ascii() {
+                                        encoded.push(ch);
+                                    } else {
+                                        encoded.push_str(&format!("\\u{{{:04X}}}", ch as u32));
+                                    }
+                                }
+                                let cstr = std::ffi::CString::new(encoded).unwrap();
+                                RcAst::try_from(z3::mk_string(z3_ctx, cstr.as_ptr()))?
+                            }
+                            AstOp::StrConcat(..) => {
+                                let a = child(children, 0)?;
+                                let b = child(children, 1)?;
+                                RcAst::try_from(z3::mk_seq_concat(z3_ctx, 2, [**a, **b].as_ptr()))?
+                            }
+                            AstOp::StrSubstr(..) => {
+                                let a = child(children, 0)?;
+                                let offset_int = mk_bv2int(child(children, 1)?)?;
+                                let len_int = mk_bv2int(child(children, 2)?)?;
+                                RcAst::try_from(z3::mk_seq_extract(
+                                    z3_ctx,
+                                    **a,
+                                    *offset_int,
+                                    *len_int,
+                                ))?
+                            }
+                            AstOp::StrReplace(..) => {
+                                let a = child(children, 0)?;
+                                let b = child(children, 1)?;
+                                let c = child(children, 2)?;
+                                RcAst::try_from(z3::mk_seq_replace(z3_ctx, **a, **b, **c))?
+                            }
+                            AstOp::BVToStr(_) => {
+                                let int_val = mk_bv2int(child(children, 0)?)?;
+                                RcAst::try_from(z3::mk_int_to_str(z3_ctx, *int_val))?
+                            }
+                        })
+                        .and_then(|maybe_null| {
+                            check_z3_error()?;
+                            Ok(maybe_null)
+                        })
+                    })
+                },
                 cache,
             )
         })
