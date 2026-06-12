@@ -690,8 +690,8 @@ impl PySolver {
         old: Bound<'py, Base>,
         new: Bound<'py, Base>,
     ) -> Result<(), ClaripyError> {
-        let old_dyn = Base::to_dynast(old)?;
-        let new_dyn = Base::to_dynast(new)?;
+        let old_dyn = Base::to_ast(old)?;
+        let new_dyn = Base::to_ast(new)?;
         self.inner.add_replacement(old_dyn, new_dyn)?;
         Ok(())
     }

@@ -34,31 +34,24 @@ impl Base {
         }
     }
 
-    /// The wrapped AST. Available to subclasses for their typed operations.
-    pub fn ast(&self) -> &AstRef<'static> {
-        &self.inner
-    }
-
-    pub fn to_dynast(self_: Bound<'_, Base>) -> Result<AstRef<'static>, ClaripyError> {
+    pub fn to_ast(self_: Bound<'_, Base>) -> Result<AstRef<'static>, ClaripyError> {
         Ok(self_.get().inner.clone())
     }
 
-    pub fn from_dynast<'py>(
+    pub fn from_ast<'py>(
         py: Python<'py>,
-        dynast: AstRef<'static>,
+        ast: AstRef<'static>,
     ) -> Result<Bound<'py, Base>, ClaripyError> {
-        match dynast.ast_type() {
-            AstType::Bool => {
-                Bool::new(py, &dynast).map(|b| b.into_any().cast_into::<Base>().unwrap())
-            }
+        match ast.ast_type() {
+            AstType::Bool => Bool::new(py, &ast).map(|b| b.into_any().cast_into::<Base>().unwrap()),
             AstType::BitVec(_) => {
-                BV::new(py, &dynast).map(|b| b.into_any().cast_into::<Base>().unwrap())
+                BV::new(py, &ast).map(|b| b.into_any().cast_into::<Base>().unwrap())
             }
             AstType::Float(_) => {
-                FP::new(py, &dynast).map(|b| b.into_any().cast_into::<Base>().unwrap())
+                FP::new(py, &ast).map(|b| b.into_any().cast_into::<Base>().unwrap())
             }
             AstType::String => {
-                PyAstString::new(py, &dynast).map(|b| b.into_any().cast_into::<Base>().unwrap())
+                PyAstString::new(py, &ast).map(|b| b.into_any().cast_into::<Base>().unwrap())
             }
         }
     }
@@ -148,11 +141,11 @@ impl Base {
         py: Python<'py>,
     ) -> Result<(HashMap<u64, Bound<'py, PyAny>>, usize, Bound<'py, Base>), ClaripyError> {
         let (replacement_map, counter, canonical) = canonicalize(&self.inner.clone())?;
-        let canonical_py = Base::from_dynast(py, canonical)?;
+        let canonical_py = Base::from_ast(py, canonical)?;
 
         let mut py_map = HashMap::new();
-        for (hash, dynast) in replacement_map {
-            let py_ast = Base::from_dynast(py, dynast)?;
+        for (hash, ast) in replacement_map {
+            let py_ast = Base::from_ast(py, ast)?;
             py_map.insert(hash, py_ast.into_any());
         }
 
@@ -160,7 +153,7 @@ impl Base {
     }
 
     pub fn identical(&self, other: Bound<'_, Base>) -> Result<bool, ClaripyError> {
-        let other_dyn = Base::to_dynast(other)?;
+        let other_dyn = Base::to_ast(other)?;
         Ok(structurally_match(&self.inner, &other_dyn)?)
     }
 
@@ -179,7 +172,7 @@ impl Base {
         py: Python<'py>,
         respect_annotations: bool,
     ) -> Result<Bound<'py, Base>, ClaripyError> {
-        Base::from_dynast(py, self.inner.simplify_ext(respect_annotations, false)?)
+        Base::from_ast(py, self.inner.simplify_ext(respect_annotations, false)?)
     }
 
     pub fn replace<'py>(
@@ -188,9 +181,9 @@ impl Base {
         from: Bound<'py, Base>,
         to: Bound<'py, Base>,
     ) -> Result<Bound<'py, Base>, ClaripyError> {
-        let from_ast = Base::to_dynast(from)?;
-        let to_ast = Base::to_dynast(to)?;
-        Base::from_dynast(py, self.inner.replace(&from_ast, &to_ast)?)
+        let from_ast = Base::to_ast(from)?;
+        let to_ast = Base::to_ast(to)?;
+        Base::from_ast(py, self.inner.replace(&from_ast, &to_ast)?)
     }
 
     pub fn has_annotation_type(
@@ -235,7 +228,7 @@ impl Base {
             .iter()
             .cloned()
             .chain([annotation.0.clone()]);
-        Base::from_dynast(py, GLOBAL_CONTEXT.annotate(&self.inner, new_annotations)?)
+        Base::from_ast(py, GLOBAL_CONTEXT.annotate(&self.inner, new_annotations)?)
     }
 
     pub fn append_annotations<'py>(
@@ -249,7 +242,7 @@ impl Base {
             .iter()
             .cloned()
             .chain(annotations.into_iter().map(|a| a.0));
-        Base::from_dynast(py, GLOBAL_CONTEXT.annotate(&self.inner, new_annotations)?)
+        Base::from_ast(py, GLOBAL_CONTEXT.annotate(&self.inner, new_annotations)?)
     }
 
     #[pyo3(signature = (*annotations, remove_annotations = None))]
@@ -276,7 +269,7 @@ impl Base {
             .inner
             .context()
             .make_ast_annotated(self.inner.op().clone(), new_annotations)?;
-        Base::from_dynast(py, inner)
+        Base::from_ast(py, inner)
     }
 
     pub fn insert_annotations<'py>(
@@ -284,7 +277,7 @@ impl Base {
         py: Python<'py>,
         annotations: Vec<PyAnnotation>,
     ) -> Result<Bound<'py, Base>, ClaripyError> {
-        Base::from_dynast(
+        Base::from_ast(
             py,
             GLOBAL_CONTEXT.annotate(&self.inner, annotations.into_iter().map(|a| a.0))?,
         )
@@ -300,7 +293,7 @@ impl Base {
             self.inner.op().clone(),
             annotations.into_iter().map(|a| a.0).collect(),
         )?;
-        Base::from_dynast(py, inner)
+        Base::from_ast(py, inner)
     }
 
     pub fn remove_annotation<'py>(
@@ -317,7 +310,7 @@ impl Base {
                 .cloned()
                 .collect(),
         )?;
-        Base::from_dynast(py, inner)
+        Base::from_ast(py, inner)
     }
 
     pub fn remove_annotations<'py>(
@@ -335,7 +328,7 @@ impl Base {
                 .cloned()
                 .collect(),
         )?;
-        Base::from_dynast(py, inner)
+        Base::from_ast(py, inner)
     }
 
     pub fn clear_annotations<'py>(
@@ -346,7 +339,7 @@ impl Base {
             .inner
             .context()
             .make_ast_annotated(self.inner.op().clone(), Default::default())?;
-        Base::from_dynast(py, inner)
+        Base::from_ast(py, inner)
     }
 
     pub fn clear_annotation_type<'py>(
@@ -363,7 +356,7 @@ impl Base {
                 .cloned()
                 .collect(),
         )?;
-        Base::from_dynast(py, inner)
+        Base::from_ast(py, inner)
     }
 }
 

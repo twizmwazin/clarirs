@@ -265,15 +265,11 @@ impl<'c> Z3Solver<'c> {
         })
     }
 
-    fn simplify_dynast(expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        expr.simplify_z3()
-    }
-
     /// Evaluate `expr` against a single model. More efficient than the generic
     /// `eval_n(_, 1)` path, which rebuilds the solver and adds an exclusion
     /// constraint; used to back the `Solver::eval` override below.
     fn eval_in_model(&self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        let expr = Z3Solver::simplify_dynast(&expr.simplify()?)?;
+        let expr = expr.simplify()?.simplify_z3()?;
 
         // If the expression is concrete, we can return it directly
         if expr.concrete() {
