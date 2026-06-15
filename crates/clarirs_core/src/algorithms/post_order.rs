@@ -59,10 +59,10 @@ pub fn walk_post_order<'c, T>(
             state.children_processed += 1;
 
             // If the child's result is already cached (from an earlier walk or
-            // from a shared subtree visited earlier in THIS walk), use it
-            // without re-traversing the subtree. Merged-state ASTs are DAGs
-            // with massive sharing; re-walking shared subtrees from every
-            // parent makes traversal time exponential in the sharing depth.
+            // from a shared subtree visited earlier in this walk), reuse it
+            // instead of re-traversing the subtree. ASTs are DAGs, so a shared
+            // subtree is reachable from multiple parents; reusing the cached
+            // result avoids re-running the traversal once per parent.
             if let Some(cached) = cache.get(&child.hash()) {
                 state.child_results.push(cached);
                 stack.push(state);
