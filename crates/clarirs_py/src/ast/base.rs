@@ -1,7 +1,7 @@
 use std::collections::{BTreeSet, HashMap};
 
 use clarirs_core::algorithms::{canonicalize, structurally_match};
-use pyo3::types::{PyFrozenSet, PySet};
+use pyo3::types::{PyFrozenSet, PySet, PyType};
 
 use crate::prelude::*;
 
@@ -187,37 +187,46 @@ impl Base {
         Base::from_ast(py, self.inner.replace(&from_ast, &to_ast)?)
     }
 
-    pub fn has_annotation_type(&self, annotation_type: PyAnnotationType) -> bool {
-        self.inner
-            .annotations()
-            .iter()
-            .any(|annotation| annotation_type.matches(annotation.type_()))
+    pub fn has_annotation_type<'py>(
+        &self,
+        py: Python<'py>,
+        annotation_type: Bound<'py, PyType>,
+    ) -> Result<bool, ClaripyError> {
+        for annotation in self.inner.annotations() {
+            if PyAnnotation::from_annotation(py, annotation)?.is_instance(&annotation_type)? {
+                return Ok(true);
+            }
+        }
+        Ok(false)
     }
 
     pub fn get_annotations_by_type<'py>(
         &self,
         py: Python<'py>,
-        annotation_type: PyAnnotationType,
+        annotation_type: Bound<'py, PyType>,
     ) -> Result<Vec<Bound<'py, PyAnnotation>>, ClaripyError> {
-        self.inner
-            .annotations()
-            .iter()
-            .filter(|annotation| annotation_type.matches(annotation.type_()))
-            .map(|annotation| PyAnnotation::from_annotation(py, annotation))
-            .collect()
+        let mut matching = Vec::new();
+        for annotation in self.inner.annotations() {
+            let annotation = PyAnnotation::from_annotation(py, annotation)?;
+            if annotation.is_instance(&annotation_type)? {
+                matching.push(annotation);
+            }
+        }
+        Ok(matching)
     }
 
     pub fn get_annotation<'py>(
         &self,
         py: Python<'py>,
-        annotation_type: PyAnnotationType,
+        annotation_type: Bound<'py, PyType>,
     ) -> Result<Option<Bound<'py, PyAnnotation>>, ClaripyError> {
-        self.inner
-            .annotations()
-            .iter()
-            .find(|annotation| annotation_type.matches(annotation.type_()))
-            .map(|annotation| PyAnnotation::from_annotation(py, annotation))
-            .transpose()
+        for annotation in self.inner.annotations() {
+            let annotation = PyAnnotation::from_annotation(py, annotation)?;
+            if annotation.is_instance(&annotation_type)? {
+                return Ok(Some(annotation));
+            }
+        }
+        Ok(None)
     }
 
     pub fn append_annotation<'py>(
@@ -362,17 +371,18 @@ impl Base {
     pub fn clear_annotation_type<'py>(
         &self,
         py: Python<'py>,
-        annotation_type: PyAnnotationType,
+        annotation_type: Bound<'py, PyType>,
     ) -> Result<Bound<'py, Base>, ClaripyError> {
-        let inner = self.inner.context().make_ast_annotated(
-            self.inner.op().clone(),
-            self.inner
-                .annotations()
-                .iter()
-                .filter(|a| !annotation_type.matches(a.type_()))
-                .cloned()
-                .collect(),
-        )?;
+        let mut kept = BTreeSet::new();
+        for annotation in self.inner.annotations() {
+            if !PyAnnotation::from_annotation(py, annotation)?.is_instance(&annotation_type)? {
+                kept.insert(annotation.clone());
+            }
+        }
+        let inner = self
+            .inner
+            .context()
+            .make_ast_annotated(self.inner.op().clone(), kept)?;
         Base::from_ast(py, inner)
     }
 }
