@@ -1,4 +1,4 @@
-use super::BitVec;
+use super::{BitVec, BitVecError};
 
 impl PartialOrd for BitVec {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
@@ -21,32 +21,29 @@ impl Ord for BitVec {
 }
 
 impl BitVec {
-    pub fn signed_lt(&self, other: &Self) -> bool {
-        assert_eq!(
-            self.length, other.length,
-            "BitVec lengths must match for comparison"
-        );
+    pub fn signed_lt(&self, other: &Self) -> Result<bool, BitVecError> {
+        self.check_same_length(other)?;
 
         // Different signs
-        match (self.sign(), other.sign()) {
+        Ok(match (self.sign(), other.sign()) {
             (true, false) => true,  // Negative < Positive
             (false, true) => false, // Positive > Negative
             // Same sign: the two's-complement bit patterns order the same way as
             // the values do, so unsigned comparison (Ord::cmp) gives the answer.
             _ => self.cmp(other) == std::cmp::Ordering::Less,
-        }
+        })
     }
 
-    pub fn signed_le(&self, other: &Self) -> bool {
-        self.signed_lt(other) || self == other
+    pub fn signed_le(&self, other: &Self) -> Result<bool, BitVecError> {
+        Ok(self.signed_lt(other)? || self == other)
     }
 
-    pub fn signed_gt(&self, other: &Self) -> bool {
-        !self.signed_le(other)
+    pub fn signed_gt(&self, other: &Self) -> Result<bool, BitVecError> {
+        Ok(!self.signed_le(other)?)
     }
 
-    pub fn signed_ge(&self, other: &Self) -> bool {
-        !self.signed_lt(other)
+    pub fn signed_ge(&self, other: &Self) -> Result<bool, BitVecError> {
+        Ok(!self.signed_lt(other)?)
     }
 }
 
@@ -105,24 +102,24 @@ mod tests {
         // Test positive numbers (5 and 10 in 8-bit)
         let pos1 = BitVec::from_prim_with_size(0x05u8, 8)?;
         let pos2 = BitVec::from_prim_with_size(0x0Au8, 8)?;
-        assert!(pos1.signed_lt(&pos2));
-        assert!(!pos2.signed_lt(&pos1));
+        assert!(pos1.signed_lt(&pos2)?);
+        assert!(!pos2.signed_lt(&pos1)?);
 
         // Test negative numbers (-5 = 0xFB and -10 = 0xF6 in 8-bit two's complement)
         // -10 < -5 because -10 is more negative (further from zero)
         let neg5 = BitVec::from_prim_with_size(0xFBu8, 8)?; // -5
         let neg10 = BitVec::from_prim_with_size(0xF6u8, 8)?; // -10
-        assert!(neg10.signed_lt(&neg5)); // -10 < -5
-        assert!(!neg5.signed_lt(&neg10)); // -5 NOT< -10
+        assert!(neg10.signed_lt(&neg5)?); // -10 < -5
+        assert!(!neg5.signed_lt(&neg10)?); // -5 NOT< -10
 
         // Test mixed signs (any negative < any positive)
-        assert!(neg5.signed_lt(&pos1)); // -5 < 5
-        assert!(!pos1.signed_lt(&neg5)); // 5 NOT< -5
+        assert!(neg5.signed_lt(&pos1)?); // -5 < 5
+        assert!(!pos1.signed_lt(&neg5)?); // 5 NOT< -5
 
         // Test equality
         let pos1_dup = BitVec::from_prim_with_size(0x05u8, 8)?;
-        assert!(!pos1.signed_lt(&pos1_dup));
-        assert!(!pos1_dup.signed_lt(&pos1));
+        assert!(!pos1.signed_lt(&pos1_dup)?);
+        assert!(!pos1_dup.signed_lt(&pos1)?);
 
         Ok(())
     }
@@ -132,19 +129,19 @@ mod tests {
         // Test positive numbers (5 and 10 in 8-bit)
         let pos1 = BitVec::from_prim_with_size(0x05u8, 8)?;
         let pos2 = BitVec::from_prim_with_size(0x0Au8, 8)?;
-        assert!(pos1.signed_le(&pos2));
-        assert!(!pos2.signed_le(&pos1));
+        assert!(pos1.signed_le(&pos2)?);
+        assert!(!pos2.signed_le(&pos1)?);
 
         // Test negative numbers (-5 = 0xFB and -10 = 0xF6 in 8-bit two's complement)
         let neg5 = BitVec::from_prim_with_size(0xFBu8, 8)?; // -5
         let neg10 = BitVec::from_prim_with_size(0xF6u8, 8)?; // -10
-        assert!(neg10.signed_le(&neg5)); // -10 <= -5
-        assert!(!neg5.signed_le(&neg10)); // -5 NOT<= -10
+        assert!(neg10.signed_le(&neg5)?); // -10 <= -5
+        assert!(!neg5.signed_le(&neg10)?); // -5 NOT<= -10
 
         // Test equality
         let pos1_dup = BitVec::from_prim_with_size(0x05u8, 8)?;
-        assert!(pos1.signed_le(&pos1_dup));
-        assert!(pos1_dup.signed_le(&pos1));
+        assert!(pos1.signed_le(&pos1_dup)?);
+        assert!(pos1_dup.signed_le(&pos1)?);
 
         Ok(())
     }
@@ -154,23 +151,23 @@ mod tests {
         // Test positive numbers (5 and 10 in 8-bit)
         let pos1 = BitVec::from_prim_with_size(0x05u8, 8)?;
         let pos2 = BitVec::from_prim_with_size(0x0Au8, 8)?;
-        assert!(!pos1.signed_gt(&pos2));
-        assert!(pos2.signed_gt(&pos1));
+        assert!(!pos1.signed_gt(&pos2)?);
+        assert!(pos2.signed_gt(&pos1)?);
 
         // Test negative numbers (-5 = 0xFB and -10 = 0xF6 in 8-bit two's complement)
         let neg5 = BitVec::from_prim_with_size(0xFBu8, 8)?; // -5
         let neg10 = BitVec::from_prim_with_size(0xF6u8, 8)?; // -10
-        assert!(neg5.signed_gt(&neg10)); // -5 > -10
-        assert!(!neg10.signed_gt(&neg5)); // -10 NOT> -5
+        assert!(neg5.signed_gt(&neg10)?); // -5 > -10
+        assert!(!neg10.signed_gt(&neg5)?); // -10 NOT> -5
 
         // Test mixed signs
-        assert!(pos1.signed_gt(&neg5)); // 5 > -5
-        assert!(!neg5.signed_gt(&pos1)); // -5 NOT> 5
+        assert!(pos1.signed_gt(&neg5)?); // 5 > -5
+        assert!(!neg5.signed_gt(&pos1)?); // -5 NOT> 5
 
         // Test equality
         let pos1_dup = BitVec::from_prim_with_size(0x05u8, 8)?;
-        assert!(!pos1.signed_gt(&pos1_dup));
-        assert!(!pos1_dup.signed_gt(&pos1));
+        assert!(!pos1.signed_gt(&pos1_dup)?);
+        assert!(!pos1_dup.signed_gt(&pos1)?);
 
         Ok(())
     }
@@ -180,28 +177,30 @@ mod tests {
         // Test positive numbers (5 and 10 in 8-bit)
         let pos1 = BitVec::from_prim_with_size(0x05u8, 8)?;
         let pos2 = BitVec::from_prim_with_size(0x0Au8, 8)?;
-        assert!(!pos1.signed_ge(&pos2));
-        assert!(pos2.signed_ge(&pos1));
+        assert!(!pos1.signed_ge(&pos2)?);
+        assert!(pos2.signed_ge(&pos1)?);
 
         // Test negative numbers (-5 = 0xFB and -10 = 0xF6 in 8-bit two's complement)
         let neg5 = BitVec::from_prim_with_size(0xFBu8, 8)?; // -5
         let neg10 = BitVec::from_prim_with_size(0xF6u8, 8)?; // -10
-        assert!(neg5.signed_ge(&neg10)); // -5 >= -10
-        assert!(!neg10.signed_ge(&neg5)); // -10 NOT>= -5
+        assert!(neg5.signed_ge(&neg10)?); // -5 >= -10
+        assert!(!neg10.signed_ge(&neg5)?); // -10 NOT>= -5
 
         // Test equality
         let pos1_dup = BitVec::from_prim_with_size(0x05u8, 8)?;
-        assert!(pos1.signed_ge(&pos1_dup));
-        assert!(pos1_dup.signed_ge(&pos1));
+        assert!(pos1.signed_ge(&pos1_dup)?);
+        assert!(pos1_dup.signed_ge(&pos1)?);
 
         Ok(())
     }
 
     #[test]
-    #[should_panic(expected = "BitVec lengths must match for comparison")]
     fn test_signed_comparison_different_lengths() {
         let bv1 = BitVec::from_prim_with_size(0x05u8, 8).unwrap();
         let bv2 = BitVec::from_prim_with_size(0x0005u16, 16).unwrap();
-        let _ = bv1.signed_lt(&bv2);
+        assert!(matches!(
+            bv1.signed_lt(&bv2),
+            Err(BitVecError::MismatchedLengths { left: 8, right: 16 })
+        ));
     }
 }

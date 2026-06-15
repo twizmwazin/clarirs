@@ -230,7 +230,11 @@ fn reference_sweep_unsigned() {
 
             // Comparisons.
             assert_eq!(bv_a.cmp(&bv_b), a.cmp(&b), "ucmp w={width} a={a} b={b}");
-            assert_eq!(bv_a.signed_lt(&bv_b), sa < sb, "slt w={width} a={a} b={b}");
+            assert_eq!(
+                bv_a.signed_lt(&bv_b).unwrap(),
+                sa < sb,
+                "slt w={width} a={a} b={b}"
+            );
 
             // Shifts, including amounts >= 64 and >= width.
             for &s in &[

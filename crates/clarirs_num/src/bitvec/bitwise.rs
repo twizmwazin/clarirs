@@ -12,10 +12,7 @@ impl BitVec {
     where
         F: Fn(u64, u64) -> u64,
     {
-        assert_eq!(
-            self.length, rhs.length,
-            "BitVec lengths must match for bitwise operations"
-        );
+        self.check_same_length(rhs)?;
         let words = self
             .words
             .iter()

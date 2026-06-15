@@ -18,11 +18,7 @@ impl Add for BitVec {
     type Output = Result<Self, BitVecError>;
 
     fn add(self, rhs: Self) -> Self::Output {
-        // Ensure operands have the same length
-        assert_eq!(
-            self.length, rhs.length,
-            "BitVec lengths must match for addition"
-        );
+        self.check_same_length(&rhs)?;
 
         let mut result = SmallVec::with_capacity(self.words.len());
         let mut carry = 0u64;
@@ -64,10 +60,7 @@ impl Mul for BitVec {
     type Output = Result<Self, BitVecError>;
 
     fn mul(self, rhs: Self) -> Result<Self, BitVecError> {
-        assert_eq!(
-            self.length, rhs.length,
-            "BitVec lengths must match for multiplication"
-        );
+        self.check_same_length(&rhs)?;
         Ok(BitVec::from_biguint_trunc(
             &(BigUint::from(&self) * BigUint::from(&rhs)),
             self.length,
@@ -79,10 +72,7 @@ impl Div for BitVec {
     type Output = Result<Self, BitVecError>;
 
     fn div(self, rhs: Self) -> Self::Output {
-        assert_eq!(
-            self.length, rhs.length,
-            "BitVec lengths must match for division"
-        );
+        self.check_same_length(&rhs)?;
         if rhs.is_zero() {
             return Err(BitVecError::DivisionByZero);
         }
@@ -97,10 +87,7 @@ impl Rem for BitVec {
     type Output = Result<Self, BitVecError>;
 
     fn rem(self, rhs: Self) -> Self::Output {
-        assert_eq!(
-            self.length, rhs.length,
-            "BitVec lengths must match for remainder"
-        );
+        self.check_same_length(&rhs)?;
         // Mirror `Div`: a zero divisor is an error rather than a panic. Total
         // SMT-LIB remainder semantics (return the dividend) live in `urem`/`srem`.
         if rhs.is_zero() {

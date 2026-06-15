@@ -35,6 +35,8 @@ pub enum BitVecError {
     InvalidChopSize { size: u32, bits: u32 },
     #[error("Conversion error occurred.")]
     ConversionError,
+    #[error("BitVector lengths must match: {left} != {right}")]
+    MismatchedLengths { left: u32, right: u32 },
 }
 
 /// BitVec are represented as a SmallVec of usize, where each usize is a word of
@@ -76,6 +78,20 @@ impl BitVec {
 
     fn final_word_mask(&self) -> u64 {
         Self::compute_final_word_mask(self.length)
+    }
+
+    /// Returns an error if `self` and `other` have different bit-widths. Binary
+    /// operators require matching widths; this reports the mismatch through the
+    /// `Result` type rather than panicking.
+    fn check_same_length(&self, other: &Self) -> Result<(), BitVecError> {
+        if self.length == other.length {
+            Ok(())
+        } else {
+            Err(BitVecError::MismatchedLengths {
+                left: self.length,
+                right: other.length,
+            })
+        }
     }
 
     // From Conversions
