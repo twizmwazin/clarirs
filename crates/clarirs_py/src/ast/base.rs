@@ -187,11 +187,11 @@ impl Base {
         Base::from_ast(py, self.inner.replace(&from_ast, &to_ast)?)
     }
 
-    pub fn has_annotation_type<'py>(
+    pub fn has_annotation_type(
         &self,
-        py: Python<'py>,
-        annotation_type: Bound<'py, PyType>,
+        annotation_type: Bound<'_, PyType>,
     ) -> Result<bool, ClaripyError> {
+        let py = annotation_type.py();
         for annotation in self.inner.annotations() {
             if PyAnnotation::from_annotation(py, annotation)?.is_instance(&annotation_type)? {
                 return Ok(true);
@@ -202,9 +202,9 @@ impl Base {
 
     pub fn get_annotations_by_type<'py>(
         &self,
-        py: Python<'py>,
         annotation_type: Bound<'py, PyType>,
     ) -> Result<Vec<Bound<'py, PyAnnotation>>, ClaripyError> {
+        let py = annotation_type.py();
         let mut matching = Vec::new();
         for annotation in self.inner.annotations() {
             let annotation = PyAnnotation::from_annotation(py, annotation)?;
@@ -217,9 +217,9 @@ impl Base {
 
     pub fn get_annotation<'py>(
         &self,
-        py: Python<'py>,
         annotation_type: Bound<'py, PyType>,
     ) -> Result<Option<Bound<'py, PyAnnotation>>, ClaripyError> {
+        let py = annotation_type.py();
         for annotation in self.inner.annotations() {
             let annotation = PyAnnotation::from_annotation(py, annotation)?;
             if annotation.is_instance(&annotation_type)? {
@@ -231,9 +231,9 @@ impl Base {
 
     pub fn append_annotation<'py>(
         &self,
-        py: Python<'py>,
         annotation: Bound<'py, PyAnnotation>,
     ) -> Result<Bound<'py, Base>, ClaripyError> {
+        let py = annotation.py();
         let annotation = PyAnnotation::to_annotation(&annotation)?;
         let new_annotations = self.inner.annotations().iter().cloned().chain([annotation]);
         Base::from_ast(py, GLOBAL_CONTEXT.annotate(&self.inner, new_annotations)?)
@@ -320,9 +320,9 @@ impl Base {
 
     pub fn remove_annotation<'py>(
         &self,
-        py: Python<'py>,
         annotation: Bound<'py, PyAnnotation>,
     ) -> Result<Bound<'py, Base>, ClaripyError> {
+        let py = annotation.py();
         let annotation = PyAnnotation::to_annotation(&annotation)?;
         let inner = self.inner.context().make_ast_annotated(
             self.inner.op().clone(),
@@ -370,9 +370,9 @@ impl Base {
 
     pub fn clear_annotation_type<'py>(
         &self,
-        py: Python<'py>,
         annotation_type: Bound<'py, PyType>,
     ) -> Result<Bound<'py, Base>, ClaripyError> {
+        let py = annotation_type.py();
         let mut kept = BTreeSet::new();
         for annotation in self.inner.annotations() {
             if !PyAnnotation::from_annotation(py, annotation)?.is_instance(&annotation_type)? {
