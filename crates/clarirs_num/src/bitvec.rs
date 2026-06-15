@@ -5,6 +5,8 @@ mod conversion;
 mod extension;
 
 #[cfg(test)]
+mod reference_tests;
+#[cfg(test)]
 mod tests;
 
 use std::fmt::Debug;
@@ -45,33 +47,30 @@ pub struct BitVec {
 
 impl BitVec {
     pub fn new(mut words: SmallVec<[u64; 1]>, length: u32) -> Result<Self, BitVecError> {
-        let final_word_mask = Self::compute_final_word_mask(length);
-
-        // Calculate the expected number of words based on length
+        // Canonicalize to exactly `expected_words` words: pad with zeros if too
+        // few, drop any extras if too many. Keeping this the single point of
+        // canonicalization means every constructor and operator that routes
+        // through `new` gets a well-formed value, so the rest of the code can
+        // rely on the invariant (no stray high words, final word masked).
         let expected_words = length.div_ceil(64) as usize;
+        words.resize(expected_words, 0);
 
-        // Pad with zeros if we have fewer words than expected
-        while words.len() < expected_words {
-            words.push(0);
+        // Clear any bits above `length` in the final word.
+        if let Some(last) = words.last_mut() {
+            *last &= Self::compute_final_word_mask(length);
         }
 
-        // Apply mask only to the actual final word (based on length, not words.len())
-        if expected_words > 0 {
-            let last_idx = expected_words - 1;
-            if last_idx < words.len() {
-                words[last_idx] &= final_word_mask;
-            }
-        }
-
+        debug_assert_eq!(words.len(), expected_words);
         Ok(Self { words, length })
     }
 
     fn compute_final_word_mask(length: u32) -> u64 {
-        let bits_in_last_word = length % 64;
-        if bits_in_last_word == 0 {
+        if length == 0 {
+            0
+        } else if length.is_multiple_of(64) {
             u64::MAX
         } else {
-            (1u64 << bits_in_last_word) - 1
+            (1u64 << (length % 64)) - 1
         }
     }
 
@@ -129,8 +128,8 @@ impl BitVec {
     }
 
     pub fn from_biguint_trunc(value: &BigUint, length: u32) -> BitVec {
-        let truncated = value % (BigUint::from(2u32).pow(length));
-        Self::from_biguint(&truncated, length).expect("BitVec truncation failed")
+        // `from_biguint` already truncates to `length` bits and cannot fail.
+        Self::from_biguint(value, length).expect("BitVec::from_biguint cannot fail")
     }
 
     /// Creates a `BitVec` from a big-endian byte slice with bit-width equal to the
@@ -162,20 +161,8 @@ impl BitVec {
     }
 
     pub fn from_bigint_trunc(value: &BigInt, length: u32) -> BitVec {
-        let big_uint = if value.sign() == Sign::Minus {
-            // For negative values, compute 2's complement: 2^length - (|value| % 2^length)
-            let modulus = BigUint::from(1u8) << length;
-            let truncated_magnitude = value.magnitude() % &modulus;
-            if truncated_magnitude.is_zero() {
-                BigUint::zero()
-            } else {
-                &modulus - truncated_magnitude
-            }
-        } else {
-            // For positive values, truncate the magnitude
-            value.magnitude() % (BigUint::from(1u8) << length)
-        };
-        BitVec::from_biguint(&big_uint, length).expect("BitVec truncation failed")
+        // `from_bigint` already handles two's-complement truncation and cannot fail.
+        Self::from_bigint(value, length).expect("BitVec::from_bigint cannot fail")
     }
 
     pub fn to_biguint(&self) -> BigUint {
@@ -193,32 +180,18 @@ impl BitVec {
     }
 
     pub fn to_bigint(&self) -> BigInt {
-        // Convert the BitVec to a BigInt
-        // The internal representation of BitVec uses little-endian word order
-        // (least significant word first)
-        let mut result = BigInt::from(0u32);
-        for (i, &word) in self.words.iter().enumerate() {
-            // Shift each word by its position (64 bits per word)
-            let word_value = BigInt::from(word);
-            let shifted = word_value << (i * 64);
-            result += shifted;
-        }
-
-        // If the most significant bit is set, this is a negative number in two's complement
+        let magnitude = BigInt::from(self.to_biguint());
         if self.sign() {
-            // Convert from two's complement to negative value
-            // Negative = -(2^length - value)
-            let two_pow_length = BigInt::from(1) << self.length;
-            result = &two_pow_length - &result;
-            result = -result;
+            // Two's complement: a value with the sign bit set represents
+            // `unsigned_value - 2^length`.
+            magnitude - (BigInt::from(1) << self.length)
+        } else {
+            magnitude
         }
-
-        result
     }
 
     pub fn from_str(s: &str, length: u32) -> Result<BitVec, BitVecError> {
-        let value = BigUint::from_str_radix(s, 10)
-            .map_err(|_| BitVecError::InvalidChopSize { size: 0, bits: 0 })?; // Placeholder error for parse failure
+        let value = BigUint::from_str_radix(s, 10).map_err(|_| BitVecError::ConversionError)?;
         BitVec::from_biguint(&value, length)
     }
 
@@ -456,7 +429,7 @@ impl BitVec {
 
     // Creates and returns a BitVec with these one-filled words.
     pub fn ones(length: u32) -> BitVec {
-        BitVec::from_biguint_trunc(&((BigUint::from(2u32) << (length as u64)) - 1u32), length)
+        BitVec::from_biguint_trunc(&((BigUint::one() << length) - 1u8), length)
     }
 }
 

@@ -39,11 +39,7 @@ impl Add for BitVec {
             result.push(sum2);
         }
 
-        // Apply final word mask
-        if let Some(last) = result.last_mut() {
-            *last &= self.final_word_mask();
-        }
-
+        // `new` masks the bits above `length` in the final word.
         BitVec::new(result, self.length)
     }
 }
@@ -68,6 +64,10 @@ impl Mul for BitVec {
     type Output = Result<Self, BitVecError>;
 
     fn mul(self, rhs: Self) -> Result<Self, BitVecError> {
+        assert_eq!(
+            self.length, rhs.length,
+            "BitVec lengths must match for multiplication"
+        );
         Ok(BitVec::from_biguint_trunc(
             &(BigUint::from(&self) * BigUint::from(&rhs)),
             self.length,
@@ -79,6 +79,10 @@ impl Div for BitVec {
     type Output = Result<Self, BitVecError>;
 
     fn div(self, rhs: Self) -> Self::Output {
+        assert_eq!(
+            self.length, rhs.length,
+            "BitVec lengths must match for division"
+        );
         if rhs.is_zero() {
             return Err(BitVecError::DivisionByZero);
         }
@@ -93,6 +97,15 @@ impl Rem for BitVec {
     type Output = Result<Self, BitVecError>;
 
     fn rem(self, rhs: Self) -> Self::Output {
+        assert_eq!(
+            self.length, rhs.length,
+            "BitVec lengths must match for remainder"
+        );
+        // Mirror `Div`: a zero divisor is an error rather than a panic. Total
+        // SMT-LIB remainder semantics (return the dividend) live in `urem`/`srem`.
+        if rhs.is_zero() {
+            return Err(BitVecError::DivisionByZero);
+        }
         Ok(BitVec::from_biguint_trunc(
             &(BigUint::from(&self) % BigUint::from(&rhs)),
             self.length,
@@ -122,12 +135,8 @@ impl BitVec {
         let unsigned_remainder = abs_dividend % abs_divisor;
         let raw_rem = BitVec::from_biguint_trunc(&unsigned_remainder, bitwidth);
 
-        // If the original dividend is negative, apply two's complement (NOT + 1)
-        if self.sign() {
-            (!raw_rem)? + BitVec::from_prim_with_size(1u64, bitwidth)?
-        } else {
-            Ok(raw_rem)
-        }
+        // The remainder takes the sign of the dividend (SMT-LIB bvsrem).
+        if self.sign() { -raw_rem } else { Ok(raw_rem) }
     }
 
     pub fn sdiv(&self, other: &Self) -> Result<Self, BitVecError> {
@@ -142,13 +151,13 @@ impl BitVec {
         }
 
         let abs_quotient = &abs_dividend / &abs_divisor;
-        let mut quotient_bv = BitVec::from_biguint_trunc(&abs_quotient, bitwidth);
+        let quotient_bv = BitVec::from_biguint_trunc(&abs_quotient, bitwidth);
 
         if result_neg {
-            quotient_bv = ((!quotient_bv)? + BitVec::from_prim_with_size(1u64, bitwidth)?)?;
+            -quotient_bv
+        } else {
+            Ok(quotient_bv)
         }
-
-        Ok(quotient_bv)
     }
 }
 
@@ -285,14 +294,12 @@ mod tests {
         let result = (a % b)?;
         assert_eq!(result.to_u64().unwrap(), 10);
 
-        Ok(())
+        // Remainder by zero is an error, not a panic (mirrors Div).
+        let a = BitVec::from(42u64);
+        let b = BitVec::from(0u64);
+        assert!(matches!(a % b, Err(BitVecError::DivisionByZero)));
 
-        // TODO: DBZ error handling
-        // // Remainder by zero (should return the dividend)
-        // let a = BitVec::from(42u64);
-        // let b = BitVec::from(0u64);
-        // let result = a % b;
-        // assert_eq!(result.to_u64().unwrap(), 42);
+        Ok(())
     }
 
     #[test]

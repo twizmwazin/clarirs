@@ -2,65 +2,28 @@ use num_bigint::{BigInt, BigUint};
 
 use super::BitVec;
 
-impl From<i8> for BitVec {
-    fn from(value: i8) -> BitVec {
-        Self::from_bigint_trunc(&BigInt::from(value), 8)
-    }
+macro_rules! impl_from_unsigned {
+    ($($ty:ty => $bits:expr),+ $(,)?) => {
+        $(impl From<$ty> for BitVec {
+            fn from(value: $ty) -> BitVec {
+                Self::from_biguint_trunc(&BigUint::from(value), $bits)
+            }
+        })+
+    };
 }
 
-impl From<u8> for BitVec {
-    fn from(value: u8) -> BitVec {
-        Self::from_biguint_trunc(&BigUint::from(value), 8)
-    }
+macro_rules! impl_from_signed {
+    ($($ty:ty => $bits:expr),+ $(,)?) => {
+        $(impl From<$ty> for BitVec {
+            fn from(value: $ty) -> BitVec {
+                Self::from_bigint_trunc(&BigInt::from(value), $bits)
+            }
+        })+
+    };
 }
 
-impl From<i16> for BitVec {
-    fn from(value: i16) -> BitVec {
-        Self::from_bigint_trunc(&BigInt::from(value), 16)
-    }
-}
-
-impl From<u16> for BitVec {
-    fn from(value: u16) -> BitVec {
-        Self::from_biguint_trunc(&BigUint::from(value), 16)
-    }
-}
-
-impl From<i32> for BitVec {
-    fn from(value: i32) -> BitVec {
-        Self::from_bigint_trunc(&BigInt::from(value), 32)
-    }
-}
-
-impl From<u32> for BitVec {
-    fn from(value: u32) -> BitVec {
-        Self::from_biguint_trunc(&BigUint::from(value), 32)
-    }
-}
-
-impl From<i64> for BitVec {
-    fn from(value: i64) -> BitVec {
-        Self::from_bigint_trunc(&BigInt::from(value), 64)
-    }
-}
-
-impl From<u64> for BitVec {
-    fn from(value: u64) -> BitVec {
-        Self::from_biguint_trunc(&BigUint::from(value), 64)
-    }
-}
-
-impl From<i128> for BitVec {
-    fn from(value: i128) -> BitVec {
-        Self::from_bigint_trunc(&BigInt::from(value), 128)
-    }
-}
-
-impl From<u128> for BitVec {
-    fn from(value: u128) -> BitVec {
-        Self::from_biguint_trunc(&BigUint::from(value), 128)
-    }
-}
+impl_from_unsigned!(u8 => 8, u16 => 16, u32 => 32, u64 => 64, u128 => 128);
+impl_from_signed!(i8 => 8, i16 => 16, i32 => 32, i64 => 64, i128 => 128);
 
 impl From<BitVec> for BigUint {
     fn from(bv: BitVec) -> Self {

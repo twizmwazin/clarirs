@@ -31,17 +31,9 @@ impl BitVec {
         match (self.sign(), other.sign()) {
             (true, false) => true,  // Negative < Positive
             (false, true) => false, // Positive > Negative
-            _ => {
-                // Same sign - compare unsigned values
-                // For positive numbers: smaller unsigned value = smaller number
-                // For negative numbers (two's complement): smaller unsigned value = more negative (larger magnitude)
-                for (a, b) in self.words.iter().zip(other.words.iter()).rev() {
-                    if a != b {
-                        return a < b;
-                    }
-                }
-                false // Equal numbers
-            }
+            // Same sign: the two's-complement bit patterns order the same way as
+            // the values do, so unsigned comparison (Ord::cmp) gives the answer.
+            _ => self.cmp(other) == std::cmp::Ordering::Less,
         }
     }
 
