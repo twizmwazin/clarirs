@@ -68,35 +68,13 @@ pub fn add_submodule<'py>(
 }
 
 #[pyfunction(name = "simplify")]
-fn py_simplify<'py>(
-    py: Python<'py>,
-    expr: Bound<'py, Base>,
-) -> Result<Bound<'py, Base>, ClaripyError> {
-    if let Ok(bv_value) = expr.clone().into_any().cast::<BV>() {
-        BV::new(py, &bv_value.get().inner.simplify().unwrap())
-            .map(|b| b.into_any().cast::<Base>().unwrap().clone())
-    } else if let Ok(bool_value) = expr.clone().into_any().cast::<Bool>() {
-        Bool::new(py, &bool_value.get().inner.simplify().unwrap())
-            .map(|b| b.into_any().cast::<Base>().unwrap().clone())
-    } else if let Ok(fp_value) = expr.clone().into_any().cast::<FP>() {
-        FP::new(py, &fp_value.get().inner.simplify().unwrap())
-            .map(|b| b.into_any().cast::<Base>().unwrap().clone())
-    } else if let Ok(string_value) = expr.clone().into_any().cast::<PyAstString>() {
-        PyAstString::new(py, &string_value.get().inner.simplify().unwrap())
-            .map(|b| b.into_any().cast::<Base>().unwrap().clone())
-    } else {
-        panic!("Unsupported type");
-    }
+fn py_simplify(expr: PyAst) -> Result<PyAst, ClaripyError> {
+    Ok(PyAst(expr.0.simplify()?))
 }
 
 #[pyfunction(name = "replace")]
-fn py_replace<'py>(
-    expr: Bound<'py, Base>,
-    old: Bound<'py, Base>,
-    new: Bound<'py, Base>,
-) -> Result<Bound<'py, Base>, ClaripyError> {
-    let old_dyn = Base::to_ast(old.clone())?;
-    let new_dyn = Base::to_ast(new.clone())?;
+fn py_replace(expr: PyAst, old: PyAst, new: PyAst) -> Result<PyAst, ClaripyError> {
+    let (old_dyn, new_dyn) = (old.0, new.0);
 
     // Convert new type to old type, if they do not match and both are BV or FP
     let new_coerced = match (old_dyn.ast_type(), new_dyn.ast_type()) {
@@ -107,18 +85,12 @@ fn py_replace<'py>(
         _ => new_dyn.clone(),
     };
 
-    Base::from_ast(
-        expr.py(),
-        Base::to_ast(expr)?.replace(&old_dyn, &new_coerced)?,
-    )
+    Ok(PyAst(expr.0.replace(&old_dyn, &new_coerced)?))
 }
 
 #[pyfunction(name = "excavate_ite")]
-fn py_excavate_ite<'py>(
-    py: Python<'py>,
-    expr: Bound<'py, Base>,
-) -> Result<Bound<'py, Base>, ClaripyError> {
-    Base::from_ast(py, Base::to_ast(expr)?.excavate_ite()?)
+fn py_excavate_ite(expr: PyAst) -> Result<PyAst, ClaripyError> {
+    Ok(PyAst(expr.0.excavate_ite()?))
 }
 
 #[pyfunction]

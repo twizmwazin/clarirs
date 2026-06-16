@@ -8,6 +8,7 @@ pub use crate::python::ast::{
     bool::Bool,
     bv::BV,
     coerce::{CoerceBV, CoerceBase, CoerceBool, CoerceFP, CoerceString},
+    convert::PyAst,
     fp::FP,
     opstring::ToOpString,
     string::PyAstString,

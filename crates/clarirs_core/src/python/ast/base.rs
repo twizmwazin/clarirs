@@ -153,9 +153,8 @@ impl Base {
         Ok((py_map, counter, canonical_py))
     }
 
-    pub fn identical(&self, other: Bound<'_, Base>) -> Result<bool, ClaripyError> {
-        let other_dyn = Base::to_ast(other)?;
-        Ok(structurally_match(&self.inner, &other_dyn)?)
+    pub fn identical(&self, other: PyAst) -> Result<bool, ClaripyError> {
+        Ok(structurally_match(&self.inner, &other.0)?)
     }
 
     #[getter]
@@ -168,23 +167,12 @@ impl Base {
     }
 
     #[pyo3(signature = (respect_annotations=true))]
-    pub fn simplify<'py>(
-        &self,
-        py: Python<'py>,
-        respect_annotations: bool,
-    ) -> Result<Bound<'py, Base>, ClaripyError> {
-        Base::from_ast(py, self.inner.simplify_ext(respect_annotations, false)?)
+    pub fn simplify(&self, respect_annotations: bool) -> Result<PyAst, ClaripyError> {
+        Ok(PyAst(self.inner.simplify_ext(respect_annotations, false)?))
     }
 
-    pub fn replace<'py>(
-        &self,
-        py: Python<'py>,
-        from: Bound<'py, Base>,
-        to: Bound<'py, Base>,
-    ) -> Result<Bound<'py, Base>, ClaripyError> {
-        let from_ast = Base::to_ast(from)?;
-        let to_ast = Base::to_ast(to)?;
-        Base::from_ast(py, self.inner.replace(&from_ast, &to_ast)?)
+    pub fn replace(&self, from: PyAst, to: PyAst) -> Result<PyAst, ClaripyError> {
+        Ok(PyAst(self.inner.replace(&from.0, &to.0)?))
     }
 
     pub fn has_annotation_type(
