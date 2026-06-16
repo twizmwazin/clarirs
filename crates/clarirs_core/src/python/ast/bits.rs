@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::python::prelude::*;
 
 #[pyclass(extends=Base, subclass, frozen, weakref, module="claripy.ast.bits", from_py_object)]
 #[derive(Clone, Default)]

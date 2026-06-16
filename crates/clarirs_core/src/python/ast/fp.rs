@@ -8,7 +8,7 @@ use std::sync::{
 use dashmap::DashMap;
 use pyo3::types::{PyTuple, PyWeakrefReference};
 
-use crate::prelude::*;
+use crate::python::prelude::*;
 
 static FPS_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static PY_FP_CACHE: LazyLock<DashMap<u64, Py<PyWeakrefReference>>> = LazyLock::new(DashMap::new);

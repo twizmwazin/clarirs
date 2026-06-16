@@ -11,14 +11,10 @@ repository = { workspace = true }
 
 [dependencies]
 pyo3 = { version = "0.29.0", features = ["py-clone", "num-bigint"] }
-clarirs_core = { path = "../clarirs_core", features = ["runtime-checks"] }
-clarirs_num = { path = "../clarirs_num" }
+clarirs_core = { path = "../clarirs_core", features = ["runtime-checks", "python"] }
 clarirs-vsa = { path = "../clarirs-vsa" }
 clarirs_z3 = { path = "../clarirs_z3" }
-thiserror = { workspace = true }
 num-bigint = "0.4.6"
-log = "0.4.32"
-dashmap = "6.2.1"
 
 [lib]
 name = "claripy"

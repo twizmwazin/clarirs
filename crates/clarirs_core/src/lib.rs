@@ -4,6 +4,8 @@ pub mod cache;
 pub mod context;
 pub mod error;
 pub mod prelude;
+#[cfg(feature = "python")]
+pub mod python;
 pub mod smtlib;
 pub mod solver;
 pub mod solver_mixins;

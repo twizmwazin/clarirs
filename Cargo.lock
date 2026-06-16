@@ -122,9 +122,12 @@ dependencies = [
  "ahash",
  "anyhow",
  "clarirs_num",
+ "dashmap",
+ "log",
  "num-bigint",
  "num-traits",
  "paste",
+ "pyo3",
  "serde",
  "smallvec",
  "thiserror",
@@ -137,6 +140,7 @@ dependencies = [
  "anyhow",
  "num-bigint",
  "num-traits",
+ "pyo3",
  "serde",
  "serde_json",
  "smallvec",
@@ -149,13 +153,9 @@ version = "0.1.0"
 dependencies = [
  "clarirs-vsa",
  "clarirs_core",
- "clarirs_num",
  "clarirs_z3",
- "dashmap",
- "log",
  "num-bigint",
  "pyo3",
- "thiserror",
 ]
 
 [[package]]

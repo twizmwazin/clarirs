@@ -1,9 +1,9 @@
 use std::collections::{BTreeSet, HashMap};
 
-use clarirs_core::algorithms::{canonicalize, structurally_match};
+use crate::algorithms::{canonicalize, structurally_match};
 use pyo3::types::{PyFrozenSet, PySet, PyType};
 
-use crate::prelude::*;
+use crate::python::prelude::*;
 
 /// The base class for all AST wrappers. It holds the underlying [`AstRef`] and
 /// implements every operation that does not depend on the concrete sort

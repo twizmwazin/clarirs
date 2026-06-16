@@ -1,7 +1,7 @@
 use num_bigint::BigUint;
 use pyo3::types::{PyDict, PyTuple, PyType};
 
-use crate::prelude::*;
+use crate::python::prelude::*;
 
 /// `claripy.annotation.Annotation`
 ///

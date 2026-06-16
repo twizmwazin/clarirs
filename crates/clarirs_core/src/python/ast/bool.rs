@@ -4,16 +4,14 @@ use std::sync::LazyLock;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
-use ast::args::ExtractPyArgs;
-use clarirs_vsa::reduce::Reduce;
-use clarirs_vsa::strided_interval::ComparisonResult;
+use crate::python::ast::args::ExtractPyArgs;
 use dashmap::DashMap;
 use pyo3::exceptions::PyValueError;
 use pyo3::types::PyTuple;
 use pyo3::types::{PyDict, PyWeakrefMethods, PyWeakrefReference};
 
-use crate::ast::{and, not, or, xor};
-use crate::prelude::*;
+use crate::python::ast::{and, not, or, xor};
+use crate::python::prelude::*;
 
 use super::r#if;
 
@@ -308,11 +306,7 @@ impl Bool {
 
     #[getter]
     pub fn cardinality(&self) -> Result<usize, ClaripyError> {
-        match self.inner.reduce()?.into_bool()? {
-            ComparisonResult::True => Ok(1),
-            ComparisonResult::False => Ok(1),
-            ComparisonResult::Maybe => Ok(2),
-        }
+        Ok(crate::python::vsa_hooks::bool_cardinality(&self.inner)?)
     }
 
     #[allow(clippy::type_complexity)]

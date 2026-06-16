@@ -10,9 +10,9 @@ pub mod string;
 
 use std::sync::LazyLock;
 
-use crate::prelude::*;
+use crate::python::prelude::*;
 
-use super::import_submodule;
+use crate::python::import_submodule;
 
 pub static GLOBAL_CONTEXT: LazyLock<Context<'static>> = LazyLock::new(Context::new);
 

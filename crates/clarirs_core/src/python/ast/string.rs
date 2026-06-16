@@ -8,7 +8,7 @@ use std::sync::{
 use dashmap::DashMap;
 use pyo3::types::PyWeakrefReference;
 
-use crate::prelude::*;
+use crate::python::prelude::*;
 
 static STRINGS_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static PY_STRING_CACHE: LazyLock<DashMap<u64, Py<PyWeakrefReference>>> =

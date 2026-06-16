@@ -4,16 +4,15 @@ use std::iter::once;
 use std::sync::LazyLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use clarirs_vsa::cardinality::Cardinality;
 use dashmap::DashMap;
 use num_bigint::{BigInt, BigUint, Sign};
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::types::{PySlice, PyWeakrefReference};
 
-use crate::ast::fp::{PyFSort, PyRM};
-use crate::ast::{and, not, or, xor};
-use crate::prelude::*;
-use crate::pyslicemethodsext::PySliceMethodsExt;
+use crate::python::ast::fp::{PyFSort, PyRM};
+use crate::python::ast::{and, not, or, xor};
+use crate::python::prelude::*;
+use crate::python::pyslicemethodsext::PySliceMethodsExt;
 
 static BVS_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static PY_BV_CACHE: LazyLock<DashMap<u64, Py<PyWeakrefReference>>> = LazyLock::new(DashMap::new);
@@ -1000,7 +999,7 @@ impl BV {
 
     #[getter]
     pub fn cardinality(self_: Bound<'_, BV>) -> Result<BigUint, ClaripyError> {
-        Ok(self_.get().inner.cardinality()?)
+        Ok(crate::python::vsa_hooks::bv_cardinality(&self_.get().inner)?)
     }
 
     #[getter]
