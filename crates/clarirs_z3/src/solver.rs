@@ -258,8 +258,10 @@ impl<'c> Z3Solver<'c> {
 
     fn make_model(&self) -> Result<RcModel, ClarirsError> {
         self.with_cached_solver(|z3_solver| {
-            if z3_solver.check()? != z3::Lbool::True {
-                return Err(ClarirsError::Unsat);
+            match z3_solver.check()? {
+                z3::Lbool::True => {}
+                z3::Lbool::False => return Err(ClarirsError::Unsat),
+                _ => return Err(ClarirsError::SolverInterrupted),
             }
             z3_solver.model()
         })
@@ -329,7 +331,11 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
     }
 
     fn satisfiable(&mut self) -> Result<bool, ClarirsError> {
-        self.with_cached_solver(|z3_solver| Ok(z3_solver.check()? == z3::Lbool::True))
+        self.with_cached_solver(|z3_solver| match z3_solver.check()? {
+            z3::Lbool::True => Ok(true),
+            z3::Lbool::False => Ok(false),
+            _ => Err(ClarirsError::SolverInterrupted),
+        })
     }
 
     fn satisfiable_with_extra(&mut self, extra: &[AstRef<'c>]) -> Result<bool, ClarirsError> {
@@ -340,9 +346,13 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         for c in extra {
             assumptions.push(c.simplify_z3()?.to_z3()?);
         }
-        self.with_cached_solver(|z3_solver| {
-            Ok(z3_solver.check_assumptions(&assumptions)? == z3::Lbool::True)
-        })
+        self.with_cached_solver(
+            |z3_solver| match z3_solver.check_assumptions(&assumptions)? {
+                z3::Lbool::True => Ok(true),
+                z3::Lbool::False => Ok(false),
+                _ => Err(ClarirsError::SolverInterrupted),
+            },
+        )
     }
 
     fn eval(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
@@ -374,8 +384,10 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
     fn min_unsigned(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         let mut optimize = self.mk_filled_optimize()?;
         optimize.minimize(&expr.to_z3()?)?;
-        if optimize.check()? != z3::Lbool::True {
-            return Err(ClarirsError::Unsat);
+        match optimize.check()? {
+            z3::Lbool::True => {}
+            z3::Lbool::False => return Err(ClarirsError::Unsat),
+            _ => return Err(ClarirsError::SolverInterrupted),
         }
 
         let model = optimize.get_model()?;
@@ -387,8 +399,10 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
     fn max_unsigned(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         let mut optimize = self.mk_filled_optimize()?;
         optimize.maximize(&expr.to_z3()?)?;
-        if optimize.check()? != z3::Lbool::True {
-            return Err(ClarirsError::Unsat);
+        match optimize.check()? {
+            z3::Lbool::True => {}
+            z3::Lbool::False => return Err(ClarirsError::Unsat),
+            _ => return Err(ClarirsError::SolverInterrupted),
         }
 
         let model = optimize.get_model()?;
@@ -422,8 +436,10 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         // This will find the smallest value among those with the preferred sign bit
         optimize.minimize(&target.to_z3()?)?;
 
-        if optimize.check()? != z3::Lbool::True {
-            return Err(ClarirsError::Unsat);
+        match optimize.check()? {
+            z3::Lbool::True => {}
+            z3::Lbool::False => return Err(ClarirsError::Unsat),
+            _ => return Err(ClarirsError::SolverInterrupted),
         }
 
         let model = optimize.get_model()?;
@@ -457,8 +473,10 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         // This will find the largest value among those with the preferred sign bit
         optimize.maximize(&target.to_z3()?)?;
 
-        if optimize.check()? != z3::Lbool::True {
-            return Err(ClarirsError::Unsat);
+        match optimize.check()? {
+            z3::Lbool::True => {}
+            z3::Lbool::False => return Err(ClarirsError::Unsat),
+            _ => return Err(ClarirsError::SolverInterrupted),
         }
 
         let model = optimize.get_model()?;
@@ -510,19 +528,24 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         };
 
         let z3_aux = aux.to_z3()?;
+        let z3_link = link.to_z3()?;
 
-        // Create and fill the Z3 solver once
-        let mut z3_solver = RcSolver::new()?;
-
-        for assertion in &self.assertions {
-            let converted = assertion.to_z3()?;
-            z3_solver.assert(&converted)?;
+        // Use a fresh (non-incremental) solver: Z3's combined solver applies
+        // its strong per-logic tactic only in non-incremental use; push/pop
+        // would switch it to the much weaker incremental "smt" tactic, which
+        // is catastrophic for e.g. floating-point queries. Re-asserting is
+        // cheap since AST->Z3 conversion is cached.
+        let mut z3_solver = self.new_z3_solver()?;
+        for idx in 0..self.assertions.len() {
+            self.assert_at(&mut z3_solver, idx)?;
         }
-        z3_solver.assert(&link.to_z3()?)?;
+        z3_solver.assert(&z3_link)?;
 
         for _ in 0..n {
-            if z3_solver.check()? != z3::Lbool::True {
-                break;
+            match z3_solver.check()? {
+                z3::Lbool::True => {}
+                z3::Lbool::False => break,
+                _ => return Err(ClarirsError::SolverInterrupted),
             }
 
             let model = z3_solver.model()?;

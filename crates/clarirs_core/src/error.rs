@@ -25,6 +25,8 @@ pub enum ClarirsError {
     ConversionError(String),
     #[error("UNSAT")]
     Unsat,
+    #[error("Solver interrupted (timeout or unknown result)")]
+    SolverInterrupted,
     #[error("Empty traversal result")]
     EmptyTraversal,
     #[error("Backend error ({0}): {1}")]
