@@ -231,6 +231,14 @@ impl BitVec {
         }
     }
 
+    /// Reverses the *byte* order of the bitvector (the endianness swap behind
+    /// claripy's `Reverse`).
+    ///
+    /// This is a byte-granular operation: it only works on byte-sized
+    /// bitvectors. If `length` is not a multiple of 8 there are no whole bytes
+    /// to reverse, so it returns [`BitVecError::BitVectorNotByteSized`] rather
+    /// than guessing. For bit-level rotation that works on any width, see
+    /// [`BitVec::rotate_left`]/[`BitVec::rotate_right`].
     pub fn reverse_bytes(&self) -> Result<Self, BitVecError> {
         if !self.length.is_multiple_of(8) {
             return Err(BitVecError::BitVectorNotByteSized {
