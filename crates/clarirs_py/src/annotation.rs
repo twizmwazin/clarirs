@@ -5,10 +5,8 @@ use crate::prelude::*;
 
 /// `claripy.annotation.Annotation`
 ///
-/// The base class for every annotation. This used to be defined as an embedded
-/// Python source string because PyO3 could not express subclassable native
-/// classes; it is now a real `#[pyclass]`, so the built-in annotations below
-/// are genuine subclasses and user code can subclass it as well.
+/// The base class for every annotation. User code can subclass it, and the
+/// built-in annotations below are genuine subclasses.
 #[pyclass(name = "Annotation", subclass, frozen, module = "claripy.annotation")]
 pub struct PyAnnotation;
 
