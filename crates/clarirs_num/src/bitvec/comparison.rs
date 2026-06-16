@@ -80,8 +80,8 @@ mod tests {
     #[test]
     fn test_unsigned_comparison_multi_word() -> Result<(), BitVecError> {
         // Test with 128-bit values where the difference is in the lower word
-        let bv1 = BitVec::from_biguint(&1u32.into(), 128)?;
-        let bv2 = BitVec::from_biguint(&2u32.into(), 128)?;
+        let bv1 = BitVec::from_biguint(&1u32.into(), 128);
+        let bv2 = BitVec::from_biguint(&2u32.into(), 128);
         assert!(bv1 < bv2, "1 < 2 in 128-bit should be true");
         assert!(bv2 > bv1, "2 > 1 in 128-bit should be true");
         assert!(bv1 != bv2, "1 != 2 in 128-bit");
@@ -89,8 +89,8 @@ mod tests {
         // Test with values that differ in the upper word
         let big1 = num_bigint::BigUint::from(1u64) << 64;
         let big2 = num_bigint::BigUint::from(2u64) << 64;
-        let bv3 = BitVec::from_biguint(&big1, 128)?;
-        let bv4 = BitVec::from_biguint(&big2, 128)?;
+        let bv3 = BitVec::from_biguint(&big1, 128);
+        let bv4 = BitVec::from_biguint(&big2, 128);
         assert!(bv3 < bv4, "1<<64 < 2<<64 in 128-bit should be true");
         assert!(bv4 > bv3, "2<<64 > 1<<64 in 128-bit should be true");
 

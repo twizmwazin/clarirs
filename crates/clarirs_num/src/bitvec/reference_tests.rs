@@ -61,7 +61,7 @@ fn signed_val(value: &BigUint, width: u32) -> BigInt {
 }
 
 fn bv_u(value: &BigUint, width: u32) -> BitVec {
-    BitVec::from_biguint(value, width).unwrap()
+    BitVec::from_biguint(value, width)
 }
 
 // ----------------------------------------------------------------------------
@@ -100,7 +100,7 @@ fn regression_shift_by_ge_width_is_zero() {
 #[test]
 fn regression_shift_by_zero_is_identity() {
     for &width in WIDTHS {
-        let v = BitVec::from_biguint(&(modulus(width) - 1u8 - 1u8), width).unwrap();
+        let v = BitVec::from_biguint(&(modulus(width) - 1u8 - 1u8), width);
         assert_eq!((v.clone() << 0).unwrap(), v);
         assert_eq!((v.clone() >> 0).unwrap(), v);
     }
@@ -164,8 +164,7 @@ fn reference_sweep_unsigned() {
             );
             assert_eq!(
                 (bv_a.clone() - bv_b.clone()).unwrap(),
-                BitVec::from_bigint(&(BigInt::from(a.clone()) - BigInt::from(b.clone())), width)
-                    .unwrap(),
+                BitVec::from_bigint(&(BigInt::from(a.clone()) - BigInt::from(b.clone())), width),
                 "sub w={width} a={a} b={b}"
             );
             assert_eq!(
@@ -175,7 +174,7 @@ fn reference_sweep_unsigned() {
             );
             assert_eq!(
                 (-bv_a.clone()).unwrap(),
-                BitVec::from_bigint(&(-BigInt::from(a.clone())), width).unwrap(),
+                BitVec::from_bigint(&(-BigInt::from(a.clone())), width),
                 "neg w={width} a={a}"
             );
 
@@ -219,12 +218,12 @@ fn reference_sweep_unsigned() {
             let (sa, sb) = (signed_val(&a, width), signed_val(&b, width));
             assert_eq!(
                 bv_a.sdiv(&bv_b).unwrap(),
-                BitVec::from_bigint(&(&sa / &sb), width).unwrap(),
+                BitVec::from_bigint(&(&sa / &sb), width),
                 "sdiv w={width} a={a} b={b}"
             );
             assert_eq!(
                 bv_a.srem(&bv_b).unwrap(),
-                BitVec::from_bigint(&(&sa % &sb), width).unwrap(),
+                BitVec::from_bigint(&(&sa % &sb), width),
                 "srem w={width} a={a} b={b}"
             );
 
@@ -319,7 +318,7 @@ fn reference_sweep_unsigned() {
             );
             assert_eq!(
                 bv_a.sign_extend(n).unwrap(),
-                BitVec::from_bigint(&sa, width + n).unwrap(),
+                BitVec::from_bigint(&sa, width + n),
                 "sext w={width} a={a} n={n}"
             );
 

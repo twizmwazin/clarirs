@@ -6,7 +6,7 @@ macro_rules! impl_from_unsigned {
     ($($ty:ty => $bits:expr),+ $(,)?) => {
         $(impl From<$ty> for BitVec {
             fn from(value: $ty) -> BitVec {
-                Self::from_biguint_trunc(&BigUint::from(value), $bits)
+                Self::from_biguint(&BigUint::from(value), $bits)
             }
         })+
     };
@@ -16,7 +16,7 @@ macro_rules! impl_from_signed {
     ($($ty:ty => $bits:expr),+ $(,)?) => {
         $(impl From<$ty> for BitVec {
             fn from(value: $ty) -> BitVec {
-                Self::from_bigint_trunc(&BigInt::from(value), $bits)
+                Self::from_bigint(&BigInt::from(value), $bits)
             }
         })+
     };
@@ -69,7 +69,7 @@ mod tests {
 
         // Test odd-sized vectors (e.g., 17 bits)
         let value = BigUint::from(0x1FFFFu64); // 17 bits set
-        let bv = BitVec::from_biguint(&value, 17).unwrap();
+        let bv = BitVec::from_biguint(&value, 17);
         assert_eq!(bv.to_biguint(), value);
 
         // Test single-bit vector
@@ -82,7 +82,7 @@ mod tests {
 
         // Test 72-bit vector
         let value = (BigUint::one() << 72u32) - BigUint::one(); // 2^72 - 1
-        let bv = BitVec::from_biguint(&value, 72).unwrap();
+        let bv = BitVec::from_biguint(&value, 72);
         assert_eq!(bv.to_biguint(), value);
     }
 
@@ -92,40 +92,40 @@ mod tests {
         use num_traits::One;
 
         // Test conversion from zero
-        let bv = BitVec::from_biguint(&BigUint::zero(), 64).unwrap();
+        let bv = BitVec::from_biguint(&BigUint::zero(), 64);
         assert_eq!(bv.to_u64().unwrap(), 0);
 
         // Test various positive values
         let value = BigUint::from(42u64);
-        let bv = BitVec::from_biguint(&value, 64).unwrap();
+        let bv = BitVec::from_biguint(&value, 64);
         assert_eq!(bv.to_u64().unwrap(), 42);
 
         // Test value truncation
         let value = BigUint::from(0xFFu64);
-        let bv = BitVec::from_biguint(&value, 4).unwrap();
+        let bv = BitVec::from_biguint(&value, 4);
         assert_eq!(bv.to_u64().unwrap(), 0xF); // 0xFF truncated to 4 bits = 0xF
 
         // Test explicit truncation function
         let value = BigUint::from(0xFFu64);
-        let bv = BitVec::from_biguint_trunc(&value, 4);
+        let bv = BitVec::from_biguint(&value, 4);
         assert_eq!(bv.to_u64().unwrap() & 0xF, 0xF); // Only compare the lowest 4 bits
 
         // Test different widths
         let value = BigUint::from(0xFFu64);
-        let bv = BitVec::from_biguint(&value, 8).unwrap();
+        let bv = BitVec::from_biguint(&value, 8);
         assert_eq!(bv.to_u64().unwrap(), 0xFF);
 
         // Test odd-sized vectors
         let value = BigUint::from(0x1Fu64); // 5 bits
-        let bv = BitVec::from_biguint(&value, 5).unwrap();
+        let bv = BitVec::from_biguint(&value, 5);
         assert_eq!(bv.to_u64().unwrap(), 0x1F);
 
         // Test single-bit vector
-        let bv = BitVec::from_biguint(&BigUint::one(), 1).unwrap();
+        let bv = BitVec::from_biguint(&BigUint::one(), 1);
         assert_eq!(bv.to_u64().unwrap(), 1);
 
         // Test zero-width vector
-        let bv = BitVec::from_biguint(&BigUint::zero(), 0).unwrap();
+        let bv = BitVec::from_biguint(&BigUint::zero(), 0);
         assert_eq!(bv.len(), 0);
     }
 

@@ -61,7 +61,7 @@ impl Mul for BitVec {
 
     fn mul(self, rhs: Self) -> Result<Self, BitVecError> {
         self.check_same_length(&rhs)?;
-        Ok(BitVec::from_biguint_trunc(
+        Ok(BitVec::from_biguint(
             &(BigUint::from(&self) * BigUint::from(&rhs)),
             self.length,
         ))
@@ -76,7 +76,7 @@ impl Div for BitVec {
         if rhs.is_zero() {
             return Err(BitVecError::DivisionByZero);
         }
-        Ok(BitVec::from_biguint_trunc(
+        Ok(BitVec::from_biguint(
             &(BigUint::from(&self) / BigUint::from(&rhs)),
             self.length,
         ))
@@ -93,7 +93,7 @@ impl Rem for BitVec {
         if rhs.is_zero() {
             return Err(BitVecError::DivisionByZero);
         }
-        Ok(BitVec::from_biguint_trunc(
+        Ok(BitVec::from_biguint(
             &(BigUint::from(&self) % BigUint::from(&rhs)),
             self.length,
         ))
@@ -107,7 +107,7 @@ impl BitVec {
         }
         let bitwidth = self.len();
         let remainder = self.to_biguint() % other.to_biguint();
-        BitVec::from_biguint_trunc(&remainder, bitwidth)
+        BitVec::from_biguint(&remainder, bitwidth)
     }
 
     pub fn srem(&self, other: &Self) -> Result<Self, BitVecError> {
@@ -120,7 +120,7 @@ impl BitVec {
         let abs_dividend = self.to_biguint_abs();
         let abs_divisor = other.to_biguint_abs();
         let unsigned_remainder = abs_dividend % abs_divisor;
-        let raw_rem = BitVec::from_biguint_trunc(&unsigned_remainder, bitwidth);
+        let raw_rem = BitVec::from_biguint(&unsigned_remainder, bitwidth);
 
         // The remainder takes the sign of the dividend (SMT-LIB bvsrem).
         if self.sign() { -raw_rem } else { Ok(raw_rem) }
@@ -138,7 +138,7 @@ impl BitVec {
         }
 
         let abs_quotient = &abs_dividend / &abs_divisor;
-        let quotient_bv = BitVec::from_biguint_trunc(&abs_quotient, bitwidth);
+        let quotient_bv = BitVec::from_biguint(&abs_quotient, bitwidth);
 
         if result_neg {
             -quotient_bv

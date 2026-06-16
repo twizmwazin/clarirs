@@ -66,7 +66,10 @@ impl Shl<u32> for BitVec {
             return Ok(BitVec::zeros(self.length));
         }
         // `from_biguint` truncates to `length`, discarding bits shifted past the top.
-        BitVec::from_biguint(&(self.to_biguint() << rhs), self.length)
+        Ok(BitVec::from_biguint(
+            &(self.to_biguint() << rhs),
+            self.length,
+        ))
     }
 }
 
@@ -78,7 +81,10 @@ impl Shr<u32> for BitVec {
         if rhs >= self.length {
             return Ok(BitVec::zeros(self.length));
         }
-        BitVec::from_biguint(&(self.to_biguint() >> rhs), self.length)
+        Ok(BitVec::from_biguint(
+            &(self.to_biguint() >> rhs),
+            self.length,
+        ))
     }
 }
 
@@ -102,7 +108,7 @@ impl BitVec {
         };
 
         let rotated = ((&value << left_amount) | (&value >> right_amount)) & &mask;
-        BitVec::from_biguint(&rotated, bit_length)
+        Ok(BitVec::from_biguint(&rotated, bit_length))
     }
 
     pub fn rotate_left(&self, rotate_amount: u32) -> Result<Self, BitVecError> {

@@ -121,31 +121,18 @@ impl BitVec {
         Self::new(words, length)
     }
 
-    pub fn from_biguint(value: &BigUint, length: u32) -> Result<BitVec, BitVecError> {
-        // Truncate value to fit within the specified length
+    /// Builds a `BitVec` of `length` bits from `value`, truncating to the low
+    /// `length` bits. Infallible: any `BigUint` maps onto `length` bits.
+    pub fn from_biguint(value: &BigUint, length: u32) -> BitVec {
         let truncated = if value.bits() as u32 > length {
             value % (BigUint::from(1u8) << length)
         } else {
             value.clone()
         };
 
-        if truncated == BigUint::ZERO {
-            let mut words = SmallVec::new();
-            let num_words = (length as usize).div_ceil(64); // Number of 64-bit words
-            if num_words > 0 {
-                words.push(0);
-            }
-            return BitVec::new(words, length);
-        }
-
-        // Convert the BigUint to a BitVec
+        // A zero value yields an empty digit list, which `new` pads out.
         let digits: SmallVec<[u64; 1]> = truncated.iter_u64_digits().collect();
-        BitVec::new(digits, length)
-    }
-
-    pub fn from_biguint_trunc(value: &BigUint, length: u32) -> BitVec {
-        // `from_biguint` already truncates to `length` bits and cannot fail.
-        Self::from_biguint(value, length).expect("BitVec::from_biguint cannot fail")
+        BitVec::new(digits, length).expect("BitVec::new is infallible")
     }
 
     /// Creates a `BitVec` from a big-endian byte slice with bit-width equal to the
@@ -153,13 +140,12 @@ impl BitVec {
     pub fn from_bytes_be(bytes: &[u8]) -> BitVec {
         let length = (bytes.len() as u32) * 8;
         let big_uint = BigUint::from_bytes_be(bytes);
-
-        // Reuse the existing BigUint constructor; this cannot fail for well-formed inputs.
-        BitVec::from_biguint(&big_uint, length).expect("BitVec::from_biguint should not fail")
+        BitVec::from_biguint(&big_uint, length)
     }
 
-    pub fn from_bigint(value: &BigInt, length: u32) -> Result<BitVec, BitVecError> {
-        // Truncate value to fit within the specified length
+    /// Builds a `BitVec` of `length` bits from a signed `value`, using two's
+    /// complement and truncating to `length` bits. Infallible.
+    pub fn from_bigint(value: &BigInt, length: u32) -> BitVec {
         let big_uint = if value.sign() == Sign::Minus {
             // For negative values, compute 2's complement: 2^length - (|value| % 2^length)
             let modulus = BigUint::from(1u8) << length;
@@ -174,11 +160,6 @@ impl BitVec {
             value.magnitude() % (BigUint::from(1u8) << length)
         };
         BitVec::from_biguint(&big_uint, length)
-    }
-
-    pub fn from_bigint_trunc(value: &BigInt, length: u32) -> BitVec {
-        // `from_bigint` already handles two's-complement truncation and cannot fail.
-        Self::from_bigint(value, length).expect("BitVec::from_bigint cannot fail")
     }
 
     pub fn to_biguint(&self) -> BigUint {
@@ -208,7 +189,7 @@ impl BitVec {
 
     pub fn from_str(s: &str, length: u32) -> Result<BitVec, BitVecError> {
         let value = BigUint::from_str_radix(s, 10).map_err(|_| BitVecError::ConversionError)?;
-        BitVec::from_biguint(&value, length)
+        Ok(BitVec::from_biguint(&value, length))
     }
 
     #[allow(clippy::len_without_is_empty)]
@@ -237,8 +218,7 @@ impl BitVec {
     /// This is a byte-granular operation: it only works on byte-sized
     /// bitvectors. If `length` is not a multiple of 8 there are no whole bytes
     /// to reverse, so it returns [`BitVecError::BitVectorNotByteSized`] rather
-    /// than guessing. For bit-level rotation that works on any width, see
-    /// [`BitVec::rotate_left`]/[`BitVec::rotate_right`].
+    /// than guessing.
     pub fn reverse_bytes(&self) -> Result<Self, BitVecError> {
         if !self.length.is_multiple_of(8) {
             return Err(BitVecError::BitVectorNotByteSized {
@@ -453,7 +433,7 @@ impl BitVec {
 
     // Creates and returns a BitVec with these one-filled words.
     pub fn ones(length: u32) -> BitVec {
-        BitVec::from_biguint_trunc(&((BigUint::one() << length) - 1u8), length)
+        BitVec::from_biguint(&((BigUint::one() << length) - 1u8), length)
     }
 }
 
@@ -565,14 +545,14 @@ mod is_mask_tests {
         for i in 60..=67 {
             value |= BigUint::one() << i;
         }
-        let bv = BitVec::from_biguint(&value, 128).unwrap();
+        let bv = BitVec::from_biguint(&value, 128);
         assert_eq!(bv.is_mask(), Some((67, 60)));
 
         // Create a non-consecutive pattern across boundary
         let mut value = BigUint::zero();
         value |= BigUint::one() << 63; // Last bit of first word
         value |= BigUint::one() << 65; // Skip bit 64, non-consecutive
-        let bv = BitVec::from_biguint(&value, 128).unwrap();
+        let bv = BitVec::from_biguint(&value, 128);
         assert_eq!(bv.is_mask(), None);
     }
 
@@ -583,7 +563,7 @@ mod is_mask_tests {
         for i in 0..32 {
             value |= BigUint::one() << i;
         }
-        let bv = BitVec::from_biguint(&value, 256).unwrap();
+        let bv = BitVec::from_biguint(&value, 256);
         assert_eq!(bv.is_mask(), Some((31, 0)));
 
         // Large BitVec with mask at end
@@ -591,7 +571,7 @@ mod is_mask_tests {
         for i in 224..256 {
             value |= BigUint::one() << i;
         }
-        let bv = BitVec::from_biguint(&value, 256).unwrap();
+        let bv = BitVec::from_biguint(&value, 256);
         assert_eq!(bv.is_mask(), Some((255, 224)));
 
         // Large BitVec with mask in middle
@@ -599,7 +579,7 @@ mod is_mask_tests {
         for i in 100..150 {
             value |= BigUint::one() << i;
         }
-        let bv = BitVec::from_biguint(&value, 256).unwrap();
+        let bv = BitVec::from_biguint(&value, 256);
         assert_eq!(bv.is_mask(), Some((149, 100)));
     }
 
@@ -641,7 +621,7 @@ mod is_mask_tests {
         for i in 90..100 {
             value |= BigUint::one() << i;
         }
-        let bv = BitVec::from_biguint(&value, 100).unwrap();
+        let bv = BitVec::from_biguint(&value, 100);
         assert_eq!(bv.is_mask(), Some((99, 90)));
     }
 }
