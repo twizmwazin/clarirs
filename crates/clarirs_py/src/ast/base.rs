@@ -1,9 +1,28 @@
 use std::collections::{BTreeSet, HashMap};
 
-use clarirs_core::algorithms::{canonicalize, structurally_match};
+use clarirs_core::algorithms::{canonicalize, collect_vars::collect_vars, structurally_match};
 use pyo3::types::{PyFrozenSet, PySet, PyType};
 
 use crate::prelude::*;
+
+/// Whether every symbolic leaf of `ast` carries a VSA annotation (strided
+/// interval / region), so VSA reduction yields a concrete interval rather
+/// than TOP.
+fn vsa_convertible(ast: &AstRef<'static>) -> Result<bool, ClaripyError> {
+    Ok(collect_vars(ast)
+        .map_err(ClaripyError::from)?
+        .iter()
+        .all(|var| {
+            var.annotations().iter().any(|a| {
+                matches!(
+                    a.type_(),
+                    AnnotationType::StridedInterval { .. }
+                        | AnnotationType::EmptyStridedInterval
+                        | AnnotationType::Region { .. }
+                )
+            })
+        }))
+}
 
 /// The base class for all AST wrappers. It holds the underlying [`AstRef`] and
 /// implements every operation that does not depend on the concrete sort
@@ -154,7 +173,23 @@ impl Base {
     }
 
     pub fn identical(&self, other: Bound<'_, Base>) -> Result<bool, ClaripyError> {
+        use clarirs_vsa::reduce::Reduce;
+
         let other_dyn = Base::to_ast(other)?;
+
+        // When both sides are bitvectors whose symbolic leaves all carry VSA
+        // annotations, compare their reduced strided intervals; otherwise fall
+        // back to a structural comparison.
+        if matches!(self.inner.ast_type(), AstType::BitVec(_))
+            && matches!(other_dyn.ast_type(), AstType::BitVec(_))
+            && vsa_convertible(&self.inner)?
+            && vsa_convertible(&other_dyn)?
+            && let (Ok(reduced_a), Ok(reduced_b)) = (self.inner.reduce(), other_dyn.reduce())
+            && let (Ok(si_a), Ok(si_b)) = (reduced_a.into_bv(), reduced_b.into_bv())
+        {
+            return Ok(si_a == si_b);
+        }
+
         Ok(structurally_match(&self.inner, &other_dyn)?)
     }
 
