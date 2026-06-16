@@ -155,7 +155,7 @@ pub fn fsort_double() -> PyFSort {
 
 #[pyclass(extends=Bits, subclass, frozen, weakref, module="claripy.ast.fp")]
 pub struct FP {
-    pub(crate) inner: AstRef<'static>,
+    pub inner: AstRef<'static>,
 }
 
 impl FP {

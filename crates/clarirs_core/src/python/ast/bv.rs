@@ -19,7 +19,7 @@ static PY_BV_CACHE: LazyLock<DashMap<u64, Py<PyWeakrefReference>>> = LazyLock::n
 
 #[pyclass(extends=Bits, subclass, frozen, weakref, module="claripy.ast.bv")]
 pub struct BV {
-    pub(crate) inner: AstRef<'static>,
+    pub inner: AstRef<'static>,
 }
 
 impl BV {

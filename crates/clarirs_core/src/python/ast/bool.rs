@@ -20,7 +20,7 @@ static PY_BOOL_CACHE: LazyLock<DashMap<u64, Py<PyWeakrefReference>>> = LazyLock:
 
 #[pyclass(extends=Base, subclass, frozen, weakref, module="claripy.ast.bool")]
 pub struct Bool {
-    pub(crate) inner: AstRef<'static>,
+    pub inner: AstRef<'static>,
 }
 
 impl Bool {

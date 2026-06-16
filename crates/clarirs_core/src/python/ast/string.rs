@@ -16,7 +16,7 @@ static PY_STRING_CACHE: LazyLock<DashMap<u64, Py<PyWeakrefReference>>> =
 
 #[pyclass(name="String", extends=Base, subclass, frozen, module="claripy.ast.strings")]
 pub struct PyAstString {
-    pub(crate) inner: AstRef<'static>,
+    pub inner: AstRef<'static>,
 }
 
 impl PyAstString {
