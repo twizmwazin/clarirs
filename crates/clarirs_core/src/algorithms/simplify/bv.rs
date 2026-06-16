@@ -35,7 +35,7 @@ pub(crate) fn simplify_bv<'c>(
                         for inner in inner_args {
                             match inner.op() {
                                 AstOp::BVV(v) if v.is_zero() => {
-                                    return Ok(ctx.bvv(BitVec::zeros(size))?);
+                                    return Ok(ctx.bvv(BitVec::zero(size))?);
                                 }
                                 AstOp::BVV(v) if v.is_all_ones() => {}
                                 AstOp::BVV(v) => {
@@ -49,7 +49,7 @@ pub(crate) fn simplify_bv<'c>(
                         }
                     }
                     AstOp::BVV(v) if v.is_zero() => {
-                        return Ok(ctx.bvv(BitVec::zeros(size))?);
+                        return Ok(ctx.bvv(BitVec::zero(size))?);
                     }
                     AstOp::BVV(v) if v.is_all_ones() => {}
                     AstOp::BVV(v) => {
@@ -75,7 +75,7 @@ pub(crate) fn simplify_bv<'c>(
                     if let AstOp::Not(inner) = arg.op()
                         && hashes.contains(&inner.hash())
                     {
-                        return Ok(ctx.bvv(BitVec::zeros(size))?);
+                        return Ok(ctx.bvv(BitVec::zero(size))?);
                     }
                 }
             }
@@ -83,7 +83,7 @@ pub(crate) fn simplify_bv<'c>(
             // Check folded BVV for absorber/identity
             if let Some(ref bvv) = bvv_acc {
                 if bvv.is_zero() {
-                    return Ok(ctx.bvv(BitVec::zeros(size))?);
+                    return Ok(ctx.bvv(BitVec::zero(size))?);
                 }
                 if !bvv.is_all_ones() {
                     sym_args.push(ctx.bvv(bvv.clone())?);
@@ -304,7 +304,7 @@ pub(crate) fn simplify_bv<'c>(
                     .any(|(a, b)| a.hash() != b.hash());
 
             match sym_args.len() {
-                0 => Ok(ctx.bvv(BitVec::zeros(size))?),
+                0 => Ok(ctx.bvv(BitVec::zero(size))?),
                 1 => Ok(sym_args.into_iter().next().unwrap()),
                 2 => {
                     let (a, b) = (&sym_args[0], &sym_args[1]);
@@ -414,7 +414,7 @@ pub(crate) fn simplify_bv<'c>(
                     .any(|(a, b)| a.hash() != b.hash());
 
             match sym_args.len() {
-                0 => Ok(ctx.bvv(BitVec::zeros(size))?),
+                0 => Ok(ctx.bvv(BitVec::zero(size))?),
                 1 => Ok(sym_args.into_iter().next().unwrap()),
                 2 => {
                     let (a, b) = (&sym_args[0], &sym_args[1]);
@@ -519,7 +519,7 @@ pub(crate) fn simplify_bv<'c>(
                     .any(|(a, b)| a.hash() != b.hash());
 
             match sym_args.len() {
-                0 => Ok(ctx.bvv(BitVec::zeros(size))?),
+                0 => Ok(ctx.bvv(BitVec::zero(size))?),
                 1 => Ok(sym_args.into_iter().next().unwrap()),
                 2 => {
                     let (a, b) = (&sym_args[0], &sym_args[1]);
@@ -615,7 +615,7 @@ pub(crate) fn simplify_bv<'c>(
                     }
                 }
                 (_, AstOp::BVV(v)) if v.is_zero() => Ok(arc.clone()),
-                (lhs_op, rhs_op) if lhs_op == rhs_op => Ok(ctx.bvv(BitVec::zeros(arc.size()))?),
+                (lhs_op, rhs_op) if lhs_op == rhs_op => Ok(ctx.bvv(BitVec::zero(arc.size()))?),
                 _ => Ok(ctx.sub(arc, arc1)?),
             }
         }
@@ -635,7 +635,7 @@ pub(crate) fn simplify_bv<'c>(
                         for inner in inner_args {
                             match inner.op() {
                                 AstOp::BVV(v) if v.is_zero() => {
-                                    return Ok(ctx.bvv(BitVec::zeros(size))?);
+                                    return Ok(ctx.bvv(BitVec::zero(size))?);
                                 }
                                 AstOp::BVV(v) if v.to_u64() == Some(1) => {}
                                 AstOp::BVV(v) => {
@@ -649,7 +649,7 @@ pub(crate) fn simplify_bv<'c>(
                         }
                     }
                     AstOp::BVV(v) if v.is_zero() => {
-                        return Ok(ctx.bvv(BitVec::zeros(size))?);
+                        return Ok(ctx.bvv(BitVec::zero(size))?);
                     }
                     AstOp::BVV(v) if v.to_u64() == Some(1) => {}
                     AstOp::BVV(v) => {
@@ -665,7 +665,7 @@ pub(crate) fn simplify_bv<'c>(
             // Check folded BVV
             if let Some(ref bvv) = bvv_acc {
                 if bvv.is_zero() {
-                    return Ok(ctx.bvv(BitVec::zeros(size))?);
+                    return Ok(ctx.bvv(BitVec::zero(size))?);
                 }
                 if bvv.to_u64() != Some(1) {
                     sym_args.push(ctx.bvv(bvv.clone())?);
@@ -679,7 +679,7 @@ pub(crate) fn simplify_bv<'c>(
                     .any(|(a, b)| a.hash() != b.hash());
 
             match sym_args.len() {
-                0 => Ok(ctx.bvv(BitVec::from_prim_with_size(1u64, size)?)?),
+                0 => Ok(ctx.bvv(BitVec::from((1u64, size)))?),
                 1 => Ok(sym_args.into_iter().next().unwrap()),
                 _ => {
                     if changed {
@@ -772,7 +772,7 @@ pub(crate) fn simplify_bv<'c>(
                     let inner_shift = shift_val - ext_size;
                     if inner_shift >= inner.size() {
                         // Everything gets shifted out
-                        Ok(ctx.bvv(BitVec::zeros(total_size))?)
+                        Ok(ctx.bvv(BitVec::zero(total_size))?)
                     } else {
                         // Shift the inner value left by (m - ext_size), then concatenate
                         // with ext_size zero bits at the bottom (LSB side)
@@ -781,14 +781,11 @@ pub(crate) fn simplify_bv<'c>(
                         } else {
                             ctx.shl(
                                 inner,
-                                &ctx.bvv(BitVec::from_prim_with_size(
-                                    inner_shift as u64,
-                                    inner.size(),
-                                )?)?,
+                                &ctx.bvv(BitVec::from((inner_shift as u64, inner.size())))?,
                             )?
                         };
                         // Zeros go at the bottom (LSB), shifted_inner goes at the top (MSB)
-                        let zero_bottom = ctx.bvv(BitVec::zeros(*ext_size))?;
+                        let zero_bottom = ctx.bvv(BitVec::zero(*ext_size))?;
                         state.rerun(ctx.concat(vec![shifted_inner, zero_bottom])?)
                     }
                 }
@@ -800,7 +797,7 @@ pub(crate) fn simplify_bv<'c>(
 
                     // If shifting >= bit_width, result is 0
                     if shift_amount_u32 >= bit_width {
-                        Ok(ctx.bvv(BitVec::zeros(bit_width))?)
+                        Ok(ctx.bvv(BitVec::zero(bit_width))?)
                     } else if shift_amount_u32 == 0 {
                         Ok(arc.clone())
                     } else {
@@ -833,7 +830,7 @@ pub(crate) fn simplify_bv<'c>(
 
                         if shl_u32 + shr_u32 >= size {
                             // All bits get shifted out, result is zero
-                            Ok(ctx.bvv(BitVec::zeros(size))?)
+                            Ok(ctx.bvv(BitVec::zero(size))?)
                         } else {
                             // This extracts bits from the original value
                             // After left shift by n, then right shift by m:
@@ -849,7 +846,7 @@ pub(crate) fn simplify_bv<'c>(
 
                                 if low >= inner_size {
                                     // All extracted bits are from the zero-extended part
-                                    Ok(ctx.bvv(BitVec::zeros(size))?)
+                                    Ok(ctx.bvv(BitVec::zero(size))?)
                                 } else if high < inner_size {
                                     // All extracted bits are from the original value
                                     let extracted = ctx.extract(inner_val, high, low)?;
@@ -889,7 +886,7 @@ pub(crate) fn simplify_bv<'c>(
                     let bit_width = value.len();
                     let shift_amount_u32 = shift_amount.to_u64().unwrap_or(0) as u32;
                     if shift_amount_u32 >= bit_width {
-                        Ok(ctx.bvv(BitVec::zeros(bit_width))?)
+                        Ok(ctx.bvv(BitVec::zero(bit_width))?)
                     } else if shift_amount_u32 == 0 {
                         Ok(arc.clone())
                     } else {
@@ -932,7 +929,7 @@ pub(crate) fn simplify_bv<'c>(
                                 bit_length,
                             ))?)
                         } else {
-                            Ok(ctx.bvv(BitVec::zeros(bit_length))?)
+                            Ok(ctx.bvv(BitVec::zero(bit_length))?)
                         };
                     }
 
@@ -1157,7 +1154,7 @@ pub(crate) fn simplify_bv<'c>(
                 }
                 // If extracting only from the extended zero bits
                 AstOp::ZeroExt(inner, _) if *low >= inner.size() => {
-                    Ok(ctx.bvv(BitVec::zeros(*high - *low + 1))?)
+                    Ok(ctx.bvv(BitVec::zero(*high - *low + 1))?)
                 }
                 // If extracting bits that span original and extended parts
                 AstOp::ZeroExt(inner, _) => {
@@ -1451,7 +1448,7 @@ pub(crate) fn simplify_bv<'c>(
                 AstOp::StringV(value) => {
                     // chars().count() returns the number of Unicode scalar values
                     let length = value.chars().count() as u64;
-                    Ok(ctx.bvv(BitVec::from_prim_with_size(length, 64)?)?)
+                    Ok(ctx.bvv(BitVec::from((length, 64)))?)
                 }
                 _ => Ok(ctx.str_len(arc)?), // Fallback to symbolic
             }
@@ -1490,13 +1487,13 @@ pub(crate) fn simplify_bv<'c>(
                                 // Convert byte position back to character position
                                 let byte_pos = byte_index + pos;
                                 let char_pos = s[..byte_pos].chars().count();
-                                Ok(ctx.bvv(BitVec::from_prim_with_size(char_pos as u64, 64)?)?)
+                                Ok(ctx.bvv(BitVec::from((char_pos as u64, 64)))?)
                             }
-                            None => Ok(ctx.bvv(BitVec::from_prim_with_size(-1i64 as u64, 64)?)?), // -1 if not found
+                            None => Ok(ctx.bvv(BitVec::from((-1i64 as u64, 64)))?), // -1 if not found
                         }
                     } else {
                         // If start index is out of bounds, return -1
-                        Ok(ctx.bvv(BitVec::from_prim_with_size(-1i64 as u64, 64)?)?)
+                        Ok(ctx.bvv(BitVec::from((-1i64 as u64, 64)))?)
                     }
                 }
                 _ => Ok(ctx.str_index_of(arc, arc1, arc2)?), // Fallback to symbolic
@@ -1521,7 +1518,7 @@ pub(crate) fn simplify_bv<'c>(
 
                     // If the parsed number is too large to fit in 64 bits, return 0.
                     if value >= BigUint::from(2u64).pow(64) {
-                        return Ok(ctx.bvv(BitVec::zeros(64))?);
+                        return Ok(ctx.bvv(BitVec::zero(64))?);
                     }
 
                     Ok(ctx.bvv(BitVec::from_biguint(&value, 64))?)

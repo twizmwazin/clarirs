@@ -207,7 +207,7 @@ mod tests {
         let mut solver = ReplacementSolver::new(inner);
 
         let x = ctx.bvs("x", 8)?;
-        let five = ctx.bvv_prim(5u8)?;
+        let five = ctx.bvv(BitVec::from(5u8))?;
 
         // Add explicit replacement: x -> 5
         solver.add_replacement(x.clone(), five.clone());
@@ -226,7 +226,7 @@ mod tests {
         let mut solver = ReplacementSolver::new(inner);
 
         let x = ctx.bvs("x", 8)?;
-        let five = ctx.bvv_prim(5u8)?;
+        let five = ctx.bvv(BitVec::from(5u8))?;
 
         // Add constraint: x == 5 (should auto-extract replacement)
         let eq_constraint = ctx.eq_(&x, &five)?;
@@ -246,8 +246,8 @@ mod tests {
         let mut solver = ReplacementSolver::new(inner);
 
         let x = ctx.bvs("x", 8)?;
-        let five = ctx.bvv_prim(5u8)?;
-        let three = ctx.bvv_prim(3u8)?;
+        let five = ctx.bvv(BitVec::from(5u8))?;
+        let three = ctx.bvv(BitVec::from(3u8))?;
 
         // Replace x with 5
         solver.add_replacement(x.clone(), five.clone());
@@ -255,7 +255,7 @@ mod tests {
         // Evaluating x + 3 should return 8
         let expr = ctx.add(&x, &three)?;
         let result = solver.eval(&expr)?;
-        let expected = ctx.bvv_prim(8u8)?;
+        let expected = ctx.bvv(BitVec::from(8u8))?;
         assert_eq!(result, expected);
 
         Ok(())
@@ -268,7 +268,7 @@ mod tests {
         let mut solver = ReplacementSolver::new(inner);
 
         let x = ctx.bvs("x", 8)?;
-        let five = ctx.bvv_prim(5u8)?;
+        let five = ctx.bvv(BitVec::from(5u8))?;
 
         solver.add_replacement(x.clone(), five.clone());
         assert!(!solver.replacements().is_empty());

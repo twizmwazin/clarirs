@@ -19,7 +19,7 @@ impl BitVec {
             .zip(rhs.words.iter())
             .map(|(l, r)| op(*l, *r))
             .collect();
-        BitVec::new(words, self.length)
+        Ok(BitVec::new(words, self.length))
     }
 }
 
@@ -29,7 +29,7 @@ impl Not for BitVec {
     fn not(self) -> Self::Output {
         // `new` masks the bits above `length` in the final word.
         let words = self.words.iter().map(|w| !w).collect();
-        BitVec::new(words, self.length)
+        Ok(BitVec::new(words, self.length))
     }
 }
 
@@ -63,7 +63,7 @@ impl Shl<u32> for BitVec {
     fn shl(self, rhs: u32) -> Self::Output {
         // Shifting by at least the width zeros out the whole vector.
         if rhs >= self.length {
-            return Ok(BitVec::zeros(self.length));
+            return Ok(BitVec::zero(self.length));
         }
         // `from_biguint` truncates to `length`, discarding bits shifted past the top.
         Ok(BitVec::from_biguint(
@@ -79,7 +79,7 @@ impl Shr<u32> for BitVec {
     /// Logical shift right (zero-fill).
     fn shr(self, rhs: u32) -> Self::Output {
         if rhs >= self.length {
-            return Ok(BitVec::zeros(self.length));
+            return Ok(BitVec::zero(self.length));
         }
         Ok(BitVec::from_biguint(
             &(self.to_biguint() >> rhs),
@@ -127,17 +127,17 @@ mod tests {
     #[test]
     fn test_not() -> Result<(), BitVecError> {
         // Test 8-bit NOT
-        let bv = BitVec::from_prim_with_size(0b10101010u8, 8)?;
+        let bv = BitVec::from((0b10101010u8, 8));
         let result = (!bv)?;
         assert_eq!(result.to_u64().unwrap(), 0b01010101);
 
         // Test with non-byte aligned length
-        let bv = BitVec::from_prim_with_size(0b101u8, 3)?;
+        let bv = BitVec::from((0b101u8, 3));
         let result = (!bv)?;
         assert_eq!(result.to_u64().unwrap(), 0b010);
 
         // Test with multiple words
-        let bv = BitVec::from_prim_with_size(u64::MAX, 64)?;
+        let bv = BitVec::from((u64::MAX, 64));
         let result = (!bv)?;
         assert_eq!(result.to_u64().unwrap(), 0);
 
@@ -147,7 +147,7 @@ mod tests {
     #[test]
     fn test_neg() -> Result<(), BitVecError> {
         // Arithmatic negation
-        let bv = BitVec::from_prim_with_size(0b1010u8, 4)?;
+        let bv = BitVec::from((0b1010u8, 4));
         let result = (!bv)?;
         assert_eq!(result.to_u64().unwrap(), 0b0101);
 
@@ -157,14 +157,14 @@ mod tests {
     #[test]
     fn test_bitand() -> Result<(), BitVecError> {
         // Test basic AND operation
-        let bv1 = BitVec::from_prim_with_size(0b1100u8, 4)?;
-        let bv2 = BitVec::from_prim_with_size(0b1010u8, 4)?;
+        let bv1 = BitVec::from((0b1100u8, 4));
+        let bv2 = BitVec::from((0b1010u8, 4));
         let result = (bv1 & bv2)?;
         assert_eq!(result.to_u64().unwrap(), 0b1000);
 
         // Test with different patterns
-        let bv1 = BitVec::from_prim_with_size(0b11111111u8, 8)?;
-        let bv2 = BitVec::from_prim_with_size(0b10101010u8, 8)?;
+        let bv1 = BitVec::from((0b11111111u8, 8));
+        let bv2 = BitVec::from((0b10101010u8, 8));
         let result = (bv1 & bv2)?;
         assert_eq!(result.to_u64().unwrap(), 0b10101010);
 
@@ -174,14 +174,14 @@ mod tests {
     #[test]
     fn test_bitor() -> Result<(), BitVecError> {
         // Test basic OR operation
-        let bv1 = BitVec::from_prim_with_size(0b1100u8, 4)?;
-        let bv2 = BitVec::from_prim_with_size(0b1010u8, 4)?;
+        let bv1 = BitVec::from((0b1100u8, 4));
+        let bv2 = BitVec::from((0b1010u8, 4));
         let result = (bv1 | bv2)?;
         assert_eq!(result.to_u64().unwrap(), 0b1110);
 
         // Test with different patterns
-        let bv1 = BitVec::from_prim_with_size(0b11110000u8, 8)?;
-        let bv2 = BitVec::from_prim_with_size(0b00001111u8, 8)?;
+        let bv1 = BitVec::from((0b11110000u8, 8));
+        let bv2 = BitVec::from((0b00001111u8, 8));
         let result = (bv1 | bv2)?;
         assert_eq!(result.to_u64().unwrap(), 0b11111111);
 
@@ -191,14 +191,14 @@ mod tests {
     #[test]
     fn test_bitxor() -> Result<(), BitVecError> {
         // Test basic XOR operation
-        let bv1 = BitVec::from_prim_with_size(0b1100u8, 4)?;
-        let bv2 = BitVec::from_prim_with_size(0b1010u8, 4)?;
+        let bv1 = BitVec::from((0b1100u8, 4));
+        let bv2 = BitVec::from((0b1010u8, 4));
         let result = (bv1 ^ bv2)?;
         assert_eq!(result.to_u64().unwrap(), 0b0110);
 
         // Test with different patterns
-        let bv1 = BitVec::from_prim_with_size(0b11111111u8, 8)?;
-        let bv2 = BitVec::from_prim_with_size(0b10101010u8, 8)?;
+        let bv1 = BitVec::from((0b11111111u8, 8));
+        let bv2 = BitVec::from((0b10101010u8, 8));
         let result = (bv1 ^ bv2)?;
         assert_eq!(result.to_u64().unwrap(), 0b01010101);
 
@@ -208,17 +208,17 @@ mod tests {
     #[test]
     fn test_shl() -> Result<(), BitVecError> {
         // Test basic left shift
-        let bv = BitVec::from_prim_with_size(0b1010u8, 8)?;
+        let bv = BitVec::from((0b1010u8, 8));
         let result = (bv << 2)?;
         assert_eq!(result.to_u64().unwrap(), 0b101000);
 
         // Test shift with carry across word boundaries
-        let bv = BitVec::from_prim_with_size(0b1u8, 64)?;
+        let bv = BitVec::from((0b1u8, 64));
         let result = (bv << 63)?;
         assert_eq!(result.to_u64().unwrap(), 1u64 << 63);
 
         // Test shift beyond bit length
-        let bv = BitVec::from_prim_with_size(0b1010u8, 8)?;
+        let bv = BitVec::from((0b1010u8, 8));
         let result = (bv << 4)?;
         assert_eq!(result.to_u64().unwrap(), 0b10100000);
 
@@ -228,17 +228,17 @@ mod tests {
     #[test]
     fn test_shr() -> Result<(), BitVecError> {
         // Test basic right shift
-        let bv = BitVec::from_prim_with_size(0b1010u8, 4)?;
+        let bv = BitVec::from((0b1010u8, 4));
         let result = (bv >> 2)?;
         assert_eq!(result.to_u64().unwrap(), 0b10);
 
         // Test shift with carry across word boundaries
-        let bv = BitVec::from_prim_with_size(1u64 << 63, 64)?;
+        let bv = BitVec::from((1u64 << 63, 64));
         let result = (bv >> 63)?;
         assert_eq!(result.to_u64().unwrap(), 1);
 
         // Test shift that results in all zeros
-        let bv = BitVec::from_prim_with_size(0b1010u8, 4)?;
+        let bv = BitVec::from((0b1010u8, 4));
         let result = (bv >> 4)?;
         assert_eq!(result.to_u64().unwrap(), 0);
 
@@ -248,17 +248,17 @@ mod tests {
     #[test]
     fn test_rotate_left() -> Result<(), BitVecError> {
         // Test basic rotation
-        let bv = BitVec::from_prim_with_size(0b1010u8, 4)?;
+        let bv = BitVec::from((0b1010u8, 4));
         let result = bv.rotate_left(1).unwrap();
         assert_eq!(result.to_u64().unwrap(), 0b0101);
 
         // Test full rotation (should be same as original)
-        let bv = BitVec::from_prim_with_size(0b1010u8, 4)?;
+        let bv = BitVec::from((0b1010u8, 4));
         let result = bv.rotate_left(4).unwrap();
         assert_eq!(result.to_u64().unwrap(), 0b1010);
 
         // Test rotation with amount larger than length
-        let bv = BitVec::from_prim_with_size(0b1010u8, 4)?;
+        let bv = BitVec::from((0b1010u8, 4));
         let result = bv.rotate_left(5).unwrap(); // Same as rotating left by 1
         assert_eq!(result.to_u64().unwrap(), 0b0101);
 
@@ -268,17 +268,17 @@ mod tests {
     #[test]
     fn test_rotate_right() -> Result<(), BitVecError> {
         // Test basic rotation
-        let bv = BitVec::from_prim_with_size(0b1010u8, 4)?;
+        let bv = BitVec::from((0b1010u8, 4));
         let result = bv.rotate_right(1).unwrap();
         assert_eq!(result.to_u64().unwrap(), 0b0101);
 
         // Test full rotation (should be same as original)
-        let bv = BitVec::from_prim_with_size(0b1010u8, 4)?;
+        let bv = BitVec::from((0b1010u8, 4));
         let result = bv.rotate_right(4).unwrap();
         assert_eq!(result.to_u64().unwrap(), 0b1010);
 
         // Test rotation with amount larger than length
-        let bv = BitVec::from_prim_with_size(0b1010u8, 4)?;
+        let bv = BitVec::from((0b1010u8, 4));
         let result = bv.rotate_right(5).unwrap(); // Same as rotating right by 1
         assert_eq!(result.to_u64().unwrap(), 0b0101);
 

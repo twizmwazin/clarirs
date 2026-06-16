@@ -89,7 +89,7 @@ fn regression_lshr_multiword_word_order() {
 #[test]
 fn regression_shift_by_ge_width_is_zero() {
     for &width in WIDTHS {
-        let v = BitVec::ones(width);
+        let v = BitVec::max(width);
         assert!((v.clone() << width).unwrap().is_zero());
         assert!((v.clone() >> width).unwrap().is_zero());
         assert!((v.clone() << (width + 5)).unwrap().is_zero());
@@ -115,8 +115,8 @@ fn regression_rem_by_zero_is_error_not_panic() {
 
 #[test]
 fn regression_zero_length_is_canonical() {
-    let from_prim = BitVec::from_prim_with_size(0u8, 0).unwrap();
-    let zeros = BitVec::zeros(0);
+    let from_prim = BitVec::from((0u8, 0));
+    let zeros = BitVec::zero(0);
     assert_eq!(from_prim, zeros);
     assert_eq!(from_prim.is_all_ones(), zeros.is_all_ones());
     assert!(from_prim.is_zero());
@@ -129,14 +129,14 @@ fn regression_new_trims_excess_words() {
     let mut words = smallvec::SmallVec::<[u64; 1]>::new();
     words.push(0);
     words.push(0xDEAD);
-    let bv = BitVec::new(words, 64).unwrap();
+    let bv = BitVec::new(words, 64);
     assert!(bv.is_zero());
     assert_eq!(bv.to_biguint(), BigUint::zero());
 }
 
 #[test]
 fn regression_rotate_zero_length_does_not_panic() {
-    let v = BitVec::zeros(0);
+    let v = BitVec::zero(0);
     assert_eq!(v.rotate_left(0).unwrap().len(), 0);
     assert_eq!(v.rotate_right(3).unwrap().len(), 0);
 }

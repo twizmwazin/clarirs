@@ -1,6 +1,8 @@
 use num_bigint::{BigInt, BigUint};
+use num_traits::Num;
+use smallvec::SmallVec;
 
-use super::BitVec;
+use super::{BitVec, BitVecError};
 
 macro_rules! impl_from_unsigned {
     ($($ty:ty => $bits:expr),+ $(,)?) => {
@@ -24,6 +26,41 @@ macro_rules! impl_from_signed {
 
 impl_from_unsigned!(u8 => 8, u16 => 16, u32 => 32, u64 => 64, u128 => 128);
 impl_from_signed!(i8 => 8, i16 => 16, i32 => 32, i64 => 64, i128 => 128);
+
+/// Builds a `BitVec` of an explicit `length` from a primitive value, truncating
+/// to that width. This is the arbitrary-width primitive constructor (the fixed
+/// `From<uN>`/`From<iN>` impls cover the type-width cases). Implemented over
+/// concrete primitive types rather than a blanket `T: Into<u64>` so it doesn't
+/// collide with `TryFrom<(&str, u32)>` through the std `TryFrom` blanket impl.
+macro_rules! impl_from_prim_with_size {
+    ($($ty:ty),+ $(,)?) => {
+        $(impl From<($ty, u32)> for BitVec {
+            fn from((value, length): ($ty, u32)) -> BitVec {
+                let value_u64 = u64::from(value);
+                let truncated = if length < 64 {
+                    value_u64 & ((1u64 << length) - 1)
+                } else {
+                    value_u64
+                };
+                let mut words = SmallVec::new();
+                words.push(truncated);
+                BitVec::new(words, length)
+            }
+        })+
+    };
+}
+
+impl_from_prim_with_size!(u8, u16, u32, u64);
+
+/// Parses a base-10 string into a `BitVec` of the given width.
+impl TryFrom<(&str, u32)> for BitVec {
+    type Error = BitVecError;
+
+    fn try_from((s, length): (&str, u32)) -> Result<BitVec, BitVecError> {
+        let value = BigUint::from_str_radix(s, 10).map_err(|_| BitVecError::ConversionError)?;
+        Ok(BitVec::from_biguint(&value, length))
+    }
+}
 
 impl From<BitVec> for BigUint {
     fn from(bv: BitVec) -> Self {
@@ -49,7 +86,7 @@ mod tests {
         use num_traits::One;
 
         // Test conversion of zero
-        let bv = BitVec::zeros(64);
+        let bv = BitVec::zero(64);
         assert_eq!(bv.to_biguint(), BigUint::zero());
 
         // Test various positive values
@@ -73,11 +110,11 @@ mod tests {
         assert_eq!(bv.to_biguint(), value);
 
         // Test single-bit vector
-        let bv = BitVec::from_prim_with_size(1u8, 1).unwrap();
+        let bv = BitVec::from((1u8, 1));
         assert_eq!(bv.to_biguint(), BigUint::one());
 
         // Test zero-width vector
-        let bv = BitVec::zeros(0);
+        let bv = BitVec::zero(0);
         assert_eq!(bv.to_biguint(), BigUint::zero());
 
         // Test 72-bit vector
@@ -132,7 +169,7 @@ mod tests {
     #[test]
     fn test_to_u64() {
         // Test conversion of zero
-        let bv = BitVec::zeros(64);
+        let bv = BitVec::zero(64);
         assert_eq!(bv.to_u64().unwrap(), 0);
 
         // Test conversion of various values
@@ -140,7 +177,7 @@ mod tests {
         assert_eq!(bv.to_u64().unwrap(), 42);
 
         // Test width > 64 (should error)
-        let bv = BitVec::zeros(65);
+        let bv = BitVec::zero(65);
         assert!(bv.to_u64().is_none());
 
         // Test different widths
@@ -155,18 +192,18 @@ mod tests {
         assert_eq!(bv.to_u64().unwrap(), u32::MAX as u64);
 
         // Test odd-sized vectors
-        let bv = BitVec::from_prim_with_size(0x1Fu8, 5).unwrap(); // 5 bits
+        let bv = BitVec::from((0x1Fu8, 5)); // 5 bits
         assert_eq!(bv.to_u64().unwrap(), 0x1F);
 
         // Test single-bit vector
-        let bv = BitVec::from_prim_with_size(1u8, 1).unwrap();
+        let bv = BitVec::from((1u8, 1));
         assert_eq!(bv.to_u64().unwrap(), 1);
     }
 
     #[test]
     fn test_to_usize() {
         // Test conversion of zero
-        let bv = BitVec::zeros(usize::BITS);
+        let bv = BitVec::zero(usize::BITS);
         assert_eq!(bv.to_usize().unwrap(), 0);
 
         // Test conversion of various values
@@ -174,7 +211,7 @@ mod tests {
         assert_eq!(bv.to_usize().unwrap(), 42);
 
         // Test width > usize::BITS (should error)
-        let bv = BitVec::zeros(usize::BITS + 1);
+        let bv = BitVec::zero(usize::BITS + 1);
         assert!(bv.to_usize().is_none());
 
         // Test different widths
@@ -193,11 +230,11 @@ mod tests {
         }
 
         // Test odd-sized vectors
-        let bv = BitVec::from_prim_with_size(0x1Fu8, 5).unwrap(); // 5 bits
+        let bv = BitVec::from((0x1Fu8, 5)); // 5 bits
         assert_eq!(bv.to_usize().unwrap(), 0x1F);
 
         // Test single-bit vector
-        let bv = BitVec::from_prim_with_size(1u8, 1).unwrap();
+        let bv = BitVec::from((1u8, 1));
         assert_eq!(bv.to_usize().unwrap(), 1);
     }
 
