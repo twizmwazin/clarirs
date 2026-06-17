@@ -18,7 +18,7 @@ fn bv_to_bool(bv: &BV) -> Result<AstRef<'static>, ClaripyError> {
             GLOBAL_CONTEXT.true_()?
         });
     }
-    let zero = GLOBAL_CONTEXT.bvv(BitVec::from((0u64, bv.size() as u32)))?;
+    let zero = GLOBAL_CONTEXT.bvv(BitVec::from((0, bv.size() as u32)))?;
     Ok(GLOBAL_CONTEXT.neq(inner, &zero)?)
 }
 
@@ -89,8 +89,8 @@ impl<'py> CoerceBV<'py> {
             }
             CoerceBV::Bool(bool_val) => {
                 // Convert Bool to BV of the requested size: If(bool, 1, 0).
-                let one = GLOBAL_CONTEXT.bvv(BitVec::from((1u64, size)))?;
-                let zero = GLOBAL_CONTEXT.bvv(BitVec::from((0u64, size)))?;
+                let one = GLOBAL_CONTEXT.bvv(BitVec::from((1, size)))?;
+                let zero = GLOBAL_CONTEXT.bvv(BitVec::from((0, size)))?;
                 let bv_ast = GLOBAL_CONTEXT.ite(&bool_val.get().inner, &one, &zero)?;
                 BV::new(py, &bv_ast)
             }

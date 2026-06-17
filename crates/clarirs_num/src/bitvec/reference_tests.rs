@@ -108,14 +108,14 @@ fn regression_shift_by_zero_is_identity() {
 
 #[test]
 fn regression_rem_by_zero_is_error_not_panic() {
-    let a = BitVec::from((42u64, 64));
-    let b = BitVec::from((0u64, 64));
+    let a = BitVec::from((42, 64));
+    let b = BitVec::from((0, 64));
     assert!(matches!(a % b, Err(BitVecError::DivisionByZero)));
 }
 
 #[test]
 fn regression_zero_length_is_canonical() {
-    let from_prim = BitVec::from((0u64, 0));
+    let from_prim = BitVec::from((0, 0));
     let zeros = BitVec::zeros(0);
     assert_eq!(from_prim, zeros);
     assert_eq!(from_prim.is_all_ones(), zeros.is_all_ones());

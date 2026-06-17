@@ -403,63 +403,63 @@ mod is_mask_tests {
     #[test]
     fn test_is_mask_single_bit() {
         // Single bit at position 0
-        let bv = BitVec::from((1u64, 8));
+        let bv = BitVec::from((1, 8));
         assert_eq!(bv.is_mask(), Some((0, 0)));
 
         // Single bit at position 3
-        let bv = BitVec::from((0b1000u64, 8));
+        let bv = BitVec::from((0b1000, 8));
         assert_eq!(bv.is_mask(), Some((3, 3)));
 
         // Single bit at position 7
-        let bv = BitVec::from((0b10000000u64, 8));
+        let bv = BitVec::from((0b10000000, 8));
         assert_eq!(bv.is_mask(), Some((7, 7)));
     }
 
     #[test]
     fn test_is_mask_consecutive_low() {
         // Consecutive 1s at low end: 0b00001111
-        let bv = BitVec::from((0x0Fu64, 8));
+        let bv = BitVec::from((0x0F, 8));
         assert_eq!(bv.is_mask(), Some((3, 0)));
 
         // Consecutive 1s at low end: 0b00000111
-        let bv = BitVec::from((0x07u64, 8));
+        let bv = BitVec::from((0x07, 8));
         assert_eq!(bv.is_mask(), Some((2, 0)));
     }
 
     #[test]
     fn test_is_mask_consecutive_high() {
         // Consecutive 1s at high end: 0b11110000
-        let bv = BitVec::from((0xF0u64, 8));
+        let bv = BitVec::from((0xF0, 8));
         assert_eq!(bv.is_mask(), Some((7, 4)));
 
         // Consecutive 1s at high end: 0b11100000
-        let bv = BitVec::from((0xE0u64, 8));
+        let bv = BitVec::from((0xE0, 8));
         assert_eq!(bv.is_mask(), Some((7, 5)));
     }
 
     #[test]
     fn test_is_mask_consecutive_middle() {
         // Consecutive 1s in middle: 0b00111100
-        let bv = BitVec::from((0x3Cu64, 8));
+        let bv = BitVec::from((0x3C, 8));
         assert_eq!(bv.is_mask(), Some((5, 2)));
 
         // Consecutive 1s in middle: 0b01111110
-        let bv = BitVec::from((0x7Eu64, 8));
+        let bv = BitVec::from((0x7E, 8));
         assert_eq!(bv.is_mask(), Some((6, 1)));
     }
 
     #[test]
     fn test_is_mask_non_consecutive() {
         // Non-consecutive: 0b10101010
-        let bv = BitVec::from((0xAAu64, 8));
+        let bv = BitVec::from((0xAA, 8));
         assert_eq!(bv.is_mask(), None);
 
         // Non-consecutive: 0b11011011
-        let bv = BitVec::from((0xDBu64, 8));
+        let bv = BitVec::from((0xDB, 8));
         assert_eq!(bv.is_mask(), None);
 
         // Gap in middle: 0b11100111
-        let bv = BitVec::from((0xE7u64, 8));
+        let bv = BitVec::from((0xE7, 8));
         assert_eq!(bv.is_mask(), None);
     }
 
@@ -516,11 +516,11 @@ mod is_mask_tests {
         assert_eq!(bv.is_mask(), None);
 
         // 1-bit BitVec with 0
-        let bv = BitVec::from((0u64, 1));
+        let bv = BitVec::from((0, 1));
         assert_eq!(bv.is_mask(), None);
 
         // 1-bit BitVec with 1
-        let bv = BitVec::from((1u64, 1));
+        let bv = BitVec::from((1, 1));
         assert_eq!(bv.is_mask(), Some((0, 0)));
 
         // Exactly 64 bits, all ones
@@ -528,18 +528,18 @@ mod is_mask_tests {
         assert_eq!(bv.is_mask(), Some((63, 0)));
 
         // Exactly 64 bits, mask in middle
-        let bv = BitVec::from((0x00FFFF0000000000u64, 64));
+        let bv = BitVec::from((0x00FFFF0000000000, 64));
         assert_eq!(bv.is_mask(), Some((55, 40)));
     }
 
     #[test]
     fn test_is_mask_non_byte_aligned() {
         // 7-bit BitVec, all ones
-        let bv = BitVec::from((0x7Fu64, 7));
+        let bv = BitVec::from((0x7F, 7));
         assert_eq!(bv.is_mask(), Some((6, 0)));
 
         // 13-bit BitVec with mask
-        let bv = BitVec::from((0x0FC0u64, 13)); // bits 6-11 set
+        let bv = BitVec::from((0x0FC0, 13)); // bits 6-11 set
         assert_eq!(bv.is_mask(), Some((11, 6)));
 
         // 100-bit BitVec with mask at high end

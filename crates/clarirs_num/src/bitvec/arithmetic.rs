@@ -10,7 +10,7 @@ impl Neg for BitVec {
     type Output = Result<Self, BitVecError>;
 
     fn neg(self) -> Self::Output {
-        (!self.clone())? + BitVec::from((1u64, self.length))
+        (!self.clone())? + BitVec::from((1, self.length))
     }
 }
 
@@ -147,21 +147,21 @@ mod tests {
     #[test]
     fn test_add() -> Result<(), BitVecError> {
         // Basic addition
-        let a = BitVec::from((42u64, 64));
-        let b = BitVec::from((58u64, 64));
+        let a = BitVec::from((42, 64));
+        let b = BitVec::from((58, 64));
         let result = (a + b)?;
         assert_eq!(result.to_u64().unwrap(), 100);
 
         // Addition with overflow within the same bitwidth
-        let a = BitVec::from((0xFFFFFFFFu64, 32));
-        let b = BitVec::from((1u64, 32));
+        let a = BitVec::from((0xFFFFFFFF, 32));
+        let b = BitVec::from((1, 32));
         let result = (a + b)?;
         assert_eq!(result.len(), 32);
         assert_eq!(result.to_u64().unwrap(), 0);
 
         // Addition with different bit widths
-        let a = BitVec::from((42u64, 32));
-        let b = BitVec::from((58u64, 32));
+        let a = BitVec::from((42, 32));
+        let b = BitVec::from((58, 32));
         let result = (a + b)?;
         assert_eq!(result.to_u64().unwrap(), 100);
 
@@ -171,20 +171,20 @@ mod tests {
     #[test]
     fn test_sub() -> Result<(), BitVecError> {
         // Basic subtraction
-        let a = BitVec::from((100u64, 64));
-        let b = BitVec::from((58u64, 64));
+        let a = BitVec::from((100, 64));
+        let b = BitVec::from((58, 64));
         let result = (a - b)?;
         assert_eq!(result.to_u64().unwrap(), 42);
 
         // Subtraction with underflow
-        let a = BitVec::from((0u64, 64));
-        let b = BitVec::from((1u64, 64));
+        let a = BitVec::from((0, 64));
+        let b = BitVec::from((1, 64));
         let result = (a - b)?;
         assert_eq!(result.to_u64().unwrap(), u64::MAX);
 
         // Subtraction with different bit widths
-        let a = BitVec::from((100u64, 32));
-        let b = BitVec::from((58u64, 32));
+        let a = BitVec::from((100, 32));
+        let b = BitVec::from((58, 32));
         let result = (a - b)?;
         assert_eq!(result.to_u64().unwrap(), 42);
 
@@ -194,20 +194,20 @@ mod tests {
     #[test]
     fn test_mul() -> Result<(), BitVecError> {
         // Basic multiplication
-        let a = BitVec::from((7u64, 64));
-        let b = BitVec::from((6u64, 64));
+        let a = BitVec::from((7, 64));
+        let b = BitVec::from((6, 64));
         let result = (a * b)?;
         assert_eq!(result.to_u64().unwrap(), 42);
 
         // Multiplication with overflow
-        let a = BitVec::from((0xFFFFFFFFu64, 32));
-        let b = BitVec::from((2u64, 32));
+        let a = BitVec::from((0xFFFFFFFF, 32));
+        let b = BitVec::from((2, 32));
         let result = (a * b)?;
         assert_eq!(result.to_u64().unwrap(), 0xFFFFFFFE);
 
         // Multiplication with different bit widths
-        let a = BitVec::from((7u64, 32));
-        let b = BitVec::from((6u64, 32));
+        let a = BitVec::from((7, 32));
+        let b = BitVec::from((6, 32));
         let result = (a * b)?;
         assert_eq!(result.to_u64().unwrap(), 42);
 
@@ -217,26 +217,26 @@ mod tests {
     #[test]
     fn test_div() -> Result<(), BitVecError> {
         // Basic division
-        let a = BitVec::from((42u64, 64));
-        let b = BitVec::from((6u64, 64));
+        let a = BitVec::from((42, 64));
+        let b = BitVec::from((6, 64));
         let result = (a / b)?;
         assert_eq!(result.to_u64().unwrap(), 7);
 
         // Division with remainder
-        let a = BitVec::from((100u64, 64));
-        let b = BitVec::from((30u64, 64));
+        let a = BitVec::from((100, 64));
+        let b = BitVec::from((30, 64));
         let result = (a / b)?;
         assert_eq!(result.to_u64().unwrap(), 3);
 
         // Division with different bit widths
-        let a = BitVec::from((100u64, 32));
-        let b = BitVec::from((30u64, 32));
+        let a = BitVec::from((100, 32));
+        let b = BitVec::from((30, 32));
         let result = (a / b)?;
         assert_eq!(result.to_u64().unwrap(), 3);
 
         // Division by zero
-        let a = BitVec::from((42u64, 64));
-        let b = BitVec::from((0u64, 64));
+        let a = BitVec::from((42, 64));
+        let b = BitVec::from((0, 64));
         let result = a / b;
 
         assert!(
@@ -255,26 +255,26 @@ mod tests {
     #[test]
     fn test_rem() -> Result<(), BitVecError> {
         // Basic remainder
-        let a = BitVec::from((42u64, 64));
-        let b = BitVec::from((6u64, 64));
+        let a = BitVec::from((42, 64));
+        let b = BitVec::from((6, 64));
         let result = (a % b)?;
         assert_eq!(result.to_u64().unwrap(), 0);
 
         // Remainder with non-zero result
-        let a = BitVec::from((100u64, 64));
-        let b = BitVec::from((30u64, 64));
+        let a = BitVec::from((100, 64));
+        let b = BitVec::from((30, 64));
         let result = (a % b)?;
         assert_eq!(result.to_u64().unwrap(), 10);
 
         // Remainder with different bit widths
-        let a = BitVec::from((100u64, 32));
-        let b = BitVec::from((30u64, 32));
+        let a = BitVec::from((100, 32));
+        let b = BitVec::from((30, 32));
         let result = (a % b)?;
         assert_eq!(result.to_u64().unwrap(), 10);
 
         // Remainder by zero is an error, not a panic (mirrors Div).
-        let a = BitVec::from((42u64, 64));
-        let b = BitVec::from((0u64, 64));
+        let a = BitVec::from((42, 64));
+        let b = BitVec::from((0, 64));
         assert!(matches!(a % b, Err(BitVecError::DivisionByZero)));
 
         Ok(())
@@ -283,7 +283,7 @@ mod tests {
     #[test]
     fn test_signed_arithmetic() -> Result<(), BitVecError> {
         let neg_42 = BitVec::from((-42i64 as u64, 64));
-        let pos_6 = BitVec::from((6u64, 64));
+        let pos_6 = BitVec::from((6, 64));
 
         // Signed division should give -7
         let result = neg_42.sdiv(&pos_6)?;
@@ -292,7 +292,7 @@ mod tests {
 
         // Create -100 in 64-bit two's complement
         let neg_100 = BitVec::from((-100i64 as u64, 64));
-        let pos_30 = BitVec::from((30u64, 64));
+        let pos_30 = BitVec::from((30, 64));
 
         // Signed remainder should give -10
         let result = neg_100.srem(&pos_30)?;
@@ -300,7 +300,7 @@ mod tests {
         assert_eq!(result, BitVec::from((-10i64 as u64, 64)));
 
         // Test division with different signs
-        let pos_100 = BitVec::from((100u64, 64));
+        let pos_100 = BitVec::from((100, 64));
         let neg_30 = BitVec::from((-30i64 as u64, 64));
 
         // Signed division should give -3

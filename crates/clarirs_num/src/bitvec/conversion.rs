@@ -96,14 +96,14 @@ mod tests {
         assert_eq!(bv.to_biguint(), BigUint::zero());
 
         // Test various positive values
-        let bv = BitVec::from((42u64, 64));
+        let bv = BitVec::from((42, 64));
         assert_eq!(bv.to_biguint(), BigUint::from(42u64));
 
         // Test different widths
-        let bv = BitVec::from((0xFFu64, 8));
+        let bv = BitVec::from((0xFF, 8));
         assert_eq!(bv.to_biguint(), BigUint::from(0xFFu64));
 
-        let bv = BitVec::from((0xFFFFu64, 16));
+        let bv = BitVec::from((0xFFFF, 16));
         assert_eq!(bv.to_biguint(), BigUint::from(0xFFFFu64));
 
         // Test maximum value for width
@@ -116,7 +116,7 @@ mod tests {
         assert_eq!(bv.to_biguint(), value);
 
         // Test single-bit vector
-        let bv = BitVec::from((1u64, 1));
+        let bv = BitVec::from((1, 1));
         assert_eq!(bv.to_biguint(), BigUint::one());
 
         // Test zero-width vector
@@ -179,7 +179,7 @@ mod tests {
         assert_eq!(bv.to_u64().unwrap(), 0);
 
         // Test conversion of various values
-        let bv = BitVec::from((42u64, 64));
+        let bv = BitVec::from((42, 64));
         assert_eq!(bv.to_u64().unwrap(), 42);
 
         // Test width > 64 (should error)
@@ -187,10 +187,10 @@ mod tests {
         assert!(bv.to_u64().is_none());
 
         // Test different widths
-        let bv = BitVec::from((0xFFu64, 8));
+        let bv = BitVec::from((0xFF, 8));
         assert_eq!(bv.to_u64().unwrap(), 0xFF);
 
-        let bv = BitVec::from((0xFFFFu64, 16));
+        let bv = BitVec::from((0xFFFF, 16));
         assert_eq!(bv.to_u64().unwrap(), 0xFFFF);
 
         // Test maximum value for width
@@ -198,11 +198,11 @@ mod tests {
         assert_eq!(bv.to_u64().unwrap(), u32::MAX as u64);
 
         // Test odd-sized vectors
-        let bv = BitVec::from((0x1Fu64, 5)); // 5 bits
+        let bv = BitVec::from((0x1F, 5)); // 5 bits
         assert_eq!(bv.to_u64().unwrap(), 0x1F);
 
         // Test single-bit vector
-        let bv = BitVec::from((1u64, 1));
+        let bv = BitVec::from((1, 1));
         assert_eq!(bv.to_u64().unwrap(), 1);
     }
 
@@ -213,7 +213,7 @@ mod tests {
         assert_eq!(bv.to_usize().unwrap(), 0);
 
         // Test conversion of various values
-        let bv = BitVec::from((42u64, 64));
+        let bv = BitVec::from((42, 64));
         assert_eq!(bv.to_usize().unwrap(), 42);
 
         // Test width > usize::BITS (should error)
@@ -221,10 +221,10 @@ mod tests {
         assert!(bv.to_usize().is_none());
 
         // Test different widths
-        let bv = BitVec::from((0xFFu64, 8));
+        let bv = BitVec::from((0xFF, 8));
         assert_eq!(bv.to_usize().unwrap(), 0xFF);
 
-        let bv = BitVec::from((0xFFFFu64, 16));
+        let bv = BitVec::from((0xFFFF, 16));
         assert_eq!(bv.to_usize().unwrap(), 0xFFFF);
 
         // Test maximum value for width
@@ -236,36 +236,36 @@ mod tests {
         }
 
         // Test odd-sized vectors
-        let bv = BitVec::from((0x1Fu64, 5)); // 5 bits
+        let bv = BitVec::from((0x1F, 5)); // 5 bits
         assert_eq!(bv.to_usize().unwrap(), 0x1F);
 
         // Test single-bit vector
-        let bv = BitVec::from((1u64, 1));
+        let bv = BitVec::from((1, 1));
         assert_eq!(bv.to_usize().unwrap(), 1);
     }
 
     #[test]
     fn test_from_u8() {
-        let bv = BitVec::from((42u64, 8));
+        let bv = BitVec::from((42, 8));
         assert_eq!(bv.len(), 8);
         assert_eq!(bv.to_u64().unwrap(), 42);
 
-        let bv = BitVec::from((0u64, 8));
+        let bv = BitVec::from((0, 8));
         assert_eq!(bv.len(), 8);
         assert_eq!(bv.to_u64().unwrap(), 0);
 
-        let bv = BitVec::from((255u64, 8));
+        let bv = BitVec::from((255, 8));
         assert_eq!(bv.len(), 8);
         assert_eq!(bv.to_u64().unwrap(), 255);
     }
 
     #[test]
     fn test_from_u16() {
-        let bv = BitVec::from((4242u64, 16));
+        let bv = BitVec::from((4242, 16));
         assert_eq!(bv.len(), 16);
         assert_eq!(bv.to_u64().unwrap(), 4242);
 
-        let bv = BitVec::from((0u64, 16));
+        let bv = BitVec::from((0, 16));
         assert_eq!(bv.len(), 16);
         assert_eq!(bv.to_u64().unwrap(), 0);
 
@@ -276,11 +276,11 @@ mod tests {
 
     #[test]
     fn test_from_u32() {
-        let bv = BitVec::from((424242u64, 32));
+        let bv = BitVec::from((424242, 32));
         assert_eq!(bv.len(), 32);
         assert_eq!(bv.to_u64().unwrap(), 424242);
 
-        let bv = BitVec::from((0u64, 32));
+        let bv = BitVec::from((0, 32));
         assert_eq!(bv.len(), 32);
         assert_eq!(bv.to_u64().unwrap(), 0);
 
@@ -291,11 +291,11 @@ mod tests {
 
     #[test]
     fn test_from_u64() {
-        let bv = BitVec::from((42424242u64, 64));
+        let bv = BitVec::from((42424242, 64));
         assert_eq!(bv.len(), 64);
         assert_eq!(bv.to_u64().unwrap(), 42424242);
 
-        let bv = BitVec::from((0u64, 64));
+        let bv = BitVec::from((0, 64));
         assert_eq!(bv.len(), 64);
         assert_eq!(bv.to_u64().unwrap(), 0);
 

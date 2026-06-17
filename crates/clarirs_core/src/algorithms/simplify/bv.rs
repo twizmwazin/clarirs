@@ -673,7 +673,7 @@ pub(crate) fn simplify_bv<'c>(
                     .any(|(a, b)| a.hash() != b.hash());
 
             match sym_args.len() {
-                0 => Ok(ctx.bvv(BitVec::from((1u64, size)))?),
+                0 => Ok(ctx.bvv(BitVec::from((1, size)))?),
                 1 => Ok(sym_args.into_iter().next().unwrap()),
                 _ => {
                     if changed {

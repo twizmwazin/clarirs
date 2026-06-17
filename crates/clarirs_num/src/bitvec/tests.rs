@@ -12,21 +12,21 @@ fn test_leading_zeros() -> Result<(), BitVecError> {
     assert_eq!(bv.leading_zeros(), 64);
 
     // Test all ones (no leading zeros)
-    let bv = BitVec::from((0xFFu64, 8));
+    let bv = BitVec::from((0xFF, 8));
     assert_eq!(bv.leading_zeros(), 0);
 
     // Test single one at different positions
-    let bv = BitVec::from((0b00000001u64, 8));
+    let bv = BitVec::from((0b00000001, 8));
     assert_eq!(bv.leading_zeros(), 7);
-    let bv = BitVec::from((0b00000100u64, 8));
+    let bv = BitVec::from((0b00000100, 8));
     assert_eq!(bv.leading_zeros(), 5);
-    let bv = BitVec::from((0b10000000u64, 8));
+    let bv = BitVec::from((0b10000000, 8));
     assert_eq!(bv.leading_zeros(), 0);
 
     // Test different widths
-    let bv = BitVec::from((0b00001111u64, 8));
+    let bv = BitVec::from((0b00001111, 8));
     assert_eq!(bv.leading_zeros(), 4);
-    let bv = BitVec::from((0b0000111100001111u64, 16));
+    let bv = BitVec::from((0b0000111100001111, 16));
     assert_eq!(bv.leading_zeros(), 4);
 
     // Test zero-width vector
@@ -34,7 +34,7 @@ fn test_leading_zeros() -> Result<(), BitVecError> {
     assert_eq!(bv.leading_zeros(), 0);
 
     // Test odd-sized vectors
-    let bv = BitVec::from((0b010u64, 3)); // Only 3 bits: 010
+    let bv = BitVec::from((0b010, 3)); // Only 3 bits: 010
     assert_eq!(bv.leading_zeros(), 1);
 
     // Test 72-bit vectors
@@ -260,33 +260,33 @@ fn test_bigint_biguint_conversion() -> Result<(), BitVecError> {
 #[test]
 fn test_valid_bv_from_length() {
     // Basic valid creation
-    let bv = BitVec::from((5u64, 8));
+    let bv = BitVec::from((5, 8));
     assert_eq!(bv.length, 8);
     assert_eq!(bv.words[0], 5);
 
     // Creating a BitVec with a larger value and different size
-    let bv = BitVec::from((255u64, 8));
+    let bv = BitVec::from((255, 8));
     assert_eq!(bv.length, 8);
     assert_eq!(bv.words[0], 255);
 
     // Creating a 16-bit BitVec from a u16
-    let bv = BitVec::from((1023u64, 16));
+    let bv = BitVec::from((1023, 16));
     assert_eq!(bv.length, 16);
     assert_eq!(bv.words[0], 1023);
 
     // Edge case - a zero value in a zero-width size
-    let result = BitVec::from((0u64, 0));
+    let result = BitVec::from((0, 0));
     assert_eq!(result.len(), 0);
 }
 
 #[test]
 fn test_invalid_bv_from_length() {
     // Value larger than bit width is truncated
-    let bv = BitVec::from((5u64, 1));
+    let bv = BitVec::from((5, 1));
     assert_eq!(bv.to_u64().unwrap(), 1); // 5 & 1 = 1
 
     // Value truncated to fit within bit width
-    let bv = BitVec::from((255u64, 4));
+    let bv = BitVec::from((255, 4));
     assert_eq!(bv.to_u64().unwrap(), 15); // 255 & 0xF = 15
 }
 
@@ -297,7 +297,7 @@ fn test_is_zero() -> Result<(), BitVecError> {
     assert!(bv.is_zero());
 
     // Test false case (any bit one)
-    let bv = BitVec::from((1u64, 64));
+    let bv = BitVec::from((1, 64));
     assert!(!bv.is_zero());
     let bv = BitVec::from((1u64 << 63, 64)); // Test highest bi?t
     assert!(!bv.is_zero());
@@ -306,7 +306,7 @@ fn test_is_zero() -> Result<(), BitVecError> {
     for width in [8, 16, 32] {
         let bv = BitVec::zeros(width);
         assert!(bv.is_zero());
-        let bv = BitVec::from((1u64, width));
+        let bv = BitVec::from((1, width));
         assert!(!bv.is_zero());
     }
 
@@ -317,13 +317,13 @@ fn test_is_zero() -> Result<(), BitVecError> {
     // Test single-bit vector
     let bv = BitVec::zeros(1);
     assert!(bv.is_zero());
-    let bv = BitVec::from((1u64, 1));
+    let bv = BitVec::from((1, 1));
     assert!(!bv.is_zero());
 
     // Test odd-sized vectors
     let bv = BitVec::zeros(3);
     assert!(bv.is_zero());
-    let bv = BitVec::from((0b101u64, 3));
+    let bv = BitVec::from((0b101, 3));
     assert!(!bv.is_zero());
 
     // Test 72-bit vectors
@@ -349,7 +349,7 @@ fn test_is_all_ones() -> Result<(), BitVecError> {
     // Test false case (any bit zero)
     let bv = BitVec::from(((BigUint::from(1u8) << 64) - 2u8, 64u32)); // All ones except last bit
     assert!(!bv.is_all_ones());
-    let bv = BitVec::from((0x7FFFFFFFFFFFFFFFu64, 64)); // All ones except highest bit
+    let bv = BitVec::from((0x7FFFFFFFFFFFFFFF, 64)); // All ones except highest bit
     assert!(!bv.is_all_ones());
 
     // Test different widths
@@ -365,15 +365,15 @@ fn test_is_all_ones() -> Result<(), BitVecError> {
     assert!(bv.is_all_ones()); // Empty bitvector should return true as there are no zero bits
 
     // Test single-bit vector
-    let bv = BitVec::from((1u64, 1));
+    let bv = BitVec::from((1, 1));
     assert!(bv.is_all_ones());
-    let bv = BitVec::from((0u64, 1));
+    let bv = BitVec::from((0, 1));
     assert!(!bv.is_all_ones());
 
     // Test odd-sized vectors
-    let bv = BitVec::from((0b111u64, 3));
+    let bv = BitVec::from((0b111, 3));
     assert!(bv.is_all_ones());
-    let bv = BitVec::from((0b110u64, 3));
+    let bv = BitVec::from((0b110, 3));
     assert!(!bv.is_all_ones());
 
     // Test 72-bit vectors
@@ -393,22 +393,22 @@ fn test_is_all_ones() -> Result<(), BitVecError> {
 #[test]
 fn test_reverse_bytes() -> Result<(), BitVecError> {
     // Test single byte
-    let bv = BitVec::from((0xA5u64, 8)); // 10100101
+    let bv = BitVec::from((0xA5, 8)); // 10100101
     let reversed = bv.reverse_bytes()?;
     assert!(reversed.len() == 8);
     assert_eq!(reversed.to_u64().unwrap(), 0xA5); // Single byte should remain unchanged
 
     // Test multiple bytes
-    let bv = BitVec::from((0x1234u64, 16)); // 0x12 0x34
+    let bv = BitVec::from((0x1234, 16)); // 0x12 0x34
     let reversed = bv.reverse_bytes()?;
     assert_eq!(reversed.to_u64().unwrap(), 0x3412); // Should be 0x34 0x12
 
-    let bv = BitVec::from((0x12345678u64, 32)); // 0x12 0x34 0x56 0x78
+    let bv = BitVec::from((0x12345678, 32)); // 0x12 0x34 0x56 0x78
     let reversed = bv.reverse_bytes()?;
     assert_eq!(reversed.to_u64().unwrap(), 0x78563412); // Should be 0x78 0x56 0x34 0x12
 
     // Test with non-byte-aligned width
-    let bv = BitVec::from((0b111100001111u64, 12)); // Only use 12 bits
+    let bv = BitVec::from((0b111100001111, 12)); // Only use 12 bits
     assert!(bv.reverse_bytes().is_err()); // Should fail as width is not byte-aligned
 
     // Test zero-width vector
@@ -418,11 +418,11 @@ fn test_reverse_bytes() -> Result<(), BitVecError> {
     assert!(reversed.is_zero());
 
     // Test odd number of bits
-    let bv = BitVec::from((0b10110u64, 5)); // 5 bits
+    let bv = BitVec::from((0b10110, 5)); // 5 bits
     assert!(bv.reverse_bytes().is_err()); // Should fail as width is not byte-aligned
 
     // Test patterns that would expose endianness issues
-    let bv = BitVec::from((0x0123456789ABCDEFu64, 64));
+    let bv = BitVec::from((0x0123456789ABCDEF, 64));
     let reversed = bv.reverse_bytes()?;
     assert_eq!(reversed.to_u64().unwrap(), 0xEFCDAB8967452301);
 
@@ -446,7 +446,7 @@ fn test_reverse_bytes() -> Result<(), BitVecError> {
 #[test]
 fn test_serde_roundtrip_recomputes_final_word_mask() -> Result<(), BitVecError> {
     // Test that final_word_mask is correctly recomputed after deserialization
-    let original = BitVec::from((0xFFu64, 8));
+    let original = BitVec::from((0xFF, 8));
     assert!(original.is_all_ones());
 
     let json = serde_json::to_string(&original).unwrap();
@@ -475,10 +475,10 @@ fn test_serde_roundtrip_recomputes_final_word_mask() -> Result<(), BitVecError> 
     assert_eq!(bv, deserialized);
 
     // Test that arithmetic still works after deserialization
-    let a = BitVec::from((42u64, 8));
+    let a = BitVec::from((42, 8));
     let json = serde_json::to_string(&a).unwrap();
     let a_deser: BitVec = serde_json::from_str(&json).unwrap();
-    let b = BitVec::from((10u64, 8));
+    let b = BitVec::from((10, 8));
     let sum = (a_deser + b)?;
     assert_eq!(sum.to_u64(), Some(52));
 
