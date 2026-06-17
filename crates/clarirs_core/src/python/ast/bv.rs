@@ -1012,31 +1012,8 @@ impl BV {
         Ok(BV::cardinality(self_)? > BigUint::from(1u32))
     }
 
-    #[allow(clippy::type_complexity)]
-    pub fn __reduce__<'py>(
-        &self,
-        py: Python<'py>,
-    ) -> Result<
-        (
-            Bound<'py, PyAny>,
-            (
-                String,
-                Vec<Bound<'py, PyAny>>,
-                Vec<Bound<'py, PyAnnotation>>,
-            ),
-        ),
-        ClaripyError,
-    > {
-        let class = py.get_type::<BV>();
-        let op = self.inner.to_opstring();
-        let args = self.inner.extract_py_args(py)?;
-        let annotations: Vec<Bound<'py, PyAnnotation>> = self
-            .inner
-            .annotations()
-            .iter()
-            .map(|annotation| PyAnnotation::from_annotation(py, annotation))
-            .collect::<Result<_, _>>()?;
-        Ok((class.into_any(), (op, args, annotations)))
+    pub fn __reduce__<'py>(&self, py: Python<'py>) -> ReduceResult<'py> {
+        ast_reduce(py, py.get_type::<BV>(), &self.inner)
     }
 }
 
