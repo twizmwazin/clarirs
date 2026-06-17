@@ -46,7 +46,7 @@ pub fn reduce<'py>(
                 if lower_bound == upper_bound {
                     BV::new(
                         py,
-                        &GLOBAL_CONTEXT.bvv_from_biguint_with_size(&lower_bound, bits)?,
+                        &GLOBAL_CONTEXT.bvv(BitVec::from((lower_bound, bits)))?,
                     )?
                 } else {
                     BV::new(
