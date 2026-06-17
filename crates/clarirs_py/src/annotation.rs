@@ -13,13 +13,14 @@ use crate::prelude::*;
 static ORIGINAL_ANNOTATIONS: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 
 fn original_annotations(py: Python<'_>) -> Result<Bound<'_, PyAny>, ClaripyError> {
-    let cache = ORIGINAL_ANNOTATIONS.get_or_try_init(py, || -> Result<Py<PyAny>, ClaripyError> {
-        Ok(py
-            .import("weakref")?
-            .getattr("WeakValueDictionary")?
-            .call0()?
-            .unbind())
-    })?;
+    let cache =
+        ORIGINAL_ANNOTATIONS.get_or_try_init(py, || -> Result<Py<PyAny>, ClaripyError> {
+            Ok(py
+                .import("weakref")?
+                .getattr("WeakValueDictionary")?
+                .call0()?
+                .unbind())
+        })?;
     Ok(cache.bind(py).clone())
 }
 
