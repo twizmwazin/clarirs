@@ -32,28 +32,13 @@ impl PyAstString {
         inner: &AstRef<'static>,
         name: Option<String>,
     ) -> Result<Bound<'py, PyAstString>, ClaripyError> {
-        let inner = &inner.simplify()?;
-        if let Some(cache_hit) = PY_STRING_CACHE.get(&inner.hash()).and_then(|cache_hit| {
-            cache_hit
-                .bind(py)
-                .upgrade_as::<PyAstString>()
-                .expect("bool cache poisoned")
-        }) {
-            Ok(cache_hit)
-        } else {
-            let this = Py::new(
-                py,
-                PyClassInitializer::from(Base::new_with_name(py, inner, name)).add_subclass(
-                    PyAstString {
-                        inner: inner.clone(),
-                    },
-                ),
-            )?;
-            let weakref = PyWeakrefReference::new(this.bind(py))?;
-            PY_STRING_CACHE.insert(inner.hash(), weakref.unbind());
-
-            Ok(this.into_bound(py))
-        }
+        let inner = inner.simplify()?;
+        get_or_create(py, &PY_STRING_CACHE, &inner, || {
+            PyClassInitializer::from(Base::new_with_name(py, &inner, name))
+                .add_subclass(PyAstString {
+                    inner: inner.clone(),
+                })
+        })
     }
 }
 

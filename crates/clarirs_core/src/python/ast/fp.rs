@@ -171,28 +171,14 @@ impl FP {
         inner: &AstRef<'static>,
         name: Option<String>,
     ) -> Result<Bound<'py, FP>, ClaripyError> {
-        let inner = &inner.simplify()?;
-        if let Some(cache_hit) = PY_FP_CACHE.get(&inner.hash()).and_then(|cache_hit| {
-            cache_hit
-                .bind(py)
-                .upgrade_as::<FP>()
-                .expect("bool cache poisoned")
-        }) {
-            Ok(cache_hit)
-        } else {
-            let this = Py::new(
-                py,
-                PyClassInitializer::from(Base::new_with_name(py, inner, name))
-                    .add_subclass(Bits::new())
-                    .add_subclass(FP {
-                        inner: inner.clone(),
-                    }),
-            )?;
-            let weakref = PyWeakrefReference::new(this.bind(py))?;
-            PY_FP_CACHE.insert(inner.hash(), weakref.unbind());
-
-            Ok(this.into_bound(py))
-        }
+        let inner = inner.simplify()?;
+        get_or_create(py, &PY_FP_CACHE, &inner, || {
+            PyClassInitializer::from(Base::new_with_name(py, &inner, name))
+                .add_subclass(Bits::new())
+                .add_subclass(FP {
+                    inner: inner.clone(),
+                })
+        })
     }
 }
 

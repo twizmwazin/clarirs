@@ -7,7 +7,7 @@ use std::sync::atomic::Ordering;
 use dashmap::DashMap;
 use pyo3::exceptions::PyValueError;
 use pyo3::types::PyTuple;
-use pyo3::types::{PyDict, PyWeakrefMethods, PyWeakrefReference};
+use pyo3::types::{PyDict, PyWeakrefReference};
 
 use crate::python::ast::{and, not, or, xor};
 use crate::python::prelude::*;
@@ -35,26 +35,13 @@ impl Bool {
         inner: &AstRef<'static>,
         name: Option<String>,
     ) -> Result<Bound<'py, Bool>, ClaripyError> {
-        let inner = &inner.simplify()?;
-        if let Some(cache_hit) = PY_BOOL_CACHE.get(&inner.hash()).and_then(|cache_hit| {
-            cache_hit
-                .bind(py)
-                .upgrade_as::<Bool>()
-                .expect("bool cache poisoned")
-        }) {
-            Ok(cache_hit)
-        } else {
-            let this = Bound::new(
-                py,
-                PyClassInitializer::from(Base::new_with_name(py, inner, name)).add_subclass(Bool {
+        let inner = inner.simplify()?;
+        get_or_create(py, &PY_BOOL_CACHE, &inner, || {
+            PyClassInitializer::from(Base::new_with_name(py, &inner, name))
+                .add_subclass(Bool {
                     inner: inner.clone(),
-                }),
-            )?;
-            let weakref = PyWeakrefReference::new(&this)?;
-            PY_BOOL_CACHE.insert(inner.hash(), weakref.unbind());
-
-            Ok(this)
-        }
+                })
+        })
     }
 }
 

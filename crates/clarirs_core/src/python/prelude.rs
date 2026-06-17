@@ -1,5 +1,6 @@
 pub use crate::python::annotation::PyAnnotation;
 pub use crate::python::ast;
+pub(crate) use crate::python::ast::base::get_or_create;
 pub use crate::python::ast::{
     GLOBAL_CONTEXT,
     args::ExtractPyArgs,

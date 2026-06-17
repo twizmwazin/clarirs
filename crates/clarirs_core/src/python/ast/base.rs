@@ -1,9 +1,36 @@
 use std::collections::{BTreeSet, HashMap};
 
 use crate::algorithms::{canonicalize, structurally_match};
-use pyo3::types::{PyFrozenSet, PySet, PyType};
+use dashmap::DashMap;
+use pyo3::PyClass;
+use pyo3::types::{PyFrozenSet, PySet, PyType, PyWeakrefMethods, PyWeakrefReference};
 
 use crate::python::prelude::*;
+
+/// Look up an existing Python wrapper for `inner` in `cache` (keyed by AST hash,
+/// to preserve Python object identity), or build one with `init` and cache a
+/// weak reference to it. `inner` must already be simplified by the caller, since
+/// each sort simplifies slightly differently. Shared by every AST subclass's
+/// constructor.
+pub(crate) fn get_or_create<'py, T>(
+    py: Python<'py>,
+    cache: &DashMap<u64, Py<PyWeakrefReference>>,
+    inner: &AstRef<'static>,
+    init: impl FnOnce() -> PyClassInitializer<T>,
+) -> Result<Bound<'py, T>, ClaripyError>
+where
+    T: PyClass,
+{
+    if let Some(hit) = cache
+        .get(&inner.hash())
+        .and_then(|cache_hit| cache_hit.bind(py).upgrade_as::<T>().expect("py ast cache poisoned"))
+    {
+        return Ok(hit);
+    }
+    let this = Bound::new(py, init())?;
+    cache.insert(inner.hash(), PyWeakrefReference::new(this.as_any())?.unbind());
+    Ok(this)
+}
 
 /// The base class for all AST wrappers. It holds the underlying [`AstRef`] and
 /// implements every operation that does not depend on the concrete sort

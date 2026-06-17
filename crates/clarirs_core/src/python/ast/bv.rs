@@ -35,28 +35,14 @@ impl BV {
         inner: &AstRef<'static>,
         name: Option<String>,
     ) -> Result<Bound<'py, BV>, ClaripyError> {
-        let inner = &inner.simplify_ext(true, true)?;
-        if let Some(cache_hit) = PY_BV_CACHE.get(&inner.hash()).and_then(|cache_hit| {
-            cache_hit
-                .bind(py)
-                .upgrade_as::<BV>()
-                .expect("bool cache poisoned")
-        }) {
-            Ok(cache_hit)
-        } else {
-            let this = Bound::new(
-                py,
-                PyClassInitializer::from(Base::new_with_name(py, inner, name))
-                    .add_subclass(Bits::new())
-                    .add_subclass(BV {
-                        inner: inner.clone(),
-                    }),
-            )?;
-            let weakref = PyWeakrefReference::new(&this)?;
-            PY_BV_CACHE.insert(inner.hash(), weakref.unbind());
-
-            Ok(this)
-        }
+        let inner = inner.simplify_ext(true, true)?;
+        get_or_create(py, &PY_BV_CACHE, &inner, || {
+            PyClassInitializer::from(Base::new_with_name(py, &inner, name))
+                .add_subclass(Bits::new())
+                .add_subclass(BV {
+                    inner: inner.clone(),
+                })
+        })
     }
 }
 
