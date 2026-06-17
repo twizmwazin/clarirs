@@ -92,14 +92,6 @@ impl BitVec {
         }
     }
 
-    /// Creates a `BitVec` from a big-endian byte slice with bit-width equal to the
-    /// slice length times eight.
-    pub fn from_bytes_be(bytes: &[u8]) -> BitVec {
-        let length = (bytes.len() as u32) * 8;
-        let big_uint = BigUint::from_bytes_be(bytes);
-        BitVec::from((big_uint, length))
-    }
-
     pub fn to_biguint(&self) -> BigUint {
         // Convert the BitVec to a BigUint
         // The internal representation of BitVec uses little-endian word order
