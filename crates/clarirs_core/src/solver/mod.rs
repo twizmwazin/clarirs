@@ -59,6 +59,22 @@ pub trait Solver<'c>: Clone + HasContext<'c> {
         results.pop().ok_or(ClarirsError::Unsat)
     }
 
+    /// Evaluate several expressions against a single, shared model, returning
+    /// one value per input expression in order.
+    ///
+    /// Unlike calling [`Solver::eval`] in a loop, every value is drawn from the
+    /// same satisfying assignment, so the results are mutually consistent. This
+    /// is what makes the values usable as a *model*. Returns
+    /// [`ClarirsError::Unsat`] if the constraints are unsatisfiable.
+    ///
+    /// The default implementation evaluates each expression independently,
+    /// which is only consistent for solvers that admit a single model (e.g.
+    /// [`ConcreteSolver`]). Backends that admit multiple models (e.g. Z3)
+    /// override this so that every value comes from one model.
+    fn batch_eval(&mut self, exprs: &[AstRef<'c>]) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+        exprs.iter().map(|expr| self.eval(expr)).collect()
+    }
+
     /// Check if an expression is true in the current model. If the constraints are unsatisfiable, an
     /// error is returned. Equivalent to `eval(expr) == ctx.true_()`
     fn is_true(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError>;

@@ -288,6 +288,16 @@ impl<'c, S: Solver<'c>> Solver<'c> for CompositeSolver<'c, S> {
         let vars = expr.variables().clone();
         self.with_solver_for(&vars, |s| s.eval_n(expr, n))
     }
+
+    fn batch_eval(&mut self, exprs: &[AstRef<'c>]) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+        // All expressions must be evaluated against one model, so route them
+        // through a single solver covering every variable they reference.
+        let mut vars: BTreeSet<InternedString> = BTreeSet::new();
+        for expr in exprs {
+            vars.extend(expr.variables().iter().cloned());
+        }
+        self.with_solver_for(&vars, |s| s.batch_eval(exprs))
+    }
 }
 
 #[cfg(test)]

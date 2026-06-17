@@ -161,6 +161,10 @@ impl<'c, S: Solver<'c>> Solver<'c> for ConcreteEarlyResolutionMixin<'c, S> {
         }
         self.inner.eval_n(expr, n)
     }
+
+    fn batch_eval(&mut self, exprs: &[AstRef<'c>]) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+        self.inner.batch_eval(exprs)
+    }
 }
 
 #[cfg(test)]
