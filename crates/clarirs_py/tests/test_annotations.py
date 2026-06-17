@@ -137,6 +137,25 @@ class TestAnnotationRoundtrip(unittest.TestCase):
         self.assertIsInstance(roundtripped, CustomRelocatableAnnotation)
         self.assertEqual(roundtripped.tag, "t")
 
+    def test_user_annotation_identity_preserved(self):
+        # While the original Python object is alive, retrieval returns it
+        # verbatim rather than an unpickled copy, so `is` holds.
+        anno = CustomRelocatableAnnotation("t")
+        bv = claripy.BVS("x", 32).annotate(anno)
+        self.assertIs(bv.annotations[0], anno)
+        self.assertIs(bv.annotations[0], bv.annotations[0])
+
+    def test_user_annotation_reconstructed_after_original_gc(self):
+        # Once the original is gone, retrieval falls back to unpickling a fresh
+        # equal copy (the cache holds only a weak reference).
+        import gc
+
+        bv = claripy.BVS("x", 32).annotate(CustomRelocatableAnnotation("t"))
+        gc.collect()
+        roundtripped = bv.annotations[0]
+        self.assertIsInstance(roundtripped, CustomRelocatableAnnotation)
+        self.assertEqual(roundtripped.tag, "t")
+
 
 if __name__ == "__main__":
     unittest.main()

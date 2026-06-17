@@ -1,7 +1,27 @@
 use num_bigint::BigUint;
-use pyo3::types::{PyDict, PyTuple, PyType};
+use pyo3::sync::PyOnceLock;
+use pyo3::types::{PyBytes, PyDict, PyTuple, PyType};
 
 use crate::prelude::*;
+
+/// Process-global cache of the original Python objects for user-defined
+/// (Unknown) annotations, keyed by their pickled bytes. It lets retrieval
+/// return the very object that was attached — while it is still alive —
+/// instead of an unpickled copy, so `is` and `==` hold for callers that
+/// round-trip an annotation through an AST. It is a `WeakValueDictionary`, so
+/// entries evict once the original annotation is garbage-collected.
+static ORIGINAL_ANNOTATIONS: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+
+fn original_annotations(py: Python<'_>) -> Result<Bound<'_, PyAny>, ClaripyError> {
+    let cache = ORIGINAL_ANNOTATIONS.get_or_try_init(py, || -> Result<Py<PyAny>, ClaripyError> {
+        Ok(py
+            .import("weakref")?
+            .getattr("WeakValueDictionary")?
+            .call0()?
+            .unbind())
+    })?;
+    Ok(cache.bind(py).clone())
+}
 
 /// `claripy.annotation.Annotation`
 ///
@@ -88,11 +108,20 @@ impl PyAnnotation {
                 .getattr("__class__")?
                 .getattr("__name__")?
                 .extract::<String>()?;
-            let pickle_dumps = slf.py().import("pickle")?.getattr("dumps")?;
+            let py = slf.py();
+            let pickle_dumps = py.import("pickle")?.getattr("dumps")?;
+            let pickled = pickle_dumps.call1((slf,))?.extract::<Vec<u8>>()?;
+            // Remember the original object, keyed by its pickled bytes, so
+            // retrieval can return it verbatim while it is still alive,
+            // preserving Python identity. Best-effort: objects that are not
+            // weak-referenceable are simply not cached.
+            if let Ok(cache) = original_annotations(py) {
+                let _ = cache.set_item(PyBytes::new(py, &pickled), slf);
+            }
             Ok(Annotation::new(
                 AnnotationType::Unknown {
                     name: format!("{module_name}:{class_name}"),
-                    value: pickle_dumps.call1((slf,))?.extract::<Vec<u8>>()?,
+                    value: pickled,
                 },
                 eliminatable,
                 relocatable,
@@ -107,8 +136,20 @@ impl PyAnnotation {
     ) -> Result<Bound<'py, PyAnnotation>, ClaripyError> {
         match annotation.type_() {
             AnnotationType::Unknown { value, .. } => {
-                let pickle_loads = py.import("pickle")?.getattr("loads")?;
-                Ok(pickle_loads.call1((value,))?.cast_into::<PyAnnotation>()?)
+                // Return the original Python object if it is still cached and
+                // alive (preserving identity); otherwise reconstruct it by
+                // unpickling the stored bytes.
+                let cached = original_annotations(py)
+                    .ok()
+                    .and_then(|cache| cache.call_method1("get", (PyBytes::new(py, value),)).ok())
+                    .filter(|obj| !obj.is_none());
+                match cached {
+                    Some(obj) => Ok(obj.cast_into::<PyAnnotation>()?),
+                    None => {
+                        let pickle_loads = py.import("pickle")?.getattr("loads")?;
+                        Ok(pickle_loads.call1((value,))?.cast_into::<PyAnnotation>()?)
+                    }
+                }
             }
             AnnotationType::SimplificationAvoidance => upcast(Bound::new(
                 py,
