@@ -69,8 +69,11 @@ pub trait Solver<'c>: Clone + HasContext<'c> {
     ///
     /// The default implementation evaluates each expression independently,
     /// which is only consistent for solvers that admit a single model (e.g.
-    /// [`ConcreteSolver`]). Backends that admit multiple models (e.g. Z3)
-    /// override this so that every value comes from one model.
+    /// [`ConcreteSolver`]). Only a backend that admits multiple models and can
+    /// produce one (e.g. Z3) needs to override this; mixins inherit the default
+    /// and need not forward it, since model extraction asks the backend
+    /// directly. Callers that rely on consistency (e.g. the model cache)
+    /// nonetheless verify a returned assignment before trusting it.
     fn batch_eval(&mut self, exprs: &[AstRef<'c>]) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         exprs.iter().map(|expr| self.eval(expr)).collect()
     }

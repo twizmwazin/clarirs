@@ -187,11 +187,4 @@ impl Solver<'static> for DynSolver {
     ) -> Result<Vec<AstRef<'static>>, ClarirsError> {
         dispatch!(self, eval_n, expr, n)
     }
-
-    fn batch_eval(
-        &mut self,
-        exprs: &[AstRef<'static>],
-    ) -> Result<Vec<AstRef<'static>>, ClarirsError> {
-        dispatch!(self, batch_eval, exprs)
-    }
 }

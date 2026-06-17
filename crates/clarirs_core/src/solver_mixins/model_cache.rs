@@ -360,12 +360,6 @@ impl<'c, S: Solver<'c>> Solver<'c> for ModelCacheMixin<'c, S> {
         }
         Ok(results)
     }
-
-    fn batch_eval(&mut self, exprs: &[AstRef<'c>]) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-        // Model extraction needs a consistent assignment; forward to the inner
-        // solver, which provides one.
-        self.inner.batch_eval(exprs)
-    }
 }
 
 #[cfg(test)]
@@ -445,9 +439,6 @@ mod tests {
         fn eval_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
             self.eval_calls.set(self.eval_calls.get() + 1);
             self.inner.eval_n(expr, n)
-        }
-        fn batch_eval(&mut self, exprs: &[AstRef<'c>]) -> Result<Vec<AstRef<'c>>, ClarirsError> {
-            self.inner.batch_eval(exprs)
         }
     }
 
