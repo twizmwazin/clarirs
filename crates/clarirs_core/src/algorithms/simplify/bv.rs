@@ -98,7 +98,10 @@ pub(crate) fn simplify_bv<'c>(
                     .any(|(a, b)| a.hash() != b.hash());
 
             match sym_args.len() {
-                0 => Ok(ctx.bvv(BitVec::from(((BigUint::one() << size) - BigUint::one(), size)))?),
+                0 => Ok(ctx.bvv(BitVec::from((
+                    (BigUint::one() << size) - BigUint::one(),
+                    size,
+                )))?),
                 1 => Ok(sym_args.into_iter().next().unwrap()),
                 2 => {
                     let (a, b) = (&sym_args[0], &sym_args[1]);
@@ -165,8 +168,10 @@ pub(crate) fn simplify_bv<'c>(
                                                         & &full_mask))
                                                     & &full_mask;
 
-                                                let unrotated_bvv =
-                                                    ctx.bvv(BitVec::from((unrotated, bitwidth as u32)))?;
+                                                let unrotated_bvv = ctx.bvv(BitVec::from((
+                                                    unrotated,
+                                                    bitwidth as u32,
+                                                )))?;
                                                 let masked_a =
                                                     ctx.and2(shl_inner.clone(), unrotated_bvv)?;
                                                 let new_shl =
@@ -918,7 +923,10 @@ pub(crate) fn simplify_bv<'c>(
                     // If shifting >= bit_length, return all-ones (if negative) or all-zeros (if positive)
                     if shift_amount_u32 >= bit_length {
                         return if sign_bit_set {
-                            Ok(ctx.bvv(BitVec::from(((BigUint::one() << bit_length) - BigUint::one(), bit_length)))?)
+                            Ok(ctx.bvv(BitVec::from((
+                                (BigUint::one() << bit_length) - BigUint::one(),
+                                bit_length,
+                            )))?)
                         } else {
                             Ok(ctx.bvv(BitVec::zeros(bit_length))?)
                         };

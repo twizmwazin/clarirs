@@ -207,7 +207,9 @@ impl<'py> FromPyObject<'_, 'py> for CoerceBV<'py> {
         } else if let Ok(bytes_val) = val.extract::<Vec<u8>>() {
             // Interpret the raw bytes as a big-endian bitvector of len(bytes) * 8 bits.
             let length = bytes_val.len() as u32 * 8;
-            let words = BigUint::from_bytes_be(&bytes_val).iter_u64_digits().collect();
+            let words = BigUint::from_bytes_be(&bytes_val)
+                .iter_u64_digits()
+                .collect();
             let bv = BitVec::new(words, length).expect("BitVec::new is infallible");
             Ok(CoerceBV::BV(BV::new(
                 val.py(),

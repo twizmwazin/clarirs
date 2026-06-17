@@ -104,7 +104,10 @@ impl BitVec {
 
     pub fn sign_extend(&self, additional_bits: u32) -> Result<BitVec, BitVecError> {
         let extension = if self.sign() {
-            BitVec::from(((BigUint::from(1u8) << additional_bits) - 1u8, additional_bits))
+            BitVec::from((
+                (BigUint::from(1u8) << additional_bits) - 1u8,
+                additional_bits,
+            ))
         } else {
             BitVec::from((BigUint::zero(), additional_bits))
         };

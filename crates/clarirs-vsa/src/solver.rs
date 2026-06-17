@@ -107,16 +107,14 @@ impl<'c> Solver<'c> for VSASolver<'c> {
     fn min_unsigned(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         expr.simplify()?.reduce()?.into_bv().and_then(|si| {
             let (min_bound, _) = si.get_unsigned_bounds();
-            expr.context()
-                .bvv(BitVec::from((min_bound, expr.size())))
+            expr.context().bvv(BitVec::from((min_bound, expr.size())))
         })
     }
 
     fn max_unsigned(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         expr.simplify()?.reduce()?.into_bv().and_then(|si| {
             let (_, max_bound) = si.get_unsigned_bounds();
-            expr.context()
-                .bvv(BitVec::from((max_bound, expr.size())))
+            expr.context().bvv(BitVec::from((max_bound, expr.size())))
         })
     }
 

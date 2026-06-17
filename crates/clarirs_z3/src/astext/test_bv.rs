@@ -422,7 +422,10 @@ mod from_z3 {
         let ctx = Context::new();
         let z3_ast = RcAst::mk_bv_val("81985529216486895", 64); // 0x0123456789ABCDEF
         let result = AstRef::from_z3(&ctx, z3_ast).unwrap();
-        assert_eq!(result, ctx.bvv(BitVec::from((0x0123456789ABCDEF, 64))).unwrap());
+        assert_eq!(
+            result,
+            ctx.bvv(BitVec::from((0x0123456789ABCDEF, 64))).unwrap()
+        );
     }
 
     // -- Unary ops --

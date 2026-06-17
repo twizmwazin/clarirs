@@ -61,7 +61,10 @@ impl Mul for BitVec {
 
     fn mul(self, rhs: Self) -> Result<Self, BitVecError> {
         self.check_same_length(&rhs)?;
-        Ok(BitVec::from((BigUint::from(&self) * BigUint::from(&rhs), self.length)))
+        Ok(BitVec::from((
+            BigUint::from(&self) * BigUint::from(&rhs),
+            self.length,
+        )))
     }
 }
 
@@ -73,7 +76,10 @@ impl Div for BitVec {
         if rhs.is_zero() {
             return Err(BitVecError::DivisionByZero);
         }
-        Ok(BitVec::from((BigUint::from(&self) / BigUint::from(&rhs), self.length)))
+        Ok(BitVec::from((
+            BigUint::from(&self) / BigUint::from(&rhs),
+            self.length,
+        )))
     }
 }
 
@@ -87,7 +93,10 @@ impl Rem for BitVec {
         if rhs.is_zero() {
             return Err(BitVecError::DivisionByZero);
         }
-        Ok(BitVec::from((BigUint::from(&self) % BigUint::from(&rhs), self.length)))
+        Ok(BitVec::from((
+            BigUint::from(&self) % BigUint::from(&rhs),
+            self.length,
+        )))
     }
 }
 

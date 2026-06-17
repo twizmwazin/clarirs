@@ -225,8 +225,7 @@ mod tests {
         let (map, counter, canonical) = canonicalize(&dyn_ast)?;
 
         // Check that the variable was renamed to v0
-        let canonical_expected =
-            ctx.add(&ctx.bvs("v0", 64)?, &ctx.bvv(BitVec::from((5, 64)))?)?;
+        let canonical_expected = ctx.add(&ctx.bvs("v0", 64)?, &ctx.bvv(BitVec::from((5, 64)))?)?;
         let dyn_canonical_expected = canonical_expected.clone();
 
         assert_eq!(canonical, dyn_canonical_expected);
