@@ -109,13 +109,9 @@ impl PySolver {
                     self.timeout,
                     self.unsat_core,
                 ))),
-                DynSolver::Z3Cacheless(..) => {
-                    DynSolver::Z3Cacheless(wrap_solver(Z3Solver::new_with_options(
-                        &GLOBAL_CONTEXT,
-                        self.timeout,
-                        self.unsat_core,
-                    )))
-                }
+                DynSolver::Z3Cacheless(..) => DynSolver::Z3Cacheless(wrap_solver(
+                    Z3Solver::new_with_options(&GLOBAL_CONTEXT, self.timeout, self.unsat_core),
+                )),
                 DynSolver::Vsa(..) => DynSolver::Vsa(wrap_solver(VSASolver::new(&GLOBAL_CONTEXT))),
                 DynSolver::Hybrid(..) => DynSolver::Hybrid(wrap_solver(HybridSolver::new(
                     &GLOBAL_CONTEXT,

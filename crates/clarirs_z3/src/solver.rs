@@ -566,7 +566,9 @@ mod tests {
         let (x_val, y_val) = (values[0].clone(), values[1].clone());
 
         // The two values come from one model, so y_val == x_val + 1.
-        let expected_y = ctx.add(&x_val, &ctx.bvv(BitVec::from((1, 8)))?)?.simplify()?;
+        let expected_y = ctx
+            .add(&x_val, &ctx.bvv(BitVec::from((1, 8)))?)?
+            .simplify()?;
         assert_eq!(y_val, expected_y);
         Ok(())
     }
@@ -598,7 +600,10 @@ mod tests {
             &ctx.uge(&v, &ctx.bvv(BitVec::from((10, 32)))?)?,
             &ctx.ule(&v, &ctx.bvv(BitVec::from((20, 32)))?)?,
         )?)?;
-        assert!(in_range, "cached eval produced an out-of-range value: {v:?}");
+        assert!(
+            in_range,
+            "cached eval produced an out-of-range value: {v:?}"
+        );
 
         // A satisfiable extra constraint reachable by a cached model.
         let extra_sat = ctx.eq_(&x, &v.clone().into_bitvec().unwrap())?;
@@ -610,7 +615,9 @@ mod tests {
             cached.satisfiable_with_extra(&[extra_unsat.clone()])?,
             cacheless.satisfiable_with_extra(&[extra_unsat])?,
         );
-        assert!(!cached.satisfiable_with_extra(&[ctx.eq_(&x, &ctx.bvv(BitVec::from((100, 32)))?)?])?);
+        assert!(
+            !cached.satisfiable_with_extra(&[ctx.eq_(&x, &ctx.bvv(BitVec::from((100, 32)))?)?])?
+        );
 
         Ok(())
     }

@@ -193,11 +193,7 @@ impl<'c, S: Solver<'c>> ModelCacheMixin<'c, S> {
     /// `extra`. A model that satisfies the persistent constraints but not the
     /// transient `extra` is kept (it remains a valid witness for the persistent
     /// set); only genuinely stale models are dropped.
-    fn has_witness_with_extra(
-        &mut self,
-        constraints: &[AstRef<'c>],
-        extra: &[AstRef<'c>],
-    ) -> bool {
+    fn has_witness_with_extra(&mut self, constraints: &[AstRef<'c>], extra: &[AstRef<'c>]) -> bool {
         let mut i = 0;
         while i < self.models.len() {
             match self.models[i].satisfies(constraints) {
