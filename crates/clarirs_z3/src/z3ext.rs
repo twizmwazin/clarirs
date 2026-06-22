@@ -30,10 +30,6 @@ pub(crate) trait DynExt {
     /// The raw `Z3_ast` pointer, for passing to `z3-sys` functions.
     fn raw(&self) -> z3::Z3_ast;
 
-    /// Downcasts to a [`z3hl::ast::Bool`]. Panics if this AST is not boolean —
-    /// only called on constraints, which are boolean by construction.
-    fn expect_bool(&self) -> z3hl::ast::Bool;
-
     /// The symbol name if this is an uninterpreted constant, else `None`.
     /// (Kept as a helper since it guards on the decl kind rather than being a
     /// plain forward to the high-level API.)
@@ -44,10 +40,6 @@ pub(crate) trait DynExt {
 impl DynExt for Dynamic {
     fn raw(&self) -> z3::Z3_ast {
         self.get_z3_ast()
-    }
-
-    fn expect_bool(&self) -> z3hl::ast::Bool {
-        self.as_bool().expect("expected a boolean Z3 AST")
     }
 
     #[cfg(test)]

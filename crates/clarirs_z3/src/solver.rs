@@ -199,10 +199,13 @@ impl<'c> Z3Solver<'c> {
             && let Some(track_var) = self.tracking_vars.get(&idx)
         {
             let track_z3 = track_var.to_z3()?;
-            z3_solver.assert_and_track(converted.expect_bool(), &track_z3.expect_bool());
+            z3_solver.assert_and_track(
+                converted.as_bool().expect("expected a boolean Z3 AST"),
+                &track_z3.as_bool().expect("expected a boolean Z3 AST"),
+            );
             return Ok(());
         }
-        z3_solver.assert(converted.expect_bool());
+        z3_solver.assert(converted.as_bool().expect("expected a boolean Z3 AST"));
         Ok(())
     }
 
@@ -269,7 +272,7 @@ impl<'c> Z3Solver<'c> {
 
         for assertion in &self.assertions {
             let converted = assertion.to_z3()?;
-            z3_optimize.assert(converted.expect_bool());
+            z3_optimize.assert(converted.as_bool().expect("expected a boolean Z3 AST"));
         }
 
         Ok(z3_optimize)
@@ -359,7 +362,12 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         // angr's hottest solver call (every branch feasibility check).
         let mut assumptions = Vec::with_capacity(extra.len());
         for c in extra {
-            assumptions.push(c.simplify_z3()?.to_z3()?.expect_bool());
+            assumptions.push(
+                c.simplify_z3()?
+                    .to_z3()?
+                    .as_bool()
+                    .expect("expected a boolean Z3 AST"),
+            );
         }
         self.with_cached_solver(|z3_solver| {
             Ok(z3_solver.check_assumptions(&assumptions) == z3hl::SatResult::Sat)
@@ -451,7 +459,12 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         let target_name = format!("min_signed_target_{size}");
         let target = self.ctx.bvs(&target_name, size)?;
         let equality = self.ctx.eq_(&target, expr)?;
-        optimize.assert(equality.to_z3()?.expect_bool());
+        optimize.assert(
+            equality
+                .to_z3()?
+                .as_bool()
+                .expect("expected a boolean Z3 AST"),
+        );
 
         // First, maximize the sign bit with a high weight
         // This will prefer negative numbers (sign bit = 1) over positive ones
@@ -486,7 +499,12 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         let target_name = format!("max_signed_target_{size}");
         let target = self.ctx.bvs(&target_name, size)?;
         let equality = self.ctx.eq_(&target, expr)?;
-        optimize.assert(equality.to_z3()?.expect_bool());
+        optimize.assert(
+            equality
+                .to_z3()?
+                .as_bool()
+                .expect("expected a boolean Z3 AST"),
+        );
 
         // First, maximize making the sign bit 0 with a high weight
         // This will prefer positive numbers (sign bit = 0) over negative ones
@@ -556,9 +574,9 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
 
         for assertion in &self.assertions {
             let converted = assertion.to_z3()?;
-            z3_solver.assert(converted.expect_bool());
+            z3_solver.assert(converted.as_bool().expect("expected a boolean Z3 AST"));
         }
-        z3_solver.assert(link.to_z3()?.expect_bool());
+        z3_solver.assert(link.to_z3()?.as_bool().expect("expected a boolean Z3 AST"));
 
         for _ in 0..n {
             if z3_solver.check() != z3hl::SatResult::Sat {
@@ -572,7 +590,12 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
 
             // Add constraint to exclude this solution
             let neq_constraint = ctx.neq(&aux, &solution)?;
-            z3_solver.assert(neq_constraint.to_z3()?.expect_bool());
+            z3_solver.assert(
+                neq_constraint
+                    .to_z3()?
+                    .as_bool()
+                    .expect("expected a boolean Z3 AST"),
+            );
 
             // Convert the IEEE bit pattern back to a float constant. The
             // bitvector width (32 or 64) selects the format.
