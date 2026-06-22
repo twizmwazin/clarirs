@@ -109,6 +109,10 @@ jobs:
           # the MSVC driver's exceptions-off default, so Z3's `throw`s fail.
           CC: ${{ matrix.os == 'windows-latest' && 'cl' || 'clang' }}
           CXX: ${{ matrix.os == 'windows-latest' && 'cl' || 'clang++' }}
+          # cl writes a shared per-target vc140.pdb, so parallel compiles race on
+          # it (fatal error C1041). /FS forces synchronized PDB writes.
+          CFLAGS: ${{ matrix.os == 'windows-latest' && '/FS' || '' }}
+          CXXFLAGS: ${{ matrix.os == 'windows-latest' && '/FS' || '' }}
 
       - name: Run tests
         run: cargo test --all-features --no-fail-fast
@@ -178,8 +182,11 @@ jobs:
           # versionless `--target=arm64-apple-macosx` that makes clang resolve
           # libc++ availability to "unknown" and reject std::to_chars/std::format
           # (used by Z3 4.16). These wheels require macOS 13.3+ regardless, so
-          # disable libc++'s availability annotations for the Z3 build.
-          CXXFLAGS: ${{ matrix.os == 'macos-latest' && '-D_LIBCPP_DISABLE_AVAILABILITY' || '' }}
+          # disable libc++'s availability annotations for the Z3 build. On
+          # Windows, /FS forces synchronized PDB writes so parallel cl invocations
+          # don't race on the shared vc140.pdb (fatal error C1041).
+          CFLAGS: ${{ matrix.os == 'windows-latest' && '/FS' || '' }}
+          CXXFLAGS: ${{ matrix.os == 'macos-latest' && '-D_LIBCPP_DISABLE_AVAILABILITY' || matrix.os == 'windows-latest' && '/FS' || '' }}
 
       - name: Upload Wheel Artifact
         uses: actions/upload-artifact@v4
