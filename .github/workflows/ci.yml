@@ -81,7 +81,7 @@ jobs:
           # key by build config so we never reconfigure a cached target/ in
           # place after a compiler/launcher change (CMake then re-runs and trips
           # on z3-src's stripped-out examples/ directory).
-          cache-key: ${{ matrix.os == 'windows-latest' && 'z3-msvc-v3' || '' }}
+          cache-key: ${{ matrix.os == 'windows-latest' && 'z3-msvc-v4' || '' }}
 
       - name: Install ninja
         uses: seanmiddleditch/gha-setup-ninja@v6
@@ -104,19 +104,20 @@ jobs:
           CMAKE_MSVC_DEBUG_INFORMATION_FORMAT: Embedded
           CMAKE_POLICY_CMP0141: NEW
           CMAKE_GENERATOR: Ninja
-          # On Windows build Z3 with the native MSVC compiler (cl). z3-src and
-          # Z3's CMake are written for MSVC there: it enables C++ exceptions
-          # (/EHsc) and names the static library `libz3.lib`, which is what
-          # z3-src's `rustc-link-lib=static=libz3` expects. clang/clang++ (GNU
-          # driver) instead builds a libz3.a the windows-msvc target can't find,
-          # and clang-cl is detected as Clang — Z3 applies GNU flags but keeps
-          # the MSVC driver's exceptions-off default, so Z3's `throw`s fail.
-          CC: ${{ matrix.os == 'windows-latest' && 'cl' || 'clang' }}
-          CXX: ${{ matrix.os == 'windows-latest' && 'cl' || 'clang++' }}
-          # cl writes a shared per-target vc140.pdb, so parallel compiles race on
-          # it (fatal error C1041). /FS forces synchronized PDB writes.
-          CFLAGS: ${{ matrix.os == 'windows-latest' && '/FS' || '' }}
-          CXXFLAGS: ${{ matrix.os == 'windows-latest' && '/FS' || '' }}
+          # No CC/CXX override: each platform uses its default C/C++ compiler --
+          # MSVC cl on Windows, Apple clang on macOS, gcc on Linux. cl is what
+          # z3-src/Z3 require on Windows (it enables exceptions and emits
+          # libz3.lib); clang/clang++ there built a GNU libz3.a the windows-msvc
+          # target couldn't link.
+          #
+          # Force /Z7 (debug info embedded in each .obj) on Windows via cl's _CL_
+          # variable, whose options are appended after the command line so /Z7
+          # wins over CMake's default Debug /Zi. This avoids the per-target
+          # vc140.pdb that the parallel compiles otherwise share -- which aborts
+          # with C1041 and stalls mspdbsrv. (CMAKE_MSVC_DEBUG_INFORMATION_FORMAT
+          # above can't achieve it: that needs CMP0141=NEW / cmake >= 3.25, but
+          # Z3 ships cmake 3.16.)
+          _CL_: ${{ matrix.os == 'windows-latest' && '/Z7' || '' }}
 
       - name: Run tests
         run: cargo test --all-features --no-fail-fast
@@ -155,7 +156,7 @@ jobs:
         with:
           # See the test job: salt the Windows cache key by build config so a
           # cached target/ isn't reconfigured in place after a config change.
-          cache-key: ${{ matrix.os == 'windows-latest' && 'z3-msvc-v3' || '' }}
+          cache-key: ${{ matrix.os == 'windows-latest' && 'z3-msvc-v4' || '' }}
 
       - name: Install ninja
         uses: seanmiddleditch/gha-setup-ninja@v6
@@ -178,20 +179,19 @@ jobs:
           CMAKE_MSVC_DEBUG_INFORMATION_FORMAT: Embedded
           CMAKE_POLICY_CMP0141: NEW
           CMAKE_GENERATOR: Ninja
-          # Native MSVC cl on Windows (see the test job): MSVC mode gives Z3
-          # working exceptions and the libz3.lib name z3-src links against.
-          CC: ${{ matrix.os == 'windows-latest' && 'cl' || 'clang' }}
-          CXX: ${{ matrix.os == 'windows-latest' && 'cl' || 'clang++' }}
-          # maturin does not propagate MACOSX_DEPLOYMENT_TARGET into the vendored
-          # Z3 cmake build the way plain `cargo` does, so cc-rs emits a
-          # versionless `--target=arm64-apple-macosx` that makes clang resolve
-          # libc++ availability to "unknown" and reject std::to_chars/std::format
-          # (used by Z3 4.16). These wheels require macOS 13.3+ regardless, so
-          # disable libc++'s availability annotations for the Z3 build. On
-          # Windows, /FS forces synchronized PDB writes so parallel cl invocations
-          # don't race on the shared vc140.pdb (fatal error C1041).
-          CFLAGS: ${{ matrix.os == 'windows-latest' && '/FS' || '' }}
-          CXXFLAGS: ${{ matrix.os == 'macos-latest' && '-D_LIBCPP_DISABLE_AVAILABILITY' || matrix.os == 'windows-latest' && '/FS' || '' }}
+          # No CC/CXX override: cl on Windows (which z3-src/Z3 require -- it emits
+          # libz3.lib and enables exceptions), Apple clang on macOS, gcc on Linux.
+          # Force /Z7 embedded debug info on Windows via cl's _CL_ append variable
+          # so parallel compiles don't share a vc140.pdb (C1041 / mspdbsrv stall);
+          # see the test job.
+          _CL_: ${{ matrix.os == 'windows-latest' && '/Z7' || '' }}
+          # maturin doesn't propagate MACOSX_DEPLOYMENT_TARGET into the vendored
+          # Z3 cmake build the way plain cargo does, so cc-rs emits a versionless
+          # --target=arm64-apple-macosx that makes clang resolve libc++
+          # availability to "unknown" and reject std::to_chars/std::format (Z3
+          # 4.16). These wheels need macOS 13.3+ anyway, so disable libc++'s
+          # availability annotations.
+          CXXFLAGS: ${{ matrix.os == 'macos-latest' && '-D_LIBCPP_DISABLE_AVAILABILITY' || '' }}
 
       - name: Upload Wheel Artifact
         uses: actions/upload-artifact@v4
