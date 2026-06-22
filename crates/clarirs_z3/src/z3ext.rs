@@ -57,6 +57,13 @@ impl DynExt for Dynamic {
     }
 }
 
+/// The symbol name of `ast`'s `index`-th child. Test assertion helper that keeps
+/// the common `nth_child(i).symbol_name()` check on a single line.
+#[cfg(test)]
+pub(crate) fn arg_sym(ast: &Dynamic, index: usize) -> Option<String> {
+    ast.nth_child(index).unwrap().symbol_name()
+}
+
 // Test-only constructors that build Z3 ASTs directly.
 #[cfg(test)]
 pub(crate) fn mk_bool(name: &str) -> Dynamic {

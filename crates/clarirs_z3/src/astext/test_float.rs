@@ -85,10 +85,7 @@ mod to_z3 {
 
         assert_eq!(z3_ast.decl().kind(), z3::DeclKind::FpaNeg);
         assert_eq!(z3_ast.num_children(), 1);
-        assert_eq!(
-            z3_ast.nth_child(0).unwrap().symbol_name().as_deref(),
-            Some("x")
-        );
+        assert_eq!(arg_sym(&z3_ast, 0).as_deref(), Some("x"));
     }
 
     #[test]
@@ -100,10 +97,7 @@ mod to_z3 {
 
         assert_eq!(z3_ast.decl().kind(), z3::DeclKind::FpaAbs);
         assert_eq!(z3_ast.num_children(), 1);
-        assert_eq!(
-            z3_ast.nth_child(0).unwrap().symbol_name().as_deref(),
-            Some("x")
-        );
+        assert_eq!(arg_sym(&z3_ast, 0).as_deref(), Some("x"));
     }
 
     // -- Binary arithmetic ops (with rounding mode) --
@@ -123,14 +117,8 @@ mod to_z3 {
             z3_ast.nth_child(0).unwrap().decl().kind(),
             z3::DeclKind::FpaRmNearestTiesToEven
         );
-        assert_eq!(
-            z3_ast.nth_child(1).unwrap().symbol_name().as_deref(),
-            Some("a")
-        );
-        assert_eq!(
-            z3_ast.nth_child(2).unwrap().symbol_name().as_deref(),
-            Some("b")
-        );
+        assert_eq!(arg_sym(&z3_ast, 1).as_deref(), Some("a"));
+        assert_eq!(arg_sym(&z3_ast, 2).as_deref(), Some("b"));
     }
 
     #[test]
@@ -195,10 +183,7 @@ mod to_z3 {
             z3_ast.nth_child(0).unwrap().decl().kind(),
             z3::DeclKind::FpaRmNearestTiesToAway
         );
-        assert_eq!(
-            z3_ast.nth_child(1).unwrap().symbol_name().as_deref(),
-            Some("x")
-        );
+        assert_eq!(arg_sym(&z3_ast, 1).as_deref(), Some("x"));
     }
 
     // -- Conversion ops --
@@ -280,18 +265,9 @@ mod to_z3 {
 
         assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Ite);
         assert_eq!(z3_ast.num_children(), 3);
-        assert_eq!(
-            z3_ast.nth_child(0).unwrap().symbol_name().as_deref(),
-            Some("c")
-        );
-        assert_eq!(
-            z3_ast.nth_child(1).unwrap().symbol_name().as_deref(),
-            Some("a")
-        );
-        assert_eq!(
-            z3_ast.nth_child(2).unwrap().symbol_name().as_deref(),
-            Some("b")
-        );
+        assert_eq!(arg_sym(&z3_ast, 0).as_deref(), Some("c"));
+        assert_eq!(arg_sym(&z3_ast, 1).as_deref(), Some("a"));
+        assert_eq!(arg_sym(&z3_ast, 2).as_deref(), Some("b"));
     }
 
     // -- Rounding modes --
