@@ -10,8 +10,7 @@ crates/
 ├── clarirs_core/       # Core AST, algorithms, and solver traits
 ├── clarirs_num/        # Numeric primitives (BitVec, Float)
 ├── clarirs_py/         # Python bindings (builds as 'claripy' module)
-├── clarirs_z3/         # Z3 solver implementation
-├── clarirs-z3-sys/     # Low-level Z3 FFI bindings (builds Z3 from source)
+├── clarirs_z3/         # Z3 solver implementation (uses the z3-sys crate)
 └── clarirs-vsa/        # Value Set Analysis solver
 ```
 
@@ -122,12 +121,13 @@ Use `ClarirsError` from `crates/clarirs_core/src/error.rs`. Conversion from `Bit
 
 ### Z3 Bindings Build Process
 
-`clarirs-z3-sys` uses `build.rs` to:
-1. Invoke CMake on `z3/` submodule
-2. Generate Rust bindings via `bindgen` with custom callbacks (strip `Z3_` prefix, convert to PascalCase)
-3. Link statically to avoid runtime Z3 dependency
+`clarirs_z3` depends on the published [`z3-sys`](https://crates.io/crates/z3-sys)
+crate with its `vendored` feature. That feature builds Z3 from source (bundled in
+the `z3-src` crate) via CMake and links it statically, so there is no git
+submodule and no build-time `bindgen` step. `z3-sys` exposes the C API as
+`Z3_*` functions returning `Option<T>` over `NonNull` Z3 handles.
 
-Requires: CMake, Ninja, Clang (for faster builds). On CI, sccache caches compilation.
+Requires: CMake, Clang (for faster builds). On CI, sccache caches compilation.
 
 ## Claripy Compatibility Notes
 
