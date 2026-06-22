@@ -269,12 +269,12 @@ fn detect_include_dir() -> Option<String> {
             ])
             .output();
 
-        if let Ok(output) = output {
-            if output.status.success() {
-                let dir = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                if !dir.is_empty() && PathBuf::from(&dir).join("z3.h").exists() {
-                    return Some(dir);
-                }
+        if let Ok(output) = output
+            && output.status.success()
+        {
+            let dir = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !dir.is_empty() && PathBuf::from(&dir).join("z3.h").exists() {
+                return Some(dir);
             }
         }
     }
