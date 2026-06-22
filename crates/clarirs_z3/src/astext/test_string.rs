@@ -1,4 +1,5 @@
 use ::z3 as z3hl;
+use ::z3::ast::Ast as _;
 use clarirs_core::prelude::*;
 use z3_sys as z3;
 
@@ -37,7 +38,7 @@ mod to_z3 {
         let s = ctx.strings("x").unwrap();
         let z3_ast = s.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Uninterpreted);
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Uninterpreted);
         assert_eq!(z3_ast.symbol_name().as_deref(), Some("x"));
     }
 
@@ -83,10 +84,10 @@ mod to_z3 {
         let cat = ctx.str_concat(s1, s2).unwrap();
         let z3_ast = cat.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::SeqConcat);
-        assert_eq!(z3_ast.num_args(), 2);
-        assert_z3_string_value(&z3_ast.arg(0).unwrap(), "hello");
-        assert_z3_string_value(&z3_ast.arg(1).unwrap(), " world");
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::SeqConcat);
+        assert_eq!(z3_ast.num_children(), 2);
+        assert_z3_string_value(&z3_ast.nth_child(0).unwrap(), "hello");
+        assert_z3_string_value(&z3_ast.nth_child(1).unwrap(), " world");
     }
 
     #[test]
@@ -97,10 +98,10 @@ mod to_z3 {
         let cat = ctx.str_concat(s1, s2).unwrap();
         let z3_ast = cat.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::SeqConcat);
-        assert_eq!(z3_ast.num_args(), 2);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("a"));
-        assert_eq!(z3_ast.arg(1).unwrap().symbol_name().as_deref(), Some("b"));
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::SeqConcat);
+        assert_eq!(z3_ast.num_children(), 2);
+        assert_eq!(z3_ast.nth_child(0).unwrap().symbol_name().as_deref(), Some("a"));
+        assert_eq!(z3_ast.nth_child(1).unwrap().symbol_name().as_deref(), Some("b"));
     }
 
     // -- StrSubstr --
@@ -114,9 +115,9 @@ mod to_z3 {
         let sub = ctx.str_substr(s, start, length).unwrap();
         let z3_ast = sub.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::SeqExtract);
-        assert_eq!(z3_ast.num_args(), 3);
-        assert_z3_string_value(&z3_ast.arg(0).unwrap(), "hello world");
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::SeqExtract);
+        assert_eq!(z3_ast.num_children(), 3);
+        assert_z3_string_value(&z3_ast.nth_child(0).unwrap(), "hello world");
     }
 
     // -- StrReplace --
@@ -130,11 +131,11 @@ mod to_z3 {
         let replaced = ctx.str_replace(s, pat, rep).unwrap();
         let z3_ast = replaced.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::SeqReplace);
-        assert_eq!(z3_ast.num_args(), 3);
-        assert_z3_string_value(&z3_ast.arg(0).unwrap(), "hello world");
-        assert_z3_string_value(&z3_ast.arg(1).unwrap(), "world");
-        assert_z3_string_value(&z3_ast.arg(2).unwrap(), "there");
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::SeqReplace);
+        assert_eq!(z3_ast.num_children(), 3);
+        assert_z3_string_value(&z3_ast.nth_child(0).unwrap(), "hello world");
+        assert_z3_string_value(&z3_ast.nth_child(1).unwrap(), "world");
+        assert_z3_string_value(&z3_ast.nth_child(2).unwrap(), "there");
     }
 
     // -- ITE --
@@ -148,11 +149,11 @@ mod to_z3 {
         let ite = ctx.ite(c, then, else_).unwrap();
         let z3_ast = ite.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Ite);
-        assert_eq!(z3_ast.num_args(), 3);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("c"));
-        assert_z3_string_value(&z3_ast.arg(1).unwrap(), "then");
-        assert_z3_string_value(&z3_ast.arg(2).unwrap(), "else");
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Ite);
+        assert_eq!(z3_ast.num_children(), 3);
+        assert_eq!(z3_ast.nth_child(0).unwrap().symbol_name().as_deref(), Some("c"));
+        assert_z3_string_value(&z3_ast.nth_child(1).unwrap(), "then");
+        assert_z3_string_value(&z3_ast.nth_child(2).unwrap(), "else");
     }
 
     #[test]
@@ -164,10 +165,10 @@ mod to_z3 {
         let ite = ctx.ite(c, a, b).unwrap();
         let z3_ast = ite.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Ite);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("c"));
-        assert_eq!(z3_ast.arg(1).unwrap().symbol_name().as_deref(), Some("a"));
-        assert_eq!(z3_ast.arg(2).unwrap().symbol_name().as_deref(), Some("b"));
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Ite);
+        assert_eq!(z3_ast.nth_child(0).unwrap().symbol_name().as_deref(), Some("c"));
+        assert_eq!(z3_ast.nth_child(1).unwrap().symbol_name().as_deref(), Some("a"));
+        assert_eq!(z3_ast.nth_child(2).unwrap().symbol_name().as_deref(), Some("b"));
     }
 }
 

@@ -1,3 +1,4 @@
+use ::z3::ast::Ast as _;
 use clarirs_core::prelude::*;
 use z3_sys as z3;
 
@@ -22,7 +23,7 @@ mod to_z3 {
         let ctx = Context::new();
         let sym = ctx.bools("x").unwrap();
         let z3_ast = sym.to_z3().unwrap();
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Uninterpreted);
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Uninterpreted);
         assert_eq!(z3_ast.symbol_name().as_deref(), Some("x"));
     }
 
@@ -31,7 +32,7 @@ mod to_z3 {
         let ctx = Context::new();
         let t = ctx.true_().unwrap();
         let z3_ast = t.to_z3().unwrap();
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::True);
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::True);
     }
 
     #[test]
@@ -39,7 +40,7 @@ mod to_z3 {
         let ctx = Context::new();
         let f = ctx.false_().unwrap();
         let z3_ast = f.to_z3().unwrap();
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::False);
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::False);
     }
 
     // -- Pure boolean ops --
@@ -51,8 +52,8 @@ mod to_z3 {
         let not_x = ctx.not(x).unwrap();
         let z3_ast = not_x.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Not);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("x"));
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Not);
+        assert_eq!(z3_ast.nth_child(0).unwrap().symbol_name().as_deref(), Some("x"));
     }
 
     #[test]
@@ -63,9 +64,9 @@ mod to_z3 {
         let and = ctx.and2(x, y).unwrap();
         let z3_ast = and.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::And);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("x"));
-        assert_eq!(z3_ast.arg(1).unwrap().symbol_name().as_deref(), Some("y"));
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::And);
+        assert_eq!(z3_ast.nth_child(0).unwrap().symbol_name().as_deref(), Some("x"));
+        assert_eq!(z3_ast.nth_child(1).unwrap().symbol_name().as_deref(), Some("y"));
     }
 
     #[test]
@@ -77,11 +78,11 @@ mod to_z3 {
         let and = ctx.and([x, y, z]).unwrap();
         let z3_ast = and.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::And);
-        assert_eq!(z3_ast.num_args(), 3);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("x"));
-        assert_eq!(z3_ast.arg(1).unwrap().symbol_name().as_deref(), Some("y"));
-        assert_eq!(z3_ast.arg(2).unwrap().symbol_name().as_deref(), Some("z"));
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::And);
+        assert_eq!(z3_ast.num_children(), 3);
+        assert_eq!(z3_ast.nth_child(0).unwrap().symbol_name().as_deref(), Some("x"));
+        assert_eq!(z3_ast.nth_child(1).unwrap().symbol_name().as_deref(), Some("y"));
+        assert_eq!(z3_ast.nth_child(2).unwrap().symbol_name().as_deref(), Some("z"));
     }
 
     #[test]
@@ -92,9 +93,9 @@ mod to_z3 {
         let or = ctx.or2(x, y).unwrap();
         let z3_ast = or.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Or);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("x"));
-        assert_eq!(z3_ast.arg(1).unwrap().symbol_name().as_deref(), Some("y"));
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Or);
+        assert_eq!(z3_ast.nth_child(0).unwrap().symbol_name().as_deref(), Some("x"));
+        assert_eq!(z3_ast.nth_child(1).unwrap().symbol_name().as_deref(), Some("y"));
     }
 
     #[test]
@@ -106,11 +107,11 @@ mod to_z3 {
         let or = ctx.or([x, y, z]).unwrap();
         let z3_ast = or.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Or);
-        assert_eq!(z3_ast.num_args(), 3);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("x"));
-        assert_eq!(z3_ast.arg(1).unwrap().symbol_name().as_deref(), Some("y"));
-        assert_eq!(z3_ast.arg(2).unwrap().symbol_name().as_deref(), Some("z"));
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Or);
+        assert_eq!(z3_ast.num_children(), 3);
+        assert_eq!(z3_ast.nth_child(0).unwrap().symbol_name().as_deref(), Some("x"));
+        assert_eq!(z3_ast.nth_child(1).unwrap().symbol_name().as_deref(), Some("y"));
+        assert_eq!(z3_ast.nth_child(2).unwrap().symbol_name().as_deref(), Some("z"));
     }
 
     #[test]
@@ -121,9 +122,9 @@ mod to_z3 {
         let xor = ctx.xor2(x, y).unwrap();
         let z3_ast = xor.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Xor);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("x"));
-        assert_eq!(z3_ast.arg(1).unwrap().symbol_name().as_deref(), Some("y"));
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Xor);
+        assert_eq!(z3_ast.nth_child(0).unwrap().symbol_name().as_deref(), Some("x"));
+        assert_eq!(z3_ast.nth_child(1).unwrap().symbol_name().as_deref(), Some("y"));
     }
 
     #[test]
@@ -134,9 +135,9 @@ mod to_z3 {
         let eq = ctx.eq_(x, y).unwrap();
         let z3_ast = eq.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Eq);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("x"));
-        assert_eq!(z3_ast.arg(1).unwrap().symbol_name().as_deref(), Some("y"));
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Eq);
+        assert_eq!(z3_ast.nth_child(0).unwrap().symbol_name().as_deref(), Some("x"));
+        assert_eq!(z3_ast.nth_child(1).unwrap().symbol_name().as_deref(), Some("y"));
     }
 
     #[test]
@@ -147,9 +148,9 @@ mod to_z3 {
         let neq = ctx.neq(x, y).unwrap();
         let z3_ast = neq.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Distinct);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("x"));
-        assert_eq!(z3_ast.arg(1).unwrap().symbol_name().as_deref(), Some("y"));
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Distinct);
+        assert_eq!(z3_ast.nth_child(0).unwrap().symbol_name().as_deref(), Some("x"));
+        assert_eq!(z3_ast.nth_child(1).unwrap().symbol_name().as_deref(), Some("y"));
     }
 
     #[test]
@@ -161,10 +162,10 @@ mod to_z3 {
         let ite = ctx.ite(c, t, e).unwrap();
         let z3_ast = ite.to_z3().unwrap();
 
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Ite);
-        assert_eq!(z3_ast.arg(0).unwrap().symbol_name().as_deref(), Some("c"));
-        assert_eq!(z3_ast.arg(1).unwrap().symbol_name().as_deref(), Some("t"));
-        assert_eq!(z3_ast.arg(2).unwrap().symbol_name().as_deref(), Some("e"));
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Ite);
+        assert_eq!(z3_ast.nth_child(0).unwrap().symbol_name().as_deref(), Some("c"));
+        assert_eq!(z3_ast.nth_child(1).unwrap().symbol_name().as_deref(), Some("t"));
+        assert_eq!(z3_ast.nth_child(2).unwrap().symbol_name().as_deref(), Some("e"));
     }
 
     // -- BV comparisons --
@@ -176,7 +177,7 @@ mod to_z3 {
         let b = ctx.bvs("b", 32).unwrap();
         let eq = ctx.eq_(a, b).unwrap();
         let z3_ast = eq.to_z3().unwrap();
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Eq);
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Eq);
     }
 
     #[test]
@@ -186,7 +187,7 @@ mod to_z3 {
         let b = ctx.bvs("b", 32).unwrap();
         let neq = ctx.neq(a, b).unwrap();
         let z3_ast = neq.to_z3().unwrap();
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Distinct);
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Distinct);
     }
 
     #[test]
@@ -196,7 +197,7 @@ mod to_z3 {
         let b = ctx.bvs("b", 32).unwrap();
         let r = ctx.ult(a, b).unwrap();
         let z3_ast = r.to_z3().unwrap();
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Ult);
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Ult);
     }
 
     #[test]
@@ -206,7 +207,7 @@ mod to_z3 {
         let b = ctx.bvs("b", 32).unwrap();
         let r = ctx.ule(a, b).unwrap();
         let z3_ast = r.to_z3().unwrap();
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Uleq);
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Uleq);
     }
 
     #[test]
@@ -216,7 +217,7 @@ mod to_z3 {
         let b = ctx.bvs("b", 32).unwrap();
         let r = ctx.ugt(a, b).unwrap();
         let z3_ast = r.to_z3().unwrap();
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Ugt);
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Ugt);
     }
 
     #[test]
@@ -226,7 +227,7 @@ mod to_z3 {
         let b = ctx.bvs("b", 32).unwrap();
         let r = ctx.uge(a, b).unwrap();
         let z3_ast = r.to_z3().unwrap();
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Ugeq);
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Ugeq);
     }
 
     #[test]
@@ -236,7 +237,7 @@ mod to_z3 {
         let b = ctx.bvs("b", 32).unwrap();
         let r = ctx.slt(a, b).unwrap();
         let z3_ast = r.to_z3().unwrap();
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Slt);
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Slt);
     }
 
     #[test]
@@ -246,7 +247,7 @@ mod to_z3 {
         let b = ctx.bvs("b", 32).unwrap();
         let r = ctx.sle(a, b).unwrap();
         let z3_ast = r.to_z3().unwrap();
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Sleq);
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Sleq);
     }
 
     #[test]
@@ -256,7 +257,7 @@ mod to_z3 {
         let b = ctx.bvs("b", 32).unwrap();
         let r = ctx.sgt(a, b).unwrap();
         let z3_ast = r.to_z3().unwrap();
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Sgt);
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Sgt);
     }
 
     #[test]
@@ -266,7 +267,7 @@ mod to_z3 {
         let b = ctx.bvs("b", 32).unwrap();
         let r = ctx.sge(a, b).unwrap();
         let z3_ast = r.to_z3().unwrap();
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Sgeq);
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Sgeq);
     }
 
     // -- FP comparisons --
@@ -278,7 +279,7 @@ mod to_z3 {
         let b = ctx.fps("b", FSort::f32()).unwrap();
         let r = ctx.fp_eq(a, b).unwrap();
         let z3_ast = r.to_z3().unwrap();
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::FpaEq);
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::FpaEq);
     }
 
     #[test]
@@ -290,8 +291,8 @@ mod to_z3 {
         let z3_ast = r.to_z3().unwrap();
         // IEEE inequality lowers to not(fp.eq), not object-level `distinct`
         // (under which NaN would equal itself and +0 would differ from -0).
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Not);
-        assert_eq!(z3_ast.arg(0).unwrap().decl_kind(), z3::DeclKind::FpaEq);
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Not);
+        assert_eq!(z3_ast.nth_child(0).unwrap().decl().kind(), z3::DeclKind::FpaEq);
     }
 
     #[test]
@@ -301,7 +302,7 @@ mod to_z3 {
         let b = ctx.fps("b", FSort::f32()).unwrap();
         let r = ctx.fp_lt(a, b).unwrap();
         let z3_ast = r.to_z3().unwrap();
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::FpaLt);
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::FpaLt);
     }
 
     #[test]
@@ -311,7 +312,7 @@ mod to_z3 {
         let b = ctx.fps("b", FSort::f32()).unwrap();
         let r = ctx.fp_leq(a, b).unwrap();
         let z3_ast = r.to_z3().unwrap();
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::FpaLe);
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::FpaLe);
     }
 
     #[test]
@@ -321,7 +322,7 @@ mod to_z3 {
         let b = ctx.fps("b", FSort::f32()).unwrap();
         let r = ctx.fp_gt(a, b).unwrap();
         let z3_ast = r.to_z3().unwrap();
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::FpaGt);
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::FpaGt);
     }
 
     #[test]
@@ -331,7 +332,7 @@ mod to_z3 {
         let b = ctx.fps("b", FSort::f32()).unwrap();
         let r = ctx.fp_geq(a, b).unwrap();
         let z3_ast = r.to_z3().unwrap();
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::FpaGe);
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::FpaGe);
     }
 
     #[test]
@@ -340,7 +341,7 @@ mod to_z3 {
         let a = ctx.fps("a", FSort::f32()).unwrap();
         let r = ctx.fp_is_nan(a).unwrap();
         let z3_ast = r.to_z3().unwrap();
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::FpaIsNan);
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::FpaIsNan);
     }
 
     #[test]
@@ -349,7 +350,7 @@ mod to_z3 {
         let a = ctx.fps("a", FSort::f32()).unwrap();
         let r = ctx.fp_is_inf(a).unwrap();
         let z3_ast = r.to_z3().unwrap();
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::FpaIsInf);
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::FpaIsInf);
     }
 
     // -- String predicates --
@@ -361,7 +362,7 @@ mod to_z3 {
         let b = ctx.strings("b").unwrap();
         let r = ctx.str_contains(a, b).unwrap();
         let z3_ast = r.to_z3().unwrap();
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::SeqContains);
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::SeqContains);
     }
 
     #[test]
@@ -371,7 +372,7 @@ mod to_z3 {
         let b = ctx.strings("b").unwrap();
         let r = ctx.str_prefix_of(a, b).unwrap();
         let z3_ast = r.to_z3().unwrap();
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::SeqPrefix);
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::SeqPrefix);
     }
 
     #[test]
@@ -381,7 +382,7 @@ mod to_z3 {
         let b = ctx.strings("b").unwrap();
         let r = ctx.str_suffix_of(a, b).unwrap();
         let z3_ast = r.to_z3().unwrap();
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::SeqSuffix);
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::SeqSuffix);
     }
 
     #[test]
@@ -391,7 +392,7 @@ mod to_z3 {
         let b = ctx.strings("b").unwrap();
         let r = ctx.str_eq(a, b).unwrap();
         let z3_ast = r.to_z3().unwrap();
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Eq);
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Eq);
     }
 
     #[test]
@@ -401,7 +402,7 @@ mod to_z3 {
         let b = ctx.strings("b").unwrap();
         let r = ctx.str_neq(a, b).unwrap();
         let z3_ast = r.to_z3().unwrap();
-        assert_eq!(z3_ast.decl_kind(), z3::DeclKind::Distinct);
+        assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Distinct);
     }
 }
 

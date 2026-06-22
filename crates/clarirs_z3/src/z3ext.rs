@@ -34,19 +34,9 @@ pub(crate) trait DynExt {
     /// only called on constraints, which are boolean by construction.
     fn expect_bool(&self) -> z3hl::ast::Bool;
 
-    /// The `DeclKind` of this node (assumes it is an application).
-    #[cfg(test)]
-    fn decl_kind(&self) -> z3::DeclKind;
-
-    /// The number of arguments (assumes it is an application).
-    #[cfg(test)]
-    fn num_args(&self) -> u32;
-
-    /// The argument at `index`, or `None` if out of bounds or not an application.
-    #[cfg(test)]
-    fn arg(&self, index: u32) -> Option<Dynamic>;
-
     /// The symbol name if this is an uninterpreted constant, else `None`.
+    /// (Kept as a helper since it guards on the decl kind rather than being a
+    /// plain forward to the high-level API.)
     #[cfg(test)]
     fn symbol_name(&self) -> Option<String>;
 }
@@ -58,21 +48,6 @@ impl DynExt for Dynamic {
 
     fn expect_bool(&self) -> z3hl::ast::Bool {
         self.as_bool().expect("expected a boolean Z3 AST")
-    }
-
-    #[cfg(test)]
-    fn decl_kind(&self) -> z3::DeclKind {
-        self.decl().kind()
-    }
-
-    #[cfg(test)]
-    fn num_args(&self) -> u32 {
-        self.num_children() as u32
-    }
-
-    #[cfg(test)]
-    fn arg(&self, index: u32) -> Option<Dynamic> {
-        self.nth_child(index as usize)
     }
 
     #[cfg(test)]
