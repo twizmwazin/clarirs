@@ -77,11 +77,8 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           rustflags: ""
-          # Salt the Z3 build cache on every OS. The compiler differs per run
-          # config (here: unset CC/CXX -> each OS's default), and CMake
-          # reconfigures a cached build dir in place on a compiler change, which
-          # trips on z3-src's stripped-out examples/ directory. A fresh key
-          # avoids restoring a target/ built with a different compiler.
+          # Salt the Z3 build cache: a compiler change makes CMake reconfigure a
+          # cached build dir, which fails on z3-src's stripped examples/ dir.
           cache-key: z3-defaults-v1
 
       - name: Install ninja
@@ -95,29 +92,18 @@ jobs:
         env:
           SCCACHE_GHA_ENABLED: "true"
           RUSTC_WRAPPER: "sccache"
-          # Don't run the C/C++ (Z3) build through sccache on Windows. sccache
-          # can't cache MSVC's /Zi separate-PDB output (Z3 needs cmake >= 3.25
-          # for the /Z7 Embedded format, but ships 3.16), and wrapping cl breaks
-          # the /FS PDB coordination, so parallel compiles abort with C1041.
-          # Build Z3 with cl directly; Rust still uses sccache via RUSTC_WRAPPER.
+          # No sccache for the Windows C/C++ build (it can't cache MSVC /Zi PDB
+          # output); cl runs directly there, Rust still uses sccache.
           CMAKE_C_COMPILER_LAUNCHER: ${{ matrix.os != 'windows-latest' && 'sccache' || '' }}
           CMAKE_CXX_COMPILER_LAUNCHER: ${{ matrix.os != 'windows-latest' && 'sccache' || '' }}
           CMAKE_MSVC_DEBUG_INFORMATION_FORMAT: Embedded
           CMAKE_POLICY_CMP0141: NEW
           CMAKE_GENERATOR: Ninja
-          # No CC/CXX override: each platform uses its default C/C++ compiler --
-          # MSVC cl on Windows, Apple clang on macOS, gcc on Linux. cl is what
-          # z3-src/Z3 require on Windows (it enables exceptions and emits
-          # libz3.lib); clang/clang++ there built a GNU libz3.a the windows-msvc
-          # target couldn't link.
-          #
-          # Force /Z7 (debug info embedded in each .obj) on Windows via cl's _CL_
-          # variable, whose options are appended after the command line so /Z7
-          # wins over CMake's default Debug /Zi. This avoids the per-target
-          # vc140.pdb that the parallel compiles otherwise share -- which aborts
-          # with C1041 and stalls mspdbsrv. (CMAKE_MSVC_DEBUG_INFORMATION_FORMAT
-          # above can't achieve it: that needs CMP0141=NEW / cmake >= 3.25, but
-          # Z3 ships cmake 3.16.)
+          # No CC/CXX override -> each OS's default compiler: cl on Windows
+          # (z3-src needs it for libz3.lib + exceptions), clang on macOS, gcc on
+          # Linux. On Windows, force /Z7 (debug info embedded in each .obj) via
+          # cl's _CL_ append variable so it wins over CMake's Debug /Zi; this
+          # avoids a shared per-target vc140.pdb (C1041 / mspdbsrv stall).
           _CL_: ${{ matrix.os == 'windows-latest' && '/Z7' || '' }}
 
       - name: Run tests
@@ -155,8 +141,7 @@ jobs:
       - name: Setup Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          # See the test job: salt the Z3 build cache on every OS so a cached
-          # target/ isn't reconfigured in place after the CC/CXX change.
+          # See the test job: salt the Z3 build cache against compiler changes.
           cache-key: z3-defaults-v1
 
       - name: Install ninja
@@ -173,25 +158,17 @@ jobs:
         env:
           SCCACHE_GHA_ENABLED: "true"
           RUSTC_WRAPPER: "sccache"
-          # See the test job: skip the sccache launcher for the Windows C/C++
-          # (Z3) build so cl manages its PDB directly.
+          # See the test job: no sccache for the Windows C/C++ build.
           CMAKE_C_COMPILER_LAUNCHER: ${{ matrix.os != 'windows-latest' && 'sccache' || '' }}
           CMAKE_CXX_COMPILER_LAUNCHER: ${{ matrix.os != 'windows-latest' && 'sccache' || '' }}
           CMAKE_MSVC_DEBUG_INFORMATION_FORMAT: Embedded
           CMAKE_POLICY_CMP0141: NEW
           CMAKE_GENERATOR: Ninja
-          # No CC/CXX override: cl on Windows (which z3-src/Z3 require -- it emits
-          # libz3.lib and enables exceptions), Apple clang on macOS, gcc on Linux.
-          # Force /Z7 embedded debug info on Windows via cl's _CL_ append variable
-          # so parallel compiles don't share a vc140.pdb (C1041 / mspdbsrv stall);
-          # see the test job.
+          # See the test job: default compilers, plus /Z7 embedded debug info on
+          # Windows via _CL_ to avoid a shared vc140.pdb (C1041).
           _CL_: ${{ matrix.os == 'windows-latest' && '/Z7' || '' }}
-          # maturin doesn't propagate MACOSX_DEPLOYMENT_TARGET into the vendored
-          # Z3 cmake build the way plain cargo does, so cc-rs emits a versionless
-          # --target=arm64-apple-macosx that makes clang resolve libc++
-          # availability to "unknown" and reject std::to_chars/std::format (Z3
-          # 4.16). These wheels need macOS 13.3+ anyway, so disable libc++'s
-          # availability annotations.
+          # maturin drops MACOSX_DEPLOYMENT_TARGET from the Z3 build, so libc++
+          # rejects to_chars/format (Z3 4.16); disable its availability checks.
           CXXFLAGS: ${{ matrix.os == 'macos-latest' && '-D_LIBCPP_DISABLE_AVAILABILITY' || '' }}
 
       - name: Upload Wheel Artifact
