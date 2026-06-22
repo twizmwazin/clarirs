@@ -12,8 +12,6 @@ use crate::{check_z3_error, z3_context};
 
 #[cfg(test)]
 use crate::Z3_CONTEXT;
-#[cfg(test)]
-use std::ffi::CStr;
 
 /// Wraps a raw AST produced by a `z3-sys` builder into a reference-counted
 /// [`Dynamic`]. `None` (a null pointer) indicates a Z3 error such as a sort
@@ -64,50 +62,23 @@ impl DynExt for Dynamic {
 
     #[cfg(test)]
     fn decl_kind(&self) -> z3::DeclKind {
-        Z3_CONTEXT.with(|&ctx| unsafe {
-            let app = z3::Z3_to_app(ctx, self.raw()).unwrap();
-            let decl = z3::Z3_get_app_decl(ctx, app).unwrap();
-            z3::Z3_get_decl_kind(ctx, decl)
-        })
+        self.decl().kind()
     }
 
     #[cfg(test)]
     fn num_args(&self) -> u32 {
-        Z3_CONTEXT.with(|&ctx| unsafe {
-            let app = z3::Z3_to_app(ctx, self.raw()).unwrap();
-            z3::Z3_get_app_num_args(ctx, app)
-        })
+        self.num_children() as u32
     }
 
     #[cfg(test)]
     fn arg(&self, index: u32) -> Option<Dynamic> {
-        Z3_CONTEXT.with(|&ctx| unsafe {
-            if z3::Z3_get_ast_kind(ctx, self.raw()) != z3::AstKind::App {
-                return None;
-            }
-            let app = z3::Z3_to_app(ctx, self.raw()).unwrap();
-            if index >= z3::Z3_get_app_num_args(ctx, app) {
-                return None;
-            }
-            wrap_ast(z3::Z3_get_app_arg(ctx, app, index)).ok()
-        })
+        self.nth_child(index as usize)
     }
 
     #[cfg(test)]
     fn symbol_name(&self) -> Option<String> {
-        Z3_CONTEXT.with(|&ctx| unsafe {
-            if z3::Z3_get_ast_kind(ctx, self.raw()) != z3::AstKind::App {
-                return None;
-            }
-            let app = z3::Z3_to_app(ctx, self.raw()).unwrap();
-            let decl = z3::Z3_get_app_decl(ctx, app).unwrap();
-            if z3::Z3_get_decl_kind(ctx, decl) != z3::DeclKind::Uninterpreted {
-                return None;
-            }
-            let sym = z3::Z3_get_decl_name(ctx, decl).unwrap();
-            let name = z3::Z3_get_symbol_string(ctx, sym);
-            CStr::from_ptr(name).to_str().ok().map(|s| s.to_owned())
-        })
+        let decl = self.safe_decl().ok()?;
+        (decl.kind() == z3::DeclKind::Uninterpreted).then(|| decl.name())
     }
 }
 
