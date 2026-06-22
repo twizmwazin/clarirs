@@ -997,14 +997,23 @@ pub struct PyReplacementSolver;
 
 #[pymethods]
 impl PyReplacementSolver {
+    /// `auto_replace` mirrors claripy's `SolverReplacement(auto_replace=)`: when
+    /// false, replacements are applied to queries but constraints are not
+    /// rewritten on `add`.
     #[new]
-    fn new() -> Result<PyClassInitializer<Self>, ClaripyError> {
+    #[pyo3(signature = (auto_replace = None, timeout = None, track = false))]
+    fn new(
+        auto_replace: Option<bool>,
+        timeout: Option<u32>,
+        track: bool,
+    ) -> Result<PyClassInitializer<Self>, ClaripyError> {
         Ok(PyClassInitializer::from(PySolver {
-            inner: DynSolver::Replacement(ReplacementSolver::new(wrap_z3_cached(
-                Z3Solver::new_with_options(&GLOBAL_CONTEXT, None, false),
-            ))),
-            timeout: None,
-            unsat_core: false,
+            inner: DynSolver::Replacement(ReplacementSolver::new_with_options(
+                wrap_z3_cached(Z3Solver::new_with_options(&GLOBAL_CONTEXT, timeout, track)),
+                auto_replace.unwrap_or(true),
+            )),
+            timeout,
+            unsat_core: track,
         })
         .add_subclass(Self {}))
     }
