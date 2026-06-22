@@ -11,11 +11,23 @@ description = "Low-level bindings to the Z3 SMT solver"
 links = "z3"
 build = "build.rs"
 
+[features]
+default = ["static-link"]
+# Build Z3 from the bundled source tree and statically link it (self-contained).
+static-link = []
+# Load Z3 at runtime from a shared library (e.g. the one shipped in the
+# `z3-solver` Python wheel) instead of compiling and statically linking it.
+dynamic-link = ["dep:libloading"]
+
 [dependencies]
+libloading = { version = "0.8", optional = true }
 
 [build-dependencies]
 bindgen = "0.72.1"
 cmake = "0.1.58"
+proc-macro2 = "1"
+quote = "1"
+syn = { version = "2", features = ["full", "parsing", "printing"] }
 
 [lints]
 workspace = true

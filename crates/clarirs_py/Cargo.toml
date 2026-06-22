@@ -9,12 +9,20 @@ keywords = { workspace = true }
 categories = { workspace = true }
 repository = { workspace = true }
 
+[features]
+default = ["static-link"]
+# Build Z3 from source and statically link it (default, self-contained wheel).
+static-link = ["clarirs_z3/static-link"]
+# Load Z3 at runtime from the shared library shipped in the `z3-solver` wheel
+# (or one pointed to by CLARIRS_Z3_LIBRARY / CLARIRS_Z3_LIB_DIR).
+dynamic-link = ["clarirs_z3/dynamic-link"]
+
 [dependencies]
 pyo3 = { version = "0.29.0", features = ["py-clone", "num-bigint"] }
 clarirs_core = { path = "../clarirs_core", features = ["runtime-checks"] }
 clarirs_num = { path = "../clarirs_num" }
 clarirs-vsa = { path = "../clarirs-vsa" }
-clarirs_z3 = { path = "../clarirs_z3" }
+clarirs_z3 = { path = "../clarirs_z3", default-features = false }
 thiserror = { workspace = true }
 num-bigint = "0.4.6"
 log = "0.4.32"

@@ -155,8 +155,60 @@ fn is_false(expr: Bound<'_, PyAny>) -> Result<bool, ClaripyError> {
     }
 }
 
+/// Locate and load the Z3 backend for the `dynamic-link` build.
+///
+/// Z3 is loaded at runtime from the shared library shipped in the `z3-solver`
+/// Python wheel. If the user has set `CLARIRS_Z3_LIBRARY` or
+/// `CLARIRS_Z3_LIB_DIR`, those take precedence and wheel discovery is skipped
+/// (the loader resolves them lazily). This is a no-op in the default static
+/// build.
+#[cfg(all(feature = "dynamic-link", not(feature = "static-link")))]
+fn init_z3_backend(py: Python<'_>) {
+    // Explicit overrides are handled by the loader's lazy resolver on first use.
+    if std::env::var_os("CLARIRS_Z3_LIBRARY").is_some()
+        || std::env::var_os("CLARIRS_Z3_LIB_DIR").is_some()
+    {
+        return;
+    }
+
+    let Some(path) = locate_wheel_libz3(py) else {
+        // Nothing found: defer to the loader's default search (e.g. a system
+        // libz3) on first use, which reports a clear error if that also fails.
+        return;
+    };
+
+    if let Err(err) = clarirs_z3::load(&path) {
+        log::warn!("clarirs: failed to load Z3 from {}: {err}", path.display());
+    }
+}
+
+/// Find `libz3` inside an installed `z3-solver` wheel, mirroring how the `z3`
+/// Python package locates its own library (`<z3 package dir>/lib/libz3.*`).
+#[cfg(all(feature = "dynamic-link", not(feature = "static-link")))]
+fn locate_wheel_libz3(py: Python<'_>) -> Option<std::path::PathBuf> {
+    let z3 = py.import("z3").ok()?;
+    let file: String = z3.getattr("__file__").ok()?.extract().ok()?;
+    let dir = std::path::Path::new(&file).parent()?;
+
+    let lib_name = if cfg!(target_os = "windows") {
+        "libz3.dll"
+    } else if cfg!(target_os = "macos") {
+        "libz3.dylib"
+    } else {
+        "libz3.so"
+    };
+
+    let candidate = dir.join("lib").join(lib_name);
+    candidate.exists().then_some(candidate)
+}
+
+#[cfg(not(all(feature = "dynamic-link", not(feature = "static-link"))))]
+fn init_z3_backend(_py: Python<'_>) {}
+
 #[pymodule]
 pub fn claripy(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
+    init_z3_backend(py);
+
     let annotation = add_submodule(py, m, "claripy", "annotation", annotation::build_module)?;
     import_submodule(py, m, "claripy", "ast", ast::import)?;
     import_submodule(py, m, "claripy", "solver", solver::import)?;

@@ -43,6 +43,45 @@ maturin develop
 See the [maturin user guide](https://www.maturin.rs) for more information on
 using maturin.
 
+### Linking against Z3
+
+By default, clarirs builds Z3 from the bundled source tree (a git submodule) and
+links it statically. This is fully self-contained: the resulting library and
+wheels have no external Z3 dependency, but building takes longer and the wheels
+are large.
+
+As an opt-in alternative, clarirs can instead load Z3 at runtime from a shared
+library — most usefully the one shipped in the
+[`z3-solver`](https://pypi.org/project/z3-solver/) wheel. This avoids compiling
+Z3, produces a much smaller wheel, and lets clarirs share a single Z3 with the
+rest of an angr/claripy environment. Nothing is linked against Z3 at build time;
+the library is discovered and `dlopen`ed at runtime.
+
+To build the Python bindings in this mode, disable the default `static-link`
+feature and enable `dynamic-link`. The Z3 headers are needed at build time to
+generate the bindings; they are taken from the installed `z3-solver` package
+automatically (or from `CLARIRS_Z3_INCLUDE_DIR` if set):
+
+```bash
+pip install z3-solver
+maturin build --no-default-features --features dynamic-link
+# or, for a development install:
+maturin develop --no-default-features --features dynamic-link
+```
+
+At runtime the Z3 library is located in the following order:
+
+1. `CLARIRS_Z3_LIBRARY` — full path to the Z3 shared library.
+2. `CLARIRS_Z3_LIB_DIR` — directory containing the Z3 shared library.
+3. The `lib/` directory of the installed `z3-solver` Python package.
+4. The platform's default library search path (e.g. a system-wide `libz3`).
+
+The same feature flags work for the Rust crates directly, for example:
+
+```bash
+cargo test -p clarirs_z3 --no-default-features --features dynamic-link
+```
+
 ## Related works
 Clarirs was not designed in a vacuum. The following projects have been
 influential in the design and implementation of clarirs. If you use clarirs in

@@ -151,3 +151,71 @@ jobs:
         with:
           name: wheels-${{ matrix.os }}-py${{ matrix.python-version }}
           path: dist/*.whl
+
+  test-dynamic-z3:
+    name: Dynamic Z3 (load from z3-solver wheel)
+    runs-on: ubuntu-latest
+    steps:
+      # Intentionally no submodules: the dynamic-link build must not require the
+      # bundled Z3 source tree.
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install z3-solver
+        run: pip install z3-solver maturin
+
+      - name: Locate Z3 from the installed wheel
+        run: |
+          python - <<'PY' >> "$GITHUB_ENV"
+          import os, z3
+          d = os.path.dirname(z3.__file__)
+          print(f"CLARIRS_Z3_INCLUDE_DIR={os.path.join(d, 'include')}")
+          print(f"CLARIRS_Z3_LIB_DIR={os.path.join(d, 'lib')}")
+          PY
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          rustflags: ""
+
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@7d986dd989559c6ecdb630a3fd2557667be217ad
+
+      - name: Test clarirs-z3-sys (dynamic-link)
+        run: cargo test -p clarirs-z3-sys --no-default-features --features dynamic-link
+        env:
+          SCCACHE_GHA_ENABLED: "true"
+          RUSTC_WRAPPER: "sccache"
+
+      - name: Test clarirs_z3 (dynamic-link)
+        run: cargo test -p clarirs_z3 --no-default-features --features dynamic-link
+        env:
+          SCCACHE_GHA_ENABLED: "true"
+          RUSTC_WRAPPER: "sccache"
+
+      - name: Build dynamic wheel
+        run: maturin build --release --no-default-features --features dynamic-link -i python3 -o dist
+        env:
+          SCCACHE_GHA_ENABLED: "true"
+          RUSTC_WRAPPER: "sccache"
+
+      - name: Smoke-test the wheel (discovers Z3 from the z3-solver wheel)
+        run: |
+          # Unset the build-time hints so runtime discovery via the `z3` package
+          # is what gets exercised here.
+          unset CLARIRS_Z3_INCLUDE_DIR CLARIRS_Z3_LIB_DIR
+          pip install dist/*.whl
+          python - <<'PY'
+          import claripy
+          x = claripy.BVS("x", 32)
+          y = claripy.BVS("y", 32)
+          s = claripy.Solver()
+          s.add(x + y == 10)
+          s.add(x == 3)
+          assert s.eval(y, 1)[0] == 7, "dynamic Z3 solve failed"
+          print("claripy + dynamically-loaded Z3 OK")
+          PY

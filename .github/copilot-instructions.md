@@ -129,6 +129,15 @@ Use `ClarirsError` from `crates/clarirs_core/src/error.rs`. Conversion from `Bit
 
 Requires: CMake, Ninja, Clang (for faster builds). On CI, sccache caches compilation.
 
+**Linking mode (opt-in)**: This is the default `static-link` feature. With
+`--no-default-features --features dynamic-link`, `build.rs` instead generates
+`libloading`-based bindings (no CMake, no static linking) and Z3 is `dlopen`ed
+at runtime — typically from the `z3-solver` wheel (`clarirs_py` discovers it via
+the installed `z3` package; `CLARIRS_Z3_LIBRARY` / `CLARIRS_Z3_LIB_DIR` /
+`CLARIRS_Z3_INCLUDE_DIR` override discovery). Free-function shims keep every
+call site (`z3::mk_config(...)`) identical between the two modes. `static-link`
+always wins if both features are enabled (e.g. under `--all-features`).
+
 ## Claripy Compatibility Notes
 
 **Module name**: Python imports as `import claripy`, not `clarirs`.

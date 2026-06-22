@@ -1,11 +1,21 @@
 //! Raw FFI bindings to the Z3 theorem prover.
 //!
-//! The bindings are automatically generated from Z3's C header files using bindgen.
+//! The bindings are automatically generated from Z3's C header files using
+//! bindgen. By default Z3 is built from the bundled source tree and statically
+//! linked. With the `dynamic-link` feature (and `static-link` disabled) the
+//! bindings instead resolve Z3 from a shared library at runtime via
+//! `libloading`; see [`load`] and the `CLARIRS_Z3_LIBRARY` /
+//! `CLARIRS_Z3_LIB_DIR` environment variables.
 
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 #![allow(clippy::all)]
+// In the `dynamic-link` build, bindgen generates wrapper methods that call
+// through function pointers without an explicit `unsafe` block, which trips the
+// Rust 2024 `unsafe_op_in_unsafe_fn` lint. This crate is an FFI binding layer,
+// so the lint is allowed here as is conventional for `-sys` crates.
+#![allow(unsafe_op_in_unsafe_fn)]
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 

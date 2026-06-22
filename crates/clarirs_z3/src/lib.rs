@@ -4,6 +4,13 @@ mod solver;
 
 pub use solver::Z3Solver;
 
+/// Explicitly load the Z3 shared library from `path`.
+///
+/// Only available in the `dynamic-link` build, where Z3 is resolved at runtime
+/// rather than statically linked. See [`clarirs_z3_sys::load`].
+#[cfg(all(feature = "dynamic-link", not(feature = "static-link")))]
+pub use clarirs_z3_sys::{is_loaded, load};
+
 use clarirs_core::cache::GenericCache;
 use clarirs_z3_sys as z3;
 use rc::RcAst;

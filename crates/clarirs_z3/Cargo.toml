@@ -9,10 +9,17 @@ keywords = { workspace = true }
 categories = { workspace = true }
 repository = { workspace = true }
 
+[features]
+default = ["static-link"]
+# Build Z3 from source and statically link it (default).
+static-link = ["clarirs-z3-sys/static-link"]
+# Load Z3 at runtime from a shared library (e.g. the `z3-solver` wheel).
+dynamic-link = ["clarirs-z3-sys/dynamic-link"]
+
 [dependencies]
 clarirs_core = { path = "../clarirs_core" }
-clarirs-z3-sys = { path = "../clarirs-z3-sys" }
-regex = "1.12" 
+clarirs-z3-sys = { path = "../clarirs-z3-sys", default-features = false }
+regex = "1.12"
 
 [lints]
 workspace = true

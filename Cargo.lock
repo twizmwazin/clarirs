@@ -113,6 +113,10 @@ version = "0.1.0"
 dependencies = [
  "bindgen",
  "cmake",
+ "libloading",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
