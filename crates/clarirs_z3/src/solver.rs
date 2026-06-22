@@ -1,5 +1,4 @@
 use crate::astext::AstExtZ3;
-use crate::z3ext::DynExt;
 use ::z3 as z3hl;
 use clarirs_core::prelude::*;
 use std::cell::RefCell;
