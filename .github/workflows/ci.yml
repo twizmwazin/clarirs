@@ -81,7 +81,7 @@ jobs:
           # key by build config so we never reconfigure a cached target/ in
           # place after a compiler/launcher change (CMake then re-runs and trips
           # on z3-src's stripped-out examples/ directory).
-          cache-key: ${{ matrix.os == 'windows-latest' && 'z3-msvc-v2' || '' }}
+          cache-key: ${{ matrix.os == 'windows-latest' && 'z3-msvc-v3' || '' }}
 
       - name: Install ninja
         uses: seanmiddleditch/gha-setup-ninja@v6
@@ -99,8 +99,8 @@ jobs:
           # for the /Z7 Embedded format, but ships 3.16), and wrapping cl breaks
           # the /FS PDB coordination, so parallel compiles abort with C1041.
           # Build Z3 with cl directly; Rust still uses sccache via RUSTC_WRAPPER.
-          CMAKE_C_COMPILER_LAUNCHER: ${{ matrix.os == 'windows-latest' && '' || 'sccache' }}
-          CMAKE_CXX_COMPILER_LAUNCHER: ${{ matrix.os == 'windows-latest' && '' || 'sccache' }}
+          CMAKE_C_COMPILER_LAUNCHER: ${{ matrix.os != 'windows-latest' && 'sccache' || '' }}
+          CMAKE_CXX_COMPILER_LAUNCHER: ${{ matrix.os != 'windows-latest' && 'sccache' || '' }}
           CMAKE_MSVC_DEBUG_INFORMATION_FORMAT: Embedded
           CMAKE_POLICY_CMP0141: NEW
           CMAKE_GENERATOR: Ninja
@@ -155,7 +155,7 @@ jobs:
         with:
           # See the test job: salt the Windows cache key by build config so a
           # cached target/ isn't reconfigured in place after a config change.
-          cache-key: ${{ matrix.os == 'windows-latest' && 'z3-msvc-v2' || '' }}
+          cache-key: ${{ matrix.os == 'windows-latest' && 'z3-msvc-v3' || '' }}
 
       - name: Install ninja
         uses: seanmiddleditch/gha-setup-ninja@v6
@@ -173,8 +173,8 @@ jobs:
           RUSTC_WRAPPER: "sccache"
           # See the test job: skip the sccache launcher for the Windows C/C++
           # (Z3) build so cl manages its PDB directly.
-          CMAKE_C_COMPILER_LAUNCHER: ${{ matrix.os == 'windows-latest' && '' || 'sccache' }}
-          CMAKE_CXX_COMPILER_LAUNCHER: ${{ matrix.os == 'windows-latest' && '' || 'sccache' }}
+          CMAKE_C_COMPILER_LAUNCHER: ${{ matrix.os != 'windows-latest' && 'sccache' || '' }}
+          CMAKE_CXX_COMPILER_LAUNCHER: ${{ matrix.os != 'windows-latest' && 'sccache' || '' }}
           CMAKE_MSVC_DEBUG_INFORMATION_FORMAT: Embedded
           CMAKE_POLICY_CMP0141: NEW
           CMAKE_GENERATOR: Ninja
