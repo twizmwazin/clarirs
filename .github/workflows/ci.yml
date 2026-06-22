@@ -77,6 +77,11 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           rustflags: ""
+          # Windows builds Z3 with clang-cl (see the Build step). Salt its cache
+          # key so we don't restore a target/ from an older clang++ build: a
+          # compiler change forces CMake to reconfigure the cached Z3 build dir
+          # in place, which fails on z3-src's stripped-out examples/ directory.
+          cache-key: ${{ matrix.os == 'windows-latest' && 'z3-clang-cl' || '' }}
 
       - name: Install ninja
         uses: seanmiddleditch/gha-setup-ninja@v6
@@ -136,6 +141,10 @@ jobs:
 
       - name: Setup Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          # See the test job: salt the Windows cache key so the cached clang++
+          # Z3 build dir isn't reconfigured in place with clang-cl.
+          cache-key: ${{ matrix.os == 'windows-latest' && 'z3-clang-cl' || '' }}
 
       - name: Install ninja
         uses: seanmiddleditch/gha-setup-ninja@v6
