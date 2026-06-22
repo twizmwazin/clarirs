@@ -53,7 +53,10 @@ mod to_z3 {
         let z3_ast = not_x.to_z3().unwrap();
 
         assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Not);
-        assert_eq!(z3_ast.nth_child(0).unwrap().symbol_name().as_deref(), Some("x"));
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().symbol_name().as_deref(),
+            Some("x")
+        );
     }
 
     #[test]
@@ -65,8 +68,14 @@ mod to_z3 {
         let z3_ast = and.to_z3().unwrap();
 
         assert_eq!(z3_ast.decl().kind(), z3::DeclKind::And);
-        assert_eq!(z3_ast.nth_child(0).unwrap().symbol_name().as_deref(), Some("x"));
-        assert_eq!(z3_ast.nth_child(1).unwrap().symbol_name().as_deref(), Some("y"));
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().symbol_name().as_deref(),
+            Some("x")
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().symbol_name().as_deref(),
+            Some("y")
+        );
     }
 
     #[test]
@@ -80,9 +89,18 @@ mod to_z3 {
 
         assert_eq!(z3_ast.decl().kind(), z3::DeclKind::And);
         assert_eq!(z3_ast.num_children(), 3);
-        assert_eq!(z3_ast.nth_child(0).unwrap().symbol_name().as_deref(), Some("x"));
-        assert_eq!(z3_ast.nth_child(1).unwrap().symbol_name().as_deref(), Some("y"));
-        assert_eq!(z3_ast.nth_child(2).unwrap().symbol_name().as_deref(), Some("z"));
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().symbol_name().as_deref(),
+            Some("x")
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().symbol_name().as_deref(),
+            Some("y")
+        );
+        assert_eq!(
+            z3_ast.nth_child(2).unwrap().symbol_name().as_deref(),
+            Some("z")
+        );
     }
 
     #[test]
@@ -94,8 +112,14 @@ mod to_z3 {
         let z3_ast = or.to_z3().unwrap();
 
         assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Or);
-        assert_eq!(z3_ast.nth_child(0).unwrap().symbol_name().as_deref(), Some("x"));
-        assert_eq!(z3_ast.nth_child(1).unwrap().symbol_name().as_deref(), Some("y"));
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().symbol_name().as_deref(),
+            Some("x")
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().symbol_name().as_deref(),
+            Some("y")
+        );
     }
 
     #[test]
@@ -109,9 +133,18 @@ mod to_z3 {
 
         assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Or);
         assert_eq!(z3_ast.num_children(), 3);
-        assert_eq!(z3_ast.nth_child(0).unwrap().symbol_name().as_deref(), Some("x"));
-        assert_eq!(z3_ast.nth_child(1).unwrap().symbol_name().as_deref(), Some("y"));
-        assert_eq!(z3_ast.nth_child(2).unwrap().symbol_name().as_deref(), Some("z"));
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().symbol_name().as_deref(),
+            Some("x")
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().symbol_name().as_deref(),
+            Some("y")
+        );
+        assert_eq!(
+            z3_ast.nth_child(2).unwrap().symbol_name().as_deref(),
+            Some("z")
+        );
     }
 
     #[test]
@@ -123,8 +156,14 @@ mod to_z3 {
         let z3_ast = xor.to_z3().unwrap();
 
         assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Xor);
-        assert_eq!(z3_ast.nth_child(0).unwrap().symbol_name().as_deref(), Some("x"));
-        assert_eq!(z3_ast.nth_child(1).unwrap().symbol_name().as_deref(), Some("y"));
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().symbol_name().as_deref(),
+            Some("x")
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().symbol_name().as_deref(),
+            Some("y")
+        );
     }
 
     #[test]
@@ -136,8 +175,14 @@ mod to_z3 {
         let z3_ast = eq.to_z3().unwrap();
 
         assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Eq);
-        assert_eq!(z3_ast.nth_child(0).unwrap().symbol_name().as_deref(), Some("x"));
-        assert_eq!(z3_ast.nth_child(1).unwrap().symbol_name().as_deref(), Some("y"));
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().symbol_name().as_deref(),
+            Some("x")
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().symbol_name().as_deref(),
+            Some("y")
+        );
     }
 
     #[test]
@@ -149,8 +194,14 @@ mod to_z3 {
         let z3_ast = neq.to_z3().unwrap();
 
         assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Distinct);
-        assert_eq!(z3_ast.nth_child(0).unwrap().symbol_name().as_deref(), Some("x"));
-        assert_eq!(z3_ast.nth_child(1).unwrap().symbol_name().as_deref(), Some("y"));
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().symbol_name().as_deref(),
+            Some("x")
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().symbol_name().as_deref(),
+            Some("y")
+        );
     }
 
     #[test]
@@ -163,9 +214,18 @@ mod to_z3 {
         let z3_ast = ite.to_z3().unwrap();
 
         assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Ite);
-        assert_eq!(z3_ast.nth_child(0).unwrap().symbol_name().as_deref(), Some("c"));
-        assert_eq!(z3_ast.nth_child(1).unwrap().symbol_name().as_deref(), Some("t"));
-        assert_eq!(z3_ast.nth_child(2).unwrap().symbol_name().as_deref(), Some("e"));
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().symbol_name().as_deref(),
+            Some("c")
+        );
+        assert_eq!(
+            z3_ast.nth_child(1).unwrap().symbol_name().as_deref(),
+            Some("t")
+        );
+        assert_eq!(
+            z3_ast.nth_child(2).unwrap().symbol_name().as_deref(),
+            Some("e")
+        );
     }
 
     // -- BV comparisons --
@@ -292,7 +352,10 @@ mod to_z3 {
         // IEEE inequality lowers to not(fp.eq), not object-level `distinct`
         // (under which NaN would equal itself and +0 would differ from -0).
         assert_eq!(z3_ast.decl().kind(), z3::DeclKind::Not);
-        assert_eq!(z3_ast.nth_child(0).unwrap().decl().kind(), z3::DeclKind::FpaEq);
+        assert_eq!(
+            z3_ast.nth_child(0).unwrap().decl().kind(),
+            z3::DeclKind::FpaEq
+        );
     }
 
     #[test]
