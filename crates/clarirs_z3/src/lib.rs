@@ -1,13 +1,13 @@
 mod astext;
-mod rc;
 mod solver;
+mod z3ext;
 
 pub use solver::Z3Solver;
 
 use ::z3 as z3hl;
 use clarirs_core::cache::GenericCache;
-use rc::RcAst;
 use z3_sys as z3;
+use z3hl::ast::Dynamic;
 
 thread_local! {
     /// Raw handle to the high-level crate's thread-local Z3 context. clarirs_z3
@@ -16,7 +16,7 @@ thread_local! {
     /// (`Solver`, `Model`, ...) and the raw ASTs interoperate.
     static Z3_CONTEXT: z3::Z3_context = z3hl::Context::thread_local().get_z3_context();
 
-    static Z3_AST_CACHE: GenericCache<u64, RcAst> = GenericCache::default();
+    static Z3_AST_CACHE: GenericCache<u64, Dynamic> = GenericCache::default();
 }
 
 /// The high-level thread-local context, used to wrap raw ASTs into RAII handles.

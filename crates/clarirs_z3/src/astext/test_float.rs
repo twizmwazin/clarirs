@@ -2,7 +2,8 @@ use clarirs_core::prelude::*;
 use z3_sys as z3;
 
 use super::AstExtZ3;
-use crate::{Z3_CONTEXT, rc::RcAst};
+use crate::Z3_CONTEXT;
+use crate::z3ext::*;
 
 fn round_trip<'c>(ctx: &'c Context<'c>, ast: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
     AstRef::from_z3(ctx, ast.to_z3()?)
@@ -347,7 +348,7 @@ mod from_z3 {
     #[test]
     fn symbol_f32() {
         let ctx = Context::new();
-        let z3_ast = RcAst::mk_fp("x", FSort::f32());
+        let z3_ast = mk_fp("x", FSort::f32());
         let result = AstRef::from_z3(&ctx, z3_ast).unwrap();
         let expected = ctx.fps("x", FSort::f32()).unwrap();
         assert_eq!(expected, result);
@@ -356,7 +357,7 @@ mod from_z3 {
     #[test]
     fn symbol_f64() {
         let ctx = Context::new();
-        let z3_ast = RcAst::mk_fp("x", FSort::f64());
+        let z3_ast = mk_fp("x", FSort::f64());
         let result = AstRef::from_z3(&ctx, z3_ast).unwrap();
         let expected = ctx.fps("x", FSort::f64()).unwrap();
         assert_eq!(expected, result);
@@ -365,7 +366,7 @@ mod from_z3 {
     #[test]
     fn value_f32() {
         let ctx = Context::new();
-        let z3_ast = RcAst::mk_fp_val_f32(3.14f32);
+        let z3_ast = mk_fp_val_f32(3.14f32);
         let result = AstRef::from_z3(&ctx, z3_ast).unwrap();
         let expected = ctx.fpv(Float::F32(3.14f32)).unwrap();
         assert_eq!(expected, result);
@@ -374,7 +375,7 @@ mod from_z3 {
     #[test]
     fn value_f64() {
         let ctx = Context::new();
-        let z3_ast = RcAst::mk_fp_val_f64(2.718281828459045f64);
+        let z3_ast = mk_fp_val_f64(2.718281828459045f64);
         let result = AstRef::from_z3(&ctx, z3_ast).unwrap();
         let expected = ctx.fpv(Float::F64(2.718281828459045f64)).unwrap();
         assert_eq!(expected, result);
@@ -385,9 +386,9 @@ mod from_z3 {
     #[test]
     fn fp_neg() {
         let ctx = Context::new();
-        let x = RcAst::mk_fp("x", FSort::f32());
+        let x = mk_fp("x", FSort::f32());
         let z3_neg = Z3_CONTEXT
-            .with(|&z3_ctx| unsafe { RcAst::try_from(z3::Z3_mk_fpa_neg(z3_ctx, *x)).unwrap() });
+            .with(|&z3_ctx| unsafe { wrap_ast(z3::Z3_mk_fpa_neg(z3_ctx, x.raw())).unwrap() });
         let result = AstRef::from_z3(&ctx, z3_neg).unwrap();
         let expected = ctx.fp_neg(ctx.fps("x", FSort::f32()).unwrap()).unwrap();
         assert_eq!(expected, result);
@@ -396,9 +397,9 @@ mod from_z3 {
     #[test]
     fn fp_abs() {
         let ctx = Context::new();
-        let x = RcAst::mk_fp("x", FSort::f32());
+        let x = mk_fp("x", FSort::f32());
         let z3_abs = Z3_CONTEXT
-            .with(|&z3_ctx| unsafe { RcAst::try_from(z3::Z3_mk_fpa_abs(z3_ctx, *x)).unwrap() });
+            .with(|&z3_ctx| unsafe { wrap_ast(z3::Z3_mk_fpa_abs(z3_ctx, x.raw())).unwrap() });
         let result = AstRef::from_z3(&ctx, z3_abs).unwrap();
         let expected = ctx.fp_abs(ctx.fps("x", FSort::f32()).unwrap()).unwrap();
         assert_eq!(expected, result);
@@ -409,11 +410,11 @@ mod from_z3 {
     #[test]
     fn fp_add() {
         let ctx = Context::new();
-        let a = RcAst::mk_fp("a", FSort::f32());
-        let b = RcAst::mk_fp("b", FSort::f32());
-        let rm = RcAst::mk_fprm(FPRM::NearestTiesToEven);
+        let a = mk_fp("a", FSort::f32());
+        let b = mk_fp("b", FSort::f32());
+        let rm = mk_fprm(FPRM::NearestTiesToEven);
         let z3_add = Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            RcAst::try_from(z3::Z3_mk_fpa_add(z3_ctx, *rm, *a, *b)).unwrap()
+            wrap_ast(z3::Z3_mk_fpa_add(z3_ctx, rm.raw(), a.raw(), b.raw())).unwrap()
         });
         let result = AstRef::from_z3(&ctx, z3_add).unwrap();
         let expected = ctx
@@ -429,11 +430,11 @@ mod from_z3 {
     #[test]
     fn fp_sub() {
         let ctx = Context::new();
-        let a = RcAst::mk_fp("a", FSort::f32());
-        let b = RcAst::mk_fp("b", FSort::f32());
-        let rm = RcAst::mk_fprm(FPRM::TowardZero);
+        let a = mk_fp("a", FSort::f32());
+        let b = mk_fp("b", FSort::f32());
+        let rm = mk_fprm(FPRM::TowardZero);
         let z3_sub = Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            RcAst::try_from(z3::Z3_mk_fpa_sub(z3_ctx, *rm, *a, *b)).unwrap()
+            wrap_ast(z3::Z3_mk_fpa_sub(z3_ctx, rm.raw(), a.raw(), b.raw())).unwrap()
         });
         let result = AstRef::from_z3(&ctx, z3_sub).unwrap();
         let expected = ctx
@@ -449,11 +450,11 @@ mod from_z3 {
     #[test]
     fn fp_mul() {
         let ctx = Context::new();
-        let a = RcAst::mk_fp("a", FSort::f32());
-        let b = RcAst::mk_fp("b", FSort::f32());
-        let rm = RcAst::mk_fprm(FPRM::TowardPositive);
+        let a = mk_fp("a", FSort::f32());
+        let b = mk_fp("b", FSort::f32());
+        let rm = mk_fprm(FPRM::TowardPositive);
         let z3_mul = Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            RcAst::try_from(z3::Z3_mk_fpa_mul(z3_ctx, *rm, *a, *b)).unwrap()
+            wrap_ast(z3::Z3_mk_fpa_mul(z3_ctx, rm.raw(), a.raw(), b.raw())).unwrap()
         });
         let result = AstRef::from_z3(&ctx, z3_mul).unwrap();
         let expected = ctx
@@ -469,11 +470,11 @@ mod from_z3 {
     #[test]
     fn fp_div() {
         let ctx = Context::new();
-        let a = RcAst::mk_fp("a", FSort::f32());
-        let b = RcAst::mk_fp("b", FSort::f32());
-        let rm = RcAst::mk_fprm(FPRM::TowardNegative);
+        let a = mk_fp("a", FSort::f32());
+        let b = mk_fp("b", FSort::f32());
+        let rm = mk_fprm(FPRM::TowardNegative);
         let z3_div = Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            RcAst::try_from(z3::Z3_mk_fpa_div(z3_ctx, *rm, *a, *b)).unwrap()
+            wrap_ast(z3::Z3_mk_fpa_div(z3_ctx, rm.raw(), a.raw(), b.raw())).unwrap()
         });
         let result = AstRef::from_z3(&ctx, z3_div).unwrap();
         let expected = ctx
@@ -489,10 +490,10 @@ mod from_z3 {
     #[test]
     fn fp_sqrt() {
         let ctx = Context::new();
-        let x = RcAst::mk_fp("x", FSort::f32());
-        let rm = RcAst::mk_fprm(FPRM::NearestTiesToAway);
+        let x = mk_fp("x", FSort::f32());
+        let rm = mk_fprm(FPRM::NearestTiesToAway);
         let z3_sqrt = Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            RcAst::try_from(z3::Z3_mk_fpa_sqrt(z3_ctx, *rm, *x)).unwrap()
+            wrap_ast(z3::Z3_mk_fpa_sqrt(z3_ctx, rm.raw(), x.raw())).unwrap()
         });
         let result = AstRef::from_z3(&ctx, z3_sqrt).unwrap();
         let expected = ctx
@@ -506,11 +507,11 @@ mod from_z3 {
     #[test]
     fn fp_fp() {
         let ctx = Context::new();
-        let sign = RcAst::mk_bv_val("0", 1);
-        let exp = RcAst::mk_bv("exp", 8);
-        let sig = RcAst::mk_bv("sig", 23);
+        let sign = mk_bv_val("0", 1);
+        let exp = mk_bv("exp", 8);
+        let sig = mk_bv("sig", 23);
         let z3_fp = Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            RcAst::try_from(z3::Z3_mk_fpa_fp(z3_ctx, *sign, *exp, *sig)).unwrap()
+            wrap_ast(z3::Z3_mk_fpa_fp(z3_ctx, sign.raw(), exp.raw(), sig.raw())).unwrap()
         });
         let result = AstRef::from_z3(&ctx, z3_fp).unwrap();
 
@@ -524,11 +525,12 @@ mod from_z3 {
     #[test]
     fn ite() {
         let ctx = Context::new();
-        let c = RcAst::mk_bool("c");
-        let a = RcAst::mk_fp("a", FSort::f32());
-        let b = RcAst::mk_fp("b", FSort::f32());
-        let z3_ite = Z3_CONTEXT
-            .with(|&z3_ctx| unsafe { RcAst::try_from(z3::Z3_mk_ite(z3_ctx, *c, *a, *b)).unwrap() });
+        let c = mk_bool("c");
+        let a = mk_fp("a", FSort::f32());
+        let b = mk_fp("b", FSort::f32());
+        let z3_ite = Z3_CONTEXT.with(|&z3_ctx| unsafe {
+            wrap_ast(z3::Z3_mk_ite(z3_ctx, c.raw(), a.raw(), b.raw())).unwrap()
+        });
         let result = AstRef::from_z3(&ctx, z3_ite).unwrap();
         let expected = ctx
             .ite(

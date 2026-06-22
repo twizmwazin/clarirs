@@ -1,22 +1,23 @@
 use crate::astext::AstExtZ3;
-use crate::rc::RcAst;
+use crate::z3ext::DynExt;
 use ::z3 as z3hl;
 use clarirs_core::prelude::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
+use z3hl::ast::Dynamic;
 
 /// Evaluate the already-converted `expr` in `model` (completing the model) and
 /// convert the result back to a clarirs `AstRef`.
 fn model_eval<'c>(
     model: &z3hl::Model,
     ctx: &'c Context<'c>,
-    expr: &RcAst,
+    expr: &Dynamic,
 ) -> Result<AstRef<'c>, ClarirsError> {
     let evaluated = model
-        .eval(expr.dynamic(), true)
+        .eval(expr, true)
         .ok_or_else(|| ClarirsError::BackendError("Z3", "Model evaluation failed".to_string()))?;
-    AstRef::from_z3(ctx, RcAst::from(evaluated))
+    AstRef::from_z3(ctx, evaluated)
 }
 
 /// Fetch the model from an `Optimize` after a successful check.
@@ -154,10 +155,7 @@ impl<'c> Z3Solver<'c> {
 
             for core_bool in &core {
                 // Convert the Z3 AST back to a AstRef to get its variable name
-                let bool_ast = AstRef::from_z3(
-                    self.ctx,
-                    RcAst::from(z3hl::ast::Dynamic::from_ast(core_bool)),
-                )?;
+                let bool_ast = AstRef::from_z3(self.ctx, z3hl::ast::Dynamic::from_ast(core_bool))?;
                 if let Some(vars) = bool_ast.variables().iter().next()
                     && let Some(idx) = track_to_idx.get(&vars.to_string())
                 {
@@ -201,10 +199,10 @@ impl<'c> Z3Solver<'c> {
             && let Some(track_var) = self.tracking_vars.get(&idx)
         {
             let track_z3 = track_var.to_z3()?;
-            z3_solver.assert_and_track(converted.as_bool(), &track_z3.as_bool());
+            z3_solver.assert_and_track(converted.expect_bool(), &track_z3.expect_bool());
             return Ok(());
         }
-        z3_solver.assert(converted.as_bool());
+        z3_solver.assert(converted.expect_bool());
         Ok(())
     }
 
@@ -271,7 +269,7 @@ impl<'c> Z3Solver<'c> {
 
         for assertion in &self.assertions {
             let converted = assertion.to_z3()?;
-            z3_optimize.assert(converted.as_bool());
+            z3_optimize.assert(converted.expect_bool());
         }
 
         Ok(z3_optimize)
@@ -361,7 +359,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         // angr's hottest solver call (every branch feasibility check).
         let mut assumptions = Vec::with_capacity(extra.len());
         for c in extra {
-            assumptions.push(c.simplify_z3()?.to_z3()?.as_bool());
+            assumptions.push(c.simplify_z3()?.to_z3()?.expect_bool());
         }
         self.with_cached_solver(|z3_solver| {
             Ok(z3_solver.check_assumptions(&assumptions) == z3hl::SatResult::Sat)
@@ -415,7 +413,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
 
     fn min_unsigned(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         let optimize = self.mk_filled_optimize()?;
-        optimize.minimize(expr.to_z3()?.dynamic());
+        optimize.minimize(&expr.to_z3()?);
         if optimize.check(&[]) != z3hl::SatResult::Sat {
             return Err(ClarirsError::Unsat);
         }
@@ -428,7 +426,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
 
     fn max_unsigned(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         let optimize = self.mk_filled_optimize()?;
-        optimize.maximize(expr.to_z3()?.dynamic());
+        optimize.maximize(&expr.to_z3()?);
         if optimize.check(&[]) != z3hl::SatResult::Sat {
             return Err(ClarirsError::Unsat);
         }
@@ -453,16 +451,16 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         let target_name = format!("min_signed_target_{size}");
         let target = self.ctx.bvs(&target_name, size)?;
         let equality = self.ctx.eq_(&target, expr)?;
-        optimize.assert(equality.to_z3()?.as_bool());
+        optimize.assert(equality.to_z3()?.expect_bool());
 
         // First, maximize the sign bit with a high weight
         // This will prefer negative numbers (sign bit = 1) over positive ones
         let sign_equality = self.ctx.eq_(&sign_bit, &one_bit)?;
-        optimize.assert_soft(sign_equality.to_z3()?.dynamic(), 1000000u32, None);
+        optimize.assert_soft(&sign_equality.to_z3()?, 1000000u32, None);
 
         // Then minimize the target value (with lower weight)
         // This will find the smallest value among those with the preferred sign bit
-        optimize.minimize(target.to_z3()?.dynamic());
+        optimize.minimize(&target.to_z3()?);
 
         if optimize.check(&[]) != z3hl::SatResult::Sat {
             return Err(ClarirsError::Unsat);
@@ -488,16 +486,16 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         let target_name = format!("max_signed_target_{size}");
         let target = self.ctx.bvs(&target_name, size)?;
         let equality = self.ctx.eq_(&target, expr)?;
-        optimize.assert(equality.to_z3()?.as_bool());
+        optimize.assert(equality.to_z3()?.expect_bool());
 
         // First, maximize making the sign bit 0 with a high weight
         // This will prefer positive numbers (sign bit = 0) over negative ones
         let sign_equality = self.ctx.eq_(&sign_bit, &zero_bit)?;
-        optimize.assert_soft(sign_equality.to_z3()?.dynamic(), 1000000u32, None);
+        optimize.assert_soft(&sign_equality.to_z3()?, 1000000u32, None);
 
         // Then maximize the target value (with lower weight)
         // This will find the largest value among those with the preferred sign bit
-        optimize.maximize(target.to_z3()?.dynamic());
+        optimize.maximize(&target.to_z3()?);
 
         if optimize.check(&[]) != z3hl::SatResult::Sat {
             return Err(ClarirsError::Unsat);
@@ -558,9 +556,9 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
 
         for assertion in &self.assertions {
             let converted = assertion.to_z3()?;
-            z3_solver.assert(converted.as_bool());
+            z3_solver.assert(converted.expect_bool());
         }
-        z3_solver.assert(link.to_z3()?.as_bool());
+        z3_solver.assert(link.to_z3()?.expect_bool());
 
         for _ in 0..n {
             if z3_solver.check() != z3hl::SatResult::Sat {
@@ -574,7 +572,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
 
             // Add constraint to exclude this solution
             let neq_constraint = ctx.neq(&aux, &solution)?;
-            z3_solver.assert(neq_constraint.to_z3()?.as_bool());
+            z3_solver.assert(neq_constraint.to_z3()?.expect_bool());
 
             // Convert the IEEE bit pattern back to a float constant. The
             // bitvector width (32 or 64) selects the format.

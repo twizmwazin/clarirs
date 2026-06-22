@@ -4,15 +4,12 @@ use ::z3 as z3hl;
 use clarirs_core::{algorithms::walk_post_order, prelude::*};
 use regex::Regex;
 use z3_sys as z3;
+use z3hl::ast::Dynamic;
 
-use crate::{Z3_AST_CACHE, Z3_CONTEXT, check_z3_error, rc::RcAst};
-
-/// Wraps a high-level typed AST (`Bool`/`BV`/`Float`/`String`) into an `RcAst`.
-/// Used for leaf constructors so the `z3` crate manages the sort's lifetime
-/// (sorts must be reference-counted in the crate's rc context).
-fn typed_to_rcast(ast: &dyn z3hl::ast::Ast) -> RcAst {
-    RcAst::from(z3hl::ast::Dynamic::from_ast(ast))
-}
+use crate::{
+    Z3_AST_CACHE, Z3_CONTEXT, check_z3_error,
+    z3ext::{DynExt, wrap_ast},
+};
 
 #[cfg(test)]
 mod test_bool;
@@ -23,7 +20,7 @@ mod test_float;
 #[cfg(test)]
 mod test_string;
 
-fn child(children: &[RcAst], index: usize) -> Result<&RcAst, ClarirsError> {
+fn child(children: &[Dynamic], index: usize) -> Result<&Dynamic, ClarirsError> {
     children
         .get(index)
         .ok_or(ClarirsError::InvalidArguments(format!(
@@ -34,7 +31,7 @@ fn child(children: &[RcAst], index: usize) -> Result<&RcAst, ClarirsError> {
 macro_rules! unop {
     ($z3:ident, $children:ident, $op:ident) => {{
         let a = crate::astext::child($children, 0)?;
-        RcAst::try_from(z3::$op($z3, **a))?
+        wrap_ast(z3::$op($z3, a.raw()))?
     }};
 }
 
@@ -42,7 +39,7 @@ macro_rules! binop {
     ($z3:ident, $children:ident, $op:ident) => {{
         let a = crate::astext::child($children, 0)?;
         let b = crate::astext::child($children, 1)?;
-        RcAst::try_from(z3::$op($z3, **a, **b))?
+        wrap_ast(z3::$op($z3, a.raw(), b.raw()))?
     }};
 }
 
@@ -51,7 +48,7 @@ macro_rules! naryop {
         let mut result = crate::astext::child($children, 0)?.clone();
         for i in 1..$children.len() {
             let b = crate::astext::child($children, i)?;
-            result = RcAst::try_from(z3::$op($z3, *result, **b))?;
+            result = wrap_ast(z3::$op($z3, result.raw(), b.raw()))?;
         }
         result
     }};
@@ -59,8 +56,8 @@ macro_rules! naryop {
 
 // Conversion helpers shared by the to_z3/from_z3 implementations.
 
-fn fprm_to_z3(rm: FPRM) -> Result<RcAst, ClarirsError> {
-    RcAst::try_from(Z3_CONTEXT.with(|&z3_ctx| unsafe {
+fn fprm_to_z3(rm: FPRM) -> Result<Dynamic, ClarirsError> {
+    wrap_ast(Z3_CONTEXT.with(|&z3_ctx| unsafe {
         match rm {
             FPRM::NearestTiesToEven => z3::Z3_mk_fpa_rne(z3_ctx),
             FPRM::TowardPositive => z3::Z3_mk_fpa_rtp(z3_ctx),
@@ -96,8 +93,8 @@ fn parse_fprm_from_z3(z3_ctx: z3::Z3_context, ast: z3::Z3_ast) -> Result<FPRM, C
     }
 }
 
-fn mk_bv2int(bv: &RcAst) -> Result<RcAst, ClarirsError> {
-    Z3_CONTEXT.with(|&z3_ctx| unsafe { RcAst::try_from(z3::Z3_mk_bv2int(z3_ctx, **bv, false)) })
+fn mk_bv2int(bv: &Dynamic) -> Result<Dynamic, ClarirsError> {
+    Z3_CONTEXT.with(|&z3_ctx| unsafe { wrap_ast(z3::Z3_mk_bv2int(z3_ctx, bv.raw(), false)) })
 }
 
 fn decode_custom_unicode(input: &str) -> String {
@@ -110,8 +107,8 @@ fn decode_custom_unicode(input: &str) -> String {
 }
 
 pub(crate) trait AstExtZ3<'c>: HasContext<'c> + Sized {
-    fn to_z3(&self) -> Result<RcAst, ClarirsError>;
-    fn from_z3(ctx: &'c Context<'c>, ast: impl Into<RcAst>) -> Result<Self, ClarirsError>;
+    fn to_z3(&self) -> Result<Dynamic, ClarirsError>;
+    fn from_z3(ctx: &'c Context<'c>, ast: impl Into<Dynamic>) -> Result<Self, ClarirsError>;
     fn simplify_z3(&self) -> Result<Self, ClarirsError>;
 }
 
@@ -119,12 +116,12 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
     fn simplify_z3(&self) -> Result<Self, ClarirsError> {
         let ast = self.simplify()?.to_z3()?;
         Z3_CONTEXT.with(|ctx| unsafe {
-            let simplified_ast = RcAst::try_from(z3::Z3_simplify(*ctx, *ast))?;
+            let simplified_ast = wrap_ast(z3::Z3_simplify(*ctx, ast.raw()))?;
             Self::from_z3(self.context(), simplified_ast)
         })
     }
 
-    fn to_z3(&self) -> Result<RcAst, ClarirsError> {
+    fn to_z3(&self) -> Result<Dynamic, ClarirsError> {
         // Builds a Z3 AST for a single node given its already-converted
         // children. A single match over the unified op enum handles all sorts;
         // polymorphic ops (Not/And/Or/Xor) pick the boolean or bitvector Z3
@@ -145,18 +142,24 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                             }
                             AstOp::And(..) => {
                                 if ast.ast_type().is_bool() {
-                                    let args: Vec<_> = children.iter().map(|c| **c).collect();
-                                    z3::Z3_mk_and(z3_ctx, args.len() as u32, args.as_ptr())
-                                        .try_into()?
+                                    let args: Vec<_> = children.iter().map(|c| c.raw()).collect();
+                                    wrap_ast(z3::Z3_mk_and(
+                                        z3_ctx,
+                                        args.len() as u32,
+                                        args.as_ptr(),
+                                    ))?
                                 } else {
                                     naryop!(z3_ctx, children, Z3_mk_bvand)
                                 }
                             }
                             AstOp::Or(..) => {
                                 if ast.ast_type().is_bool() {
-                                    let args: Vec<_> = children.iter().map(|c| **c).collect();
-                                    z3::Z3_mk_or(z3_ctx, args.len() as u32, args.as_ptr())
-                                        .try_into()?
+                                    let args: Vec<_> = children.iter().map(|c| c.raw()).collect();
+                                    wrap_ast(z3::Z3_mk_or(
+                                        z3_ctx,
+                                        args.len() as u32,
+                                        args.as_ptr(),
+                                    ))?
                                 } else {
                                     naryop!(z3_ctx, children, Z3_mk_bvor)
                                 }
@@ -172,19 +175,23 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                                 let cond = child(children, 0)?;
                                 let then = child(children, 1)?;
                                 let else_ = child(children, 2)?;
-                                z3::Z3_mk_ite(z3_ctx, **cond, **then, **else_).try_into()?
+                                wrap_ast(z3::Z3_mk_ite(
+                                    z3_ctx,
+                                    cond.raw(),
+                                    then.raw(),
+                                    else_.raw(),
+                                ))?
                             }
 
                             // Boolean leaves and predicates
                             AstOp::BoolS(s) => {
-                                typed_to_rcast(&z3hl::ast::Bool::new_const(s.as_str()))
+                                Dynamic::from_ast(&z3hl::ast::Bool::new_const(s.as_str()))
                             }
-                            AstOp::BoolV(b) => if *b {
+                            AstOp::BoolV(b) => wrap_ast(if *b {
                                 z3::Z3_mk_true(z3_ctx)
                             } else {
                                 z3::Z3_mk_false(z3_ctx)
-                            }
-                            .try_into()?,
+                            })?,
                             // Equality (any sort): floats use fp.eq, everything else structural =.
                             AstOp::Eq(a, _) => {
                                 if a.ast_type().is_float() {
@@ -199,11 +206,15 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                                     // identity (NaN would equal NaN, +0 would differ from -0),
                                     // so emit not(fp.eq) instead.
                                     let eq = binop!(z3_ctx, children, Z3_mk_fpa_eq);
-                                    z3::Z3_mk_not(z3_ctx, *eq).try_into()?
+                                    wrap_ast(z3::Z3_mk_not(z3_ctx, eq.raw()))?
                                 } else {
                                     let a = child(children, 0)?;
                                     let b = child(children, 1)?;
-                                    z3::Z3_mk_distinct(z3_ctx, 2, [**a, **b].as_ptr()).try_into()?
+                                    wrap_ast(z3::Z3_mk_distinct(
+                                        z3_ctx,
+                                        2,
+                                        [a.raw(), b.raw()].as_ptr(),
+                                    ))?
                                 }
                             }
                             AstOp::ULT(..) => binop!(z3_ctx, children, Z3_mk_bvult),
@@ -226,24 +237,24 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                             AstOp::StrIsDigit(..) => {
                                 let a = child(children, 0)?;
                                 // str.to_int returns -1 for non-digit strings, so >= 0 means all digits
-                                let int_val = RcAst::try_from(z3::Z3_mk_str_to_int(z3_ctx, **a))?;
-                                let zero = typed_to_rcast(&z3hl::ast::Int::from_i64(0));
+                                let int_val = wrap_ast(z3::Z3_mk_str_to_int(z3_ctx, a.raw()))?;
+                                let zero = Dynamic::from_ast(&z3hl::ast::Int::from_i64(0));
                                 let is_non_negative =
-                                    RcAst::try_from(z3::Z3_mk_ge(z3_ctx, *int_val, *zero))?;
-                                let str_len = RcAst::try_from(z3::Z3_mk_seq_length(z3_ctx, **a))?;
+                                    wrap_ast(z3::Z3_mk_ge(z3_ctx, int_val.raw(), zero.raw()))?;
+                                let str_len = wrap_ast(z3::Z3_mk_seq_length(z3_ctx, a.raw()))?;
                                 let is_non_empty =
-                                    RcAst::try_from(z3::Z3_mk_gt(z3_ctx, *str_len, *zero))?;
-                                let args = [*is_non_negative, *is_non_empty];
-                                RcAst::try_from(z3::Z3_mk_and(z3_ctx, 2, args.as_ptr()))?
+                                    wrap_ast(z3::Z3_mk_gt(z3_ctx, str_len.raw(), zero.raw()))?;
+                                let args = [is_non_negative.raw(), is_non_empty.raw()];
+                                wrap_ast(z3::Z3_mk_and(z3_ctx, 2, args.as_ptr()))?
                             }
 
                             // Bitvector leaves and operations
                             AstOp::BVS(s, w) => {
-                                typed_to_rcast(&z3hl::ast::BV::new_const(s.as_str(), *w))
+                                Dynamic::from_ast(&z3hl::ast::BV::new_const(s.as_str(), *w))
                             }
                             AstOp::BVV(v) => {
                                 let numeral = v.to_biguint().to_string();
-                                typed_to_rcast(
+                                Dynamic::from_ast(
                                     &z3hl::ast::BV::from_str(v.len(), &numeral).ok_or_else(
                                         || {
                                             ClarirsError::ConversionError(
@@ -270,16 +281,12 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                             AstOp::RotateRight(..) => {
                                 binop!(z3_ctx, children, Z3_mk_ext_rotate_right)
                             }
-                            AstOp::ZeroExt(_, i) => RcAst::try_from(z3::Z3_mk_zero_ext(
-                                z3_ctx,
-                                *i,
-                                **child(children, 0)?,
-                            ))?,
-                            AstOp::SignExt(_, i) => RcAst::try_from(z3::Z3_mk_sign_ext(
-                                z3_ctx,
-                                *i,
-                                **child(children, 0)?,
-                            ))?,
+                            AstOp::ZeroExt(_, i) => {
+                                wrap_ast(z3::Z3_mk_zero_ext(z3_ctx, *i, child(children, 0)?.raw()))?
+                            }
+                            AstOp::SignExt(_, i) => {
+                                wrap_ast(z3::Z3_mk_sign_ext(z3_ctx, *i, child(children, 0)?.raw()))?
+                            }
                             AstOp::Extract(a, high, low) => {
                                 if high >= &a.size() || low >= &a.size() {
                                     return Err(ClarirsError::ConversionError(
@@ -291,11 +298,11 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                                         "low index is greater than high index".to_string(),
                                     ));
                                 }
-                                RcAst::try_from(z3::Z3_mk_extract(
+                                wrap_ast(z3::Z3_mk_extract(
                                     z3_ctx,
                                     *high,
                                     *low,
-                                    **child(children, 0)?,
+                                    child(children, 0)?.raw(),
                                 ))?
                             }
                             AstOp::Concat(args) => {
@@ -306,10 +313,10 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                                 }
                                 let mut result = child(children, 0)?.clone();
                                 for i in 1..children.len() {
-                                    result = RcAst::try_from(z3::Z3_mk_concat(
+                                    result = wrap_ast(z3::Z3_mk_concat(
                                         z3_ctx,
-                                        *result,
-                                        **child(children, i)?,
+                                        result.raw(),
+                                        child(children, i)?.raw(),
                                     ))?;
                                 }
                                 result
@@ -325,67 +332,73 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                                 let child_z3 = child(children, 0)?;
                                 let num_bytes = size / 8;
                                 let mut result =
-                                    RcAst::try_from(z3::Z3_mk_extract(z3_ctx, 7, 0, **child_z3))?;
+                                    wrap_ast(z3::Z3_mk_extract(z3_ctx, 7, 0, child_z3.raw()))?;
                                 for i in 1..num_bytes {
                                     let high = (i + 1) * 8 - 1;
                                     let low = i * 8;
-                                    let byte = RcAst::try_from(z3::Z3_mk_extract(
-                                        z3_ctx, high, low, **child_z3,
+                                    let byte = wrap_ast(z3::Z3_mk_extract(
+                                        z3_ctx,
+                                        high,
+                                        low,
+                                        child_z3.raw(),
                                     ))?;
-                                    result =
-                                        RcAst::try_from(z3::Z3_mk_concat(z3_ctx, *result, *byte))?;
+                                    result = wrap_ast(z3::Z3_mk_concat(
+                                        z3_ctx,
+                                        result.raw(),
+                                        byte.raw(),
+                                    ))?;
                                 }
                                 result
                             }
-                            AstOp::FpToIEEEBV(..) => RcAst::try_from(z3::Z3_mk_fpa_to_ieee_bv(
+                            AstOp::FpToIEEEBV(..) => wrap_ast(z3::Z3_mk_fpa_to_ieee_bv(
                                 z3_ctx,
-                                **child(children, 0)?,
+                                child(children, 0)?.raw(),
                             ))?,
                             AstOp::FpToUBV(_, size, rm) => {
                                 let rm_ast = fprm_to_z3(*rm)?;
-                                RcAst::try_from(z3::Z3_mk_fpa_to_ubv(
+                                wrap_ast(z3::Z3_mk_fpa_to_ubv(
                                     z3_ctx,
-                                    *rm_ast,
-                                    **child(children, 0)?,
+                                    rm_ast.raw(),
+                                    child(children, 0)?.raw(),
                                     *size,
                                 ))?
                             }
                             AstOp::FpToSBV(_, size, rm) => {
                                 let rm_ast = fprm_to_z3(*rm)?;
-                                RcAst::try_from(z3::Z3_mk_fpa_to_sbv(
+                                wrap_ast(z3::Z3_mk_fpa_to_sbv(
                                     z3_ctx,
-                                    *rm_ast,
-                                    **child(children, 0)?,
+                                    rm_ast.raw(),
+                                    child(children, 0)?.raw(),
                                     *size,
                                 ))?
                             }
                             AstOp::StrLen(..) => {
-                                let str_len = RcAst::try_from(z3::Z3_mk_seq_length(
+                                let str_len = wrap_ast(z3::Z3_mk_seq_length(
                                     z3_ctx,
-                                    **child(children, 0)?,
+                                    child(children, 0)?.raw(),
                                 ))?;
-                                RcAst::try_from(z3::Z3_mk_int2bv(z3_ctx, 64, *str_len))?
+                                wrap_ast(z3::Z3_mk_int2bv(z3_ctx, 64, str_len.raw()))?
                             }
                             AstOp::StrIndexOf(..) => {
                                 let haystack = child(children, 0)?;
                                 let needle = child(children, 1)?;
                                 let offset_bv = child(children, 2)?;
                                 let offset_int =
-                                    RcAst::try_from(z3::Z3_mk_bv2int(z3_ctx, **offset_bv, false))?;
-                                let index_int = RcAst::try_from(z3::Z3_mk_seq_index(
+                                    wrap_ast(z3::Z3_mk_bv2int(z3_ctx, offset_bv.raw(), false))?;
+                                let index_int = wrap_ast(z3::Z3_mk_seq_index(
                                     z3_ctx,
-                                    **haystack,
-                                    **needle,
-                                    *offset_int,
+                                    haystack.raw(),
+                                    needle.raw(),
+                                    offset_int.raw(),
                                 ))?;
-                                RcAst::try_from(z3::Z3_mk_int2bv(z3_ctx, 64, *index_int))?
+                                wrap_ast(z3::Z3_mk_int2bv(z3_ctx, 64, index_int.raw()))?
                             }
                             AstOp::StrToBV(..) => {
-                                let int_val = RcAst::try_from(z3::Z3_mk_str_to_int(
+                                let int_val = wrap_ast(z3::Z3_mk_str_to_int(
                                     z3_ctx,
-                                    **child(children, 0)?,
+                                    child(children, 0)?.raw(),
                                 ))?;
-                                RcAst::try_from(z3::Z3_mk_int2bv(z3_ctx, 64, *int_val))?
+                                wrap_ast(z3::Z3_mk_int2bv(z3_ctx, 64, int_val.raw()))?
                             }
                             AstOp::Union(..) | AstOp::Intersection(..) | AstOp::Widen(..) => {
                                 return Err(ClarirsError::ConversionError(
@@ -395,17 +408,17 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                             }
 
                             // Float leaves and operations
-                            AstOp::FPS(s, sort) => typed_to_rcast(&z3hl::ast::Float::new_const(
+                            AstOp::FPS(s, sort) => Dynamic::from_ast(&z3hl::ast::Float::new_const(
                                 s.as_str(),
                                 sort.exponent,
                                 sort.mantissa + 1,
                             )),
                             AstOp::FPV(f) => match f {
                                 Float::F32(val) => {
-                                    typed_to_rcast(&z3hl::ast::Float::from_f32(*val))
+                                    Dynamic::from_ast(&z3hl::ast::Float::from_f32(*val))
                                 }
                                 Float::F64(val) => {
-                                    typed_to_rcast(&z3hl::ast::Float::from_f64(*val))
+                                    Dynamic::from_ast(&z3hl::ast::Float::from_f64(*val))
                                 }
                             },
                             AstOp::FpNeg(..) => unop!(z3_ctx, children, Z3_mk_fpa_neg),
@@ -414,41 +427,41 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                                 let rm_ast = fprm_to_z3(*rm)?;
                                 let a = child(children, 0)?;
                                 let b = child(children, 1)?;
-                                RcAst::try_from(z3::Z3_mk_fpa_add(z3_ctx, *rm_ast, **a, **b))?
+                                wrap_ast(z3::Z3_mk_fpa_add(z3_ctx, rm_ast.raw(), a.raw(), b.raw()))?
                             }
                             AstOp::FpSub(_, _, rm) => {
                                 let rm_ast = fprm_to_z3(*rm)?;
                                 let a = child(children, 0)?;
                                 let b = child(children, 1)?;
-                                RcAst::try_from(z3::Z3_mk_fpa_sub(z3_ctx, *rm_ast, **a, **b))?
+                                wrap_ast(z3::Z3_mk_fpa_sub(z3_ctx, rm_ast.raw(), a.raw(), b.raw()))?
                             }
                             AstOp::FpMul(_, _, rm) => {
                                 let rm_ast = fprm_to_z3(*rm)?;
                                 let a = child(children, 0)?;
                                 let b = child(children, 1)?;
-                                RcAst::try_from(z3::Z3_mk_fpa_mul(z3_ctx, *rm_ast, **a, **b))?
+                                wrap_ast(z3::Z3_mk_fpa_mul(z3_ctx, rm_ast.raw(), a.raw(), b.raw()))?
                             }
                             AstOp::FpDiv(_, _, rm) => {
                                 let rm_ast = fprm_to_z3(*rm)?;
                                 let a = child(children, 0)?;
                                 let b = child(children, 1)?;
-                                RcAst::try_from(z3::Z3_mk_fpa_div(z3_ctx, *rm_ast, **a, **b))?
+                                wrap_ast(z3::Z3_mk_fpa_div(z3_ctx, rm_ast.raw(), a.raw(), b.raw()))?
                             }
                             AstOp::FpSqrt(_, rm) => {
                                 let rm_ast = fprm_to_z3(*rm)?;
-                                RcAst::try_from(z3::Z3_mk_fpa_sqrt(
+                                wrap_ast(z3::Z3_mk_fpa_sqrt(
                                     z3_ctx,
-                                    *rm_ast,
-                                    **child(children, 0)?,
+                                    rm_ast.raw(),
+                                    child(children, 0)?.raw(),
                                 ))?
                             }
                             AstOp::FpToFp(_, sort, rm) => {
                                 let rm_ast = fprm_to_z3(*rm)?;
                                 let target = fsort_to_z3(*sort);
-                                RcAst::try_from(z3::Z3_mk_fpa_to_fp_float(
+                                wrap_ast(z3::Z3_mk_fpa_to_fp_float(
                                     z3_ctx,
-                                    *rm_ast,
-                                    **child(children, 0)?,
+                                    rm_ast.raw(),
+                                    child(children, 0)?.raw(),
                                     target.get_z3_sort(),
                                 ))?
                             }
@@ -456,40 +469,45 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                                 let sign = child(children, 0)?;
                                 let exp = child(children, 1)?;
                                 let sig = child(children, 2)?;
-                                RcAst::try_from(z3::Z3_mk_fpa_fp(z3_ctx, **sign, **exp, **sig))?
+                                wrap_ast(z3::Z3_mk_fpa_fp(
+                                    z3_ctx,
+                                    sign.raw(),
+                                    exp.raw(),
+                                    sig.raw(),
+                                ))?
                             }
                             AstOp::BvToFp(_, sort) => {
                                 let target = fsort_to_z3(*sort);
-                                RcAst::try_from(z3::Z3_mk_fpa_to_fp_bv(
+                                wrap_ast(z3::Z3_mk_fpa_to_fp_bv(
                                     z3_ctx,
-                                    **child(children, 0)?,
+                                    child(children, 0)?.raw(),
                                     target.get_z3_sort(),
                                 ))?
                             }
                             AstOp::BvToFpSigned(_, sort, rm) => {
                                 let rm_ast = fprm_to_z3(*rm)?;
                                 let target = fsort_to_z3(*sort);
-                                RcAst::try_from(z3::Z3_mk_fpa_to_fp_signed(
+                                wrap_ast(z3::Z3_mk_fpa_to_fp_signed(
                                     z3_ctx,
-                                    *rm_ast,
-                                    **child(children, 0)?,
+                                    rm_ast.raw(),
+                                    child(children, 0)?.raw(),
                                     target.get_z3_sort(),
                                 ))?
                             }
                             AstOp::BvToFpUnsigned(_, sort, rm) => {
                                 let rm_ast = fprm_to_z3(*rm)?;
                                 let target = fsort_to_z3(*sort);
-                                RcAst::try_from(z3::Z3_mk_fpa_to_fp_unsigned(
+                                wrap_ast(z3::Z3_mk_fpa_to_fp_unsigned(
                                     z3_ctx,
-                                    *rm_ast,
-                                    **child(children, 0)?,
+                                    rm_ast.raw(),
+                                    child(children, 0)?.raw(),
                                     target.get_z3_sort(),
                                 ))?
                             }
 
                             // String leaves and operations
                             AstOp::StringS(s) => {
-                                typed_to_rcast(&z3hl::ast::String::new_const(s.as_str()))
+                                Dynamic::from_ast(&z3hl::ast::String::new_const(s.as_str()))
                             }
                             AstOp::StringV(s) => {
                                 let mut encoded = String::new();
@@ -501,37 +519,37 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                                     }
                                 }
                                 let cstr = std::ffi::CString::new(encoded).unwrap();
-                                RcAst::try_from(z3::Z3_mk_string(z3_ctx, cstr.as_ptr()))?
+                                wrap_ast(z3::Z3_mk_string(z3_ctx, cstr.as_ptr()))?
                             }
                             AstOp::StrConcat(..) => {
                                 let a = child(children, 0)?;
                                 let b = child(children, 1)?;
-                                RcAst::try_from(z3::Z3_mk_seq_concat(
+                                wrap_ast(z3::Z3_mk_seq_concat(
                                     z3_ctx,
                                     2,
-                                    [**a, **b].as_ptr(),
+                                    [a.raw(), b.raw()].as_ptr(),
                                 ))?
                             }
                             AstOp::StrSubstr(..) => {
                                 let a = child(children, 0)?;
                                 let offset_int = mk_bv2int(child(children, 1)?)?;
                                 let len_int = mk_bv2int(child(children, 2)?)?;
-                                RcAst::try_from(z3::Z3_mk_seq_extract(
+                                wrap_ast(z3::Z3_mk_seq_extract(
                                     z3_ctx,
-                                    **a,
-                                    *offset_int,
-                                    *len_int,
+                                    a.raw(),
+                                    offset_int.raw(),
+                                    len_int.raw(),
                                 ))?
                             }
                             AstOp::StrReplace(..) => {
                                 let a = child(children, 0)?;
                                 let b = child(children, 1)?;
                                 let c = child(children, 2)?;
-                                RcAst::try_from(z3::Z3_mk_seq_replace(z3_ctx, **a, **b, **c))?
+                                wrap_ast(z3::Z3_mk_seq_replace(z3_ctx, a.raw(), b.raw(), c.raw()))?
                             }
                             AstOp::BVToStr(_) => {
                                 let int_val = mk_bv2int(child(children, 0)?)?;
-                                RcAst::try_from(z3::Z3_mk_int_to_str(z3_ctx, *int_val))?
+                                wrap_ast(z3::Z3_mk_int_to_str(z3_ctx, int_val.raw()))?
                             }
                         })
                         .and_then(|maybe_null| {
@@ -549,16 +567,16 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
     /// declaration kind replaces the previous per-sort `from_z3` functions; the
     /// few kinds that span sorts (`Ite`, uninterpreted constants, numerals) pick
     /// the result sort from the Z3 sort kind.
-    fn from_z3(ctx: &'c Context<'c>, ast: impl Into<RcAst>) -> Result<Self, ClarirsError> {
+    fn from_z3(ctx: &'c Context<'c>, ast: impl Into<Dynamic>) -> Result<Self, ClarirsError> {
         let ast = ast.into();
         Z3_CONTEXT.with(|z3_ctx| unsafe {
             let z3_ctx = *z3_ctx;
-            match z3::Z3_get_ast_kind(z3_ctx, *ast) {
+            match z3::Z3_get_ast_kind(z3_ctx, ast.raw()) {
                 z3::AstKind::Numeral => {
-                    let sort = z3::Z3_get_sort(z3_ctx, *ast).unwrap();
+                    let sort = z3::Z3_get_sort(z3_ctx, ast.raw()).unwrap();
                     match z3::Z3_get_sort_kind(z3_ctx, sort) {
                         z3::SortKind::Bv => {
-                            let numeral_string = z3::Z3_get_numeral_string(z3_ctx, *ast);
+                            let numeral_string = z3::Z3_get_numeral_string(z3_ctx, ast.raw());
                             let numeral_str = CStr::from_ptr(numeral_string).to_str().unwrap();
                             let width = z3::Z3_get_bv_sort_size(z3_ctx, sort);
                             ctx.bvv(BitVec::try_from((numeral_str.to_string(), width)).unwrap())
@@ -568,7 +586,7 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                                 z3::Z3_fpa_get_ebits(z3_ctx, sort),
                                 z3::Z3_fpa_get_sbits(z3_ctx, sort) - 1,
                             );
-                            let numeral_string = z3::Z3_get_numeral_string(z3_ctx, *ast);
+                            let numeral_string = z3::Z3_get_numeral_string(z3_ctx, ast.raw());
                             let numeral_str = CStr::from_ptr(numeral_string).to_str().unwrap();
                             if fsort == FSort::f32() {
                                 let val = numeral_str.parse::<f32>().map_err(|_| {
@@ -590,15 +608,15 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                     }
                 }
                 z3::AstKind::App => {
-                    let app = z3::Z3_to_app(z3_ctx, *ast).unwrap();
+                    let app = z3::Z3_to_app(z3_ctx, ast.raw()).unwrap();
                     let decl = z3::Z3_get_app_decl(z3_ctx, app).unwrap();
                     let decl_kind = z3::Z3_get_decl_kind(z3_ctx, decl);
-                    let arg = |i| RcAst::try_from(z3::Z3_get_app_arg(z3_ctx, app, i));
+                    let arg = |i| wrap_ast(z3::Z3_get_app_arg(z3_ctx, app, i));
 
                     match decl_kind {
                         // String constants present as ordinary apps; catch them first.
-                        _ if z3::Z3_is_string(z3_ctx, *ast) => {
-                            let raw = CStr::from_ptr(z3::Z3_get_string(z3_ctx, *ast))
+                        _ if z3::Z3_is_string(z3_ctx, ast.raw()) => {
+                            let raw = CStr::from_ptr(z3::Z3_get_string(z3_ctx, ast.raw()))
                                 .to_str()
                                 .unwrap();
                             ctx.stringv(decode_custom_unicode(raw))
@@ -825,44 +843,33 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                                     match z3::Z3_get_decl_kind(z3_ctx, inner_decl) {
                                         z3::DeclKind::Bv2int => AstRef::from_z3(
                                             ctx,
-                                            RcAst::try_from(z3::Z3_get_app_arg(
-                                                z3_ctx, inner_app, 0,
-                                            ))?,
+                                            wrap_ast(z3::Z3_get_app_arg(z3_ctx, inner_app, 0))?,
                                         ),
                                         z3::DeclKind::SeqIndex => {
                                             let haystack = AstRef::from_z3(
                                                 ctx,
-                                                RcAst::try_from(z3::Z3_get_app_arg(
-                                                    z3_ctx, inner_app, 0,
-                                                ))?,
+                                                wrap_ast(z3::Z3_get_app_arg(z3_ctx, inner_app, 0))?,
                                             )?;
                                             let needle = AstRef::from_z3(
                                                 ctx,
-                                                RcAst::try_from(z3::Z3_get_app_arg(
-                                                    z3_ctx, inner_app, 1,
-                                                ))?,
+                                                wrap_ast(z3::Z3_get_app_arg(z3_ctx, inner_app, 1))?,
                                             )?;
                                             let off =
                                                 z3::Z3_get_app_arg(z3_ctx, inner_app, 2).unwrap();
                                             let offset_bv =
-                                                RcAst::try_from(z3::Z3_mk_int2bv(z3_ctx, 64, off))?;
-                                            let offset_simplified = RcAst::try_from(
-                                                z3::Z3_simplify(z3_ctx, *offset_bv),
-                                            )?;
+                                                wrap_ast(z3::Z3_mk_int2bv(z3_ctx, 64, off))?;
+                                            let offset_simplified =
+                                                wrap_ast(z3::Z3_simplify(z3_ctx, offset_bv.raw()))?;
                                             let offset = AstRef::from_z3(ctx, offset_simplified)?;
                                             ctx.str_index_of(haystack, needle, offset)
                                         }
                                         z3::DeclKind::StrToInt => ctx.str_to_bv(AstRef::from_z3(
                                             ctx,
-                                            RcAst::try_from(z3::Z3_get_app_arg(
-                                                z3_ctx, inner_app, 0,
-                                            ))?,
+                                            wrap_ast(z3::Z3_get_app_arg(z3_ctx, inner_app, 0))?,
                                         )?),
                                         z3::DeclKind::SeqLength => ctx.str_len(AstRef::from_z3(
                                             ctx,
-                                            RcAst::try_from(z3::Z3_get_app_arg(
-                                                z3_ctx, inner_app, 0,
-                                            ))?,
+                                            wrap_ast(z3::Z3_get_app_arg(z3_ctx, inner_app, 0))?,
                                         )?),
                                         k => Err(ClarirsError::ConversionError(format!(
                                             "unexpected inner decl kind in Int2bv: {k:?}"
@@ -877,12 +884,12 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
 
                         // Floats
                         z3::DeclKind::FpaNum => {
-                            let sort = z3::Z3_get_sort(z3_ctx, *ast).unwrap();
+                            let sort = z3::Z3_get_sort(z3_ctx, ast.raw()).unwrap();
                             let fsort = FSort::new(
                                 z3::Z3_fpa_get_ebits(z3_ctx, sort),
                                 z3::Z3_fpa_get_sbits(z3_ctx, sort) - 1,
                             );
-                            let val = z3::Z3_get_numeral_double(z3_ctx, *ast);
+                            let val = z3::Z3_get_numeral_double(z3_ctx, ast.raw());
                             if fsort == FSort::f32() {
                                 ctx.fpv(Float::F32(val as f32))
                             } else {
@@ -890,7 +897,7 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                             }
                         }
                         z3::DeclKind::FpaNan => {
-                            let sort = z3::Z3_get_sort(z3_ctx, *ast).unwrap();
+                            let sort = z3::Z3_get_sort(z3_ctx, ast.raw()).unwrap();
                             let fsort = FSort::new(
                                 z3::Z3_fpa_get_ebits(z3_ctx, sort),
                                 z3::Z3_fpa_get_sbits(z3_ctx, sort) - 1,
@@ -907,7 +914,7 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                         | z3::DeclKind::FpaSub
                         | z3::DeclKind::FpaMul
                         | z3::DeclKind::FpaDiv => {
-                            let rm = parse_fprm_from_z3(z3_ctx, *arg(0)?)?;
+                            let rm = parse_fprm_from_z3(z3_ctx, arg(0)?.raw())?;
                             let a = AstRef::from_z3(ctx, arg(1)?)?;
                             let b = AstRef::from_z3(ctx, arg(2)?)?;
                             match decl_kind {
@@ -918,11 +925,11 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                             }
                         }
                         z3::DeclKind::FpaSqrt => {
-                            let rm = parse_fprm_from_z3(z3_ctx, *arg(0)?)?;
+                            let rm = parse_fprm_from_z3(z3_ctx, arg(0)?.raw())?;
                             ctx.fp_sqrt(AstRef::from_z3(ctx, arg(1)?)?, rm)
                         }
                         z3::DeclKind::FpaToFp => {
-                            let sort = z3::Z3_get_sort(z3_ctx, *ast).unwrap();
+                            let sort = z3::Z3_get_sort(z3_ctx, ast.raw()).unwrap();
                             let fsort = FSort::new(
                                 z3::Z3_fpa_get_ebits(z3_ctx, sort),
                                 z3::Z3_fpa_get_sbits(z3_ctx, sort) - 1,
@@ -930,9 +937,10 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                             match z3::Z3_get_app_num_args(z3_ctx, app) {
                                 1 => ctx.bv_to_fp(AstRef::from_z3(ctx, arg(0)?)?, fsort),
                                 2 => {
-                                    let rm = parse_fprm_from_z3(z3_ctx, *arg(0)?)?;
+                                    let rm = parse_fprm_from_z3(z3_ctx, arg(0)?.raw())?;
                                     let operand = arg(1)?;
-                                    let operand_sort = z3::Z3_get_sort(z3_ctx, *operand).unwrap();
+                                    let operand_sort =
+                                        z3::Z3_get_sort(z3_ctx, operand.raw()).unwrap();
                                     match z3::Z3_get_sort_kind(z3_ctx, operand_sort) {
                                         z3::SortKind::FloatingPoint => {
                                             ctx.fp_to_fp(AstRef::from_z3(ctx, operand)?, fsort, rm)
@@ -968,7 +976,7 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                         | z3::DeclKind::FpaMinusZero
                         | z3::DeclKind::FpaPlusInf
                         | z3::DeclKind::FpaMinusInf => {
-                            let sort = z3::Z3_get_sort(z3_ctx, *ast).unwrap();
+                            let sort = z3::Z3_get_sort(z3_ctx, ast.raw()).unwrap();
                             let fsort = FSort::new(
                                 z3::Z3_fpa_get_ebits(z3_ctx, sort),
                                 z3::Z3_fpa_get_sbits(z3_ctx, sort) - 1,
@@ -993,16 +1001,15 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                         ),
                         z3::DeclKind::SeqExtract => {
                             let a = AstRef::from_z3(ctx, arg(0)?)?;
-                            let offset_bv =
-                                RcAst::try_from(z3::Z3_mk_int2bv(z3_ctx, 64, *arg(1)?))?;
+                            let offset_bv = wrap_ast(z3::Z3_mk_int2bv(z3_ctx, 64, arg(1)?.raw()))?;
                             let offset = AstRef::from_z3(
                                 ctx,
-                                RcAst::try_from(z3::Z3_simplify(z3_ctx, *offset_bv))?,
+                                wrap_ast(z3::Z3_simplify(z3_ctx, offset_bv.raw()))?,
                             )?;
-                            let len_bv = RcAst::try_from(z3::Z3_mk_int2bv(z3_ctx, 64, *arg(2)?))?;
+                            let len_bv = wrap_ast(z3::Z3_mk_int2bv(z3_ctx, 64, arg(2)?.raw()))?;
                             let len = AstRef::from_z3(
                                 ctx,
-                                RcAst::try_from(z3::Z3_simplify(z3_ctx, *len_bv))?,
+                                wrap_ast(z3::Z3_simplify(z3_ctx, len_bv.raw()))?,
                             )?;
                             ctx.str_substr(a, offset, len)
                         }
@@ -1013,12 +1020,12 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                         ),
                         z3::DeclKind::IntToStr => {
                             // int.to.str(bv2int(bv)) -> BVToStr(bv)
-                            let inner_app = z3::Z3_to_app(z3_ctx, *arg(0)?).unwrap();
+                            let inner_app = z3::Z3_to_app(z3_ctx, arg(0)?.raw()).unwrap();
                             let inner_decl = z3::Z3_get_app_decl(z3_ctx, inner_app).unwrap();
                             if z3::Z3_get_decl_kind(z3_ctx, inner_decl) == z3::DeclKind::Bv2int {
                                 ctx.bv_to_str(AstRef::from_z3(
                                     ctx,
-                                    RcAst::try_from(z3::Z3_get_app_arg(z3_ctx, inner_app, 0))?,
+                                    wrap_ast(z3::Z3_get_app_arg(z3_ctx, inner_app, 0))?,
                                 )?)
                             } else {
                                 Err(ClarirsError::ConversionError(
@@ -1034,7 +1041,7 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                             AstRef::from_z3(ctx, arg(2)?)?,
                         ),
                         z3::DeclKind::Uninterpreted => {
-                            let sort = z3::Z3_get_sort(z3_ctx, *ast).unwrap();
+                            let sort = z3::Z3_get_sort(z3_ctx, ast.raw()).unwrap();
                             let sym = z3::Z3_get_decl_name(z3_ctx, decl).unwrap();
                             let name = CStr::from_ptr(z3::Z3_get_symbol_string(z3_ctx, sym))
                                 .to_str()
