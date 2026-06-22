@@ -94,8 +94,13 @@ jobs:
           CMAKE_MSVC_DEBUG_INFORMATION_FORMAT: Embedded
           CMAKE_POLICY_CMP0141: NEW
           CMAKE_GENERATOR: Ninja
-          CC: "clang"
-          CXX: "clang++"
+          # On Windows use the MSVC-compatible clang driver (clang-cl) so CMake
+          # sets MSVC=TRUE and Z3 keeps its `libz3` output name (libz3.lib),
+          # which is what z3-src's `rustc-link-lib=static=libz3` expects. Plain
+          # clang++ (GNU driver) renames the output to a GNU-style libz3.a that
+          # the windows-msvc target can't find.
+          CC: ${{ matrix.os == 'windows-latest' && 'clang-cl' || 'clang' }}
+          CXX: ${{ matrix.os == 'windows-latest' && 'clang-cl' || 'clang++' }}
 
       - name: Run tests
         run: cargo test --all-features --no-fail-fast
@@ -151,8 +156,17 @@ jobs:
           CMAKE_MSVC_DEBUG_INFORMATION_FORMAT: Embedded
           CMAKE_POLICY_CMP0141: NEW
           CMAKE_GENERATOR: Ninja
-          CC: "clang"
-          CXX: "clang++"
+          # clang-cl on Windows keeps Z3's MSVC `libz3.lib` output name (see the
+          # test job for details).
+          CC: ${{ matrix.os == 'windows-latest' && 'clang-cl' || 'clang' }}
+          CXX: ${{ matrix.os == 'windows-latest' && 'clang-cl' || 'clang++' }}
+          # maturin does not propagate MACOSX_DEPLOYMENT_TARGET into the vendored
+          # Z3 cmake build the way plain `cargo` does, so cc-rs emits a
+          # versionless `--target=arm64-apple-macosx` that makes clang resolve
+          # libc++ availability to "unknown" and reject std::to_chars/std::format
+          # (used by Z3 4.16). These wheels require macOS 13.3+ regardless, so
+          # disable libc++'s availability annotations for the Z3 build.
+          CXXFLAGS: ${{ matrix.os == 'macos-latest' && '-D_LIBCPP_DISABLE_AVAILABILITY' || '' }}
 
       - name: Upload Wheel Artifact
         uses: actions/upload-artifact@v4
