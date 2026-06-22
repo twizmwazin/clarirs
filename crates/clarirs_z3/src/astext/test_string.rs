@@ -1,3 +1,4 @@
+use ::z3 as z3hl;
 use clarirs_core::prelude::*;
 use z3_sys as z3;
 
@@ -247,13 +248,10 @@ mod from_z3 {
     fn substr() {
         let ctx = Context::new();
         let s = RcAst::mk_string_val("hello world");
+        let start = RcAst::from(z3hl::ast::Dynamic::from_ast(&z3hl::ast::Int::from_i64(6)));
+        let len = RcAst::from(z3hl::ast::Dynamic::from_ast(&z3hl::ast::Int::from_i64(5)));
         let z3_sub = Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            let int_sort = z3::Z3_mk_int_sort(z3_ctx).unwrap();
-            let start_cstr = std::ffi::CString::new("6").unwrap();
-            let start = z3::Z3_mk_numeral(z3_ctx, start_cstr.as_ptr(), int_sort).unwrap();
-            let len_cstr = std::ffi::CString::new("5").unwrap();
-            let len = z3::Z3_mk_numeral(z3_ctx, len_cstr.as_ptr(), int_sort).unwrap();
-            RcAst::try_from(z3::Z3_mk_seq_extract(z3_ctx, *s, start, len)).unwrap()
+            RcAst::try_from(z3::Z3_mk_seq_extract(z3_ctx, *s, *start, *len)).unwrap()
         });
         let result = AstRef::from_z3(&ctx, z3_sub).unwrap();
         let expected = ctx

@@ -1,10 +1,30 @@
 use crate::astext::AstExtZ3;
-use crate::rc::{RcModel, RcOptimize, RcParamSet, RcSolver};
+use crate::rc::RcAst;
+use ::z3 as z3hl;
 use clarirs_core::prelude::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
-use z3_sys as z3;
+
+/// Evaluate the already-converted `expr` in `model` (completing the model) and
+/// convert the result back to a clarirs `AstRef`.
+fn model_eval<'c>(
+    model: &z3hl::Model,
+    ctx: &'c Context<'c>,
+    expr: &RcAst,
+) -> Result<AstRef<'c>, ClarirsError> {
+    let evaluated = model
+        .eval(expr.dynamic(), true)
+        .ok_or_else(|| ClarirsError::BackendError("Z3", "Model evaluation failed".to_string()))?;
+    AstRef::from_z3(ctx, RcAst::from(evaluated))
+}
+
+/// Fetch the model from an `Optimize` after a successful check.
+fn optimize_model(optimize: &z3hl::Optimize) -> Result<z3hl::Model, ClarirsError> {
+    optimize
+        .get_model()
+        .ok_or_else(|| ClarirsError::BackendError("Z3", "No model after SAT".to_string()))
+}
 
 /// A persistent z3 solver, incrementally extended as constraints are added.
 ///
@@ -12,7 +32,7 @@ use z3_sys as z3;
 /// are bound to the thread-local `Z3_CONTEXT`. `Z3Solver` stores only the id, so
 /// it stays `Send`; first use on a new thread rebuilds there.
 struct CachedSolver {
-    solver: RcSolver,
+    solver: z3hl::Solver,
     /// Number of `Z3Solver::assertions` already pushed into `solver`.
     asserted: usize,
     timeout: Option<u32>,
@@ -113,14 +133,13 @@ impl<'c> Z3Solver<'c> {
 
         self.with_cached_solver(|z3_solver| {
             // Check if UNSAT
-            if z3_solver.check()? != z3::Z3_L_FALSE {
+            if z3_solver.check() != z3hl::SatResult::Unsat {
                 return Err(ClarirsError::UnsupportedOperation(
                     "Can only get unsat core after an UNSAT result".to_string(),
                 ));
             }
 
-            let core_vector = z3_solver.get_unsat_core()?;
-            let core_size = core_vector.size();
+            let core = z3_solver.get_unsat_core();
 
             let mut core_indices = Vec::new();
 
@@ -133,10 +152,12 @@ impl<'c> Z3Solver<'c> {
                 }
             }
 
-            for i in 0..core_size {
-                let core_ast = core_vector.get(i)?;
+            for core_bool in &core {
                 // Convert the Z3 AST back to a AstRef to get its variable name
-                let bool_ast = AstRef::from_z3(self.ctx, &core_ast)?;
+                let bool_ast = AstRef::from_z3(
+                    self.ctx,
+                    RcAst::from(z3hl::ast::Dynamic::from_ast(core_bool)),
+                )?;
                 if let Some(vars) = bool_ast.variables().iter().next()
                     && let Some(idx) = track_to_idx.get(&vars.to_string())
                 {
@@ -158,32 +179,32 @@ impl<'c> HasContext<'c> for Z3Solver<'c> {
 impl<'c> Z3Solver<'c> {
     /// Build a fresh z3 solver configured with this solver's params (timeout,
     /// unsat_core) but with no assertions yet.
-    fn new_z3_solver(&self) -> Result<RcSolver, ClarirsError> {
-        let mut z3_solver = RcSolver::new()?;
+    fn new_z3_solver(&self) -> Result<z3hl::Solver, ClarirsError> {
+        let z3_solver = z3hl::Solver::new();
 
-        let mut params = RcParamSet::new()?;
+        let mut params = z3hl::Params::new();
         if let Some(timeout) = self.timeout {
-            params.set_u32("timeout", timeout)?;
+            params.set_u32("timeout", timeout);
         }
         if self.unsat_core {
-            params.set_bool("unsat_core", true)?;
+            params.set_bool("unsat_core", true);
         }
-        z3_solver.set_params(params)?;
+        z3_solver.set_params(&params);
         Ok(z3_solver)
     }
 
     /// Assert `self.assertions[idx]` into `z3_solver`, using assert-and-track
     /// when unsat-core extraction is enabled.
-    fn assert_at(&self, z3_solver: &mut RcSolver, idx: usize) -> Result<(), ClarirsError> {
+    fn assert_at(&self, z3_solver: &z3hl::Solver, idx: usize) -> Result<(), ClarirsError> {
         let converted = self.assertions[idx].to_z3()?;
         if self.unsat_core
             && let Some(track_var) = self.tracking_vars.get(&idx)
         {
             let track_z3 = track_var.to_z3()?;
-            z3_solver.assert_and_track(&converted, &track_z3)?;
+            z3_solver.assert_and_track(converted.as_bool(), &track_z3.as_bool());
             return Ok(());
         }
-        z3_solver.assert(&converted)?;
+        z3_solver.assert(converted.as_bool());
         Ok(())
     }
 
@@ -192,7 +213,7 @@ impl<'c> Z3Solver<'c> {
     /// re-asserting the whole set each time.
     fn with_cached_solver<T>(
         &self,
-        f: impl FnOnce(&mut RcSolver) -> Result<T, ClarirsError>,
+        f: impl FnOnce(&z3hl::Solver) -> Result<T, ClarirsError>,
     ) -> Result<T, ClarirsError> {
         SOLVER_CACHE.with(|cell| {
             // Reusable only if built with the same params and its asserted
@@ -208,9 +229,9 @@ impl<'c> Z3Solver<'c> {
 
             if !reusable {
                 // Build outside the cache borrow.
-                let mut solver = self.new_z3_solver()?;
+                let solver = self.new_z3_solver()?;
                 for idx in 0..self.assertions.len() {
-                    self.assert_at(&mut solver, idx)?;
+                    self.assert_at(&solver, idx)?;
                 }
                 cell.borrow_mut().insert(
                     self.cache_id,
@@ -230,10 +251,10 @@ impl<'c> Z3Solver<'c> {
             // Push any assertions added since the last call.
             while cached.asserted < self.assertions.len() {
                 let idx = cached.asserted;
-                self.assert_at(&mut cached.solver, idx)?;
+                self.assert_at(&cached.solver, idx)?;
                 cached.asserted = idx + 1;
             }
-            f(&mut cached.solver)
+            f(&cached.solver)
         })
     }
 
@@ -245,23 +266,25 @@ impl<'c> Z3Solver<'c> {
         });
     }
 
-    fn mk_filled_optimize(&self) -> Result<RcOptimize, ClarirsError> {
-        let mut z3_optimize = RcOptimize::new()?;
+    fn mk_filled_optimize(&self) -> Result<z3hl::Optimize, ClarirsError> {
+        let z3_optimize = z3hl::Optimize::new();
 
         for assertion in &self.assertions {
             let converted = assertion.to_z3()?;
-            z3_optimize.assert(&converted)?;
+            z3_optimize.assert(converted.as_bool());
         }
 
         Ok(z3_optimize)
     }
 
-    fn make_model(&self) -> Result<RcModel, ClarirsError> {
+    fn make_model(&self) -> Result<z3hl::Model, ClarirsError> {
         self.with_cached_solver(|z3_solver| {
-            if z3_solver.check()? != z3::Z3_L_TRUE {
+            if z3_solver.check() != z3hl::SatResult::Sat {
                 return Err(ClarirsError::Unsat);
             }
-            z3_solver.model()
+            z3_solver
+                .get_model()
+                .ok_or_else(|| ClarirsError::BackendError("Z3", "No model after SAT".to_string()))
         })
     }
 
@@ -280,7 +303,7 @@ impl<'c> Z3Solver<'c> {
         // replace the variables with the values from the model
         let model = self.make_model()?;
 
-        AstRef::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)
+        model_eval(&model, expr.context(), &expr.to_z3()?)
     }
 }
 
@@ -329,7 +352,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
     }
 
     fn satisfiable(&mut self) -> Result<bool, ClarirsError> {
-        self.with_cached_solver(|z3_solver| Ok(z3_solver.check()? == z3::Z3_L_TRUE))
+        self.with_cached_solver(|z3_solver| Ok(z3_solver.check() == z3hl::SatResult::Sat))
     }
 
     fn satisfiable_with_extra(&mut self, extra: &[AstRef<'c>]) -> Result<bool, ClarirsError> {
@@ -338,10 +361,10 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         // angr's hottest solver call (every branch feasibility check).
         let mut assumptions = Vec::with_capacity(extra.len());
         for c in extra {
-            assumptions.push(c.simplify_z3()?.to_z3()?);
+            assumptions.push(c.simplify_z3()?.to_z3()?.as_bool());
         }
         self.with_cached_solver(|z3_solver| {
-            Ok(z3_solver.check_assumptions(&assumptions)? == z3::Z3_L_TRUE)
+            Ok(z3_solver.check_assumptions(&assumptions) == z3hl::SatResult::Sat)
         })
     }
 
@@ -363,7 +386,7 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
                 if expr.concrete() {
                     return Ok(expr);
                 }
-                AstRef::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)
+                model_eval(&model, expr.context(), &expr.to_z3()?)
             })
             .collect()
     }
@@ -391,33 +414,33 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
     }
 
     fn min_unsigned(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        let mut optimize = self.mk_filled_optimize()?;
-        optimize.minimize(&expr.to_z3()?)?;
-        if optimize.check()? != z3::Z3_L_TRUE {
+        let optimize = self.mk_filled_optimize()?;
+        optimize.minimize(expr.to_z3()?.dynamic());
+        if optimize.check(&[]) != z3hl::SatResult::Sat {
             return Err(ClarirsError::Unsat);
         }
 
-        let model = optimize.get_model()?;
-        AstRef::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)?
+        let model = optimize_model(&optimize)?;
+        model_eval(&model, expr.context(), &expr.to_z3()?)?
             .into_bitvec()
             .ok_or(ClarirsError::TypeError("Expected AstRef".to_string()))
     }
 
     fn max_unsigned(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        let mut optimize = self.mk_filled_optimize()?;
-        optimize.maximize(&expr.to_z3()?)?;
-        if optimize.check()? != z3::Z3_L_TRUE {
+        let optimize = self.mk_filled_optimize()?;
+        optimize.maximize(expr.to_z3()?.dynamic());
+        if optimize.check(&[]) != z3hl::SatResult::Sat {
             return Err(ClarirsError::Unsat);
         }
 
-        let model = optimize.get_model()?;
-        AstRef::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)?
+        let model = optimize_model(&optimize)?;
+        model_eval(&model, expr.context(), &expr.to_z3()?)?
             .into_bitvec()
             .ok_or(ClarirsError::TypeError("Expected AstRef".to_string()))
     }
 
     fn min_signed(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        let mut optimize = self.mk_filled_optimize()?;
+        let optimize = self.mk_filled_optimize()?;
         // Get the size of the bitvector
         let size = expr.size();
 
@@ -430,29 +453,29 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         let target_name = format!("min_signed_target_{size}");
         let target = self.ctx.bvs(&target_name, size)?;
         let equality = self.ctx.eq_(&target, expr)?;
-        optimize.assert(&equality.to_z3()?)?;
+        optimize.assert(equality.to_z3()?.as_bool());
 
         // First, maximize the sign bit with a high weight
         // This will prefer negative numbers (sign bit = 1) over positive ones
         let sign_equality = self.ctx.eq_(&sign_bit, &one_bit)?;
-        optimize.assert_soft(&sign_equality.to_z3()?, 1000000)?;
+        optimize.assert_soft(sign_equality.to_z3()?.dynamic(), 1000000u32, None);
 
         // Then minimize the target value (with lower weight)
         // This will find the smallest value among those with the preferred sign bit
-        optimize.minimize(&target.to_z3()?)?;
+        optimize.minimize(target.to_z3()?.dynamic());
 
-        if optimize.check()? != z3::Z3_L_TRUE {
+        if optimize.check(&[]) != z3hl::SatResult::Sat {
             return Err(ClarirsError::Unsat);
         }
 
-        let model = optimize.get_model()?;
-        AstRef::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)?
+        let model = optimize_model(&optimize)?;
+        model_eval(&model, expr.context(), &expr.to_z3()?)?
             .into_bitvec()
             .ok_or(ClarirsError::TypeError("Expected AstRef".to_string()))
     }
 
     fn max_signed(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
-        let mut optimize = self.mk_filled_optimize()?;
+        let optimize = self.mk_filled_optimize()?;
         // Get the size of the bitvector
         let size = expr.size();
 
@@ -465,23 +488,23 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         let target_name = format!("max_signed_target_{size}");
         let target = self.ctx.bvs(&target_name, size)?;
         let equality = self.ctx.eq_(&target, expr)?;
-        optimize.assert(&equality.to_z3()?)?;
+        optimize.assert(equality.to_z3()?.as_bool());
 
         // First, maximize making the sign bit 0 with a high weight
         // This will prefer positive numbers (sign bit = 0) over negative ones
         let sign_equality = self.ctx.eq_(&sign_bit, &zero_bit)?;
-        optimize.assert_soft(&sign_equality.to_z3()?, 1000000)?;
+        optimize.assert_soft(sign_equality.to_z3()?.dynamic(), 1000000u32, None);
 
         // Then maximize the target value (with lower weight)
         // This will find the largest value among those with the preferred sign bit
-        optimize.maximize(&target.to_z3()?)?;
+        optimize.maximize(target.to_z3()?.dynamic());
 
-        if optimize.check()? != z3::Z3_L_TRUE {
+        if optimize.check(&[]) != z3hl::SatResult::Sat {
             return Err(ClarirsError::Unsat);
         }
 
-        let model = optimize.get_model()?;
-        AstRef::from_z3(expr.context(), model.eval(&expr.to_z3()?)?)?
+        let model = optimize_model(&optimize)?;
+        model_eval(&model, expr.context(), &expr.to_z3()?)?
             .into_bitvec()
             .ok_or(ClarirsError::TypeError("Expected AstRef".to_string()))
     }
@@ -531,28 +554,27 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         let z3_aux = aux.to_z3()?;
 
         // Create and fill the Z3 solver once
-        let mut z3_solver = RcSolver::new()?;
+        let z3_solver = z3hl::Solver::new();
 
         for assertion in &self.assertions {
             let converted = assertion.to_z3()?;
-            z3_solver.assert(&converted)?;
+            z3_solver.assert(converted.as_bool());
         }
-        z3_solver.assert(&link.to_z3()?)?;
+        z3_solver.assert(link.to_z3()?.as_bool());
 
         for _ in 0..n {
-            if z3_solver.check()? != z3::Z3_L_TRUE {
+            if z3_solver.check() != z3hl::SatResult::Sat {
                 break;
             }
 
-            let model = z3_solver.model()?;
-            let eval_result = model.eval(&z3_aux)?;
-
-            let solution = AstRef::from_z3(ctx, eval_result)?;
+            let model = z3_solver.get_model().ok_or_else(|| {
+                ClarirsError::BackendError("Z3", "No model after SAT".to_string())
+            })?;
+            let solution = model_eval(&model, ctx, &z3_aux)?;
 
             // Add constraint to exclude this solution
             let neq_constraint = ctx.neq(&aux, &solution)?;
-            let z3_neq = neq_constraint.to_z3()?;
-            z3_solver.assert(&z3_neq)?;
+            z3_solver.assert(neq_constraint.to_z3()?.as_bool());
 
             // Convert the IEEE bit pattern back to a float constant. The
             // bitvector width (32 or 64) selects the format.

@@ -4,20 +4,24 @@ mod solver;
 
 pub use solver::Z3Solver;
 
+use ::z3 as z3hl;
 use clarirs_core::cache::GenericCache;
 use rc::RcAst;
 use z3_sys as z3;
 
 thread_local! {
-    static Z3_CONTEXT: z3::Z3_context = unsafe {
-        let cfg = z3::Z3_mk_config().expect("Z3_mk_config returned null");
-        let ctx = z3::Z3_mk_context(cfg).expect("Z3_mk_context returned null");
-        z3::Z3_set_error_handler(ctx, None);
-        z3::Z3_del_config(cfg);
-        ctx
-    };
+    /// Raw handle to the high-level crate's thread-local Z3 context. clarirs_z3
+    /// builds and introspects ASTs through the C API (`z3-sys`) but shares the
+    /// single context that the `z3` crate manages, so high-level wrappers
+    /// (`Solver`, `Model`, ...) and the raw ASTs interoperate.
+    static Z3_CONTEXT: z3::Z3_context = z3hl::Context::thread_local().get_z3_context();
 
     static Z3_AST_CACHE: GenericCache<u64, RcAst> = GenericCache::default();
+}
+
+/// The high-level thread-local context, used to wrap raw ASTs into RAII handles.
+pub(crate) fn z3_context() -> z3hl::Context {
+    z3hl::Context::thread_local()
 }
 
 pub(crate) fn check_z3_error() -> Result<(), clarirs_core::error::ClarirsError> {

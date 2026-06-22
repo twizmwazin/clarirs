@@ -115,6 +115,7 @@ version = "0.1.0"
 dependencies = [
  "clarirs_core",
  "regex",
+ "z3",
  "z3-sys",
 ]
 
@@ -526,6 +527,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f42320e61fe2cfd34354ecb597f86f413484a798ba44a8ca1165c58d42da6c1"
 dependencies = [
  "bitflags",
+]
+
+[[package]]
+name = "z3"
+version = "0.20.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "89669e2ab7eb1bf5ec0621958479b4e3a11f14023358112dab3e21af410d8440"
+dependencies = [
+ "log",
+ "z3-sys",
 ]
 
 [[package]]

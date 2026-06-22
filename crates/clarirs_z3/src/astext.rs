@@ -1,10 +1,18 @@
 use std::ffi::CStr;
 
+use ::z3 as z3hl;
 use clarirs_core::{algorithms::walk_post_order, prelude::*};
 use regex::Regex;
 use z3_sys as z3;
 
 use crate::{Z3_AST_CACHE, Z3_CONTEXT, check_z3_error, rc::RcAst};
+
+/// Wraps a high-level typed AST (`Bool`/`BV`/`Float`/`String`) into an `RcAst`.
+/// Used for leaf constructors so the `z3` crate manages the sort's lifetime
+/// (sorts must be reference-counted in the crate's rc context).
+fn typed_to_rcast(ast: &dyn z3hl::ast::Ast) -> RcAst {
+    RcAst::from(z3hl::ast::Dynamic::from_ast(ast))
+}
 
 #[cfg(test)]
 mod test_bool;
@@ -63,10 +71,12 @@ fn fprm_to_z3(rm: FPRM) -> Result<RcAst, ClarirsError> {
     }))
 }
 
-fn fsort_to_z3(sort: FSort) -> z3::Z3_sort {
-    Z3_CONTEXT.with(|&z3_ctx| unsafe {
-        z3::Z3_mk_fpa_sort(z3_ctx, sort.exponent, sort.mantissa + 1).unwrap()
-    })
+/// The Z3 floating-point sort for `sort`, as a reference-counted handle. Z3's
+/// sbits includes the implicit leading bit, so `mantissa + 1` is passed. The
+/// caller must keep the returned [`z3hl::Sort`] alive while building a node from
+/// it (`.get_z3_sort()`), since sorts are GC'd in the crate's rc context.
+fn fsort_to_z3(sort: FSort) -> z3hl::Sort {
+    z3hl::Sort::float(sort.exponent, sort.mantissa + 1)
 }
 
 fn parse_fprm_from_z3(z3_ctx: z3::Z3_context, ast: z3::Z3_ast) -> Result<FPRM, ClarirsError> {
@@ -167,10 +177,7 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
 
                             // Boolean leaves and predicates
                             AstOp::BoolS(s) => {
-                                let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
-                                let sym = z3::Z3_mk_string_symbol(z3_ctx, s_cstr.as_ptr()).unwrap();
-                                let sort = z3::Z3_mk_bool_sort(z3_ctx).unwrap();
-                                RcAst::try_from(z3::Z3_mk_const(z3_ctx, sym, sort))?
+                                typed_to_rcast(&z3hl::ast::Bool::new_const(s.as_str()))
                             }
                             AstOp::BoolV(b) => if *b {
                                 z3::Z3_mk_true(z3_ctx)
@@ -219,38 +226,32 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                             AstOp::StrIsDigit(..) => {
                                 let a = child(children, 0)?;
                                 // str.to_int returns -1 for non-digit strings, so >= 0 means all digits
-                                let int_val = z3::Z3_mk_str_to_int(z3_ctx, **a).unwrap();
-                                let int_sort = z3::Z3_mk_int_sort(z3_ctx).unwrap();
-                                let zero_cstr = std::ffi::CString::new("0").unwrap();
-                                let zero = z3::Z3_mk_numeral(z3_ctx, zero_cstr.as_ptr(), int_sort)
-                                    .unwrap();
-                                let is_non_negative = z3::Z3_mk_ge(z3_ctx, int_val, zero).unwrap();
-                                let str_len = z3::Z3_mk_seq_length(z3_ctx, **a).unwrap();
-                                let zero_int_cstr = std::ffi::CString::new("0").unwrap();
-                                let zero_int =
-                                    z3::Z3_mk_numeral(z3_ctx, zero_int_cstr.as_ptr(), int_sort)
-                                        .unwrap();
-                                let is_non_empty = z3::Z3_mk_gt(z3_ctx, str_len, zero_int).unwrap();
-                                let args = [is_non_negative, is_non_empty];
-                                z3::Z3_mk_and(z3_ctx, 2, args.as_ptr()).try_into()?
+                                let int_val = RcAst::try_from(z3::Z3_mk_str_to_int(z3_ctx, **a))?;
+                                let zero = typed_to_rcast(&z3hl::ast::Int::from_i64(0));
+                                let is_non_negative =
+                                    RcAst::try_from(z3::Z3_mk_ge(z3_ctx, *int_val, *zero))?;
+                                let str_len = RcAst::try_from(z3::Z3_mk_seq_length(z3_ctx, **a))?;
+                                let is_non_empty =
+                                    RcAst::try_from(z3::Z3_mk_gt(z3_ctx, *str_len, *zero))?;
+                                let args = [*is_non_negative, *is_non_empty];
+                                RcAst::try_from(z3::Z3_mk_and(z3_ctx, 2, args.as_ptr()))?
                             }
 
                             // Bitvector leaves and operations
                             AstOp::BVS(s, w) => {
-                                let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
-                                let sym = z3::Z3_mk_string_symbol(z3_ctx, s_cstr.as_ptr()).unwrap();
-                                let sort = z3::Z3_mk_bv_sort(z3_ctx, *w).unwrap();
-                                RcAst::try_from(z3::Z3_mk_const(z3_ctx, sym, sort))?
+                                typed_to_rcast(&z3hl::ast::BV::new_const(s.as_str(), *w))
                             }
                             AstOp::BVV(v) => {
-                                let sort = z3::Z3_mk_bv_sort(z3_ctx, v.len()).unwrap();
                                 let numeral = v.to_biguint().to_string();
-                                let numeral_cstr = std::ffi::CString::new(numeral).unwrap();
-                                RcAst::try_from(z3::Z3_mk_numeral(
-                                    z3_ctx,
-                                    numeral_cstr.as_ptr(),
-                                    sort,
-                                ))?
+                                typed_to_rcast(
+                                    &z3hl::ast::BV::from_str(v.len(), &numeral).ok_or_else(
+                                        || {
+                                            ClarirsError::ConversionError(
+                                                "failed to build Z3 bitvector numeral".to_string(),
+                                            )
+                                        },
+                                    )?,
+                                )
                             }
                             AstOp::Neg(..) => unop!(z3_ctx, children, Z3_mk_bvneg),
                             AstOp::Add(..) => naryop!(z3_ctx, children, Z3_mk_bvadd),
@@ -394,22 +395,19 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                             }
 
                             // Float leaves and operations
-                            AstOp::FPS(s, sort) => {
-                                let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
-                                let sym = z3::Z3_mk_string_symbol(z3_ctx, s_cstr.as_ptr()).unwrap();
-                                RcAst::try_from(z3::Z3_mk_const(z3_ctx, sym, fsort_to_z3(*sort)))?
-                            }
-                            AstOp::FPV(f) => {
-                                let sort = fsort_to_z3(f.fsort());
-                                match f {
-                                    Float::F32(val) => RcAst::try_from(
-                                        z3::Z3_mk_fpa_numeral_float(z3_ctx, *val, sort),
-                                    )?,
-                                    Float::F64(val) => RcAst::try_from(
-                                        z3::Z3_mk_fpa_numeral_double(z3_ctx, *val, sort),
-                                    )?,
+                            AstOp::FPS(s, sort) => typed_to_rcast(&z3hl::ast::Float::new_const(
+                                s.as_str(),
+                                sort.exponent,
+                                sort.mantissa + 1,
+                            )),
+                            AstOp::FPV(f) => match f {
+                                Float::F32(val) => {
+                                    typed_to_rcast(&z3hl::ast::Float::from_f32(*val))
                                 }
-                            }
+                                Float::F64(val) => {
+                                    typed_to_rcast(&z3hl::ast::Float::from_f64(*val))
+                                }
+                            },
                             AstOp::FpNeg(..) => unop!(z3_ctx, children, Z3_mk_fpa_neg),
                             AstOp::FpAbs(..) => unop!(z3_ctx, children, Z3_mk_fpa_abs),
                             AstOp::FpAdd(_, _, rm) => {
@@ -446,11 +444,12 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                             }
                             AstOp::FpToFp(_, sort, rm) => {
                                 let rm_ast = fprm_to_z3(*rm)?;
+                                let target = fsort_to_z3(*sort);
                                 RcAst::try_from(z3::Z3_mk_fpa_to_fp_float(
                                     z3_ctx,
                                     *rm_ast,
                                     **child(children, 0)?,
-                                    fsort_to_z3(*sort),
+                                    target.get_z3_sort(),
                                 ))?
                             }
                             AstOp::FpFP(..) => {
@@ -459,40 +458,38 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                                 let sig = child(children, 2)?;
                                 RcAst::try_from(z3::Z3_mk_fpa_fp(z3_ctx, **sign, **exp, **sig))?
                             }
-                            AstOp::BvToFp(_, sort) => RcAst::try_from(z3::Z3_mk_fpa_to_fp_bv(
-                                z3_ctx,
-                                **child(children, 0)?,
-                                fsort_to_z3(*sort),
-                            ))?,
+                            AstOp::BvToFp(_, sort) => {
+                                let target = fsort_to_z3(*sort);
+                                RcAst::try_from(z3::Z3_mk_fpa_to_fp_bv(
+                                    z3_ctx,
+                                    **child(children, 0)?,
+                                    target.get_z3_sort(),
+                                ))?
+                            }
                             AstOp::BvToFpSigned(_, sort, rm) => {
                                 let rm_ast = fprm_to_z3(*rm)?;
+                                let target = fsort_to_z3(*sort);
                                 RcAst::try_from(z3::Z3_mk_fpa_to_fp_signed(
                                     z3_ctx,
                                     *rm_ast,
                                     **child(children, 0)?,
-                                    fsort_to_z3(*sort),
+                                    target.get_z3_sort(),
                                 ))?
                             }
                             AstOp::BvToFpUnsigned(_, sort, rm) => {
                                 let rm_ast = fprm_to_z3(*rm)?;
+                                let target = fsort_to_z3(*sort);
                                 RcAst::try_from(z3::Z3_mk_fpa_to_fp_unsigned(
                                     z3_ctx,
                                     *rm_ast,
                                     **child(children, 0)?,
-                                    fsort_to_z3(*sort),
+                                    target.get_z3_sort(),
                                 ))?
                             }
 
                             // String leaves and operations
                             AstOp::StringS(s) => {
-                                let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
-                                let sym = z3::Z3_mk_string_symbol(z3_ctx, s_cstr.as_ptr()).unwrap();
-                                let sort = z3::Z3_mk_seq_sort(
-                                    z3_ctx,
-                                    z3::Z3_mk_char_sort(z3_ctx).unwrap(),
-                                )
-                                .unwrap();
-                                RcAst::try_from(z3::Z3_mk_const(z3_ctx, sym, sort))?
+                                typed_to_rcast(&z3hl::ast::String::new_const(s.as_str()))
                             }
                             AstOp::StringV(s) => {
                                 let mut encoded = String::new();
