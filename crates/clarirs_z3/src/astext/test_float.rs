@@ -1,5 +1,5 @@
+use crate::z3;
 use clarirs_core::prelude::*;
-use clarirs_z3_sys as z3;
 
 use super::AstExtZ3;
 use crate::{Z3_CONTEXT, rc::RcAst};

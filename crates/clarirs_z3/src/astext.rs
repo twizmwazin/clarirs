@@ -1,10 +1,9 @@
 use std::ffi::CStr;
 
 use clarirs_core::{algorithms::walk_post_order, prelude::*};
-use clarirs_z3_sys as z3;
 use regex::Regex;
 
-use crate::{Z3_AST_CACHE, Z3_CONTEXT, check_z3_error, rc::RcAst};
+use crate::{Z3_AST_CACHE, Z3_CONTEXT, check_z3_error, rc::RcAst, require, z3};
 
 #[cfg(test)]
 mod test_bool;
@@ -64,13 +63,16 @@ fn fprm_to_z3(rm: FPRM) -> Result<RcAst, ClarirsError> {
 }
 
 fn fsort_to_z3(sort: FSort) -> z3::Sort {
-    Z3_CONTEXT.with(|&z3_ctx| unsafe { z3::mk_fpa_sort(z3_ctx, sort.exponent, sort.mantissa + 1) })
+    Z3_CONTEXT.with(|&z3_ctx| unsafe {
+        z3::mk_fpa_sort(z3_ctx, sort.exponent, sort.mantissa + 1)
+            .expect("Z3_mk_fpa_sort returned null")
+    })
 }
 
 fn parse_fprm_from_z3(z3_ctx: z3::Context, ast: z3::Ast) -> Result<FPRM, ClarirsError> {
     unsafe {
-        let app = z3::to_app(z3_ctx, ast);
-        let decl = z3::get_app_decl(z3_ctx, app);
+        let app = require(z3::to_app(z3_ctx, ast))?;
+        let decl = require(z3::get_app_decl(z3_ctx, app))?;
         match z3::get_decl_kind(z3_ctx, decl) {
             z3::DeclKind::FpaRmNearestTiesToEven => Ok(FPRM::NearestTiesToEven),
             z3::DeclKind::FpaRmTowardPositive => Ok(FPRM::TowardPositive),
@@ -166,8 +168,8 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                             // Boolean leaves and predicates
                             AstOp::BoolS(s) => {
                                 let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
-                                let sym = z3::mk_string_symbol(z3_ctx, s_cstr.as_ptr());
-                                let sort = z3::mk_bool_sort(z3_ctx);
+                                let sym = require(z3::mk_string_symbol(z3_ctx, s_cstr.as_ptr()))?;
+                                let sort = require(z3::mk_bool_sort(z3_ctx))?;
                                 RcAst::try_from(z3::mk_const(z3_ctx, sym, sort))?
                             }
                             AstOp::BoolV(b) => if *b {
@@ -217,16 +219,20 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                             AstOp::StrIsDigit(..) => {
                                 let a = child(children, 0)?;
                                 // str.to_int returns -1 for non-digit strings, so >= 0 means all digits
-                                let int_val = z3::mk_str_to_int(z3_ctx, **a);
-                                let int_sort = z3::mk_int_sort(z3_ctx);
+                                let int_val = require(z3::mk_str_to_int(z3_ctx, **a))?;
+                                let int_sort = require(z3::mk_int_sort(z3_ctx))?;
                                 let zero_cstr = std::ffi::CString::new("0").unwrap();
-                                let zero = z3::mk_numeral(z3_ctx, zero_cstr.as_ptr(), int_sort);
-                                let is_non_negative = z3::mk_ge(z3_ctx, int_val, zero);
-                                let str_len = z3::mk_seq_length(z3_ctx, **a);
+                                let zero =
+                                    require(z3::mk_numeral(z3_ctx, zero_cstr.as_ptr(), int_sort))?;
+                                let is_non_negative = require(z3::mk_ge(z3_ctx, int_val, zero))?;
+                                let str_len = require(z3::mk_seq_length(z3_ctx, **a))?;
                                 let zero_int_cstr = std::ffi::CString::new("0").unwrap();
-                                let zero_int =
-                                    z3::mk_numeral(z3_ctx, zero_int_cstr.as_ptr(), int_sort);
-                                let is_non_empty = z3::mk_gt(z3_ctx, str_len, zero_int);
+                                let zero_int = require(z3::mk_numeral(
+                                    z3_ctx,
+                                    zero_int_cstr.as_ptr(),
+                                    int_sort,
+                                ))?;
+                                let is_non_empty = require(z3::mk_gt(z3_ctx, str_len, zero_int))?;
                                 let args = [is_non_negative, is_non_empty];
                                 z3::mk_and(z3_ctx, 2, args.as_ptr()).try_into()?
                             }
@@ -234,12 +240,12 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                             // Bitvector leaves and operations
                             AstOp::BVS(s, w) => {
                                 let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
-                                let sym = z3::mk_string_symbol(z3_ctx, s_cstr.as_ptr());
-                                let sort = z3::mk_bv_sort(z3_ctx, *w);
+                                let sym = require(z3::mk_string_symbol(z3_ctx, s_cstr.as_ptr()))?;
+                                let sort = require(z3::mk_bv_sort(z3_ctx, *w))?;
                                 RcAst::try_from(z3::mk_const(z3_ctx, sym, sort))?
                             }
                             AstOp::BVV(v) => {
-                                let sort = z3::mk_bv_sort(z3_ctx, v.len());
+                                let sort = require(z3::mk_bv_sort(z3_ctx, v.len()))?;
                                 let numeral = v.to_biguint().to_string();
                                 let numeral_cstr = std::ffi::CString::new(numeral).unwrap();
                                 RcAst::try_from(z3::mk_numeral(
@@ -384,7 +390,7 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                             // Float leaves and operations
                             AstOp::FPS(s, sort) => {
                                 let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
-                                let sym = z3::mk_string_symbol(z3_ctx, s_cstr.as_ptr());
+                                let sym = require(z3::mk_string_symbol(z3_ctx, s_cstr.as_ptr()))?;
                                 RcAst::try_from(z3::mk_const(z3_ctx, sym, fsort_to_z3(*sort)))?
                             }
                             AstOp::FPV(f) => {
@@ -474,8 +480,11 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                             // String leaves and operations
                             AstOp::StringS(s) => {
                                 let s_cstr = std::ffi::CString::new(s.as_str()).unwrap();
-                                let sym = z3::mk_string_symbol(z3_ctx, s_cstr.as_ptr());
-                                let sort = z3::mk_seq_sort(z3_ctx, z3::mk_char_sort(z3_ctx));
+                                let sym = require(z3::mk_string_symbol(z3_ctx, s_cstr.as_ptr()))?;
+                                let sort = require(z3::mk_seq_sort(
+                                    z3_ctx,
+                                    require(z3::mk_char_sort(z3_ctx))?,
+                                ))?;
                                 RcAst::try_from(z3::mk_const(z3_ctx, sym, sort))?
                             }
                             AstOp::StringV(s) => {
@@ -538,7 +547,7 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
             let z3_ctx = *z3_ctx;
             match z3::get_ast_kind(z3_ctx, *ast) {
                 z3::AstKind::Numeral => {
-                    let sort = z3::get_sort(z3_ctx, *ast);
+                    let sort = require(z3::get_sort(z3_ctx, *ast))?;
                     match z3::get_sort_kind(z3_ctx, sort) {
                         z3::SortKind::Bv => {
                             let numeral_string = z3::get_numeral_string(z3_ctx, *ast);
@@ -573,8 +582,8 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                     }
                 }
                 z3::AstKind::App => {
-                    let app = z3::to_app(z3_ctx, *ast);
-                    let decl = z3::get_app_decl(z3_ctx, app);
+                    let app = require(z3::to_app(z3_ctx, *ast))?;
+                    let decl = require(z3::get_app_decl(z3_ctx, app))?;
                     let decl_kind = z3::get_decl_kind(z3_ctx, decl);
                     let arg = |i| RcAst::try_from(z3::get_app_arg(z3_ctx, app, i));
 
@@ -782,21 +791,21 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                         }
                         // int2bv wraps the string->bv operations and plain bv2int.
                         z3::DeclKind::Int2bv => {
-                            let inner_int = z3::get_app_arg(z3_ctx, app, 0);
+                            let inner_int = require(z3::get_app_arg(z3_ctx, app, 0))?;
                             match z3::get_ast_kind(z3_ctx, inner_int) {
                                 z3::AstKind::Numeral => {
                                     let numeral_string = z3::get_numeral_string(z3_ctx, inner_int);
                                     let numeral_str =
                                         CStr::from_ptr(numeral_string).to_str().unwrap();
-                                    let s = z3::get_sort(z3_ctx, inner_int);
+                                    let s = require(z3::get_sort(z3_ctx, inner_int))?;
                                     let width = z3::get_bv_sort_size(z3_ctx, s);
                                     ctx.bvv(
                                         BitVec::try_from((numeral_str.to_string(), width)).unwrap(),
                                     )
                                 }
                                 z3::AstKind::App => {
-                                    let inner_app = z3::to_app(z3_ctx, inner_int);
-                                    let inner_decl = z3::get_app_decl(z3_ctx, inner_app);
+                                    let inner_app = require(z3::to_app(z3_ctx, inner_int))?;
+                                    let inner_decl = require(z3::get_app_decl(z3_ctx, inner_app))?;
                                     match z3::get_decl_kind(z3_ctx, inner_decl) {
                                         z3::DeclKind::Bv2int => AstRef::from_z3(
                                             ctx,
@@ -815,7 +824,8 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                                                     z3_ctx, inner_app, 1,
                                                 ))?,
                                             )?;
-                                            let off = z3::get_app_arg(z3_ctx, inner_app, 2);
+                                            let off =
+                                                require(z3::get_app_arg(z3_ctx, inner_app, 2))?;
                                             let offset_bv =
                                                 RcAst::try_from(z3::mk_int2bv(z3_ctx, 64, off))?;
                                             let offset_simplified =
@@ -844,7 +854,7 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
 
                         // Floats
                         z3::DeclKind::FpaNum => {
-                            let sort = z3::get_sort(z3_ctx, *ast);
+                            let sort = require(z3::get_sort(z3_ctx, *ast))?;
                             let fsort = FSort::new(
                                 z3::fpa_get_ebits(z3_ctx, sort),
                                 z3::fpa_get_sbits(z3_ctx, sort) - 1,
@@ -857,7 +867,7 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                             }
                         }
                         z3::DeclKind::FpaNan => {
-                            let sort = z3::get_sort(z3_ctx, *ast);
+                            let sort = require(z3::get_sort(z3_ctx, *ast))?;
                             let fsort = FSort::new(
                                 z3::fpa_get_ebits(z3_ctx, sort),
                                 z3::fpa_get_sbits(z3_ctx, sort) - 1,
@@ -889,7 +899,7 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                             ctx.fp_sqrt(AstRef::from_z3(ctx, arg(1)?)?, rm)
                         }
                         z3::DeclKind::FpaToFp => {
-                            let sort = z3::get_sort(z3_ctx, *ast);
+                            let sort = require(z3::get_sort(z3_ctx, *ast))?;
                             let fsort = FSort::new(
                                 z3::fpa_get_ebits(z3_ctx, sort),
                                 z3::fpa_get_sbits(z3_ctx, sort) - 1,
@@ -899,7 +909,7 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                                 2 => {
                                     let rm = parse_fprm_from_z3(z3_ctx, *arg(0)?)?;
                                     let operand = arg(1)?;
-                                    let operand_sort = z3::get_sort(z3_ctx, *operand);
+                                    let operand_sort = require(z3::get_sort(z3_ctx, *operand))?;
                                     match z3::get_sort_kind(z3_ctx, operand_sort) {
                                         z3::SortKind::FloatingPoint => {
                                             ctx.fp_to_fp(AstRef::from_z3(ctx, operand)?, fsort, rm)
@@ -935,7 +945,7 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                         | z3::DeclKind::FpaMinusZero
                         | z3::DeclKind::FpaPlusInf
                         | z3::DeclKind::FpaMinusInf => {
-                            let sort = z3::get_sort(z3_ctx, *ast);
+                            let sort = require(z3::get_sort(z3_ctx, *ast))?;
                             let fsort = FSort::new(
                                 z3::fpa_get_ebits(z3_ctx, sort),
                                 z3::fpa_get_sbits(z3_ctx, sort) - 1,
@@ -979,8 +989,8 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                         ),
                         z3::DeclKind::IntToStr => {
                             // int.to.str(bv2int(bv)) -> BVToStr(bv)
-                            let inner_app = z3::to_app(z3_ctx, *arg(0)?);
-                            let inner_decl = z3::get_app_decl(z3_ctx, inner_app);
+                            let inner_app = require(z3::to_app(z3_ctx, *arg(0)?))?;
+                            let inner_decl = require(z3::get_app_decl(z3_ctx, inner_app))?;
                             if z3::get_decl_kind(z3_ctx, inner_decl) == z3::DeclKind::Bv2int {
                                 ctx.bv_to_str(AstRef::from_z3(
                                     ctx,
@@ -1000,8 +1010,8 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                             AstRef::from_z3(ctx, arg(2)?)?,
                         ),
                         z3::DeclKind::Uninterpreted => {
-                            let sort = z3::get_sort(z3_ctx, *ast);
-                            let sym = z3::get_decl_name(z3_ctx, decl);
+                            let sort = require(z3::get_sort(z3_ctx, *ast))?;
+                            let sym = require(z3::get_decl_name(z3_ctx, decl))?;
                             let name = CStr::from_ptr(z3::get_symbol_string(z3_ctx, sym))
                                 .to_str()
                                 .unwrap();

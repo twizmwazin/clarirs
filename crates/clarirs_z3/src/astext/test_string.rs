@@ -1,5 +1,5 @@
+use crate::z3;
 use clarirs_core::prelude::*;
-use clarirs_z3_sys as z3;
 
 use super::AstExtZ3;
 use crate::{Z3_CONTEXT, rc::RcAst};
@@ -248,11 +248,11 @@ mod from_z3 {
         let ctx = Context::new();
         let s = RcAst::mk_string_val("hello world");
         let z3_sub = Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            let int_sort = z3::mk_int_sort(z3_ctx);
+            let int_sort = z3::mk_int_sort(z3_ctx).unwrap();
             let start_cstr = std::ffi::CString::new("6").unwrap();
-            let start = z3::mk_numeral(z3_ctx, start_cstr.as_ptr(), int_sort);
+            let start = z3::mk_numeral(z3_ctx, start_cstr.as_ptr(), int_sort).unwrap();
             let len_cstr = std::ffi::CString::new("5").unwrap();
-            let len = z3::mk_numeral(z3_ctx, len_cstr.as_ptr(), int_sort);
+            let len = z3::mk_numeral(z3_ctx, len_cstr.as_ptr(), int_sort).unwrap();
             RcAst::try_from(z3::mk_seq_extract(z3_ctx, *s, start, len)).unwrap()
         });
         let result = AstRef::from_z3(&ctx, z3_sub).unwrap();

@@ -1,9 +1,8 @@
 use std::ffi::CStr;
 use std::ops::{Deref, DerefMut};
 
-use crate::{Z3_CONTEXT, check_z3_error};
+use crate::{Z3_CONTEXT, check_z3_error, require, z3};
 use clarirs_core::error::ClarirsError;
-use clarirs_z3_sys as z3;
 
 #[repr(transparent)]
 pub struct RcAst(z3::Ast);
@@ -12,8 +11,8 @@ impl RcAst {
     /// Returns the `DeclKind` of this AST node (assumes it is an application).
     pub fn decl_kind(&self) -> z3::DeclKind {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            let app = z3::to_app(ctx, self.0);
-            let decl = z3::get_app_decl(ctx, app);
+            let app = z3::to_app(ctx, self.0).expect("decl_kind: not an application");
+            let decl = z3::get_app_decl(ctx, app).expect("decl_kind: no declaration");
             z3::get_decl_kind(ctx, decl)
         })
     }
@@ -21,7 +20,7 @@ impl RcAst {
     /// Returns the number of arguments (assumes it is an application).
     pub fn num_args(&self) -> u32 {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            let app = z3::to_app(ctx, self.0);
+            let app = z3::to_app(ctx, self.0).expect("num_args: not an application");
             z3::get_app_num_args(ctx, app)
         })
     }
@@ -34,7 +33,7 @@ impl RcAst {
             if ast_kind != z3::AstKind::App {
                 return None;
             }
-            let app = z3::to_app(ctx, self.0);
+            let app = z3::to_app(ctx, self.0)?;
             let num_args = z3::get_app_num_args(ctx, app);
             if index >= num_args {
                 return None;
@@ -50,12 +49,12 @@ impl RcAst {
             if z3::get_ast_kind(ctx, self.0) != z3::AstKind::App {
                 return None;
             }
-            let app = z3::to_app(ctx, self.0);
-            let decl = z3::get_app_decl(ctx, app);
+            let app = z3::to_app(ctx, self.0)?;
+            let decl = z3::get_app_decl(ctx, app)?;
             if z3::get_decl_kind(ctx, decl) != z3::DeclKind::Uninterpreted {
                 return None;
             }
-            let sym = z3::get_decl_name(ctx, decl);
+            let sym = z3::get_decl_name(ctx, decl)?;
             let name = z3::get_symbol_string(ctx, sym);
             CStr::from_ptr(name).to_str().ok().map(|s| s.to_owned())
         })
@@ -66,8 +65,8 @@ impl RcAst {
     pub fn mk_symbol(name: &str, sort: z3::Sort) -> RcAst {
         Z3_CONTEXT.with(|&ctx| unsafe {
             let c_name = std::ffi::CString::new(name).unwrap();
-            let sym = z3::mk_string_symbol(ctx, c_name.as_ptr());
-            let decl = z3::mk_func_decl(ctx, sym, 0, std::ptr::null(), sort);
+            let sym = z3::mk_string_symbol(ctx, c_name.as_ptr()).unwrap();
+            let decl = z3::mk_func_decl(ctx, sym, 0, std::ptr::null(), sort).unwrap();
             RcAst::try_from(z3::mk_app(ctx, decl, 0, std::ptr::null())).unwrap()
         })
     }
@@ -75,13 +74,14 @@ impl RcAst {
     /// Creates a Z3 boolean symbol.
     #[cfg(test)]
     pub fn mk_bool(name: &str) -> RcAst {
-        Z3_CONTEXT.with(|&ctx| unsafe { Self::mk_symbol(name, z3::mk_bool_sort(ctx)) })
+        Z3_CONTEXT.with(|&ctx| unsafe { Self::mk_symbol(name, z3::mk_bool_sort(ctx).unwrap()) })
     }
 
     /// Creates a Z3 bitvector symbol.
     #[cfg(test)]
     pub fn mk_bv(name: &str, width: u32) -> RcAst {
-        Z3_CONTEXT.with(|&ctx| unsafe { Self::mk_symbol(name, z3::mk_bv_sort(ctx, width)) })
+        Z3_CONTEXT
+            .with(|&ctx| unsafe { Self::mk_symbol(name, z3::mk_bv_sort(ctx, width).unwrap()) })
     }
 
     /// Creates a Z3 floating-point symbol. Z3's sbits includes the implicit
@@ -89,7 +89,10 @@ impl RcAst {
     #[cfg(test)]
     pub fn mk_fp(name: &str, sort: clarirs_core::prelude::FSort) -> RcAst {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            Self::mk_symbol(name, z3::mk_fpa_sort(ctx, sort.exponent, sort.mantissa + 1))
+            Self::mk_symbol(
+                name,
+                z3::mk_fpa_sort(ctx, sort.exponent, sort.mantissa + 1).unwrap(),
+            )
         })
     }
 
@@ -97,7 +100,7 @@ impl RcAst {
     #[cfg(test)]
     pub fn mk_bv_val(value: &str, width: u32) -> RcAst {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            let sort = z3::mk_bv_sort(ctx, width);
+            let sort = z3::mk_bv_sort(ctx, width).unwrap();
             let c_val = std::ffi::CString::new(value).unwrap();
             RcAst::try_from(z3::mk_numeral(ctx, c_val.as_ptr(), sort)).unwrap()
         })
@@ -107,7 +110,7 @@ impl RcAst {
     #[cfg(test)]
     pub fn mk_fp_val_f32(value: f32) -> RcAst {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            let sort = z3::mk_fpa_sort(ctx, 8, 24); // f32: 8 exponent, 24 sbits (23 mantissa + 1)
+            let sort = z3::mk_fpa_sort(ctx, 8, 24).unwrap(); // f32: 8 exponent, 24 sbits (23 mantissa + 1)
             RcAst::try_from(z3::mk_fpa_numeral_float(ctx, value, sort)).unwrap()
         })
     }
@@ -116,7 +119,7 @@ impl RcAst {
     #[cfg(test)]
     pub fn mk_fp_val_f64(value: f64) -> RcAst {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            let sort = z3::mk_fpa_sort(ctx, 11, 53); // f64: 11 exponent, 53 sbits (52 mantissa + 1)
+            let sort = z3::mk_fpa_sort(ctx, 11, 53).unwrap(); // f64: 11 exponent, 53 sbits (52 mantissa + 1)
             RcAst::try_from(z3::mk_fpa_numeral_double(ctx, value, sort)).unwrap()
         })
     }
@@ -141,7 +144,10 @@ impl RcAst {
     #[cfg(test)]
     pub fn mk_string(name: &str) -> RcAst {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            Self::mk_symbol(name, z3::mk_seq_sort(ctx, z3::mk_char_sort(ctx)))
+            Self::mk_symbol(
+                name,
+                z3::mk_seq_sort(ctx, z3::mk_char_sort(ctx).unwrap()).unwrap(),
+            )
         })
     }
 
@@ -184,6 +190,20 @@ impl TryFrom<z3::Ast> for RcAst {
     }
 }
 
+impl TryFrom<Option<z3::Ast>> for RcAst {
+    type Error = ClarirsError;
+
+    /// Z3 pointer constructors return `None` on failure. The error code is read
+    /// first (via `check_z3_error`) so a Z3-reported reason wins over the generic
+    /// null-pointer message from [`require`].
+    fn try_from(ast: Option<z3::Ast>) -> Result<Self, Self::Error> {
+        check_z3_error()?;
+        let ast = require(ast)?;
+        Z3_CONTEXT.with(|&ctx| unsafe { z3::inc_ref(ctx, ast) });
+        Ok(RcAst(ast))
+    }
+}
+
 impl From<RcAst> for z3::Ast {
     fn from(ast: RcAst) -> Self {
         ast.0
@@ -210,7 +230,7 @@ pub struct RcParamSet(z3::Params);
 impl RcParamSet {
     pub fn new() -> Result<Self, ClarirsError> {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            let params = RcParamSet(z3::mk_params(ctx));
+            let params = RcParamSet(require(z3::mk_params(ctx))?);
             z3::params_inc_ref(ctx, params.0);
             check_z3_error()?;
             Ok(params)
@@ -222,9 +242,10 @@ impl RcParamSet {
             ClarirsError::BackendError("Z3", "Failed to convert key to CString".into())
         })?;
         Z3_CONTEXT.with(|&ctx| unsafe {
-            let symbol = z3::mk_string_symbol(ctx, key_cstr.as_ptr());
+            let symbol = require(z3::mk_string_symbol(ctx, key_cstr.as_ptr()))?;
             z3::params_set_bool(ctx, self.0, symbol, value);
-        });
+            Ok::<(), ClarirsError>(())
+        })?;
         check_z3_error()
     }
 
@@ -233,9 +254,10 @@ impl RcParamSet {
             ClarirsError::BackendError("Z3", "Failed to convert key to CString".into())
         })?;
         Z3_CONTEXT.with(|&ctx| unsafe {
-            let symbol = z3::mk_string_symbol(ctx, key_cstr.as_ptr());
+            let symbol = require(z3::mk_string_symbol(ctx, key_cstr.as_ptr()))?;
             z3::params_set_uint(ctx, self.0, symbol, value);
-        });
+            Ok::<(), ClarirsError>(())
+        })?;
         check_z3_error()
     }
 }
@@ -267,9 +289,9 @@ pub struct RcSolver(z3::Solver);
 impl RcSolver {
     pub fn new() -> Result<Self, ClarirsError> {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            let solver = RcSolver::from(z3::mk_solver(ctx));
+            let solver = z3::mk_solver(ctx);
             check_z3_error()?;
-            Ok(solver)
+            Ok(RcSolver::from(require(solver)?))
         })
     }
 
@@ -314,15 +336,15 @@ impl RcSolver {
         Z3_CONTEXT.with(|&ctx| unsafe {
             let core = z3::solver_get_unsat_core(ctx, self.0);
             check_z3_error()?;
-            Ok(RcAstVector::from(core))
+            Ok(RcAstVector::from(require(core)?))
         })
     }
 
     pub fn model(&mut self) -> Result<RcModel, ClarirsError> {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            let model = RcModel::from(z3::solver_get_model(ctx, self.0));
+            let model = z3::solver_get_model(ctx, self.0);
             check_z3_error()?;
-            Ok(model)
+            Ok(RcModel::from(require(model)?))
         })
     }
 }
@@ -373,9 +395,9 @@ pub struct RcOptimize(z3::Optimize);
 impl RcOptimize {
     pub fn new() -> Result<Self, ClarirsError> {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            let optimize = RcOptimize::from(z3::mk_optimize(ctx));
+            let optimize = z3::mk_optimize(ctx);
             check_z3_error()?;
-            Ok(optimize)
+            Ok(RcOptimize::from(require(optimize)?))
         })
     }
 
@@ -389,13 +411,7 @@ impl RcOptimize {
             ClarirsError::BackendError("Z3", "Failed to convert weight to CString".into())
         })?;
         Z3_CONTEXT.with(|&ctx| unsafe {
-            z3::optimize_assert_soft(
-                ctx,
-                self.0,
-                **ast,
-                weight_string.as_ptr(),
-                std::ptr::null_mut(),
-            );
+            z3::optimize_assert_soft(ctx, self.0, **ast, weight_string.as_ptr(), None);
         });
         check_z3_error()
     }
@@ -422,7 +438,7 @@ impl RcOptimize {
         Z3_CONTEXT.with(|&ctx| unsafe {
             let model = z3::optimize_get_model(ctx, self.0);
             check_z3_error()?;
-            Ok(RcModel::from(model))
+            Ok(RcModel::from(require(model)?))
         })
     }
 }
@@ -473,8 +489,8 @@ pub struct RcModel(z3::Model);
 impl RcModel {
     pub fn eval(&self, ast: &RcAst) -> Result<RcAst, ClarirsError> {
         Z3_CONTEXT.with(|&ctx| unsafe {
-            let mut eval_result: z3::Ast = std::mem::zeroed();
-            let eval_ret = z3::model_eval(ctx, self.0, **ast, true, &mut eval_result);
+            let mut eval_result = std::mem::MaybeUninit::<z3::Ast>::uninit();
+            let eval_ret = z3::model_eval(ctx, self.0, **ast, true, eval_result.as_mut_ptr());
             check_z3_error()?;
             if !eval_ret {
                 return Err(ClarirsError::BackendError(
@@ -482,7 +498,8 @@ impl RcModel {
                     "Model evaluation failed".into(),
                 ));
             }
-            RcAst::try_from(eval_result)
+            // `model_eval` returned true, so it wrote a valid (non-null) AST.
+            RcAst::try_from(eval_result.assume_init())
         })
     }
 }
