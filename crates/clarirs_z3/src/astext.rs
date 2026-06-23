@@ -224,8 +224,10 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                             }
                             AstOp::And(..) => {
                                 if ast.ast_type().is_bool() {
-                                    let args =
-                                        children.iter().map(as_bool).collect::<Result<Vec<_>, _>>()?;
+                                    let args = children
+                                        .iter()
+                                        .map(as_bool)
+                                        .collect::<Result<Vec<_>, _>>()?;
                                     Dynamic::from_ast(&Bool::and(&args))
                                 } else {
                                     naryop!(children, as_bv, bvand)
@@ -233,8 +235,10 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                             }
                             AstOp::Or(..) => {
                                 if ast.ast_type().is_bool() {
-                                    let args =
-                                        children.iter().map(as_bool).collect::<Result<Vec<_>, _>>()?;
+                                    let args = children
+                                        .iter()
+                                        .map(as_bool)
+                                        .collect::<Result<Vec<_>, _>>()?;
                                     Dynamic::from_ast(&Bool::or(&args))
                                 } else {
                                     naryop!(children, as_bv, bvor)
@@ -302,8 +306,10 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                                 // str.to_int returns -1 for non-digit strings, so >= 0 with a
                                 // non-empty string means all digits. The `z3` crate has no
                                 // str.to_int wrapper, so build it through the C API.
-                                let int_val =
-                                    as_int(&wrap_ast(z3::Z3_mk_str_to_int(z3_ctx, s.get_z3_ast()))?)?;
+                                let int_val = as_int(&wrap_ast(z3::Z3_mk_str_to_int(
+                                    z3_ctx,
+                                    s.get_z3_ast(),
+                                ))?)?;
                                 let is_non_negative = int_val.ge(Int::from_i64(0));
                                 let is_non_empty = s.length().gt(Int::from_i64(0));
                                 Dynamic::from_ast(&Bool::and(&[is_non_negative, is_non_empty]))
@@ -451,8 +457,10 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                                     .sqrt_with_rounding_mode(&fprm_to_rm(*rm)),
                             ),
                             AstOp::FpToFp(_, sort, rm) => Dynamic::from_ast(
-                                &as_float(child(children, 0)?)?
-                                    .to_fp_with_rounding_mode(&fprm_to_rm(*rm), &fsort_to_z3(*sort)),
+                                &as_float(child(children, 0)?)?.to_fp_with_rounding_mode(
+                                    &fprm_to_rm(*rm),
+                                    &fsort_to_z3(*sort),
+                                ),
                             ),
                             AstOp::FpFP(..) => {
                                 // The `z3` crate has no constructor assembling a float from its
@@ -586,7 +594,10 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
             z3::AstKind::App => {
                 // String constants present as ordinary apps; catch them first.
                 if is_string_literal(&ast) {
-                    let value = ast.as_string().and_then(|s| s.as_string()).unwrap_or_default();
+                    let value = ast
+                        .as_string()
+                        .and_then(|s| s.as_string())
+                        .unwrap_or_default();
                     return ctx.stringv(decode_custom_unicode(&value));
                 }
 
@@ -793,14 +804,10 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                                 // Preserve the original width read: the operand sort is not
                                 // statically a bitvector, so go through the C API.
                                 let width = bv_sort_size(&inner);
-                                ctx.bvv(
-                                    BitVec::try_from((numeral_string(&inner), width)).unwrap(),
-                                )
+                                ctx.bvv(BitVec::try_from((numeral_string(&inner), width)).unwrap())
                             }
                             z3::AstKind::App => match inner.decl().kind() {
-                                z3::DeclKind::Bv2int => {
-                                    AstRef::from_z3(ctx, nth(&inner, 0)?)
-                                }
+                                z3::DeclKind::Bv2int => AstRef::from_z3(ctx, nth(&inner, 0)?),
                                 z3::DeclKind::SeqIndex => {
                                     let haystack = AstRef::from_z3(ctx, nth(&inner, 0)?)?;
                                     let needle = AstRef::from_z3(ctx, nth(&inner, 1)?)?;

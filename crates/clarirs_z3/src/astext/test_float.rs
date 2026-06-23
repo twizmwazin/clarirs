@@ -388,8 +388,9 @@ mod from_z3 {
     fn fp_neg() {
         let ctx = Context::new();
         let x = mk_fp("x", FSort::f32());
-        let z3_neg = Z3_CONTEXT
-            .with(|&z3_ctx| unsafe { wrap_ast(z3::Z3_mk_fpa_neg(z3_ctx, x.get_z3_ast())).unwrap() });
+        let z3_neg = Z3_CONTEXT.with(|&z3_ctx| unsafe {
+            wrap_ast(z3::Z3_mk_fpa_neg(z3_ctx, x.get_z3_ast())).unwrap()
+        });
         let result = AstRef::from_z3(&ctx, z3_neg).unwrap();
         let expected = ctx.fp_neg(ctx.fps("x", FSort::f32()).unwrap()).unwrap();
         assert_eq!(expected, result);
@@ -399,8 +400,9 @@ mod from_z3 {
     fn fp_abs() {
         let ctx = Context::new();
         let x = mk_fp("x", FSort::f32());
-        let z3_abs = Z3_CONTEXT
-            .with(|&z3_ctx| unsafe { wrap_ast(z3::Z3_mk_fpa_abs(z3_ctx, x.get_z3_ast())).unwrap() });
+        let z3_abs = Z3_CONTEXT.with(|&z3_ctx| unsafe {
+            wrap_ast(z3::Z3_mk_fpa_abs(z3_ctx, x.get_z3_ast())).unwrap()
+        });
         let result = AstRef::from_z3(&ctx, z3_abs).unwrap();
         let expected = ctx.fp_abs(ctx.fps("x", FSort::f32()).unwrap()).unwrap();
         assert_eq!(expected, result);
@@ -415,7 +417,13 @@ mod from_z3 {
         let b = mk_fp("b", FSort::f32());
         let rm = mk_fprm(FPRM::NearestTiesToEven);
         let z3_add = Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            wrap_ast(z3::Z3_mk_fpa_add(z3_ctx, rm.get_z3_ast(), a.get_z3_ast(), b.get_z3_ast())).unwrap()
+            wrap_ast(z3::Z3_mk_fpa_add(
+                z3_ctx,
+                rm.get_z3_ast(),
+                a.get_z3_ast(),
+                b.get_z3_ast(),
+            ))
+            .unwrap()
         });
         let result = AstRef::from_z3(&ctx, z3_add).unwrap();
         let expected = ctx
@@ -435,7 +443,13 @@ mod from_z3 {
         let b = mk_fp("b", FSort::f32());
         let rm = mk_fprm(FPRM::TowardZero);
         let z3_sub = Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            wrap_ast(z3::Z3_mk_fpa_sub(z3_ctx, rm.get_z3_ast(), a.get_z3_ast(), b.get_z3_ast())).unwrap()
+            wrap_ast(z3::Z3_mk_fpa_sub(
+                z3_ctx,
+                rm.get_z3_ast(),
+                a.get_z3_ast(),
+                b.get_z3_ast(),
+            ))
+            .unwrap()
         });
         let result = AstRef::from_z3(&ctx, z3_sub).unwrap();
         let expected = ctx
@@ -455,7 +469,13 @@ mod from_z3 {
         let b = mk_fp("b", FSort::f32());
         let rm = mk_fprm(FPRM::TowardPositive);
         let z3_mul = Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            wrap_ast(z3::Z3_mk_fpa_mul(z3_ctx, rm.get_z3_ast(), a.get_z3_ast(), b.get_z3_ast())).unwrap()
+            wrap_ast(z3::Z3_mk_fpa_mul(
+                z3_ctx,
+                rm.get_z3_ast(),
+                a.get_z3_ast(),
+                b.get_z3_ast(),
+            ))
+            .unwrap()
         });
         let result = AstRef::from_z3(&ctx, z3_mul).unwrap();
         let expected = ctx
@@ -475,7 +495,13 @@ mod from_z3 {
         let b = mk_fp("b", FSort::f32());
         let rm = mk_fprm(FPRM::TowardNegative);
         let z3_div = Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            wrap_ast(z3::Z3_mk_fpa_div(z3_ctx, rm.get_z3_ast(), a.get_z3_ast(), b.get_z3_ast())).unwrap()
+            wrap_ast(z3::Z3_mk_fpa_div(
+                z3_ctx,
+                rm.get_z3_ast(),
+                a.get_z3_ast(),
+                b.get_z3_ast(),
+            ))
+            .unwrap()
         });
         let result = AstRef::from_z3(&ctx, z3_div).unwrap();
         let expected = ctx
@@ -512,7 +538,13 @@ mod from_z3 {
         let exp = mk_bv("exp", 8);
         let sig = mk_bv("sig", 23);
         let z3_fp = Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            wrap_ast(z3::Z3_mk_fpa_fp(z3_ctx, sign.get_z3_ast(), exp.get_z3_ast(), sig.get_z3_ast())).unwrap()
+            wrap_ast(z3::Z3_mk_fpa_fp(
+                z3_ctx,
+                sign.get_z3_ast(),
+                exp.get_z3_ast(),
+                sig.get_z3_ast(),
+            ))
+            .unwrap()
         });
         let result = AstRef::from_z3(&ctx, z3_fp).unwrap();
 
@@ -530,7 +562,13 @@ mod from_z3 {
         let a = mk_fp("a", FSort::f32());
         let b = mk_fp("b", FSort::f32());
         let z3_ite = Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            wrap_ast(z3::Z3_mk_ite(z3_ctx, c.get_z3_ast(), a.get_z3_ast(), b.get_z3_ast())).unwrap()
+            wrap_ast(z3::Z3_mk_ite(
+                z3_ctx,
+                c.get_z3_ast(),
+                a.get_z3_ast(),
+                b.get_z3_ast(),
+            ))
+            .unwrap()
         });
         let result = AstRef::from_z3(&ctx, z3_ite).unwrap();
         let expected = ctx

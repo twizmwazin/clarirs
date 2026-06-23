@@ -281,7 +281,13 @@ mod from_z3 {
         let pat = mk_string_val("world");
         let rep = mk_string_val("there");
         let z3_rep = Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            wrap_ast(z3::Z3_mk_seq_replace(z3_ctx, s.get_z3_ast(), pat.get_z3_ast(), rep.get_z3_ast())).unwrap()
+            wrap_ast(z3::Z3_mk_seq_replace(
+                z3_ctx,
+                s.get_z3_ast(),
+                pat.get_z3_ast(),
+                rep.get_z3_ast(),
+            ))
+            .unwrap()
         });
         let result = AstRef::from_z3(&ctx, z3_rep).unwrap();
         let expected = ctx
@@ -303,7 +309,13 @@ mod from_z3 {
         let then = mk_string_val("then");
         let else_ = mk_string_val("else");
         let z3_ite = Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            wrap_ast(z3::Z3_mk_ite(z3_ctx, c.get_z3_ast(), then.get_z3_ast(), else_.get_z3_ast())).unwrap()
+            wrap_ast(z3::Z3_mk_ite(
+                z3_ctx,
+                c.get_z3_ast(),
+                then.get_z3_ast(),
+                else_.get_z3_ast(),
+            ))
+            .unwrap()
         });
         let result = AstRef::from_z3(&ctx, z3_ite).unwrap();
         let expected = ctx
@@ -323,7 +335,13 @@ mod from_z3 {
         let a = mk_string("a");
         let b = mk_string("b");
         let z3_ite = Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            wrap_ast(z3::Z3_mk_ite(z3_ctx, c.get_z3_ast(), a.get_z3_ast(), b.get_z3_ast())).unwrap()
+            wrap_ast(z3::Z3_mk_ite(
+                z3_ctx,
+                c.get_z3_ast(),
+                a.get_z3_ast(),
+                b.get_z3_ast(),
+            ))
+            .unwrap()
         });
         let result = AstRef::from_z3(&ctx, z3_ite).unwrap();
         let expected = ctx
