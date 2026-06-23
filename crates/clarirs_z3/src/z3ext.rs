@@ -24,25 +24,16 @@ pub(crate) fn wrap_ast(ast: Option<z3::Z3_ast>) -> Result<Dynamic, ClarirsError>
     Ok(unsafe { Dynamic::wrap(&z3_context(), ast) })
 }
 
-/// Crate-internal extensions on [`Dynamic`] for the parts of the Z3 API still
-/// reached through `z3-sys`.
+/// Crate-internal extension on [`Dynamic`] for introspection that guards on the
+/// decl kind rather than being a plain forward to the high-level API.
+#[cfg(test)]
 pub(crate) trait DynExt {
-    /// The raw `Z3_ast` pointer, for passing to `z3-sys` functions.
-    fn raw(&self) -> z3::Z3_ast;
-
     /// The symbol name if this is an uninterpreted constant, else `None`.
-    /// (Kept as a helper since it guards on the decl kind rather than being a
-    /// plain forward to the high-level API.)
-    #[cfg(test)]
     fn symbol_name(&self) -> Option<String>;
 }
 
+#[cfg(test)]
 impl DynExt for Dynamic {
-    fn raw(&self) -> z3::Z3_ast {
-        self.get_z3_ast()
-    }
-
-    #[cfg(test)]
     fn symbol_name(&self) -> Option<String> {
         let decl = self.safe_decl().ok()?;
         (decl.kind() == z3::DeclKind::Uninterpreted).then(|| decl.name())

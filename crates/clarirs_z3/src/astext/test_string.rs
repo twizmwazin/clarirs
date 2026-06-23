@@ -15,10 +15,10 @@ fn round_trip<'c>(ctx: &'c Context<'c>, ast: &AstRef<'c>) -> Result<AstRef<'c>, 
 fn assert_z3_string_value(ast: &z3hl::ast::Dynamic, expected: &str) {
     Z3_CONTEXT.with(|&z3_ctx| unsafe {
         assert!(
-            z3::Z3_is_string(z3_ctx, ast.raw()),
+            z3::Z3_is_string(z3_ctx, ast.get_z3_ast()),
             "expected a Z3 string constant"
         );
-        let ptr = z3::Z3_get_string(z3_ctx, ast.raw());
+        let ptr = z3::Z3_get_string(z3_ctx, ast.get_z3_ast());
         let got = std::ffi::CStr::from_ptr(ptr).to_str().unwrap();
         assert_eq!(got, expected);
     });
@@ -49,7 +49,7 @@ mod to_z3 {
         let z3_ast = s.to_z3().unwrap();
 
         Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            assert!(z3::Z3_is_string(z3_ctx, z3_ast.raw()));
+            assert!(z3::Z3_is_string(z3_ctx, z3_ast.get_z3_ast()));
         });
         assert_z3_string_value(&z3_ast, "hello");
     }
@@ -61,7 +61,7 @@ mod to_z3 {
         let z3_ast = s.to_z3().unwrap();
 
         Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            assert!(z3::Z3_is_string(z3_ctx, z3_ast.raw()));
+            assert!(z3::Z3_is_string(z3_ctx, z3_ast.get_z3_ast()));
         });
         assert_z3_string_value(&z3_ast, "");
     }
@@ -215,7 +215,7 @@ mod from_z3 {
         let s1 = mk_string_val("hello");
         let s2 = mk_string_val(" world");
         let z3_cat = Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            let args = [s1.raw(), s2.raw()];
+            let args = [s1.get_z3_ast(), s2.get_z3_ast()];
             wrap_ast(z3::Z3_mk_seq_concat(z3_ctx, 2, args.as_ptr())).unwrap()
         });
         let result = AstRef::from_z3(&ctx, z3_cat).unwrap();
@@ -234,7 +234,7 @@ mod from_z3 {
         let s1 = mk_string("a");
         let s2 = mk_string("b");
         let z3_cat = Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            let args = [s1.raw(), s2.raw()];
+            let args = [s1.get_z3_ast(), s2.get_z3_ast()];
             wrap_ast(z3::Z3_mk_seq_concat(z3_ctx, 2, args.as_ptr())).unwrap()
         });
         let result = AstRef::from_z3(&ctx, z3_cat).unwrap();
@@ -255,9 +255,9 @@ mod from_z3 {
         let z3_sub = Z3_CONTEXT.with(|&z3_ctx| unsafe {
             wrap_ast(z3::Z3_mk_seq_extract(
                 z3_ctx,
-                s.raw(),
-                start.raw(),
-                len.raw(),
+                s.get_z3_ast(),
+                start.get_z3_ast(),
+                len.get_z3_ast(),
             ))
             .unwrap()
         });
@@ -281,7 +281,7 @@ mod from_z3 {
         let pat = mk_string_val("world");
         let rep = mk_string_val("there");
         let z3_rep = Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            wrap_ast(z3::Z3_mk_seq_replace(z3_ctx, s.raw(), pat.raw(), rep.raw())).unwrap()
+            wrap_ast(z3::Z3_mk_seq_replace(z3_ctx, s.get_z3_ast(), pat.get_z3_ast(), rep.get_z3_ast())).unwrap()
         });
         let result = AstRef::from_z3(&ctx, z3_rep).unwrap();
         let expected = ctx
@@ -303,7 +303,7 @@ mod from_z3 {
         let then = mk_string_val("then");
         let else_ = mk_string_val("else");
         let z3_ite = Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            wrap_ast(z3::Z3_mk_ite(z3_ctx, c.raw(), then.raw(), else_.raw())).unwrap()
+            wrap_ast(z3::Z3_mk_ite(z3_ctx, c.get_z3_ast(), then.get_z3_ast(), else_.get_z3_ast())).unwrap()
         });
         let result = AstRef::from_z3(&ctx, z3_ite).unwrap();
         let expected = ctx
@@ -323,7 +323,7 @@ mod from_z3 {
         let a = mk_string("a");
         let b = mk_string("b");
         let z3_ite = Z3_CONTEXT.with(|&z3_ctx| unsafe {
-            wrap_ast(z3::Z3_mk_ite(z3_ctx, c.raw(), a.raw(), b.raw())).unwrap()
+            wrap_ast(z3::Z3_mk_ite(z3_ctx, c.get_z3_ast(), a.get_z3_ast(), b.get_z3_ast())).unwrap()
         });
         let result = AstRef::from_z3(&ctx, z3_ite).unwrap();
         let expected = ctx
