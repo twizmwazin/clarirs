@@ -43,19 +43,19 @@ impl<'c> Solver<'c> for ConcreteSolver<'c> {
     }
 
     fn is_true(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
-        Ok(expr.simplify()?.is_true())
+        Ok(expr.simplify_ext(false, false)?.is_true())
     }
 
     fn is_false(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
-        Ok(expr.simplify()?.is_false())
+        Ok(expr.simplify_ext(false, false)?.is_false())
     }
 
     fn has_true(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
-        Ok(expr.simplify()?.is_true())
+        Ok(expr.simplify_ext(false, false)?.is_true())
     }
 
     fn has_false(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
-        Ok(expr.simplify()?.is_false())
+        Ok(expr.simplify_ext(false, false)?.is_false())
     }
 
     fn min_unsigned(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
