@@ -1,6 +1,8 @@
 use ahash::HashMap;
+use hashbrown::hash_map::RawEntryMut;
 use std::{
     hash::Hash,
+    marker::PhantomData,
     sync::{Arc, RwLock, Weak},
 };
 
@@ -68,32 +70,105 @@ impl<K: Hash + Eq, V: Clone> Cache<K, V> for GenericCache<K, V> {
 }
 
 /// A special cache for when the result type is an AST. Unlike the generic cache,
-/// this cache stores weak references to the AST nodes; the value is a
-/// `Weak<AstNode>`.
-#[derive(Debug, Default)]
-pub struct AstCache<'c>(RwLock<HashMap<u64, Weak<AstNode<'c>>>>);
+/// this cache stores weak references to the AST nodes, keyed by each node's
+/// already-computed hash.
+///
+/// Because the key *is* a value's precomputed hash, the table is driven entirely
+/// through hashbrown's `raw_entry` API with that hash supplied directly: each
+/// entry is positioned by its key without the table's hash builder ever being
+/// invoked, so the key is never re-hashed (here or on a resize). This is
+/// hashbrown's "hash memoization" use case for raw entries.
+///
+/// The stored weaks are lifetime-erased to `'static`. On stable Rust hashbrown's
+/// table has a non-`#[may_dangle]` `Drop`, so holding `Weak<AstNode<'c>>`
+/// directly would make dropck require `'c` to outlive the table — impossible for
+/// the self-referential `Context<'c>`, whose nodes borrow the context itself.
+/// Erasing the brand for storage sidesteps that, exactly as `std`'s
+/// `#[may_dangle]` `HashMap` did implicitly. It is sound because every value is
+/// re-branded to this cache's own `'c` the instant it is read back out (see
+/// [`AstCache::rebrand`]), and a live strong `AstRef<'c>` keeps the context — and
+/// thus `'c` — valid for as long as any node remains reachable.
+#[derive(Debug)]
+pub struct AstCache<'c> {
+    inner: RwLock<hashbrown::HashMap<u64, Weak<AstNode<'static>>>>,
+    // Keep `AstCache<'c>` invariant in `'c` — matching the original
+    // `Weak<AstNode<'c>>` storage — without the erased table carrying the brand.
+    _brand: PhantomData<fn(&'c ()) -> &'c ()>,
+}
+
+impl Default for AstCache<'_> {
+    fn default() -> Self {
+        Self {
+            inner: RwLock::default(),
+            _brand: PhantomData,
+        }
+    }
+}
+
+impl<'c> AstCache<'c> {
+    /// Erase a node's `'c` brand so its weak ref can be stored in the table.
+    fn erase(value: &AstRef<'c>) -> Weak<AstNode<'static>> {
+        // SAFETY: only the lifetime differs, so the layouts are identical, and
+        // the erased weak never escapes un-rebranded (see `rebrand`).
+        unsafe {
+            std::mem::transmute::<Weak<AstNode<'c>>, Weak<AstNode<'static>>>(Arc::downgrade(value))
+        }
+    }
+
+    /// Re-apply this cache's `'c` brand to a weak read back out of the table.
+    fn rebrand(weak: &Weak<AstNode<'static>>) -> Option<AstRef<'c>> {
+        let arc = weak.upgrade()?;
+        // SAFETY: every entry was erased from an `AstRef<'c>` of this cache's
+        // context (see `erase`), so restoring `'c` recovers the true brand.
+        Some(unsafe { std::mem::transmute::<Arc<AstNode<'static>>, Arc<AstNode<'c>>>(arc) })
+    }
+}
 
 impl<'c> Cache<u64, AstRef<'c>> for AstCache<'c> {
     fn get(&self, key: &u64) -> Option<AstRef<'c>> {
-        self.0.read().unwrap().get(key).and_then(Weak::upgrade)
+        self.inner
+            .read()
+            .unwrap()
+            .raw_entry()
+            .from_hash(*key, |k| *k == *key)
+            .and_then(|(_, weak)| Self::rebrand(weak))
     }
 
     fn insert(&self, key: u64, value: &AstRef<'c>) {
-        let mut inner = self.0.write().unwrap();
+        let mut inner = self.inner.write().unwrap();
 
-        // A different live value under this hash means two distinct ASTs collide.
-        #[cfg(feature = "panic-on-hash-collision")]
-        if let Some(existing) = inner.get(&key).and_then(Weak::upgrade)
-            && existing != *value
-        {
-            panic!("Hash collision detected! Hash: {key}, Existing: {existing:?}, New: {value:?}");
+        match inner.raw_entry_mut().from_hash(key, |k| *k == key) {
+            RawEntryMut::Occupied(mut entry) => {
+                // A different live value under this hash means two distinct ASTs collide.
+                #[cfg(feature = "panic-on-hash-collision")]
+                if let Some(existing) = Self::rebrand(entry.get())
+                    && existing != *value
+                {
+                    panic!(
+                        "Hash collision detected! Hash: {key}, Existing: {existing:?}, New: {value:?}"
+                    );
+                }
+
+                entry.insert(Self::erase(value));
+            }
+            // Insert with the key fed straight back as the hash, so hashbrown
+            // never re-hashes it (here or on a later resize).
+            RawEntryMut::Vacant(entry) => {
+                entry.insert_with_hasher(key, key, Self::erase(value), |k| *k);
+            }
         }
-
-        inner.insert(key, Arc::downgrade(value));
     }
 
     fn drop(&self, key: u64) {
-        self.0.write().unwrap().remove(&key);
+        if let RawEntryMut::Occupied(entry) = self
+            .inner
+            .write()
+            .unwrap()
+            .raw_entry_mut()
+            .from_hash(key, |k| *k == key)
+        {
+            entry.remove();
+        }
     }
 
     // Collision detection must recompute and compare on every call, even a cache
