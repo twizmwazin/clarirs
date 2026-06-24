@@ -1,8 +1,14 @@
+use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use crate::{
-    algorithms::{reconstruct::reconstruct_node, walk_post_order},
+    algorithms::{
+        reconstruct::{rebuild_op, reconstruct_node},
+        walk_post_order,
+    },
     ast::op::AstOp,
+    cache::Cache,
+    context::structural_hash,
     prelude::*,
 };
 
@@ -31,6 +37,10 @@ impl<'c> AstNode<'c> {
 /// An `ITE` is already in excavated form, so its branches are left in place;
 /// for any other op we distribute over its first `ITE` child and recurse to
 /// hoist any remaining ones, yielding the fully expanded decision tree.
+///
+/// That expansion is exponential on heavily-shared DAGs, so each subproblem is
+/// memoized in `excavate_ite_distribute_cache` keyed by the hash `op(children)`
+/// would intern under, computed without building the node.
 fn excavate_node<'c>(
     ast: &AstRef<'c>,
     children: &[AstRef<'c>],
@@ -41,24 +51,33 @@ fn excavate_node<'c>(
         return reconstruct_node(ctx, ast, children);
     }
 
-    match children
+    let idx = match children
         .iter()
         .position(|c| matches!(c.op(), AstOp::ITE(..)))
     {
-        Some(idx) => {
-            let (cond, then_, else_) = match children[idx].op() {
-                AstOp::ITE(cond, then_, else_) => (cond.clone(), then_.clone(), else_.clone()),
-                _ => unreachable!(),
-            };
-            let mut branch = children.to_vec();
-            branch[idx] = then_;
-            let then_branch = excavate_node(ast, &branch)?;
-            branch[idx] = else_;
-            let else_branch = excavate_node(ast, &branch)?;
-            ctx.ite(cond, then_branch, else_branch)
-        }
-        None => reconstruct_node(ctx, ast, children),
+        Some(idx) => idx,
+        None => return reconstruct_node(ctx, ast, children),
+    };
+
+    let op = rebuild_op(ast, children).expect("a node being distributed is not a leaf");
+    let key = structural_hash(op.infer_type(), &op, &BTreeSet::new());
+    if let Some(cached) = ctx.excavate_ite_distribute_cache.get(&key) {
+        return Ok(cached);
     }
+
+    let (cond, then_, else_) = match children[idx].op() {
+        AstOp::ITE(cond, then_, else_) => (cond.clone(), then_.clone(), else_.clone()),
+        _ => unreachable!(),
+    };
+    let mut branch = children.to_vec();
+    branch[idx] = then_;
+    let then_branch = excavate_node(ast, &branch)?;
+    branch[idx] = else_;
+    let else_branch = excavate_node(ast, &branch)?;
+    let result = ctx.ite(cond, then_branch, else_branch)?;
+
+    ctx.excavate_ite_distribute_cache.insert(key, &result);
+    Ok(result)
 }
 
 #[cfg(test)]
