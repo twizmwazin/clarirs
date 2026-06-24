@@ -9,23 +9,16 @@ use crate::prelude::*;
 /// A trait for caching values based on a key. In the context of clarirs, this
 /// is used to cache ASTs, as well as the results of various algorithms.
 ///
-/// Implementations only need to provide the two primitives [`get`](Cache::get)
-/// and [`insert`](Cache::insert); [`get_or_insert`](Cache::get_or_insert) is
-/// derived from them. An implementation should override `get_or_insert` only
-/// when it needs behaviour the default cannot express (for example, recomputing
-/// the value on every call to detect hash collisions).
+/// Implementations provide `get` and `insert`; `get_or_insert` is derived from
+/// them, and need only be overridden when that default is insufficient.
 pub trait Cache<K, V> {
     /// Probe the cache without computing a value on miss.
     fn get(&self, key: &K) -> Option<V>;
 
-    /// Insert a value into the cache, replacing any existing entry for `key`.
     fn insert(&self, key: K, value: &V);
 
-    /// Remove the entry for `key`, if present.
     fn drop(&self, key: K);
 
-    /// Return the cached value for `key`, or compute one with `value_cv`, insert
-    /// it, and return it on a miss.
     fn get_or_insert<E>(&self, key: K, value_cv: impl FnOnce() -> Result<V, E>) -> Result<V, E> {
         if let Some(value) = self.get(&key) {
             return Ok(value);
@@ -88,8 +81,7 @@ impl<'c> Cache<u64, AstRef<'c>> for AstCache<'c> {
     fn insert(&self, key: u64, value: &AstRef<'c>) {
         let mut inner = self.0.write().unwrap();
 
-        // In collision-detection builds, finding a different live value already
-        // stored under this hash means two distinct ASTs share a hash.
+        // A different live value under this hash means two distinct ASTs collide.
         #[cfg(feature = "panic-on-hash-collision")]
         if let Some(existing) = inner.get(&key).and_then(Weak::upgrade)
             && existing != *value
@@ -104,17 +96,14 @@ impl<'c> Cache<u64, AstRef<'c>> for AstCache<'c> {
         self.0.write().unwrap().remove(&key);
     }
 
-    /// Collision detection has to compute the value and compare it on *every*
-    /// call — even on a cache hit — which the derived get-then-insert cannot
-    /// express, so `get_or_insert` is overridden in that build only. The
-    /// comparison itself lives in [`insert`](Self::insert).
+    // Collision detection must recompute and compare on every call, even a cache
+    // hit, which the derived get-then-insert cannot express.
     #[cfg(feature = "panic-on-hash-collision")]
     fn get_or_insert<E>(
         &self,
         key: u64,
         value_cv: impl FnOnce() -> Result<AstRef<'c>, E>,
     ) -> Result<AstRef<'c>, E> {
-        // This may call `simplify()` and recurse, so compute without a lock held.
         let arc = value_cv()?;
         self.insert(key, &arc);
         Ok(arc)
