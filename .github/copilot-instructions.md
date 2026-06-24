@@ -122,15 +122,18 @@ Use `ClarirsError` from `crates/clarirs_core/src/error.rs`. Conversion from `Bit
 ### Z3 Bindings Build Process
 
 `clarirs_z3` links against the upstream [`z3-sys`](https://crates.io/crates/z3-sys)
-crate with its `vendored` feature, which builds Z3 from source (shipped in the
-`z3-src` crate) via CMake and links it statically — no system Z3 install or git
-submodule is required. The backend (`rc.rs`/`solver.rs`/`astext.rs`) calls the
-`z3-sys` C API directly (`use z3_sys::*;`). Two upstream conventions are handled
-at the call sites: pointer constructors return `Option<NonNull<_>>` (funneled
-through `RcAst::try_from(Option<_>)` or the `require()` helper in `lib.rs`), and
+crate with its `gh-release` feature, which downloads a prebuilt static Z3 library
+(Z3 4.16.0 by default; override with `Z3_SYS_Z3_VERSION`) from the official
+Z3Prover GitHub releases — no system Z3 install, git submodule, or local Z3
+compilation. The backend (`rc.rs`/`solver.rs`/`astext.rs`) calls the `z3-sys` C
+API directly (`use z3_sys::*;`). Two upstream conventions are handled at the call
+sites: pointer constructors return `Option<NonNull<_>>` (funneled through
+`RcAst::try_from(Option<_>)` or the `require()` helper in `lib.rs`), and
 `Z3_lbool` is an integer compared against the `Z3_L_*` constants.
 
-Requires: CMake, Ninja, Clang (for faster builds). On CI, sccache caches compilation.
+Requires network access at build time to fetch the Z3 release (cached in the build
+dir afterward); CI sets `READ_ONLY_GITHUB_TOKEN` to avoid GitHub API rate limits.
+sccache caches Rust compilation.
 
 ## Claripy Compatibility Notes
 
