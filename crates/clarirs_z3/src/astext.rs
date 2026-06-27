@@ -531,7 +531,8 @@ impl<'c> AstExtZ3<'c> for AstRef<'c> {
                         })
                     })
                 },
-                cache,
+                |node| cache.get(&node.hash()),
+                |node, value| cache.insert(node.hash(), value),
             )
         })
     }

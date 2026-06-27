@@ -1,4 +1,3 @@
-use crate::cache::Cache;
 use crate::prelude::*;
 use std::collections::VecDeque;
 
@@ -15,14 +14,17 @@ use std::collections::VecDeque;
 /// - Ok(transformed_node) to continue traversal
 /// - Err(error) to stop traversal with an error
 ///
-/// If a cache is provided, previously processed subtrees will use cached
-/// results instead of recomputing them, which can significantly improve
-/// performance for trees with repeated subtrees. If you do not want to use a
-/// cache, pass `&()` as the cache.
+/// Memoization is two closures: `get_cached` returns a node's previously
+/// computed result (`None` on a miss; always `None` disables caching) and
+/// `set_cached` records a freshly computed one. They let the caller pick where
+/// results live — an inline per-node cell (excavate) or an external map (VSA,
+/// Z3) — without this walk knowing which. A hit also prunes re-traversal of
+/// shared subtrees.
 pub fn walk_post_order<'c, T>(
     ast: AstRef<'c>,
     mut callback: impl FnMut(AstRef<'c>, &[T]) -> Result<T, ClarirsError>,
-    cache: &impl Cache<u64, T>,
+    get_cached: impl Fn(&AstRef<'c>) -> Option<T>,
+    set_cached: impl Fn(&AstRef<'c>, &T),
 ) -> Result<T, ClarirsError> {
     // For each node, we need to track:
     // 1. The node itself
@@ -49,10 +51,17 @@ pub fn walk_post_order<'c, T>(
 
     while let Some(mut state) = stack.pop() {
         if state.children_processed == state.num_children {
-            // All children processed, process this node
-            result_queue.push_back(cache.get_or_insert(state.node.hash(), || {
-                callback(state.node.clone(), &state.child_results)
-            })?);
+            // All children processed, process this node (reusing a memoized
+            // result if one exists).
+            let result = match get_cached(&state.node) {
+                Some(cached) => cached,
+                None => {
+                    let computed = callback(state.node.clone(), &state.child_results)?;
+                    set_cached(&state.node, &computed);
+                    computed
+                }
+            };
+            result_queue.push_back(result);
         } else {
             // Process next child
             let child = state.node.get_child(state.children_processed).unwrap();
@@ -63,7 +72,7 @@ pub fn walk_post_order<'c, T>(
             // instead of re-traversing the subtree. ASTs are DAGs, so a shared
             // subtree is reachable from multiple parents; reusing the cached
             // result avoids re-running the traversal once per parent.
-            if let Some(cached) = cache.get(&child.hash()) {
+            if let Some(cached) = get_cached(&child) {
                 state.child_results.push(cached);
                 stack.push(state);
                 continue;
@@ -123,7 +132,8 @@ mod tests {
                 visited.push(info.clone());
                 Ok(info)
             },
-            &(),
+            |_| None,
+            |_, _| {},
         )?;
 
         // Verify traversal order and transformations
@@ -148,7 +158,8 @@ mod tests {
             |_node, _children| -> Result<String, ClarirsError> {
                 Err(ClarirsError::InvalidArguments("test error".to_string()))
             },
-            &(),
+            |_| None,
+            |_, _| {},
         );
 
         assert!(result.is_err());
@@ -183,7 +194,8 @@ mod tests {
                 first_visited.push(node.clone());
                 Ok(())
             },
-            &cache,
+            |node| cache.get(&node.hash()),
+            |node, value| cache.insert(node.hash(), value),
         )?;
 
         let mut second_visited = Vec::new();
@@ -195,7 +207,8 @@ mod tests {
                 second_visited.push(node.clone());
                 Ok(())
             },
-            &cache,
+            |node| cache.get(&node.hash()),
+            |node, value| cache.insert(node.hash(), value),
         )?;
 
         // Compute expected counts:

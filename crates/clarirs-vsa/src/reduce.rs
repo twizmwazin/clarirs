@@ -58,7 +58,8 @@ impl<'c> Reduce<'c> for AstRef<'c> {
                     "Unsupported operation for reduction".to_string(),
                 )),
             },
-            &cache,
+            |node| cache.get(&node.hash()),
+            |node, value| cache.insert(node.hash(), value),
         )
     }
 }

@@ -7,8 +7,6 @@ use crate::{
         walk_post_order,
     },
     ast::op::AstOp,
-    cache::Cache,
-    context::structural_hash,
     prelude::*,
 };
 
@@ -19,11 +17,14 @@ impl<'c> AstNode<'c> {
     /// been "excavated" (moved up) to the top level where possible. For
     /// example, `a + (if cond then b else c)` becomes
     /// `if cond then (a + b) else (a + c)`.
+    ///
+    /// Each node's excavated form is memoized in its own inline cell.
     pub fn excavate_ite(self: &Arc<Self>) -> Result<AstRef<'c>, ClarirsError> {
         walk_post_order(
             self.clone(),
             |node, children| excavate_node(&node, children),
-            &self.context().excavate_ite_cache,
+            |node| node.cached_excavated(),
+            |node, value| node.set_cached_excavated(value),
         )
     }
 }
@@ -55,9 +56,11 @@ fn excavate_node<'c>(
         None => return reconstruct_node(ctx, ast, children),
     };
 
+    // Intern the intermediate `op(.., ITE, ..)` so it can host an excavation
+    // cell; `make_ast_exact` with no annotations matches the old distribute key.
     let op = rebuild_op(ast, children).expect("a node being distributed is not a leaf");
-    let key = structural_hash(op.infer_type(), &op, &BTreeSet::new());
-    if let Some(cached) = ctx.excavate_ite_cache.get(&key) {
+    let intermediate = ctx.make_ast_exact(op, BTreeSet::new())?;
+    if let Some(cached) = intermediate.cached_excavated() {
         return Ok(cached);
     }
 
@@ -72,7 +75,7 @@ fn excavate_node<'c>(
     let else_branch = excavate_node(ast, &branch)?;
     let result = ctx.ite(cond, then_branch, else_branch)?;
 
-    ctx.excavate_ite_cache.insert(key, &result);
+    intermediate.set_cached_excavated(&result);
     Ok(result)
 }
 

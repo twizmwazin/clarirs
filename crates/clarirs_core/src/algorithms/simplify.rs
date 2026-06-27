@@ -10,7 +10,7 @@ mod test_bv;
 
 use std::sync::Arc;
 
-use crate::{cache::Cache, prelude::*};
+use crate::prelude::*;
 
 impl<'c> AstNode<'c> {
     pub fn simplify(self: &Arc<Self>) -> Result<AstRef<'c>, ClarirsError> {
@@ -110,15 +110,12 @@ fn simplify_inner<'c>(
     state: &mut SimplifyState<'c>,
     error_on_dbz: bool,
 ) -> Result<AstRef<'c>, SimplifyError<'c>> {
-    let expr = &state.expr.clone();
-    expr.context()
-        .simplification_cache
-        .get_or_insert(state.expr.hash(), || match expr.ast_type() {
-            AstType::Bool => bool::simplify_bool(state),
-            AstType::BitVec(_) => bv::simplify_bv(state, error_on_dbz),
-            AstType::Float(_) => float::simplify_float(state),
-            AstType::String => string::simplify_string(state),
-        })
+    match state.expr.ast_type() {
+        AstType::Bool => bool::simplify_bool(state),
+        AstType::BitVec(_) => bv::simplify_bv(state, error_on_dbz),
+        AstType::Float(_) => float::simplify_float(state),
+        AstType::String => string::simplify_string(state),
+    }
 }
 
 fn simplify<'c>(
@@ -160,17 +157,6 @@ fn simplify<'c>(
                         .expr
                         .context()
                         .annotate(&result, relocatable_annotations)?;
-
-                    // Cache the mapping from the original expression to the
-                    // simplified result so that identical unsimplified
-                    // sub-expressions elsewhere in the tree get a cache hit.
-                    if state.expr.hash() != annotated.hash() {
-                        state
-                            .expr
-                            .context()
-                            .simplification_cache
-                            .insert(state.expr.hash(), &annotated);
-                    }
 
                     last_result = Some(annotated)
                 }

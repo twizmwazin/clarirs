@@ -237,7 +237,8 @@ impl<'c> AstNode<'c> {
         walk_post_order(
             self.clone(),
             |node, children| Ok(to_smtlib_op(&node, children)),
-            &(),
+            |_| None,
+            |_, _| {},
         )
         .expect("infallible")
     }

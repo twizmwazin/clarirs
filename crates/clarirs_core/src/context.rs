@@ -8,7 +8,7 @@ use std::{
 
 use crate::{
     ast::op::AstOp,
-    cache::{AstCache, Cache},
+    cache::{AstCache, WeakAstCache},
     prelude::*,
 };
 
@@ -97,11 +97,10 @@ impl PartialOrd for InternedString {
 }
 
 #[derive(Debug, Default)]
-#[allow(dead_code)] // FIXME: reintroduce simplification cache
 pub struct Context<'c> {
-    pub(crate) ast_cache: AstCache<'c>,
-    pub(crate) simplification_cache: AstCache<'c>,
-    pub(crate) excavate_ite_cache: AstCache<'c>,
+    /// The interning table (structural hash -> node); the one shared map that
+    /// remains. Algorithm result caches live inline on [`AstNode`] instead.
+    pub(crate) ast_cache: WeakAstCache<'c>,
     string_interner: RwLock<HashMap<Arc<str>, Arc<str>>>,
 }
 
@@ -146,10 +145,10 @@ impl Context<'_> {
         InternedString(arc)
     }
 
+    /// Evict a dropped node from the interning table. Inline caches die with the
+    /// node; stale references to its hash in other nodes' cells just miss.
     pub fn drop_cache(&self, hash: u64) {
         self.ast_cache.drop(hash);
-        self.simplification_cache.drop(hash);
-        self.excavate_ite_cache.drop(hash);
     }
 }
 

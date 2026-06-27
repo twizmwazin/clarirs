@@ -3,16 +3,21 @@ use std::{
     fmt::Debug,
     hash::{Hash, Hasher},
     sync::Arc,
+    sync::atomic::{AtomicU64, Ordering},
 };
 
 use crate::{
     ast::op::{AstOp, AstOpChildIter, AstType},
+    cache::AstCache,
     prelude::*,
 };
 
 /// A node in an AST. A single node type serves every sort; the node caches its
 /// [`AstType`] so its sort can be queried in O(1) without inspecting the operation.
-#[derive(Clone, Eq, serde::Serialize)]
+///
+/// This node's excavated form is memoized inline in [`AstNode::excavation_cache`],
+/// which holds the result node's hash (resolved back through the interning table).
+#[derive(serde::Serialize)]
 pub struct AstNode<'c> {
     op: AstOp<'c>,
     annotations: BTreeSet<Annotation>,
@@ -30,6 +35,10 @@ pub struct AstNode<'c> {
     symbolic: bool,
     #[serde(skip)]
     simplifiable: bool,
+    /// Hash of this node's ITE-excavated form, or 0 if uncomputed. A stale hash
+    /// (result dropped) just misses and recomputes, hence overwritable.
+    #[serde(skip)]
+    excavation_cache: AtomicU64,
 }
 
 impl Drop for AstNode<'_> {
@@ -55,6 +64,9 @@ impl PartialEq for AstNode<'_> {
         self.op == other.op && self.annotations == other.annotations
     }
 }
+
+// Structural equality (op + annotations); the inline caches are excluded.
+impl Eq for AstNode<'_> {}
 
 impl<'c> HasContext<'c> for AstNode<'c> {
     fn context(&self) -> &'c Context<'c> {
@@ -94,7 +106,26 @@ impl<'c> AstNode<'c> {
             annotations,
             symbolic,
             simplifiable,
+            excavation_cache: AtomicU64::new(0),
         }
+    }
+
+    /// Resolve a result cell's stored hash to a live node, or `None` if unset (0)
+    /// or stale.
+    fn cached(&self, cell: &AtomicU64) -> Option<AstRef<'c>> {
+        match cell.load(Ordering::Relaxed) {
+            0 => None,
+            hash => self.ctx.ast_cache.get(hash),
+        }
+    }
+
+    /// This node's memoized ITE-excavated form, if still live.
+    pub(crate) fn cached_excavated(&self) -> Option<AstRef<'c>> {
+        self.cached(&self.excavation_cache)
+    }
+
+    pub(crate) fn set_cached_excavated(&self, node: &AstRef<'c>) {
+        self.excavation_cache.store(node.hash, Ordering::Relaxed);
     }
 
     pub fn simplifiable(&self) -> bool {
@@ -246,5 +277,64 @@ impl<T> IntoOwned<T> for T {
 impl<T: Clone> IntoOwned<T> for &T {
     fn into_owned(self) -> T {
         self.clone()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::prelude::*;
+
+    /// Excavating populates the node's inline cell with its excavated form, and
+    /// resolving the cell yields that same interned node.
+    ///
+    /// Cells resolve through the interning table, which under
+    /// `panic-on-hash-collision` deliberately rebuilds and re-inserts a fresh
+    /// (immediately-dead) duplicate on every construction, so cells degrade to
+    /// always-miss there. The behavior under test only holds without that mode.
+    #[cfg(not(feature = "panic-on-hash-collision"))]
+    #[test]
+    fn excavated_memoized_inline() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let x = ctx.bvs("x", 64)?;
+        let one = ctx.bvv(BitVec::from((1u64, 64)))?;
+        let expr = ctx.add(&x, &one)?;
+
+        // Cold: nothing memoized yet.
+        assert!(expr.cached_excavated().is_none());
+
+        let excavated = expr.excavate_ite()?;
+
+        // The cell now resolves to the excavated node without recomputation.
+        assert_eq!(expr.cached_excavated(), Some(excavated));
+        Ok(())
+    }
+
+    /// A cell whose stored result has been garbage-collected resolves to `None`
+    /// (a miss → recompute) rather than a stale or dangling reference. The
+    /// result is interned under a weak reference, so once no strong handle
+    /// remains the cell misses.
+    #[cfg(not(feature = "panic-on-hash-collision"))]
+    #[test]
+    fn stale_cell_misses_after_result_dropped() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        // `a + ite(c, x, y)` excavates to the *fresh* node `ite(c, a + x, a + y)`,
+        // which is not a sub-expression of the source, so the source does not
+        // keep it alive.
+        let a = ctx.bvs("a", 64)?;
+        let x = ctx.bvs("x", 64)?;
+        let y = ctx.bvs("y", 64)?;
+        let c = ctx.bools("c")?;
+        let ite = ctx.ite(&c, &x, &y)?;
+        let expr = ctx.add(&a, &ite)?;
+
+        let excavated = expr.excavate_ite()?;
+        assert!(expr.cached_excavated().is_some());
+
+        // Drop every strong handle to the excavated result.
+        drop(excavated);
+
+        // The interning table held only a weak ref, so the cell now misses.
+        assert!(expr.cached_excavated().is_none());
+        Ok(())
     }
 }
