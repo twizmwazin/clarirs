@@ -37,10 +37,6 @@ impl<'c> AstNode<'c> {
 /// An `ITE` is already in excavated form, so its branches are left in place;
 /// for any other op we distribute over its first `ITE` child and recurse to
 /// hoist any remaining ones, yielding the fully expanded decision tree.
-///
-/// That expansion is exponential on heavily-shared DAGs, so each subproblem is
-/// memoized in `excavate_ite_distribute_cache` keyed by the hash `op(children)`
-/// would intern under, computed without building the node.
 fn excavate_node<'c>(
     ast: &AstRef<'c>,
     children: &[AstRef<'c>],
