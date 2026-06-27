@@ -37,15 +37,6 @@ impl<'c> AstNode<'c> {
 /// An `ITE` is already in excavated form, so its branches are left in place;
 /// for any other op we distribute over its first `ITE` child and recurse to
 /// hoist any remaining ones, yielding the fully expanded decision tree.
-///
-/// The intermediate child arrays produced by that recursion never correspond to
-/// a real input node, so they cannot be short-circuited by [`walk_post_order`]'s
-/// keyed-by-input-node cache. We instead memoize them in the same
-/// `excavate_ite_cache`, keyed by the structural hash of the op-shape being
-/// distributed. Sharing one map is sound because that is exactly the key space
-/// `walk_post_order` already uses (a node's hash *is* its structural hash), and
-/// structurally identical shapes always excavate to the same result — so any
-/// key that coincides legitimately maps to one value.
 fn excavate_node<'c>(
     ast: &AstRef<'c>,
     children: &[AstRef<'c>],
