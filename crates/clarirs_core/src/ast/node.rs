@@ -2,17 +2,21 @@ use std::{
     collections::BTreeSet,
     fmt::Debug,
     hash::{Hash, Hasher},
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
 };
 
 use crate::{
     ast::op::{AstOp, AstOpChildIter, AstType},
+    cache::Cache,
     prelude::*,
 };
 
 /// A node in an AST. A single node type serves every sort; the node caches its
 /// [`AstType`] so its sort can be queried in O(1) without inspecting the operation.
-#[derive(Eq, serde::Serialize)]
+#[derive(serde::Serialize)]
 pub struct AstNode<'c> {
     op: AstOp<'c>,
     annotations: BTreeSet<Annotation>,
@@ -30,6 +34,12 @@ pub struct AstNode<'c> {
     symbolic: bool,
     #[serde(skip)]
     simplifiable: bool,
+    /// Hash of this node's simplified form, cached inline so simplification can
+    /// short-circuit without consulting a context-wide map. `0` means "not yet
+    /// computed"; the value is resolved back to a node via the context's AST
+    /// cache, so a dropped simplified node simply reads as a miss.
+    #[serde(skip)]
+    simplified: AtomicU64,
 }
 
 impl Drop for AstNode<'_> {
@@ -55,6 +65,8 @@ impl PartialEq for AstNode<'_> {
         self.op == other.op && self.annotations == other.annotations
     }
 }
+
+impl Eq for AstNode<'_> {}
 
 impl<'c> HasContext<'c> for AstNode<'c> {
     fn context(&self) -> &'c Context<'c> {
@@ -94,11 +106,34 @@ impl<'c> AstNode<'c> {
             annotations,
             symbolic,
             simplifiable,
+            simplified: AtomicU64::new(0),
         }
     }
 
     pub fn simplifiable(&self) -> bool {
         self.simplifiable
+    }
+
+    /// Returns this node's previously-computed simplified form, if one was
+    /// cached and the resulting node is still live. The simplified form is
+    /// stored inline as a hash and resolved through the context's AST cache, so
+    /// a simplified node that has since been dropped reads back as a miss and
+    /// the result is simply recomputed.
+    pub(crate) fn cached_simplified(&self) -> Option<AstRef<'c>> {
+        let hash = self.simplified.load(Ordering::Relaxed);
+        if hash == 0 {
+            return None;
+        }
+        self.ctx.ast_cache.get(&hash)
+    }
+
+    /// Records the simplified form of this node so later simplifications of the
+    /// same (interned) node short-circuit. Only the simplified node's hash is
+    /// stored; the node itself is kept alive by the AST cache as long as it is
+    /// referenced elsewhere.
+    pub(crate) fn set_simplified(&self, simplified: &AstRef<'c>) {
+        self.simplified
+            .store(simplified.as_ref().hash(), Ordering::Relaxed);
     }
 
     pub fn op(&self) -> &AstOp<'c> {
