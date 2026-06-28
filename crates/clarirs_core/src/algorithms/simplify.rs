@@ -131,13 +131,8 @@ fn simplify<'c>(
             || !state.expr.simplifiable();
         let should_simplify = !respect_annotations || !blocked;
         if should_simplify {
-            // Look up (or compute) the simplified form of this node, dispatching
-            // to the per-type simplifier. The result is memoized inline on the
-            // node itself (an `AtomicU64` holding the simplified node's hash) so
-            // identical sub-expressions elsewhere in the tree (which intern to
-            // the same node) hit the cache instead of re-simplifying. A `0` hash
-            // means "not yet computed", and a hash whose node has been dropped
-            // resolves to a miss via the AST cache, so we simply recompute.
+            // Reuse the inline-cached simplified form if present (`0` = none;
+            // a dropped node resolves to a miss via the AST cache).
             let cached = match state.expr.simplified.load(Ordering::Relaxed) {
                 0 => None,
                 hash => state.expr.context().ast_cache.get(&hash),
@@ -165,9 +160,7 @@ fn simplify<'c>(
                         .context()
                         .annotate(&result, relocatable_annotations)?;
 
-                    // Record the simplified form inline on the original node so
-                    // that identical unsimplified sub-expressions elsewhere in
-                    // the tree (which intern to the same node) get a cache hit.
+                    // Cache the simplified form inline for shared sub-exprs.
                     state
                         .expr
                         .simplified

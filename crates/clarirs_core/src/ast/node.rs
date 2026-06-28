@@ -30,10 +30,7 @@ pub struct AstNode<'c> {
     symbolic: bool,
     #[serde(skip)]
     simplifiable: bool,
-    /// Hash of this node's simplified form, cached inline so simplification can
-    /// short-circuit without consulting a context-wide map. `0` means "not yet
-    /// computed"; the value is resolved back to a node via the context's AST
-    /// cache, so a dropped simplified node simply reads as a miss.
+    /// Hash of this node's simplified form (`0` = none), resolved via the AST cache.
     #[serde(skip)]
     pub(crate) simplified: AtomicU64,
 }
