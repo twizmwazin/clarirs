@@ -8,9 +8,9 @@ mod test_bool;
 #[cfg(test)]
 mod test_bv;
 
-use std::sync::Arc;
+use std::sync::{Arc, atomic::Ordering};
 
-use crate::prelude::*;
+use crate::{cache::Cache, prelude::*};
 
 impl<'c> AstNode<'c> {
     pub fn simplify(self: &Arc<Self>) -> Result<AstRef<'c>, ClarirsError> {
@@ -135,8 +135,14 @@ fn simplify<'c>(
             // to the per-type simplifier. The result is memoized inline on the
             // node itself (an `AtomicU64` holding the simplified node's hash) so
             // identical sub-expressions elsewhere in the tree (which intern to
-            // the same node) hit the cache instead of re-simplifying.
-            let inner_result = match state.expr.cached_simplified() {
+            // the same node) hit the cache instead of re-simplifying. A `0` hash
+            // means "not yet computed", and a hash whose node has been dropped
+            // resolves to a miss via the AST cache, so we simply recompute.
+            let cached = match state.expr.simplified.load(Ordering::Relaxed) {
+                0 => None,
+                hash => state.expr.context().ast_cache.get(&hash),
+            };
+            let inner_result = match cached {
                 Some(cached) => Ok(cached),
                 None => match state.expr.ast_type() {
                     AstType::Bool => bool::simplify_bool(&mut state),
@@ -162,7 +168,10 @@ fn simplify<'c>(
                     // Record the simplified form inline on the original node so
                     // that identical unsimplified sub-expressions elsewhere in
                     // the tree (which intern to the same node) get a cache hit.
-                    state.expr.set_simplified(&annotated);
+                    state
+                        .expr
+                        .simplified
+                        .store(annotated.as_ref().hash(), Ordering::Relaxed);
 
                     last_result = Some(annotated)
                 }

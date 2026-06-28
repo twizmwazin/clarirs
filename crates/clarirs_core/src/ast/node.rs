@@ -2,15 +2,11 @@ use std::{
     collections::BTreeSet,
     fmt::Debug,
     hash::{Hash, Hasher},
-    sync::{
-        Arc,
-        atomic::{AtomicU64, Ordering},
-    },
+    sync::{Arc, atomic::AtomicU64},
 };
 
 use crate::{
     ast::op::{AstOp, AstOpChildIter, AstType},
-    cache::Cache,
     prelude::*,
 };
 
@@ -39,7 +35,7 @@ pub struct AstNode<'c> {
     /// computed"; the value is resolved back to a node via the context's AST
     /// cache, so a dropped simplified node simply reads as a miss.
     #[serde(skip)]
-    simplified: AtomicU64,
+    pub(crate) simplified: AtomicU64,
 }
 
 impl Drop for AstNode<'_> {
@@ -112,28 +108,6 @@ impl<'c> AstNode<'c> {
 
     pub fn simplifiable(&self) -> bool {
         self.simplifiable
-    }
-
-    /// Returns this node's previously-computed simplified form, if one was
-    /// cached and the resulting node is still live. The simplified form is
-    /// stored inline as a hash and resolved through the context's AST cache, so
-    /// a simplified node that has since been dropped reads back as a miss and
-    /// the result is simply recomputed.
-    pub(crate) fn cached_simplified(&self) -> Option<AstRef<'c>> {
-        let hash = self.simplified.load(Ordering::Relaxed);
-        if hash == 0 {
-            return None;
-        }
-        self.ctx.ast_cache.get(&hash)
-    }
-
-    /// Records the simplified form of this node so later simplifications of the
-    /// same (interned) node short-circuit. Only the simplified node's hash is
-    /// stored; the node itself is kept alive by the AST cache as long as it is
-    /// referenced elsewhere.
-    pub(crate) fn set_simplified(&self, simplified: &AstRef<'c>) {
-        self.simplified
-            .store(simplified.as_ref().hash(), Ordering::Relaxed);
     }
 
     pub fn op(&self) -> &AstOp<'c> {
