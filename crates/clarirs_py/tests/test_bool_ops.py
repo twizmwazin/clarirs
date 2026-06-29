@@ -127,9 +127,9 @@ class TestBoolOperations(unittest.TestCase):
         self._check_equal(result, False)
 
         # Test symbolic values
-        sym_eq = self.bool_sym == self.true
-        # FIXME: claripy simplifies this, so we can't check sym_eq.op == "__eq__"
-        self.assertIsNotNone(sym_eq)
+        sym_eq = self.bool_sym == self.true  # noqa: F841
+        # FIXME: claripy simplifies this
+        # self.assertTrue(sym_eq.op == "__eq__")
 
         # Test symbolic equality - auto-simplified to True
         sym_eq2 = self.bool_sym == self.bool_sym
@@ -149,10 +149,10 @@ class TestBoolOperations(unittest.TestCase):
         self.assertTrue(sym_ne.op == "BoolS")
 
         # Test symbolic inequality
-        sym_ne2 = self.bool_sym != self.bool_sym
+        sym_ne2 = self.bool_sym != self.bool_sym  # noqa: F841
         # For symbolic inequality, it should be false
-        # FIXME: claripy simplifies this, so we can't check sym_ne2.op == "__ne__"
-        self.assertIsNotNone(sym_ne2)
+        # FIXME: claripy simplifies this
+        # self.assertTrue(sym_ne2.op == "__ne__")
 
     def test_intersection(self):
         """Test intersection operation"""
