@@ -68,9 +68,10 @@ impl<'c> AstNode<'c> {
         ctx: &'c Context<'c>,
         op: AstOp<'c>,
         annotations: BTreeSet<Annotation>,
-        ast_type: AstType,
+        variables: Option<BTreeSet<InternedString>>,
     ) -> Self {
-        let variables = op.variables();
+        let ast_type = op.infer_type();
+        let variables = variables.unwrap_or_else(|| op.variables());
         let depth = 1 + op.child_iter().map(|c| c.depth()).max().unwrap_or(0);
         // Symbolic propagates from: having variables, the op itself being inherently
         // symbolic (e.g. VSA Union/Intersection/Widen), or any child being symbolic.
@@ -126,7 +127,12 @@ impl<'c> AstNode<'c> {
             .cloned()
             .chain(annotations)
             .collect();
-        self.context().make_ast_annotated(self.op.clone(), combined)
+        self.context().intern_ast(AstNode::new(
+            self.context(),
+            self.op.clone(),
+            combined,
+            Some(self.variables.clone()),
+        ))
     }
 
     pub fn hash(&self) -> u64 {
