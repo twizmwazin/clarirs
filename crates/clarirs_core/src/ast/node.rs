@@ -121,12 +121,16 @@ impl<'c> AstNode<'c> {
         self: Arc<Self>,
         annotations: impl IntoIterator<Item = Annotation>,
     ) -> Result<Arc<Self>, ClarirsError> {
-        let combined = self
+        let combined: BTreeSet<_> = self
             .annotations()
             .iter()
             .cloned()
             .chain(annotations)
             .collect();
+        let simplifiable = self.simplifiable()
+            && !&combined
+                .iter()
+                .any(|a| !a.eliminatable() && !a.relocatable());
 
         // Fast path: skip variable collection/allocation in new
         let new_node = Self {
@@ -138,7 +142,7 @@ impl<'c> AstNode<'c> {
             depth: self.depth,
             annotations: combined,
             symbolic: self.symbolic,
-            simplifiable: self.simplifiable,
+            simplifiable,
             simplified: AtomicU64::new(0),
         };
         self.context().intern_ast(new_node)
