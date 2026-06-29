@@ -108,11 +108,11 @@ impl DynSolver {
     }
 
     /// Whether automatic replacement extraction is enabled. Only meaningful for
-    /// the Replacement solver; other solvers report the default of `true`.
+    /// the Replacement solver; other solvers report `false`.
     pub(crate) fn auto_replace(&self) -> bool {
         match self {
             DynSolver::Replacement(solver) => solver.auto_replace(),
-            _ => true,
+            _ => false,
         }
     }
 
