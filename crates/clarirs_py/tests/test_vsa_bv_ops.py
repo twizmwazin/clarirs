@@ -805,7 +805,6 @@ class TestVSAPrecisionLoss(unittest.TestCase):
         # Instead of checking bounds directly, verify that SOME expected values are present
         # We'll try masking specific values to see if the results are as expected
         test_values = [100, 1000, 10000]
-        expected_results = [v & 0xFFFF for v in test_values]
 
         # Create precise SIs for each test value
         for val in test_values:
@@ -929,7 +928,6 @@ class TestVSAPrecisionLoss(unittest.TestCase):
         print(f"After addition: {mul_card} → {add_card} values")
 
         # Bitwise AND - this might convert the SI to a BV, so we need to handle it carefully
-        before_and = si.cardinality
         result = si & claripy.BVV(0xFFFFFFF0, 32)
 
         # Division

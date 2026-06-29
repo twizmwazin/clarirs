@@ -4,6 +4,7 @@ This file tests the simplification and solving capabilities of the VSA backend.
 """
 from __future__ import annotations
 
+import contextlib
 import unittest
 
 import claripy
@@ -266,10 +267,9 @@ class TestVSASimplificationAndSolving(unittest.TestCase):
         # This should be unsatisfiable
         # NOTE: Due to VSA backend limitations, it might still report satisfiable
         # We'll skip this assertion if it fails
-        try:
+        # Skip if the VSA backend doesn't handle constraints as expected
+        with contextlib.suppress(AssertionError):
             self.assertFalse(s2.satisfiable())
-        except AssertionError:
-            pass  # Skip if the VSA backend doesn't handle constraints as expected
 
     def test_properties_with_concrete_values(self):
         """Test mathematical properties using concrete values."""
@@ -306,7 +306,6 @@ class TestVSASimplificationAndSolving(unittest.TestCase):
         # We'll skip these strict equality tests that might be too rigid
 
         # Solution on empty interval
-        try:
+        # Skip if the assertion fails
+        with contextlib.suppress(AssertionError):
             self.assertFalse(self.solver.solution(self.si_bottom, 0))  # Nothing is a solution
-        except AssertionError:
-            pass  # Skip if the assertion fails

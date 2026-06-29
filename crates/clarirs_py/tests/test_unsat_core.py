@@ -60,7 +60,7 @@ class TestUnsatCore(unittest.TestCase):
         self.assertFalse(s.satisfiable())
 
         # Should raise an error
-        with self.assertRaises(Exception):
+        with self.assertRaises(claripy.ClaripyError):
             s.unsat_core()
 
     def test_unsat_core_on_sat(self):
@@ -74,7 +74,7 @@ class TestUnsatCore(unittest.TestCase):
         self.assertTrue(s.satisfiable())
 
         # Should raise an error because it's SAT
-        with self.assertRaises(Exception):
+        with self.assertRaises(claripy.ClaripyError):
             s.unsat_core()
 
     def test_unsat_core_complex(self):

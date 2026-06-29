@@ -15,5 +15,32 @@ dev = [
     "pytest",
 ]
 
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
 [tool.ruff.lint]
-select = ["RUF"]
+extend-select = [
+    "B",
+    "C4",
+    "FURB",
+    "I",
+    "PIE",
+    "RET",
+    "RSE",
+    "RUF",
+    "SIM",
+    "TID252",
+    "UP",
+]
+ignore = [
+    "B011",   # Asserts
+    "E741",   # Variable names
+    "RUF012", # FIXME: Annotate class variables
+    "RUF007", # Prefer `itertools.pairwise()` over `zip()` when iterating over successive pairs
+    "B905",   # Zip calls without an explicit strict parameter
+    "RET501", # rewrites "return None" to "return" if it's the only return statement
+]
+
+[tool.ruff.lint.isort]
+required-imports = ["from __future__ import annotations"]
