@@ -127,7 +127,21 @@ impl<'c> AstNode<'c> {
             .cloned()
             .chain(annotations)
             .collect();
-        self.context().make_ast_annotated(self.op.clone(), combined)
+
+        // Fast path: skip variable collection/allocation in new
+        let new_node = Self {
+            op: self.op.clone(),
+            ctx: self.ctx,
+            hash: structural_hash(self.ast_type, &self.op, &combined),
+            ast_type: self.ast_type,
+            variables: self.variables.clone(),
+            depth: self.depth,
+            annotations: combined,
+            symbolic: self.symbolic,
+            simplifiable: self.simplifiable,
+            simplified: AtomicU64::new(0),
+        };
+        self.context().intern_ast(new_node)
     }
 
     pub fn hash(&self) -> u64 {
