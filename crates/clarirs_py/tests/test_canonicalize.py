@@ -58,7 +58,7 @@ class TestCanonicalize(unittest.TestCase):
         # claripy passes an itertools.count; it is advanced in place and
         # returned as-is.
         counter = itertools.count(0)
-        _, returned, canon = (x + y).canonicalize(counter=counter)
+        _, returned, _canon = (x + y).canonicalize(counter=counter)
         self.assertIs(returned, counter)
         # Two distinct variables consumed v0 and v1; next value is 2.
         self.assertEqual(next(counter), 2)

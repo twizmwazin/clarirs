@@ -314,7 +314,7 @@ class TestFPOperations(unittest.TestCase):
         result = self.fp_neg1 < self.fp1
         self._check_equal(result, True)
 
-        # zeros (+0 and −0 are equal, so < is False both ways)
+        # zeros (+0 and -0 are equal, so < is False both ways)
         result = self.fp_neg_zero < self.fp_zero
         self._check_equal(result, False)
 
@@ -355,7 +355,7 @@ class TestFPOperations(unittest.TestCase):
         self._check_equal(result, False)
 
     def test_leq(self):
-        """Test less‑than‑or‑equal (<=) for all operand kinds"""
+        """Test less-than-or-equal (<=) for all operand kinds"""
 
         # Finite positives
         result = self.fp1 <= self.fp2
@@ -396,7 +396,7 @@ class TestFPOperations(unittest.TestCase):
         result = self.fp_neg1 <= self.fp1
         self._check_equal(result, True)
 
-        # zeros (+0 and −0 are equal, so ≤ is True both ways)
+        # zeros (+0 and -0 are equal, so ≤ is True both ways)
         result = self.fp_neg_zero <= self.fp_zero
         self._check_equal(result, True)
 
@@ -471,7 +471,7 @@ class TestFPOperations(unittest.TestCase):
         result = self.fp_neg1 > self.fp1
         self._check_equal(result, False)
 
-        # Zeros (+0 and −0 are equal: > is False both ways)
+        # Zeros (+0 and -0 are equal: > is False both ways)
         result = self.fp_neg_zero > self.fp_zero
         self._check_equal(result, False)
 
@@ -501,7 +501,7 @@ class TestFPOperations(unittest.TestCase):
         result = self.fp_inf > self.fp_inf  # ∞ > ∞ is False
         self._check_equal(result, False)
 
-        result = self.fp_neg_inf > self.fp_neg_inf  # −∞ > −∞ is False
+        result = self.fp_neg_inf > self.fp_neg_inf  # -∞ > -∞ is False
         self._check_equal(result, False)
 
         # NaN comparisons: all ordered comparisons are False
@@ -555,7 +555,7 @@ class TestFPOperations(unittest.TestCase):
         result = self.fp_neg1 >= self.fp1
         self._check_equal(result, False)
 
-        # Zeros (+0 and −0 are equal: ≥ is True both ways)
+        # Zeros (+0 and -0 are equal: ≥ is True both ways)
         result = self.fp_neg_zero >= self.fp_zero
         self._check_equal(result, True)
 
@@ -585,7 +585,7 @@ class TestFPOperations(unittest.TestCase):
         result = self.fp_inf >= self.fp_inf  # ∞ ≥ ∞
         self._check_equal(result, True)
 
-        result = self.fp_neg_inf >= self.fp_neg_inf  # −∞ ≥ −∞
+        result = self.fp_neg_inf >= self.fp_neg_inf  # -∞ ≥ -∞
         self._check_equal(result, True)
 
         # NaN comparisons: all ordered comparisons are False
