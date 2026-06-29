@@ -150,6 +150,23 @@ impl Context<'_> {
     }
 }
 
+impl<'c> Context<'c> {
+    /// Intern `source`'s op under a new annotation set. Unlike `make_ast_exact`,
+    /// this reuses `source`'s already-computed metadata instead of recomputing
+    /// it, since the op (and thus its type, variables, and depth) is unchanged.
+    /// Backs `AstNode::annotate`, which is hot in annotation-heavy analyses.
+    pub(crate) fn make_ast_reannotated(
+        &'c self,
+        source: &AstNode<'c>,
+        annotations: BTreeSet<Annotation>,
+    ) -> Result<AstRef<'c>, ClarirsError> {
+        let hash = structural_hash(source.ast_type(), source.op(), &annotations);
+        self.ast_cache.get_or_insert(hash, || {
+            Ok(Arc::new(AstNode::reannotated(source, annotations, hash)))
+        })
+    }
+}
+
 impl<'c> AstFactory<'c> for Context<'c> {
     fn intern_string(&self, s: impl AsRef<str>) -> InternedString {
         self.intern_string(s)

@@ -103,6 +103,32 @@ impl<'c> AstNode<'c> {
         }
     }
 
+    /// Construct a copy of `source` carrying a new annotation set. The op is
+    /// unchanged, so variables/depth/symbolic/type are identical to `source`
+    /// and are reused as-is; only the hash (supplied by the caller) and the
+    /// simplifiability flag depend on the annotations. This skips the recompute
+    /// `AstNode::new` would do -- notably `op.variables()`, a union over the
+    /// children -- which dominates when annotating many nodes.
+    pub(crate) fn reannotated(source: &Self, annotations: BTreeSet<Annotation>, hash: u64) -> Self {
+        let simplifiable = (source.symbolic
+            || !annotations
+                .iter()
+                .any(|a| !a.eliminatable() && !a.relocatable()))
+            && source.op.child_iter().all(|c| c.simplifiable());
+        Self {
+            op: source.op.clone(),
+            ctx: source.ctx,
+            hash,
+            ast_type: source.ast_type,
+            variables: source.variables.clone(),
+            depth: source.depth,
+            annotations,
+            symbolic: source.symbolic,
+            simplifiable,
+            simplified: AtomicU64::new(0),
+        }
+    }
+
     pub fn simplifiable(&self) -> bool {
         self.simplifiable
     }
@@ -123,13 +149,21 @@ impl<'c> AstNode<'c> {
         self: Arc<Self>,
         annotations: impl IntoIterator<Item = Annotation>,
     ) -> Result<Arc<Self>, ClarirsError> {
-        let combined = self
-            .annotations()
+        let mut combined: BTreeSet<Annotation> = self
+            .annotations
             .iter()
             .cloned()
             .chain(annotations)
             .collect();
-        self.context().make_ast_annotated(self.op.clone(), combined)
+        // A node carries its children's relocatable annotations (as
+        // `make_ast_annotated` does); idempotent when `self` already has them.
+        combined.extend(
+            self.op
+                .child_iter()
+                .flat_map(|c| c.annotations().clone())
+                .filter(|a| a.relocatable()),
+        );
+        self.context().make_ast_reannotated(&self, combined)
     }
 
     pub fn hash(&self) -> u64 {
