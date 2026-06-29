@@ -23,8 +23,12 @@ pub struct AstNode<'c> {
     ctx: &'c Context<'c>,
     #[serde(skip)]
     hash: u64,
+    /// The variables appearing in this subtree. Stored behind an `Arc` so that
+    /// nodes whose variable set is identical to a child's (unary ops, binary ops
+    /// with a concrete operand, etc.) share a single allocation instead of each
+    /// rebuilding the set. See [`AstOp::variables`].
     #[serde(skip)]
-    variables: BTreeSet<InternedString>,
+    variables: Arc<BTreeSet<InternedString>>,
     #[serde(skip)]
     depth: u32,
     #[serde(skip)]
@@ -143,6 +147,13 @@ impl<'c> AstNode<'c> {
 
     pub fn variables(&self) -> &BTreeSet<InternedString> {
         &self.variables
+    }
+
+    /// A cheap, refcounted handle to this node's variable set. Cloning it only
+    /// bumps a reference count, and parents reuse it directly when their own
+    /// variable set is identical (see [`AstOp::variables`]).
+    pub fn variables_arc(&self) -> Arc<BTreeSet<InternedString>> {
+        self.variables.clone()
     }
 
     pub fn size(&self) -> u32 {
