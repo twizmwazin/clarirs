@@ -4,7 +4,6 @@ import unittest
 
 import claripy as claripy
 from claripy.fp import FSORT_FLOAT, RM
-import math
 
 
 class TestFPOperations(unittest.TestCase):
@@ -680,7 +679,6 @@ class TestFPOperations(unittest.TestCase):
         value = claripy.FPV(1.5, FSORT_FLOAT)
         value2 = claripy.FPV(0.2, FSORT_FLOAT)
 
-        result_rne = claripy.fpAdd(RM.RM_NearestTiesEven, value, value2)
         result_rtz = claripy.fpAdd(RM.RM_TowardsZero, value, value2)
         result_rtp = claripy.fpAdd(RM.RM_TowardsPositiveInf, value, value2)
         result_rtn = claripy.fpAdd(RM.RM_TowardsNegativeInf, value, value2)
@@ -754,7 +752,6 @@ class TestFPOperations(unittest.TestCase):
 
     def test_conversions(self):
         """Test FP conversion operations"""
-        rm = RM.default()
         # Test fpToFP from FP
         double_val = self.fp1.to_fp(claripy.FSORT_DOUBLE)
         self.assertEqual(double_val.sort.length, 64)

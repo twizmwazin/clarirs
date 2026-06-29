@@ -127,7 +127,7 @@ class TestBoolOperations(unittest.TestCase):
         self._check_equal(result, False)
 
         # Test symbolic values
-        sym_eq = self.bool_sym == self.true
+        sym_eq = self.bool_sym == self.true  # noqa: F841
         # FIXME: claripy simplifies this
         # self.assertTrue(sym_eq.op == "__eq__")
 
@@ -149,7 +149,7 @@ class TestBoolOperations(unittest.TestCase):
         self.assertTrue(sym_ne.op == "BoolS")
 
         # Test symbolic inequality
-        sym_ne2 = self.bool_sym != self.bool_sym
+        sym_ne2 = self.bool_sym != self.bool_sym  # noqa: F841
         # For symbolic inequality, it should be false
         # FIXME: claripy simplifies this
         # self.assertTrue(sym_ne2.op == "__ne__")
@@ -188,8 +188,8 @@ class TestBoolOperations(unittest.TestCase):
         z3_solver = claripy.SolverZ3()
 
         # Create a constraint to resolve the symbolic condition
-        z3_solver.add(self.bool_sym == True)
-        z3_result = z3_solver.eval(result, 1)[0]
+        z3_solver.add(self.bool_sym == claripy.BoolV(True))
+        z3_solver.eval(result, 1)
         self._check_equal(result == self.bv1, True)
 
         # Symbolic boolean conditions
@@ -213,8 +213,8 @@ class TestBoolOperations(unittest.TestCase):
     def test_ite_cases(self):
         """Test ite_cases utility function"""
         cases = [
-            (self.bool_sym == True, self.bv1),
-            (self.bool_sym2 == True, self.bv2)
+            (self.bool_sym == claripy.BoolV(True), self.bv1),
+            (self.bool_sym2 == claripy.BoolV(True), self.bv2)
         ]
         result = claripy.ast.bool.ite_cases(cases, self.bv_sym)
         self.assertTrue(result.op != 'BoolV')
