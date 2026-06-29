@@ -357,10 +357,7 @@ impl Base {
             .cloned()
             .chain(annotations)
             .collect();
-        let inner = self
-            .inner
-            .context()
-            .make_ast_exact(self.inner.op().clone(), new_annotations)?;
+        let inner = self.inner.with_annotations(new_annotations)?;
         Base::from_ast(py, inner)
     }
 
@@ -382,8 +379,7 @@ impl Base {
         py: Python<'py>,
         annotations: Vec<Bound<'py, PyAnnotation>>,
     ) -> Result<Bound<'py, Base>, ClaripyError> {
-        let inner = self.inner.context().make_ast_exact(
-            self.inner.op().clone(),
+        let inner = self.inner.with_annotations(
             annotations
                 .iter()
                 .map(PyAnnotation::to_annotation)
@@ -398,8 +394,7 @@ impl Base {
     ) -> Result<Bound<'py, Base>, ClaripyError> {
         let py = annotation.py();
         let annotation = PyAnnotation::to_annotation(&annotation)?;
-        let inner = self.inner.context().make_ast_exact(
-            self.inner.op().clone(),
+        let inner = self.inner.with_annotations(
             self.inner
                 .annotations()
                 .iter()
@@ -419,8 +414,7 @@ impl Base {
             .iter()
             .map(PyAnnotation::to_annotation)
             .collect::<Result<_, _>>()?;
-        let inner = self.inner.context().make_ast_exact(
-            self.inner.op().clone(),
+        let inner = self.inner.with_annotations(
             self.inner
                 .annotations()
                 .iter()
@@ -435,10 +429,7 @@ impl Base {
         &self,
         py: Python<'py>,
     ) -> Result<Bound<'py, Base>, ClaripyError> {
-        let inner = self
-            .inner
-            .context()
-            .make_ast_exact(self.inner.op().clone(), Default::default())?;
+        let inner = self.inner.with_annotations(Default::default())?;
         Base::from_ast(py, inner)
     }
 
@@ -456,10 +447,7 @@ impl Base {
                 kept.insert(annotation.clone());
             }
         }
-        let inner = self
-            .inner
-            .context()
-            .make_ast_exact(self.inner.op().clone(), kept)?;
+        let inner = self.inner.with_annotations(kept)?;
         Base::from_ast(py, inner)
     }
 }

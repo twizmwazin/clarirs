@@ -23,8 +23,12 @@ pub struct AstNode<'c> {
     ctx: &'c Context<'c>,
     #[serde(skip)]
     hash: u64,
+    /// The set of variable names appearing in this node's subtree. Shared behind
+    /// an `Arc` so that re-annotating a node (which leaves the op, and hence the
+    /// variables, unchanged) can reuse it instead of recollecting and
+    /// reallocating the whole set.
     #[serde(skip)]
-    variables: BTreeSet<InternedString>,
+    variables: Arc<BTreeSet<InternedString>>,
     #[serde(skip)]
     depth: u32,
     #[serde(skip)]
@@ -70,7 +74,7 @@ impl<'c> AstNode<'c> {
         annotations: BTreeSet<Annotation>,
         ast_type: AstType,
     ) -> Self {
-        let variables = op.variables();
+        let variables = Arc::new(op.variables());
         let depth = 1 + op.child_iter().map(|c| c.depth()).max().unwrap_or(0);
         // Symbolic propagates from: having variables, the op itself being inherently
         // symbolic (e.g. VSA Union/Intersection/Widen), or any child being symbolic.
@@ -120,13 +124,23 @@ impl<'c> AstNode<'c> {
         self: Arc<Self>,
         annotations: impl IntoIterator<Item = Annotation>,
     ) -> Result<Arc<Self>, ClarirsError> {
-        let combined = self
+        // Mirror `make_ast_annotated`: keep our own annotations, add the new
+        // ones, and fold in the relocatable annotations of our children. The op
+        // is unchanged, so go through the metadata-reusing fast path rather than
+        // rebuilding the node (and its variable set) from scratch.
+        let mut combined: BTreeSet<Annotation> = self
             .annotations()
             .iter()
             .cloned()
             .chain(annotations)
             .collect();
-        self.context().make_ast_annotated(self.op.clone(), combined)
+        combined.extend(
+            self.op
+                .child_iter()
+                .flat_map(|c| c.annotations().clone())
+                .filter(|a| a.relocatable()),
+        );
+        self.with_annotations(combined)
     }
 
     pub fn hash(&self) -> u64 {
@@ -143,6 +157,49 @@ impl<'c> AstNode<'c> {
 
     pub fn variables(&self) -> &BTreeSet<InternedString> {
         &self.variables
+    }
+
+    /// The shared handle to this node's variable set. Exposed for callers that
+    /// want to share the set rather than clone its contents.
+    pub(crate) fn variables_arc(&self) -> &Arc<BTreeSet<InternedString>> {
+        &self.variables
+    }
+
+    /// Re-intern this node's op under a new set of annotations, reusing the
+    /// op-derived metadata (variables, depth, symbolic, type) rather than
+    /// recomputing it.
+    ///
+    /// Annotations do not affect which variables a node contains, how deep it is,
+    /// or whether it is symbolic — only the op and its children do, and those are
+    /// unchanged here. So the (potentially large) variable set is shared via its
+    /// `Arc` instead of being recollected and reallocated, and only the
+    /// annotation-dependent fields (`simplifiable` and the structural hash) are
+    /// recomputed. This is the fast path behind all annotation edits.
+    pub fn with_annotations(
+        &self,
+        annotations: BTreeSet<Annotation>,
+    ) -> Result<Arc<Self>, ClarirsError> {
+        let symbolic = self.symbolic;
+        let simplifiable = (symbolic
+            || !annotations
+                .iter()
+                .any(|a| !a.eliminatable() && !a.relocatable()))
+            && self.op.child_iter().all(|c| c.simplifiable());
+
+        let hash = structural_hash(self.ast_type, &self.op, &annotations);
+
+        self.ctx.intern_ast(Self {
+            op: self.op.clone(),
+            ctx: self.ctx,
+            hash,
+            ast_type: self.ast_type,
+            variables: self.variables.clone(),
+            depth: self.depth,
+            annotations,
+            symbolic,
+            simplifiable,
+            simplified: AtomicU64::new(0),
+        })
     }
 
     pub fn size(&self) -> u32 {
@@ -249,5 +306,70 @@ impl<T> IntoOwned<T> for T {
 impl<T: Clone> IntoOwned<T> for &T {
     fn into_owned(self) -> T {
         self.clone()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeSet;
+    use std::sync::Arc;
+
+    use crate::ast::annotation::{Annotation, AnnotationType};
+    use crate::prelude::*;
+
+    fn sample_annotation() -> Annotation {
+        Annotation::new(AnnotationType::Uninitialized, true, true)
+    }
+
+    /// Re-annotating a node must preserve all of its op-derived metadata, since
+    /// annotations do not change which variables a node has, how deep it is, or
+    /// whether it is symbolic.
+    #[test]
+    fn with_annotations_preserves_metadata() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let x = ctx.bvs("x", 32)?;
+        let y = ctx.bvs("y", 32)?;
+        let expr = ctx.add(&x, &y)?;
+
+        let annotated = expr.with_annotations(BTreeSet::from([sample_annotation()]))?;
+
+        assert_eq!(annotated.variables(), expr.variables());
+        assert_eq!(annotated.depth(), expr.depth());
+        assert_eq!(annotated.symbolic(), expr.symbolic());
+        assert_eq!(annotated.ast_type(), expr.ast_type());
+        assert_eq!(annotated.op(), expr.op());
+        assert_eq!(annotated.annotations().len(), 1);
+        Ok(())
+    }
+
+    /// The whole point of the fast path: the variable set is shared, not
+    /// recollected and reallocated, when only annotations change.
+    #[test]
+    fn with_annotations_shares_variable_set() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let x = ctx.bvs("x", 32)?;
+        let y = ctx.bvs("y", 32)?;
+        let expr = ctx.add(&x, &y)?;
+
+        let annotated = expr.with_annotations(BTreeSet::from([sample_annotation()]))?;
+
+        // The two nodes must hand out pointer-equal variable sets: re-annotation
+        // clones the `Arc`, it does not build a new `BTreeSet`.
+        assert!(Arc::ptr_eq(expr.variables_arc(), annotated.variables_arc()));
+        Ok(())
+    }
+
+    /// Going through the public `annotate` helper should also keep variables
+    /// consistent and accumulate annotations.
+    #[test]
+    fn annotate_accumulates_and_preserves_variables() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let x = ctx.bvs("x", 32)?;
+        let expr = ctx.add(&x, &x)?;
+
+        let once = expr.clone().annotate([sample_annotation()])?;
+        assert_eq!(once.variables(), expr.variables());
+        assert!(once.variables().contains("x"));
+        Ok(())
     }
 }
