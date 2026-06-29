@@ -50,7 +50,7 @@ impl Bool {
         } else {
             let this = Bound::new(
                 py,
-                PyClassInitializer::from(Base::new_with_name(py, inner, name)).add_subclass(Bool {
+                PyClassInitializer::from(Base::new_with_name(py, inner, name)?).add_subclass(Bool {
                     inner: inner.clone(),
                 }),
             )?;
