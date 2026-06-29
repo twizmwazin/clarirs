@@ -7,8 +7,7 @@ use serde::Serialize;
 use crate::ast::node::AstRef;
 use crate::prelude::*;
 
-/// A single shared, empty variable set reused by every concrete node, so that
-/// the common "no variables" case never allocates per node.
+/// A single shared, empty variable set reused by every concrete node.
 fn empty_variables() -> Arc<BTreeSet<InternedString>> {
     static EMPTY: LazyLock<Arc<BTreeSet<InternedString>>> =
         LazyLock::new(|| Arc::new(BTreeSet::new()));
@@ -361,14 +360,10 @@ impl<'c> AstOp<'c> {
         )
     }
 
-    /// The set of variables appearing in this operation's subtree.
-    ///
-    /// Returned behind an `Arc` so that identical sets are shared rather than
-    /// reallocated on every node. In particular, when exactly one child
-    /// contributes variables (or several children share the very same set), the
-    /// parent reuses that child's `Arc` directly and performs no allocation at
-    /// all — only nodes that genuinely merge distinct variable sets build a new
-    /// one.
+    /// The set of variables in this operation's subtree, behind an `Arc` so that
+    /// identical sets are shared rather than reallocated on every node. When a
+    /// single child contributes all the variables (or children share the same
+    /// set) the parent reuses that child's `Arc`; only genuine merges allocate.
     pub fn variables(&self) -> Arc<BTreeSet<InternedString>> {
         match self {
             AstOp::BoolS(s) | AstOp::BVS(s, _) | AstOp::FPS(s, _) | AstOp::StringS(s) => {
@@ -377,8 +372,6 @@ impl<'c> AstOp<'c> {
                 Arc::new(set)
             }
             _ => {
-                // `shared` holds a child's Arc we can hand back untouched;
-                // `owned` holds a freshly-merged set once two distinct sets meet.
                 let mut shared: Option<Arc<BTreeSet<InternedString>>> = None;
                 let mut owned: Option<BTreeSet<InternedString>> = None;
 
@@ -389,20 +382,15 @@ impl<'c> AstOp<'c> {
                     }
 
                     match (&mut owned, &shared) {
-                        // Already merging: fold this child in.
                         (Some(set), _) => set.extend(child_vars.iter().cloned()),
-                        // First contributing child: tentatively reuse its Arc.
                         (None, None) => shared = Some(child_vars),
-                        // A second contributing child arrives.
                         (None, Some(prev)) => {
                             if !Arc::ptr_eq(prev, &child_vars) {
-                                // Distinct sets: start an owned merge of both.
                                 let mut set = (**prev).clone();
                                 set.extend(child_vars.iter().cloned());
                                 owned = Some(set);
                                 shared = None;
                             }
-                            // Same underlying set: keep sharing, nothing to do.
                         }
                     }
                 }
