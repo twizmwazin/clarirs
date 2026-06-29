@@ -16,13 +16,7 @@ pub struct Base {
     errored: Py<PySet>,
     name: Option<String>,
     encoded_name: Option<Vec<u8>>,
-    /// The Python annotation objects for this AST, materialized once at
-    /// construction. Holding the completed collection here lets the annotation
-    /// read accessors answer entirely from Python objects, without reaching
-    /// back into the Rust core annotations (and the pickle/cache round-trip
-    /// that reconstructing them entails) on every access. It is kept in the
-    /// same order as `inner.annotations()` (the core `BTreeSet`'s sorted
-    /// order), so the two can be zipped when rebuilding the AST.
+    /// Python annotation objects materialized once at construction, in the same order as `inner.annotations()`, so reads avoid the Rust round-trip.
     annotations: Vec<Py<PyAnnotation>>,
 }
 
