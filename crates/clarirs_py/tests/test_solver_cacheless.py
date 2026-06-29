@@ -82,7 +82,3 @@ class TestSolverCacheless(unittest.TestCase):
         restored = pickle.loads(pickle.dumps(s))
         self.assertTrue(restored.satisfiable())
         self.assertEqual(restored.eval(x, 1)[0], 42)
-
-
-if __name__ == "__main__":
-    unittest.main()

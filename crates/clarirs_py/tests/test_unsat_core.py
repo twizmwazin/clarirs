@@ -133,7 +133,3 @@ class TestUnsatCore(unittest.TestCase):
         s.add(y < 10)
         self.assertTrue(s.satisfiable())
         self.assertEqual(s.unsat_core(), [])
-
-
-if __name__ == "__main__":
-    unittest.main()
