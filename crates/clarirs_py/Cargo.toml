@@ -11,6 +11,7 @@ repository = { workspace = true }
 
 [dependencies]
 pyo3 = { version = "0.29.0", features = ["num-bigint"] }
+pyo3-stub-gen = { version = "0.23", default-features = false }
 clarirs_core = { path = "../clarirs_core", features = ["runtime-checks"] }
 clarirs_num = { path = "../clarirs_num" }
 clarirs-vsa = { path = "../clarirs-vsa" }
@@ -22,6 +23,9 @@ dashmap = "6.2.1"
 
 [lib]
 name = "claripy"
+# rlib is required so the `stub_gen` binary can link the crate; cdylib is the
+# Python extension module that maturin builds.
+crate-type = ["cdylib", "rlib"]
 
 [lints]
 workspace = true

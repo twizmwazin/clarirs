@@ -9,6 +9,10 @@ dynamic = ["version"]
 
 [tool.maturin]
 manifest-path = "crates/clarirs_py/Cargo.toml"
+# The compiled extension is imported as `claripy` (see `[lib] name` in the
+# crate Cargo.toml). Stating it explicitly lets pyo3-stub-gen place the
+# generated `.pyi` files under the right module path.
+module-name = "claripy"
 
 [dependency-groups]
 dev = [

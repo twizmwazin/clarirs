@@ -4,6 +4,7 @@ use clarirs_vsa::StridedInterval;
 use clarirs_vsa::reduce::Reduce;
 use clarirs_vsa::strided_interval::ComparisonResult;
 use num_bigint::{BigInt, BigUint};
+use pyo3_stub_gen::derive::gen_stub_pyfunction;
 
 use crate::prelude::*;
 
@@ -15,6 +16,7 @@ use crate::prelude::*;
 /// For BV expressions: returns a concrete BVV if the strided interval resolves to
 /// a single value, an SI (strided interval annotated BV) if it resolves to a range,
 /// or the original expression if the interval is empty.
+#[gen_stub_pyfunction(module = "claripy.vsa")]
 #[pyfunction]
 pub fn reduce<'py>(
     py: Python<'py>,
@@ -69,6 +71,7 @@ pub fn reduce<'py>(
 }
 
 /// Check if a Bool expression is definitely true via VSA.
+#[gen_stub_pyfunction(module = "claripy.vsa")]
 #[pyfunction]
 pub fn is_true(expr: Bound<'_, Bool>) -> Result<bool, ClaripyError> {
     Ok(matches!(
@@ -78,6 +81,7 @@ pub fn is_true(expr: Bound<'_, Bool>) -> Result<bool, ClaripyError> {
 }
 
 /// Check if a Bool expression is definitely false via VSA.
+#[gen_stub_pyfunction(module = "claripy.vsa")]
 #[pyfunction]
 pub fn is_false(expr: Bound<'_, Bool>) -> Result<bool, ClaripyError> {
     Ok(matches!(
@@ -87,6 +91,7 @@ pub fn is_false(expr: Bound<'_, Bool>) -> Result<bool, ClaripyError> {
 }
 
 /// Check if a Bool expression could possibly be true via VSA.
+#[gen_stub_pyfunction(module = "claripy.vsa")]
 #[pyfunction]
 pub fn has_true(expr: Bound<'_, Bool>) -> Result<bool, ClaripyError> {
     Ok(matches!(
@@ -96,6 +101,7 @@ pub fn has_true(expr: Bound<'_, Bool>) -> Result<bool, ClaripyError> {
 }
 
 /// Check if a Bool expression could possibly be false via VSA.
+#[gen_stub_pyfunction(module = "claripy.vsa")]
 #[pyfunction]
 pub fn has_false(expr: Bound<'_, Bool>) -> Result<bool, ClaripyError> {
     Ok(matches!(
@@ -105,8 +111,10 @@ pub fn has_false(expr: Bound<'_, Bool>) -> Result<bool, ClaripyError> {
 }
 
 /// Get the minimum unsigned value of a BV expression via VSA.
+#[gen_stub_pyfunction(module = "claripy.vsa")]
 #[pyfunction]
 #[pyo3(signature = (expr, signed = false))]
+#[gen_stub(override_return_type(type_repr = "int"))]
 pub fn min(expr: Bound<'_, BV>, signed: bool) -> Result<BigInt, ClaripyError> {
     let si = expr.get().inner.simplify()?.reduce()?.into_bv()?;
     if signed {
@@ -119,8 +127,10 @@ pub fn min(expr: Bound<'_, BV>, signed: bool) -> Result<BigInt, ClaripyError> {
 }
 
 /// Get the maximum unsigned value of a BV expression via VSA.
+#[gen_stub_pyfunction(module = "claripy.vsa")]
 #[pyfunction]
 #[pyo3(signature = (expr, signed = false))]
+#[gen_stub(override_return_type(type_repr = "int"))]
 pub fn max(expr: Bound<'_, BV>, signed: bool) -> Result<BigInt, ClaripyError> {
     let si = expr.get().inner.simplify()?.reduce()?.into_bv()?;
     if signed {
@@ -133,14 +143,18 @@ pub fn max(expr: Bound<'_, BV>, signed: bool) -> Result<BigInt, ClaripyError> {
 }
 
 /// Evaluate a BV expression via VSA, returning up to `n` concrete values as Python ints.
+#[gen_stub_pyfunction(module = "claripy.vsa")]
 #[pyfunction]
+#[gen_stub(override_return_type(type_repr = "list[int]"))]
 pub fn eval<'py>(expr: Bound<'py, BV>, n: u32) -> Result<Vec<BigUint>, ClaripyError> {
     let si = expr.get().inner.simplify()?.reduce()?.into_bv()?;
     Ok(si.eval(n))
 }
 
 /// Get the cardinality (number of possible concrete values) of a BV expression via VSA.
+#[gen_stub_pyfunction(module = "claripy.vsa")]
 #[pyfunction]
+#[gen_stub(override_return_type(type_repr = "int"))]
 pub fn cardinality(expr: Bound<'_, BV>) -> Result<num_bigint::BigUint, ClaripyError> {
     let si = expr.get().inner.simplify()?.reduce()?.into_bv()?;
     Ok(si.cardinality())
@@ -149,6 +163,7 @@ pub fn cardinality(expr: Bound<'_, BV>) -> Result<num_bigint::BigUint, ClaripyEr
 /// Check if two AST expressions are identical after VSA reduction.
 ///
 /// Both expressions are reduced and then compared for equality.
+#[gen_stub_pyfunction(module = "claripy.vsa")]
 #[pyfunction]
 pub fn identical(a: Bound<'_, Base>, b: Bound<'_, Base>) -> Result<bool, ClaripyError> {
     // Try as BV first
@@ -179,6 +194,7 @@ pub fn identical(a: Bound<'_, Base>, b: Bound<'_, Base>) -> Result<bool, Claripy
 /// This is a compatibility shim for `claripy.backends.vsa.simplify()`.
 /// It simplifies the expression and then reduces it using VSA abstract
 /// interpretation, returning the result as an AST node.
+#[gen_stub_pyfunction(module = "claripy.vsa")]
 #[pyfunction]
 pub fn simplify<'py>(
     py: Python<'py>,

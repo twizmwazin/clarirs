@@ -12,6 +12,8 @@ use pyo3::exceptions::PyValueError;
 use pyo3::types::PyTuple;
 use pyo3::types::{PyDict, PyWeakrefMethods, PyWeakrefReference};
 
+use pyo3_stub_gen::derive::gen_stub_pyclass;
+
 use crate::ast::{and, not, or, xor};
 use crate::prelude::*;
 
@@ -20,6 +22,7 @@ use super::r#if;
 static BOOLS_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static PY_BOOL_CACHE: LazyLock<DashMap<u64, Py<PyWeakrefReference>>> = LazyLock::new(DashMap::new);
 
+#[gen_stub_pyclass]
 #[pyclass(extends=Base, subclass, frozen, weakref, module="claripy.ast.bool")]
 pub struct Bool {
     pub(crate) inner: AstRef<'static>,

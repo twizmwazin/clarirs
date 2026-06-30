@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 
 use clarirs_core::algorithms::{collect_vars::collect_vars, structurally_match};
 use pyo3::types::{PyDict, PyFrozenSet, PySet, PyType};
+use pyo3_stub_gen::derive::gen_stub_pyclass;
 
 use crate::prelude::*;
 
@@ -10,6 +11,7 @@ use crate::prelude::*;
 /// (structure queries, hashing, simplification, replacement, annotation
 /// management). The sort-specific subclasses (`Bool`, `BV`, `FP`, `String`)
 /// inherit these and add only their own typed operations.
+#[gen_stub_pyclass]
 #[pyclass(subclass, frozen, weakref, module = "claripy.ast.base")]
 pub struct Base {
     inner: AstRef<'static>,

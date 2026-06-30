@@ -14,10 +14,12 @@ use crate::ast::fp::{PyFSort, PyRM};
 use crate::ast::{and, not, or, xor};
 use crate::prelude::*;
 use crate::pyslicemethodsext::PySliceMethodsExt;
+use pyo3_stub_gen::derive::gen_stub_pyclass;
 
 static BVS_COUNTER: AtomicUsize = AtomicUsize::new(0);
 static PY_BV_CACHE: LazyLock<DashMap<u64, Py<PyWeakrefReference>>> = LazyLock::new(DashMap::new);
 
+#[gen_stub_pyclass]
 #[pyclass(extends=Bits, subclass, frozen, weakref, module="claripy.ast.bv")]
 pub struct BV {
     pub(crate) inner: AstRef<'static>,

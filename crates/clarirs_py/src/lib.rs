@@ -373,3 +373,30 @@ pub fn claripy(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     Ok(())
 }
+
+/// Gather the `.pyi` stub information registered by the `gen_stub_*` macros.
+///
+/// `claripy` exposes its API through several submodules (`claripy.ast.base`,
+/// `claripy.vsa`, ...). pyo3-stub-gen only emits stubs for submodules in the
+/// *mixed* Python/Rust layout, so we generate into a dedicated `stubs/`
+/// directory (`project_root`) with `is_mixed_layout = true`, rather than the
+/// pure-Rust single-file layout the project currently builds with. This keeps
+/// stub generation independent of maturin's build configuration during the
+/// proof-of-concept. `use_type_statement` is enabled because the project
+/// targets Python >= 3.12.
+pub fn stub_info() -> pyo3_stub_gen::Result<pyo3_stub_gen::StubInfo> {
+    use pyo3_stub_gen::pyproject::StubGenConfig;
+
+    let manifest_dir: &std::path::Path = env!("CARGO_MANIFEST_DIR").as_ref();
+    // `StubGenConfig` is `#[non_exhaustive]`, so it cannot be built with a
+    // struct literal; mutate the field on a defaulted value instead.
+    #[allow(clippy::field_reassign_with_default)]
+    let mut config = StubGenConfig::default();
+    config.use_type_statement = true;
+    pyo3_stub_gen::StubInfo::from_project_root(
+        "claripy".to_string(),
+        manifest_dir.join("stubs"),
+        true,
+        config,
+    )
+}
