@@ -4,6 +4,11 @@ This document records an investigation into automatically generating Python type
 stubs (`.pyi`) for the `clarirs_py` extension module (imported as `claripy`),
 and a working proof-of-concept that proves the approach.
 
+There are two candidate tools: PyO3's own built-in (experimental) introspection,
+and the third-party `pyo3-stub-gen`. The *Two approaches* section compares them;
+the short version is that PyO3's built-in generator cannot introspect clarirs's
+function-style `#[pymodule]`, so the POC uses `pyo3-stub-gen`.
+
 ## TL;DR
 
 - **It works.** [`pyo3-stub-gen`](https://github.com/Jij-Inc/pyo3-stub-gen)
@@ -20,6 +25,50 @@ and a working proof-of-concept that proves the approach.
      `#[gen_stub(override_return_type(...))]` (or argument override).
 - Everything else — submodule placement, cross-module type references, default
   arguments, class inheritance, docstrings — is produced automatically.
+
+## Two approaches
+
+### PyO3's built-in (experimental) introspection
+
+PyO3 0.29 ships an `experimental-inspect` feature (`pyo3/experimental-inspect`,
+present in our pinned version). With it enabled, the `#[pyclass]`/`#[pyfunction]`
+macros embed JSON introspection fragments in the compiled `.so`, and
+`pyo3-introspection` — driven by `maturin generate-stubs`,
+`maturin build --generate-stubs`, or `maturin develop --generate-stubs` —
+extracts them into `.pyi`. Its big attraction is **no per-item annotations at
+all**.
+
+**Why it does not fit clarirs today.** The PyO3 guide states introspection
+*"only works with Python modules declared with an inline Rust module"* and that
+*"content within `#[pymodule]` functions cannot be introspected; such modules
+are marked incomplete."* clarirs's `#[pymodule] fn claripy(..)` is the
+function-style form and builds everything imperatively at runtime —
+`m.add_class`, the `add_pyfunctions!` macro, and `import_submodule` +
+`py_run!("sys.modules[..] = ..")` for every submodule and compat shim. The
+built-in generator cannot see into that; adopting it would require rewriting the
+whole module to the declarative `#[pymodule] mod claripy { #[pymodule_export] ..}`
+form, and some of clarirs's tricks (runtime `sys.modules` aliasing for
+`claripy.fp`/`claripy.errors`, dynamic annotation re-exports) do not translate
+cleanly. Submodule support in the built-in path is also still immature.
+
+### pyo3-stub-gen (used by this POC)
+
+Because you tag items explicitly and state their `module = "..."` yourself,
+`pyo3-stub-gen` tolerates clarirs's imperative module construction — which is why
+the POC below works without touching the module wiring. The trade-off is ~125
+annotations and a couple of manual type overrides.
+
+| | PyO3 built-in (`experimental-inspect`) | pyo3-stub-gen |
+| --- | --- | --- |
+| Per-item annotations | none | ~125 `gen_stub_*` tags |
+| Works with clarirs's function-style `#[pymodule]` | **no** — needs declarative `mod` rewrite | **yes** (verified) |
+| Submodules | immature/underspecified | works (mixed layout) |
+| `BigInt` / custom `Coerce*` types | manual `INPUT_TYPE`/`OUTPUT_TYPE` impls | per-item `override_type` |
+| Maturity | experimental | mature, finer control |
+
+**Recommendation:** use `pyo3-stub-gen` now (it matches the current
+architecture); revisit PyO3's built-in generator if/when the module is ever
+migrated to declarative inline modules or the built-in path matures.
 
 ## How pyo3-stub-gen works
 
