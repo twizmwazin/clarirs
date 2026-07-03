@@ -141,7 +141,7 @@ name = "clarirs-vsa"
 version = "0.1.0"
 dependencies = [
  "clarirs_core",
- "num-bigint",
+ "num-bigint 0.5.0",
  "num-traits",
 ]
 
@@ -152,7 +152,7 @@ dependencies = [
  "ahash",
  "anyhow",
  "clarirs_num",
- "num-bigint",
+ "num-bigint 0.5.0",
  "num-traits",
  "serde",
  "smallvec",
@@ -164,7 +164,7 @@ name = "clarirs_num"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "num-bigint",
+ "num-bigint 0.5.0",
  "num-traits",
  "serde",
  "serde_json",
@@ -182,7 +182,7 @@ dependencies = [
  "clarirs_z3",
  "dashmap",
  "log",
- "num-bigint",
+ "num-bigint 0.5.0",
  "pyo3",
  "thiserror",
 ]
@@ -797,9 +797,19 @@ dependencies = [
 
 [[package]]
 name = "num-bigint"
-version = "0.4.6"
+version = "0.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5e44f723f1133c9deac646763579fdb3ac745e418f2a7af9cd0c431da1f20b9"
+checksum = "c863e9ab5e7bf9c99ba75e1050f1e4d624ae87ed3532d6238ffbdc7b585dbbe6"
+dependencies = [
+ "num-integer",
+ "num-traits",
+]
+
+[[package]]
+name = "num-bigint"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7032fbb7ef662c18e806aa75b311f68ddf5c94e8fc62832c0039d79095ab6abf"
 dependencies = [
  "num-integer",
  "num-traits",
@@ -929,7 +939,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd274650b21d4bfc26a0a47587962c1edb425f69287324355cd040c3ea66071c"
 dependencies = [
  "libc",
- "num-bigint",
+ "num-bigint 0.4.7",
  "num-traits",
  "once_cell",
  "portable-atomic",
