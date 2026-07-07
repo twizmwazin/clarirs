@@ -888,7 +888,7 @@ fn test_extract() -> Result<()> {
     let ctx = Context::new();
 
     // Whole bitvector, concrete
-    let bv = ctx.bvv(BitVec::from((0x1234_5678_9ABC_DEF0_, 64))).unwrap();
+    let bv = ctx.bvv(BitVec::from((0x1234_5678_9ABC_DEF0, 64))).unwrap();
     let extract = ctx.extract(&bv, 63, 0)?.simplify()?;
     assert_eq!(extract, bv);
 
@@ -899,7 +899,7 @@ fn test_extract() -> Result<()> {
 
     // Partial extraction, concrete
     let extract = ctx.extract(&bv, 63, 32)?.simplify()?;
-    let expected = ctx.bvv(BitVec::from((0x1234_5678_, 32))).unwrap();
+    let expected = ctx.bvv(BitVec::from((0x1234_5678, 32))).unwrap();
     assert_eq!(extract, expected);
 
     Ok(())

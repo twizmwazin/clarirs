@@ -39,7 +39,7 @@ mod to_z3 {
     #[test]
     fn value_f32() {
         let ctx = Context::new();
-        let f = ctx.fpv(Float::F32(3.14f32)).unwrap();
+        let f = ctx.fpv(Float::F32(std::f32::consts::PI)).unwrap();
         let z3_ast = f.to_z3().unwrap();
         // Z3 represents float numerals as FpaNum
         assert_eq!(z3_ast.decl_kind(), DeclKind::FpaNum);
@@ -48,7 +48,7 @@ mod to_z3 {
     #[test]
     fn value_f64() {
         let ctx = Context::new();
-        let f = ctx.fpv(Float::F64(2.718281828459045f64)).unwrap();
+        let f = ctx.fpv(Float::F64(std::f64::consts::E)).unwrap();
         let z3_ast = f.to_z3().unwrap();
         assert_eq!(z3_ast.decl_kind(), DeclKind::FpaNum);
     }
@@ -365,18 +365,18 @@ mod from_z3 {
     #[test]
     fn value_f32() {
         let ctx = Context::new();
-        let z3_ast = RcAst::mk_fp_val_f32(3.14f32);
+        let z3_ast = RcAst::mk_fp_val_f32(std::f32::consts::PI);
         let result = AstRef::from_z3(&ctx, z3_ast).unwrap();
-        let expected = ctx.fpv(Float::F32(3.14f32)).unwrap();
+        let expected = ctx.fpv(Float::F32(std::f32::consts::PI)).unwrap();
         assert_eq!(expected, result);
     }
 
     #[test]
     fn value_f64() {
         let ctx = Context::new();
-        let z3_ast = RcAst::mk_fp_val_f64(2.718281828459045f64);
+        let z3_ast = RcAst::mk_fp_val_f64(std::f64::consts::E);
         let result = AstRef::from_z3(&ctx, z3_ast).unwrap();
-        let expected = ctx.fpv(Float::F64(2.718281828459045f64)).unwrap();
+        let expected = ctx.fpv(Float::F64(std::f64::consts::E)).unwrap();
         assert_eq!(expected, result);
     }
 

@@ -299,7 +299,7 @@ mod tests {
         assert_eq!(bv.len(), 64);
         assert_eq!(bv.to_u64().unwrap(), 0);
 
-        let bv = BitVec::from((u64::MAX as u64, 64));
+        let bv = BitVec::from((u64::MAX, 64));
         assert_eq!(bv.len(), 64);
         assert_eq!(bv.to_u64().unwrap(), u64::MAX);
     }
