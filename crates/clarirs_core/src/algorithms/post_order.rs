@@ -200,10 +200,7 @@ mod tests {
 
         // Compute expected counts:
         // First run should process: x, y, add1, x, y, add2, mul => 7 nodes
-        assert_eq!(
-            first_visited,
-            vec![x.into(), y.into(), add1.into(), mul.into()],
-        );
+        assert_eq!(first_visited, vec![x, y, add1, mul]);
 
         // Second run should process nothing new
         assert!(second_visited.is_empty());

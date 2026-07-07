@@ -646,13 +646,13 @@ mod tests {
         );
 
         // A satisfiable extra constraint reachable by a cached model.
-        let extra_sat = ctx.eq_(&x, &v.clone().into_bitvec().unwrap())?;
+        let extra_sat = ctx.eq_(&x, v.clone().into_bitvec().unwrap())?;
         assert!(cached.satisfiable_with_extra(&[extra_sat])?);
 
         // An unsatisfiable extra constraint must fall through and report unsat.
         let extra_unsat = ctx.eq_(&x, &ctx.bvv(BitVec::from((100, 32)))?)?;
         assert_eq!(
-            cached.satisfiable_with_extra(&[extra_unsat.clone()])?,
+            cached.satisfiable_with_extra(std::slice::from_ref(&extra_unsat))?,
             cacheless.satisfiable_with_extra(&[extra_unsat])?,
         );
         assert!(
