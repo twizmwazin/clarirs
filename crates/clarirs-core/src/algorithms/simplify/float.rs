@@ -132,6 +132,13 @@ pub(crate) fn simplify_float<'c>(
                     )?;
                     Ok(ctx.fpv(float)?)
                 }
+                // Reinterpreting a float's own IEEE bit pattern back as a float
+                // of the same sort is the identity: to_fp(to_ieee_bv(x)) = x.
+                // Sound for NaN too -- SMT-LIB FP has a single NaN value, so
+                // whichever NaN bit pattern to_ieee_bv picks converts back to x.
+                AstOp::FpToIEEEBV(inner) if matches!(inner.ast_type(), AstType::Float(inner_fsort) if inner_fsort == *fsort) => {
+                    Ok(inner.clone())
+                }
                 _ => Ok(ctx.bv_to_fp(arc, *fsort)?),
             }
         }

@@ -7,6 +7,8 @@ mod string;
 mod test_bool;
 #[cfg(test)]
 mod test_bv;
+#[cfg(test)]
+mod test_float;
 
 use std::collections::BTreeSet;
 use std::sync::{Arc, atomic::Ordering};
