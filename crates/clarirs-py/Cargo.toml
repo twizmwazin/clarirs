@@ -16,7 +16,7 @@ clarirs-num = { path = "../clarirs-num" }
 clarirs-vsa = { path = "../clarirs-vsa" }
 clarirs-z3 = { path = "../clarirs-z3" }
 thiserror = { workspace = true }
-num-bigint = "0.4.6"
+num-bigint = "0.5.1"
 log = "0.4.32"
 dashmap = "6.2.1"
 
