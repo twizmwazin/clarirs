@@ -51,3 +51,26 @@ class TestSolverSplit(unittest.TestCase):
         s.add(x > 0)
         s.add(x < 5)
         self.assertEqual(len(s.split()), 1)
+
+
+class TestSolverDownsize(unittest.TestCase):
+    def test_downsize_all_solver_types(self):
+        """downsize exists on every solver type and does not affect results."""
+        for factory in (
+            claripy.Solver,
+            claripy.SolverComposite,
+            claripy.SolverHybrid,
+            claripy.SolverReplacement,
+            claripy.SolverCacheless,
+            claripy.SolverVSA,
+            claripy.SolverConcrete,
+        ):
+            s = factory()
+            s.downsize()  # no-op, must not raise
+
+    def test_downsize_preserves_constraints(self):
+        s = claripy.Solver()
+        x = claripy.BVS("x", 32)
+        s.add(x == 5)
+        s.downsize()
+        self.assertEqual(s.eval(x, 1)[0], 5)
