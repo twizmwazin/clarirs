@@ -530,8 +530,9 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
 
         let z3_aux = aux.to_z3()?;
 
-        // Create and fill the Z3 solver once
-        let mut z3_solver = RcSolver::new()?;
+        // Create and fill the Z3 solver once, applying this solver's params
+        // (timeout in particular) so eval cannot run unbounded.
+        let mut z3_solver = self.new_z3_solver()?;
 
         for assertion in &self.assertions {
             let converted = assertion.to_z3()?;
