@@ -265,8 +265,10 @@ impl<'c> Z3Solver<'c> {
 
     fn make_model(&self) -> Result<RcModel, ClarirsError> {
         self.with_cached_solver(|z3_solver| {
-            if z3_solver.check()? != Z3_L_TRUE {
-                return Err(ClarirsError::Unsat);
+            match z3_solver.check()? {
+                Z3_L_TRUE => {}
+                Z3_L_FALSE => return Err(ClarirsError::Unsat),
+                _ => return Err(ClarirsError::SolverUnknown(z3_solver.reason_unknown())),
             }
             z3_solver.model()
         })
@@ -336,7 +338,11 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
     }
 
     fn satisfiable(&mut self) -> Result<bool, ClarirsError> {
-        self.with_cached_solver(|z3_solver| Ok(z3_solver.check()? == Z3_L_TRUE))
+        self.with_cached_solver(|z3_solver| match z3_solver.check()? {
+            Z3_L_TRUE => Ok(true),
+            Z3_L_FALSE => Ok(false),
+            _ => Err(ClarirsError::SolverUnknown(z3_solver.reason_unknown())),
+        })
     }
 
     fn satisfiable_with_extra(&mut self, extra: &[AstRef<'c>]) -> Result<bool, ClarirsError> {
@@ -347,9 +353,13 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         for c in extra {
             assumptions.push(c.simplify_z3()?.to_z3()?);
         }
-        self.with_cached_solver(|z3_solver| {
-            Ok(z3_solver.check_assumptions(&assumptions)? == Z3_L_TRUE)
-        })
+        self.with_cached_solver(
+            |z3_solver| match z3_solver.check_assumptions(&assumptions)? {
+                Z3_L_TRUE => Ok(true),
+                Z3_L_FALSE => Ok(false),
+                _ => Err(ClarirsError::SolverUnknown(z3_solver.reason_unknown())),
+            },
+        )
     }
 
     fn eval(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
@@ -400,8 +410,10 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
     fn min_unsigned(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         let mut optimize = self.mk_filled_optimize()?;
         optimize.minimize(&expr.to_z3()?)?;
-        if optimize.check()? != Z3_L_TRUE {
-            return Err(ClarirsError::Unsat);
+        match optimize.check()? {
+            Z3_L_TRUE => {}
+            Z3_L_FALSE => return Err(ClarirsError::Unsat),
+            _ => return Err(ClarirsError::SolverUnknown(optimize.reason_unknown())),
         }
 
         let model = optimize.get_model()?;
@@ -413,8 +425,10 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
     fn max_unsigned(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
         let mut optimize = self.mk_filled_optimize()?;
         optimize.maximize(&expr.to_z3()?)?;
-        if optimize.check()? != Z3_L_TRUE {
-            return Err(ClarirsError::Unsat);
+        match optimize.check()? {
+            Z3_L_TRUE => {}
+            Z3_L_FALSE => return Err(ClarirsError::Unsat),
+            _ => return Err(ClarirsError::SolverUnknown(optimize.reason_unknown())),
         }
 
         let model = optimize.get_model()?;
@@ -448,8 +462,10 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         // This will find the smallest value among those with the preferred sign bit
         optimize.minimize(&target.to_z3()?)?;
 
-        if optimize.check()? != Z3_L_TRUE {
-            return Err(ClarirsError::Unsat);
+        match optimize.check()? {
+            Z3_L_TRUE => {}
+            Z3_L_FALSE => return Err(ClarirsError::Unsat),
+            _ => return Err(ClarirsError::SolverUnknown(optimize.reason_unknown())),
         }
 
         let model = optimize.get_model()?;
@@ -483,8 +499,10 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         // This will find the largest value among those with the preferred sign bit
         optimize.maximize(&target.to_z3()?)?;
 
-        if optimize.check()? != Z3_L_TRUE {
-            return Err(ClarirsError::Unsat);
+        match optimize.check()? {
+            Z3_L_TRUE => {}
+            Z3_L_FALSE => return Err(ClarirsError::Unsat),
+            _ => return Err(ClarirsError::SolverUnknown(optimize.reason_unknown())),
         }
 
         let model = optimize.get_model()?;
@@ -548,8 +566,10 @@ impl<'c> Solver<'c> for Z3Solver<'c> {
         z3_solver.assert(&link.to_z3()?)?;
 
         for _ in 0..n {
-            if z3_solver.check()? != Z3_L_TRUE {
-                break;
+            match z3_solver.check()? {
+                Z3_L_TRUE => {}
+                Z3_L_FALSE => break,
+                _ => return Err(ClarirsError::SolverUnknown(z3_solver.reason_unknown())),
             }
 
             let model = z3_solver.model()?;

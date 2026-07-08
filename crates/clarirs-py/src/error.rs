@@ -37,6 +37,8 @@ pub enum ClaripyError {
     UnsupportedOperation(String),
     #[error("UNSAT")]
     Unsat,
+    #[error("Solver interrupted: {0}")]
+    SolverInterrupt(String),
 }
 
 impl From<ClarirsError> for ClaripyError {
@@ -58,6 +60,7 @@ impl From<ClarirsError> for ClaripyError {
             ClarirsError::TypeError(e) => ClaripyError::TypeError(e),
             ClarirsError::UnsupportedOperation(e) => ClaripyError::UnsupportedOperation(e),
             ClarirsError::Unsat => ClaripyError::Unsat,
+            ClarirsError::SolverUnknown(reason) => ClaripyError::SolverInterrupt(reason),
             _ => ClaripyError::ClarirsError(format!("{e}")),
         }
     }
@@ -97,6 +100,9 @@ impl From<ClaripyError> for PyErr {
                 Python::attach(|py| PyErr::from_value(o.bind(py).clone()))
             }
             ClaripyError::Unsat => py_err::UnsatError::new_err("UNSAT"),
+            ClaripyError::SolverInterrupt(reason) => {
+                py_err::ClaripySolverInterruptError::new_err(reason)
+            }
             _ => py_err::ClaripyError::new_err(format!("{e}")),
         }
     }
