@@ -137,21 +137,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "clarirs-vsa"
-version = "0.1.0"
-dependencies = [
- "clarirs_core",
- "num-bigint",
- "num-traits",
-]
-
-[[package]]
-name = "clarirs_core"
+name = "clarirs-core"
 version = "0.1.0"
 dependencies = [
  "ahash",
  "anyhow",
- "clarirs_num",
+ "clarirs-num",
  "num-bigint",
  "num-traits",
  "serde",
@@ -160,7 +151,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "clarirs_num"
+name = "clarirs-num"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -173,13 +164,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "clarirs_py"
+name = "clarirs-py"
 version = "0.1.0"
 dependencies = [
+ "clarirs-core",
+ "clarirs-num",
  "clarirs-vsa",
- "clarirs_core",
- "clarirs_num",
- "clarirs_z3",
+ "clarirs-z3",
  "dashmap",
  "log",
  "num-bigint",
@@ -188,10 +179,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "clarirs_z3"
+name = "clarirs-vsa"
 version = "0.1.0"
 dependencies = [
- "clarirs_core",
+ "clarirs-core",
+ "num-bigint",
+ "num-traits",
+]
+
+[[package]]
+name = "clarirs-z3"
+version = "0.1.0"
+dependencies = [
+ "clarirs-core",
  "regex",
  "z3-sys",
 ]

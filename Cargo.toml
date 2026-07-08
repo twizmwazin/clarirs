@@ -1,9 +1,9 @@
 [workspace]
 members = [
-    "crates/clarirs_num",
-    "crates/clarirs_core",
-    "crates/clarirs_py",
-    "crates/clarirs_z3",
+    "crates/clarirs-num",
+    "crates/clarirs-core",
+    "crates/clarirs-py",
+    "crates/clarirs-z3",
     "crates/clarirs-vsa",
 ]
 resolver = "2"

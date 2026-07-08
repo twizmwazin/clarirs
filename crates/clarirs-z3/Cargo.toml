@@ -1,5 +1,5 @@
 [package]
-name = "clarirs_z3"
+name = "clarirs-z3"
 version = "0.1.0"
 edition = "2024"
 description = "Z3 solver for clarirs"
@@ -10,7 +10,7 @@ categories = { workspace = true }
 repository = { workspace = true }
 
 [dependencies]
-clarirs_core = { path = "../clarirs_core" }
+clarirs-core = { path = "../clarirs-core" }
 z3-sys = { version = "0.11", features = ["gh-release"] }
 regex = "1.12"
 
