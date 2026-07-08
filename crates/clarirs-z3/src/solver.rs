@@ -168,6 +168,13 @@ impl<'c> Z3Solver<'c> {
         if self.unsat_core {
             params.set_bool("unsat_core", true)?;
         }
+        // Z3 >= 4.14 regression: the propagate-values stage of the default
+        // tactic loses DAG sharing on fpa2bv output, and the loss compounds
+        // per round -- a chained-FP-add goal grows ~50x over the default 4
+        // rounds and bit-blasts into an intractable SAT instance (claripy
+        // sidesteps this by pinning z3-solver 4.13). One round keeps the
+        // encoding compact; the same formula then solves faster than on 4.13.
+        params.set_u32("max_rounds", 1)?;
         z3_solver.set_params(params)?;
         Ok(z3_solver)
     }
