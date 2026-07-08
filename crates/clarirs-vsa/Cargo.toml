@@ -10,6 +10,6 @@ categories = { workspace = true }
 repository = { workspace = true }
 
 [dependencies]
-clarirs_core = { path = "../clarirs_core" }
+clarirs-core = { path = "../clarirs-core" }
 num-bigint = { version = "0.4.6" }
 num-traits = "0.2"

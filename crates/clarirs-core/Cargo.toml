@@ -1,5 +1,5 @@
 [package]
-name = "clarirs_core"
+name = "clarirs-core"
 version = "0.1.0"
 edition = "2024"
 description = "The core of clarirs"
@@ -12,7 +12,7 @@ repository = { workspace = true }
 [dependencies]
 ahash = "0.8.12"
 anyhow = { workspace = true }
-clarirs_num = { path = "../clarirs_num" }
+clarirs-num = { path = "../clarirs-num" }
 num-bigint = { version = "0.4.6", features = ["serde"] }
 num-traits = "0.2"
 serde = { version = "1.0.228", features = ["derive", "rc"] }

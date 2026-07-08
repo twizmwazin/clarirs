@@ -1,5 +1,5 @@
 [package]
-name = "clarirs_num"
+name = "clarirs-num"
 version = "0.1.0"
 edition = "2024"
 description = "Numeric types for clarirs"
