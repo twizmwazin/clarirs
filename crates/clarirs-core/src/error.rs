@@ -27,6 +27,8 @@ pub enum ClarirsError {
     ConversionError(String),
     #[error("UNSAT")]
     Unsat,
+    #[error("Solver returned unknown: {0}")]
+    SolverUnknown(String),
     #[error("Empty traversal result")]
     EmptyTraversal,
     #[error("Backend error ({0}): {1}")]

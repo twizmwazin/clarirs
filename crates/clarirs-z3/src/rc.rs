@@ -332,6 +332,18 @@ impl RcSolver {
         })
     }
 
+    /// Why the last check() returned Z3_L_UNDEF (e.g. "timeout", "canceled").
+    pub fn reason_unknown(&self) -> String {
+        Z3_CONTEXT.with(|&ctx| unsafe {
+            let reason = Z3_solver_get_reason_unknown(ctx, self.0);
+            if reason.is_null() {
+                "unknown".to_string()
+            } else {
+                CStr::from_ptr(reason).to_string_lossy().into_owned()
+            }
+        })
+    }
+
     pub fn get_unsat_core(&mut self) -> Result<RcAstVector, ClarirsError> {
         Z3_CONTEXT.with(|&ctx| unsafe {
             let core = Z3_solver_get_unsat_core(ctx, self.0);
@@ -431,6 +443,18 @@ impl RcOptimize {
             let result = Z3_optimize_check(ctx, self.0, 0, std::ptr::null());
             check_z3_error()?;
             Ok(result)
+        })
+    }
+
+    /// Why the last check() returned Z3_L_UNDEF (e.g. "timeout", "canceled").
+    pub fn reason_unknown(&self) -> String {
+        Z3_CONTEXT.with(|&ctx| unsafe {
+            let reason = Z3_optimize_get_reason_unknown(ctx, self.0);
+            if reason.is_null() {
+                "unknown".to_string()
+            } else {
+                CStr::from_ptr(reason).to_string_lossy().into_owned()
+            }
         })
     }
 
