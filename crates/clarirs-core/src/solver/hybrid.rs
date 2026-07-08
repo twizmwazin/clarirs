@@ -21,16 +21,76 @@ pub struct HybridSolver<'c, A: Solver<'c>, E: Solver<'c>> {
     approximate: A,
     exact: E,
     ctx: &'c Context<'c>,
+    /// When true, `eval_n` for more than two solutions asks the approximate
+    /// backend first and only consults the exact backend when the
+    /// approximation is inexact (claripy's `approximate_first`).
+    approximate_first: bool,
 }
 
 impl<'c, A: Solver<'c>, E: Solver<'c>> HybridSolver<'c, A, E> {
     /// Create a new hybrid solver with the given approximate and exact backends.
     pub fn new(ctx: &'c Context<'c>, approximate: A, exact: E) -> Self {
+        Self::new_with_options(ctx, approximate, exact, false)
+    }
+
+    /// Create a new hybrid solver, optionally preferring approximate results
+    /// for multi-solution `eval_n` queries.
+    pub fn new_with_options(
+        ctx: &'c Context<'c>,
+        approximate: A,
+        exact: E,
+        approximate_first: bool,
+    ) -> Self {
         Self {
             approximate,
             exact,
             ctx,
+            approximate_first,
         }
+    }
+
+    /// Whether this solver prefers approximate results for multi-solution
+    /// `eval_n` queries.
+    pub fn approximate_first(&self) -> bool {
+        self.approximate_first
+    }
+
+    /// claripy's approximate-first heuristic: draw n + 1 solutions from the
+    /// approximate backend; the extra solution tells us whether the
+    /// approximation is exhaustive. If it is (<= n solutions), or no
+    /// constraint mentions the expression's variables (so the approximation
+    /// cannot be refined by solving), use it. Otherwise ask the exact backend
+    /// too and use whichever found fewer solutions.
+    fn eval_n_approximate_first(
+        &mut self,
+        expr: &AstRef<'c>,
+        n: u32,
+    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+        let mut approx = match self.approximate.eval_n(expr, n + 1) {
+            Ok(approx) if !approx.is_empty() => approx,
+            _ => return self.exact.eval_n(expr, n),
+        };
+
+        if approx.len() > n as usize
+            && self.constraints_mention(expr)?
+            && let Ok(exact) = self.exact.eval_n(expr, n + 1)
+            && exact.len() < approx.len()
+        {
+            approx = exact;
+        }
+
+        approx.truncate(n as usize);
+        Ok(approx)
+    }
+
+    /// Whether any asserted constraint shares a variable with `expr`.
+    fn constraints_mention(&self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
+        let expr_vars = expr.variables();
+        Ok(self
+            .exact
+            .constraints()?
+            .iter()
+            .any(|c| c.variables().iter().any(|v| expr_vars.contains(v))))
     }
 
     /// Get a reference to the approximate solver.
@@ -169,6 +229,9 @@ impl<'c, A: Solver<'c>, E: Solver<'c>> Solver<'c> for HybridSolver<'c, A, E> {
     fn eval_n(&mut self, expr: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
         if n == 0 {
             return Ok(Vec::new());
+        }
+        if self.approximate_first && n > 2 {
+            return self.eval_n_approximate_first(expr, n);
         }
         // Try the approximate solver first; verify symbolic results against
         // the exact solver, and fall back to it whenever the approximate
