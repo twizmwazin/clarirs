@@ -116,6 +116,16 @@ impl DynSolver {
         }
     }
 
+    /// Whether approximate-first evaluation is enabled (only meaningful for
+    /// the Hybrid solver).
+    pub(crate) fn approximate_first(&self) -> bool {
+        match self {
+            // SimplificationMixin -> ConcreteEarlyResolutionMixin -> HybridSolver
+            DynSolver::Hybrid(solver) => solver.inner().inner().approximate_first(),
+            _ => false,
+        }
+    }
+
     /// Clear all replacements (only supported for Replacement solver)
     pub(crate) fn clear_replacements(&mut self) -> Result<(), ClarirsError> {
         match self {

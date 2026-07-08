@@ -116,15 +116,18 @@ impl PySolver {
                     Z3Solver::new_with_options(&GLOBAL_CONTEXT, self.timeout, self.unsat_core),
                 )),
                 DynSolver::Vsa(..) => DynSolver::Vsa(wrap_solver(VSASolver::new(&GLOBAL_CONTEXT))),
-                DynSolver::Hybrid(..) => DynSolver::Hybrid(wrap_solver(HybridSolver::new(
-                    &GLOBAL_CONTEXT,
-                    wrap_solver(VSASolver::new(&GLOBAL_CONTEXT)),
-                    wrap_z3_cached(Z3Solver::new_with_options(
+                DynSolver::Hybrid(..) => {
+                    DynSolver::Hybrid(wrap_solver(HybridSolver::new_with_options(
                         &GLOBAL_CONTEXT,
-                        self.timeout,
-                        self.unsat_core,
-                    )),
-                ))),
+                        wrap_solver(VSASolver::new(&GLOBAL_CONTEXT)),
+                        wrap_z3_cached(Z3Solver::new_with_options(
+                            &GLOBAL_CONTEXT,
+                            self.timeout,
+                            self.unsat_core,
+                        )),
+                        self.inner.approximate_first(),
+                    )))
+                }
                 DynSolver::Replacement(..) => {
                     DynSolver::Replacement(ReplacementSolver::new_with_options(
                         wrap_z3_cached(Z3Solver::new_with_options(
@@ -885,14 +888,19 @@ impl PySolver {
         // Get the constraints
         let constraints = self.constraints(py)?;
 
-        // Return a tuple of (solver_type, constraints, auto_replace). The last
-        // element is only meaningful for the Replacement solver.
+        // Return a tuple of (solver_type, constraints, flag). The last element
+        // is per-type: auto_replace for the Replacement solver,
+        // approximate_first for the Hybrid solver, unused otherwise.
+        let flag = match &self.inner {
+            DynSolver::Hybrid(..) => self.inner.approximate_first(),
+            _ => self.inner.auto_replace(),
+        };
         Ok(PyTuple::new(
             py,
             vec![
                 solver_type.into_bound_py_any(py)?,
                 constraints.into_bound_py_any(py)?,
-                self.inner.auto_replace().into_bound_py_any(py)?,
+                flag.into_bound_py_any(py)?,
             ],
         )?)
     }
@@ -905,12 +913,12 @@ impl PySolver {
         // Extract solver type and constraints from the state tuple
         let solver_type: String = state.get_item(0)?.extract()?;
         let constraints: Vec<Bound<'py, Bool>> = state.get_item(1)?.extract()?;
-        // auto_replace was added later; default to claripy's `True` for older state.
-        let auto_replace: bool = state
-            .get_item(2)
-            .ok()
-            .and_then(|v| v.extract().ok())
-            .unwrap_or(true);
+        // The per-type flag (auto_replace / approximate_first) was added later;
+        // older state tuples lack it.
+        let flag: Option<bool> = state.get_item(2).ok().and_then(|v| v.extract().ok());
+        // Default to claripy's `True` for Replacement, `False` for Hybrid.
+        let auto_replace = flag.unwrap_or(true);
+        let approximate_first = flag.unwrap_or(false);
 
         // Create a new solver based on the type
         self.inner = match solver_type.as_str() {
@@ -924,10 +932,11 @@ impl PySolver {
                 self.timeout,
             ))),
             "Vsa" => DynSolver::Vsa(wrap_solver(VSASolver::new(&GLOBAL_CONTEXT))),
-            "Hybrid" => DynSolver::Hybrid(wrap_solver(HybridSolver::new(
+            "Hybrid" => DynSolver::Hybrid(wrap_solver(HybridSolver::new_with_options(
                 &GLOBAL_CONTEXT,
                 wrap_solver(VSASolver::new(&GLOBAL_CONTEXT)),
                 wrap_z3_cached(Z3Solver::new_with_timeout(&GLOBAL_CONTEXT, self.timeout)),
+                approximate_first,
             ))),
             "Replacement" => DynSolver::Replacement(ReplacementSolver::new_with_options(
                 wrap_z3_cached(Z3Solver::new_with_timeout(&GLOBAL_CONTEXT, self.timeout)),
@@ -1032,13 +1041,18 @@ pub struct PyHybridSolver;
 #[pymethods]
 impl PyHybridSolver {
     #[new]
-    #[pyo3(signature = (timeout = None, track = false))]
-    fn new(timeout: Option<u32>, track: bool) -> Result<PyClassInitializer<Self>, ClaripyError> {
+    #[pyo3(signature = (timeout = None, track = false, approximate_first = false))]
+    fn new(
+        timeout: Option<u32>,
+        track: bool,
+        approximate_first: bool,
+    ) -> Result<PyClassInitializer<Self>, ClaripyError> {
         Ok(PyClassInitializer::from(PySolver {
-            inner: DynSolver::Hybrid(wrap_solver(HybridSolver::new(
+            inner: DynSolver::Hybrid(wrap_solver(HybridSolver::new_with_options(
                 &GLOBAL_CONTEXT,
                 wrap_solver(VSASolver::new(&GLOBAL_CONTEXT)),
                 wrap_z3_cached(Z3Solver::new_with_options(&GLOBAL_CONTEXT, timeout, track)),
+                approximate_first,
             ))),
             timeout,
             unsat_core: track,
