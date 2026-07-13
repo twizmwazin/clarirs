@@ -848,11 +848,7 @@ mod tests {
     #[test]
     fn test_new_f32_from_parts() -> Result<(), BitVecError> {
         // 1.0f32: sign=0, exponent=127, mantissa=0
-        let one = Float::new(
-            false,
-            BitVec::from((127u64, 8)),
-            BitVec::from((0u64, 23)),
-        )?;
+        let one = Float::new(false, BitVec::from((127u64, 8)), BitVec::from((0u64, 23)))?;
         assert_eq!(one, Float::F32(1.0));
         assert_eq!(one.fsort(), F32_SORT);
 
@@ -890,20 +886,12 @@ mod tests {
     #[test]
     fn test_new_f64_from_parts() -> Result<(), BitVecError> {
         // 1.0f64: sign=0, exponent=1023, mantissa=0
-        let one = Float::new(
-            false,
-            BitVec::from((1023u64, 11)),
-            BitVec::from((0u64, 52)),
-        )?;
+        let one = Float::new(false, BitVec::from((1023u64, 11)), BitVec::from((0u64, 52)))?;
         assert_eq!(one, Float::F64(1.0));
         assert_eq!(one.fsort(), F64_SORT);
 
         // -2.0f64: sign=1, exponent=1024, mantissa=0
-        let neg_two = Float::new(
-            true,
-            BitVec::from((1024u64, 11)),
-            BitVec::from((0u64, 52)),
-        )?;
+        let neg_two = Float::new(true, BitVec::from((1024u64, 11)), BitVec::from((0u64, 52)))?;
         assert_eq!(neg_two, Float::F64(-2.0));
 
         // NaN: exponent all ones, non-zero mantissa
@@ -915,11 +903,7 @@ mod tests {
         assert!(nan.is_nan());
 
         // -infinity
-        let neg_inf = Float::new(
-            true,
-            BitVec::from((0x7FFu64, 11)),
-            BitVec::from((0u64, 52)),
-        )?;
+        let neg_inf = Float::new(true, BitVec::from((0x7FFu64, 11)), BitVec::from((0u64, 52)))?;
         assert!(neg_inf.is_infinity());
         assert!(neg_inf.sign());
 
@@ -1292,10 +1276,7 @@ mod tests {
         assert_eq!(Float::F64(7.0) / Float::F32(2.0), Float::F64(3.5));
 
         // Division by zero gives a signed infinity.
-        assert_eq!(
-            Float::F64(1.0) / Float::F64(0.0),
-            Float::F64(f64::INFINITY)
-        );
+        assert_eq!(Float::F64(1.0) / Float::F64(0.0), Float::F64(f64::INFINITY));
         assert_eq!(
             Float::F64(1.0) / Float::F64(-0.0),
             Float::F64(f64::NEG_INFINITY)
@@ -1322,10 +1303,7 @@ mod tests {
         assert_eq!(pos_zero.to_f32().unwrap().to_bits(), 0.0f32.to_bits());
 
         // Negating infinity and NaN.
-        assert_eq!(
-            -Float::F64(f64::INFINITY),
-            Float::F64(f64::NEG_INFINITY)
-        );
+        assert_eq!(-Float::F64(f64::INFINITY), Float::F64(f64::NEG_INFINITY));
         assert!((-Float::F32(f32::NAN)).is_nan());
 
         // abs
@@ -1352,17 +1330,17 @@ mod tests {
         assert!(Float::F64(-4.0).sqrt().is_nan());
 
         // IEEE 754: sqrt preserves signed zero.
-        assert_eq!(Float::F64(0.0).sqrt().to_f64().unwrap().to_bits(), 0.0f64.to_bits());
+        assert_eq!(
+            Float::F64(0.0).sqrt().to_f64().unwrap().to_bits(),
+            0.0f64.to_bits()
+        );
         assert_eq!(
             Float::F64(-0.0).sqrt().to_f64().unwrap().to_bits(),
             (-0.0f64).to_bits()
         );
 
         // sqrt(+inf) = +inf, sqrt(NaN) = NaN.
-        assert_eq!(
-            Float::F64(f64::INFINITY).sqrt(),
-            Float::F64(f64::INFINITY)
-        );
+        assert_eq!(Float::F64(f64::INFINITY).sqrt(), Float::F64(f64::INFINITY));
         assert!(Float::F32(f32::NAN).sqrt().is_nan());
     }
 
@@ -1397,10 +1375,7 @@ mod tests {
 
         // Documented current behavior: the f64 -> u64 cast saturates, so
         // negative values become 0, NaN becomes 0, and +inf becomes u64::MAX.
-        assert_eq!(
-            Float::F64(-5.0).to_unsigned_biguint()?,
-            BigUint::from(0u64)
-        );
+        assert_eq!(Float::F64(-5.0).to_unsigned_biguint()?, BigUint::from(0u64));
         assert_eq!(
             Float::F64(f64::NAN).to_unsigned_biguint()?,
             BigUint::from(0u64)
@@ -1421,10 +1396,7 @@ mod tests {
 
         // Documented current behavior: the f64 -> i64 cast saturates, so NaN
         // becomes 0 and infinities clamp to the i64 extremes.
-        assert_eq!(
-            Float::F64(f64::NAN).to_signed_bigint()?,
-            BigInt::from(0i64)
-        );
+        assert_eq!(Float::F64(f64::NAN).to_signed_bigint()?, BigInt::from(0i64));
         assert_eq!(
             Float::F64(f64::INFINITY).to_signed_bigint()?,
             BigInt::from(i64::MAX)
@@ -1439,11 +1411,8 @@ mod tests {
 
     #[test]
     fn test_from_bigint_with_rounding() -> Result<(), BitVecError> {
-        let f = Float::from_bigint_with_rounding(
-            &BigInt::from(42),
-            F64_SORT,
-            FPRM::NearestTiesToEven,
-        )?;
+        let f =
+            Float::from_bigint_with_rounding(&BigInt::from(42), F64_SORT, FPRM::NearestTiesToEven)?;
         assert_eq!(f, Float::F64(42.0));
 
         let f = Float::from_bigint_with_rounding(

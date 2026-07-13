@@ -469,10 +469,7 @@ mod tests {
         assert_eq!(x1.as_ref().hash(), x2.as_ref().hash());
 
         // The Hash impl writes only the precomputed hash
-        assert_eq!(
-            PrecomputedHasherBuilder.hash_one(&*x1),
-            x1.as_ref().hash()
-        );
+        assert_eq!(PrecomputedHasherBuilder.hash_one(&*x1), x1.as_ref().hash());
     }
 
     #[test]

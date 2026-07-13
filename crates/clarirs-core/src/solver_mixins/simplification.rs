@@ -267,10 +267,7 @@ mod tests {
         )?;
         let tautology = ctx.or2(&ctx.true_()?, &ctx.false_()?)?;
         let results = solver.batch_eval(&[sum, tautology])?;
-        assert_eq!(
-            results,
-            vec![ctx.bvv(BitVec::from((3, 8)))?, ctx.true_()?]
-        );
+        assert_eq!(results, vec![ctx.bvv(BitVec::from((3, 8)))?, ctx.true_()?]);
         Ok(())
     }
 

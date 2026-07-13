@@ -298,11 +298,7 @@ fn test_replace_symbolic_fallback() -> Result<()> {
     let ctx = Context::new();
 
     let result = ctx
-        .str_replace(
-            ctx.strings("s")?,
-            ctx.stringv("a")?,
-            ctx.stringv("b")?,
-        )?
+        .str_replace(ctx.strings("s")?, ctx.stringv("a")?, ctx.stringv("b")?)?
         .simplify()?;
     assert!(matches!(result.op(), AstOp::StrReplace(..)));
 

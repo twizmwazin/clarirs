@@ -749,10 +749,7 @@ mod tests {
         // With unsat now cached, batch_eval fails fast without the inner
         // solver.
         let inner_calls_before = sat_calls.get();
-        assert!(matches!(
-            solver.batch_eval(&[x]),
-            Err(ClarirsError::Unsat)
-        ));
+        assert!(matches!(solver.batch_eval(&[x]), Err(ClarirsError::Unsat)));
         assert_eq!(sat_calls.get(), inner_calls_before);
         Ok(())
     }

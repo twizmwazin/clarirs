@@ -545,10 +545,7 @@ mod tests {
         let g = ctx.fps("g", FSort::f64()).unwrap();
 
         assert_eq!(ctx.eq_(&f, &g).unwrap().to_smtlib(), "(fp.eq f g)");
-        assert_eq!(
-            ctx.neq(&f, &g).unwrap().to_smtlib(),
-            "(not (fp.eq f g))"
-        );
+        assert_eq!(ctx.neq(&f, &g).unwrap().to_smtlib(), "(not (fp.eq f g))");
     }
 
     #[test]
@@ -668,10 +665,7 @@ mod tests {
 
         assert_eq!(s.to_smtlib(), "s");
         assert_eq!(ctx.str_len(&s).unwrap().to_smtlib(), "(str.len s)");
-        assert_eq!(
-            ctx.str_concat(&s, &t).unwrap().to_smtlib(),
-            "(str.++ s t)"
-        );
+        assert_eq!(ctx.str_concat(&s, &t).unwrap().to_smtlib(), "(str.++ s t)");
         assert_eq!(
             ctx.str_substr(&s, &i, &j).unwrap().to_smtlib(),
             "(str.substr s i j)"

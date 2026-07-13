@@ -718,10 +718,7 @@ fn test_not_double_negation() -> Result<()> {
     assert_eq!(ctx.not(&ctx.not(&x)?)?.simplify()?, x);
 
     // !!!x => !x
-    assert_eq!(
-        ctx.not(&ctx.not(&ctx.not(&x)?)?)?.simplify()?,
-        ctx.not(&x)?
-    );
+    assert_eq!(ctx.not(&ctx.not(&ctx.not(&x)?)?)?.simplify()?, ctx.not(&x)?);
 
     // Concrete negation
     assert_eq!(ctx.not(&ctx.true_()?)?.simplify()?, ctx.false_()?);
@@ -1153,10 +1150,7 @@ fn test_eq_neq_with_mask_and() -> Result<()> {
     assert_eq!(
         ctx.eq_(&masked_low, &ctx.bvv(BitVec::from((0x12, 16)))?)?
             .simplify()?,
-        ctx.eq_(
-            &ctx.extract(&x, 7, 0)?,
-            &ctx.bvv(BitVec::from((0x12, 8)))?
-        )?
+        ctx.eq_(&ctx.extract(&x, 7, 0)?, &ctx.bvv(BitVec::from((0x12, 8)))?)?
     );
 
     // (x & 0x0FF0) == 0x0120 => extract(x, 11, 4) == 0x12
@@ -1164,20 +1158,14 @@ fn test_eq_neq_with_mask_and() -> Result<()> {
     assert_eq!(
         ctx.eq_(&masked_mid, &ctx.bvv(BitVec::from((0x0120, 16)))?)?
             .simplify()?,
-        ctx.eq_(
-            &ctx.extract(&x, 11, 4)?,
-            &ctx.bvv(BitVec::from((0x12, 8)))?
-        )?
+        ctx.eq_(&ctx.extract(&x, 11, 4)?, &ctx.bvv(BitVec::from((0x12, 8)))?)?
     );
 
     // (x & 0x00FF) != 0x12 => extract(x, 7, 0) != 0x12
     assert_eq!(
         ctx.neq(&masked_low, &ctx.bvv(BitVec::from((0x12, 16)))?)?
             .simplify()?,
-        ctx.neq(
-            &ctx.extract(&x, 7, 0)?,
-            &ctx.bvv(BitVec::from((0x12, 8)))?
-        )?
+        ctx.neq(&ctx.extract(&x, 7, 0)?, &ctx.bvv(BitVec::from((0x12, 8)))?)?
     );
 
     Ok(())
@@ -1448,10 +1436,7 @@ fn test_fp_is_nan_is_inf_concrete() -> Result<()> {
         ctx.fp_is_nan(&ctx.fpv(f64::NAN)?)?.simplify()?,
         ctx.true_()?
     );
-    assert_eq!(
-        ctx.fp_is_nan(&ctx.fpv(1.0f64)?)?.simplify()?,
-        ctx.false_()?
-    );
+    assert_eq!(ctx.fp_is_nan(&ctx.fpv(1.0f64)?)?.simplify()?, ctx.false_()?);
     assert_eq!(
         ctx.fp_is_inf(&ctx.fpv(f64::INFINITY)?)?.simplify()?,
         ctx.true_()?
@@ -1460,10 +1445,7 @@ fn test_fp_is_nan_is_inf_concrete() -> Result<()> {
         ctx.fp_is_inf(&ctx.fpv(f64::NEG_INFINITY)?)?.simplify()?,
         ctx.true_()?
     );
-    assert_eq!(
-        ctx.fp_is_inf(&ctx.fpv(1.0f64)?)?.simplify()?,
-        ctx.false_()?
-    );
+    assert_eq!(ctx.fp_is_inf(&ctx.fpv(1.0f64)?)?.simplify()?, ctx.false_()?);
 
     Ok(())
 }

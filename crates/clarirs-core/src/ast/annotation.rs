@@ -267,6 +267,9 @@ mod tests {
         let c = Annotation::new(AnnotationType::Uninitialized, true, true);
         assert_ne!(a, b);
         assert_ne!(a, c);
-        assert_eq!(a, Annotation::new(AnnotationType::Uninitialized, true, false));
+        assert_eq!(
+            a,
+            Annotation::new(AnnotationType::Uninitialized, true, false)
+        );
     }
 }

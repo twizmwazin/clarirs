@@ -261,10 +261,7 @@ mod tests {
             StridedInterval::constant(8, 0x03u32)
         );
         assert_eq!(
-            reduce(
-                &ctx.rotate_right(bv(&ctx, 0x81, 8), bv(&ctx, 1, 8))
-                    .unwrap()
-            ),
+            reduce(&ctx.rotate_right(bv(&ctx, 0x81, 8), bv(&ctx, 1, 8)).unwrap()),
             StridedInterval::constant(8, 0xC0u32)
         );
     }

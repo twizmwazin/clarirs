@@ -503,14 +503,8 @@ mod tests {
             assert!(!solver.satisfiable()?);
 
             assert!(matches!(solver.eval_n(&x, 1), Err(ClarirsError::Unsat)));
-            assert!(matches!(
-                solver.min_unsigned(&x),
-                Err(ClarirsError::Unsat)
-            ));
-            assert!(matches!(
-                solver.max_unsigned(&x),
-                Err(ClarirsError::Unsat)
-            ));
+            assert!(matches!(solver.min_unsigned(&x), Err(ClarirsError::Unsat)));
+            assert!(matches!(solver.max_unsigned(&x), Err(ClarirsError::Unsat)));
             assert!(matches!(solver.min_signed(&x), Err(ClarirsError::Unsat)));
             assert!(matches!(solver.max_signed(&x), Err(ClarirsError::Unsat)));
 
@@ -645,10 +639,10 @@ mod tests {
             // x == y is consistent with x == 1, y == 1.
             assert!(solver.satisfiable_with_extra(&[ctx.eq_(&x, &y)?])?);
             // x == y + something contradictory is not.
-            assert!(!solver.satisfiable_with_extra(&[
-                ctx.eq_(&x, &y)?,
-                ctx.eq_(&x, &bvv8(&ctx, 2)?)?,
-            ])?);
+            assert!(
+                !solver
+                    .satisfiable_with_extra(&[ctx.eq_(&x, &y)?, ctx.eq_(&x, &bvv8(&ctx, 2)?)?,])?
+            );
             // No permanent merge happened.
             assert_eq!(solver.children.len(), 2);
             Ok(())

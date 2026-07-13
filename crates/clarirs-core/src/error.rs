@@ -82,7 +82,10 @@ mod tests {
             ClarirsError::CacheLockPoisoned.to_string(),
             "Cache lock poisoned"
         );
-        assert_eq!(ClarirsError::DivisionByZero.to_string(), "Division by zero error");
+        assert_eq!(
+            ClarirsError::DivisionByZero.to_string(),
+            "Division by zero error"
+        );
         assert_eq!(ClarirsError::Unsat.to_string(), "UNSAT");
         assert_eq!(
             ClarirsError::EmptyTraversal.to_string(),

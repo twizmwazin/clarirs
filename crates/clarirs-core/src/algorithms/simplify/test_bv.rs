@@ -1144,7 +1144,8 @@ fn test_and_constant_folding_multiple() -> Result<()> {
 
     // x & 0xF0 & 0x3C => x & 0x30
     assert_eq!(
-        ctx.and(vec![x.clone(), c1.clone(), c2.clone()])?.simplify()?,
+        ctx.and(vec![x.clone(), c1.clone(), c2.clone()])?
+            .simplify()?,
         ctx.and2(&x, &ctx.bvv(BitVec::from((0x30, 8)))?)?
     );
 
@@ -1157,7 +1158,8 @@ fn test_and_constant_folding_multiple() -> Result<()> {
     // Constants folding to zero absorb everything
     let c3 = ctx.bvv(BitVec::from((0x0F, 8)))?;
     assert_eq!(
-        ctx.and(vec![x.clone(), c1.clone(), c3.clone()])?.simplify()?,
+        ctx.and(vec![x.clone(), c1.clone(), c3.clone()])?
+            .simplify()?,
         ctx.bvv(BitVec::from((0, 8)))?
     );
 
@@ -1172,10 +1174,7 @@ fn test_and_distribute_over_concat() -> Result<()> {
 
     // Concat(x, y) & 0xFF00 => Concat(x, 0x00)
     let expr = ctx
-        .and2(
-            &ctx.concat2(&x, &y)?,
-            &ctx.bvv(BitVec::from((0xFF00, 16)))?,
-        )?
+        .and2(&ctx.concat2(&x, &y)?, &ctx.bvv(BitVec::from((0xFF00, 16)))?)?
         .simplify()?;
     assert_eq!(expr, ctx.concat2(&x, &ctx.bvv(BitVec::from((0, 8)))?)?);
 
@@ -1189,10 +1188,7 @@ fn test_and_distribute_over_zero_ext() -> Result<()> {
 
     // ZeroExt(x, 8) & 0x0F => ZeroExt(x & 0x0F, 8)
     let expr = ctx
-        .and2(
-            &ctx.zero_ext(&x, 8)?,
-            &ctx.bvv(BitVec::from((0x0F, 16)))?,
-        )?
+        .and2(&ctx.zero_ext(&x, 8)?, &ctx.bvv(BitVec::from((0x0F, 16)))?)?
         .simplify()?;
     assert_eq!(
         expr,
@@ -1268,10 +1264,7 @@ fn test_or_distribute_over_concat() -> Result<()> {
 
     // Concat(x, y) | 0x00FF => Concat(x, 0xFF)
     let expr = ctx
-        .or2(
-            &ctx.concat2(&x, &y)?,
-            &ctx.bvv(BitVec::from((0x00FF, 16)))?,
-        )?
+        .or2(&ctx.concat2(&x, &y)?, &ctx.bvv(BitVec::from((0x00FF, 16)))?)?
         .simplify()?;
     assert_eq!(expr, ctx.concat2(&x, &ctx.bvv(BitVec::from((0xFF, 8)))?)?);
 
@@ -1331,10 +1324,7 @@ fn test_xor_distribute_over_concat() -> Result<()> {
 
     // Concat(x, y) ^ 0x00FF => Concat(x, ~y)
     let expr = ctx
-        .xor2(
-            &ctx.concat2(&x, &y)?,
-            &ctx.bvv(BitVec::from((0x00FF, 16)))?,
-        )?
+        .xor2(&ctx.concat2(&x, &y)?, &ctx.bvv(BitVec::from((0x00FF, 16)))?)?
         .simplify()?;
     assert_eq!(expr, ctx.concat2(&x, &ctx.not(&y)?)?);
 
@@ -1497,10 +1487,7 @@ fn test_div_by_zero_behavior() -> Result<()> {
     // With the default simplify(), division by a concrete zero is left
     // unsimplified (even fully concrete divisions).
     assert_eq!(ctx.udiv(&x, &zero)?.simplify()?, ctx.udiv(&x, &zero)?);
-    assert_eq!(
-        ctx.udiv(&five, &zero)?.simplify()?,
-        ctx.udiv(&five, &zero)?
-    );
+    assert_eq!(ctx.udiv(&five, &zero)?.simplify()?, ctx.udiv(&five, &zero)?);
     assert_eq!(ctx.sdiv(&x, &zero)?.simplify()?, ctx.sdiv(&x, &zero)?);
 
     // With error_on_dbz set, simplification errors out
@@ -1542,7 +1529,8 @@ fn test_shl_overshift_concrete() -> Result<()> {
         zero
     );
     assert_eq!(
-        ctx.shl(&one, &ctx.bvv(BitVec::from((200, 8)))?)?.simplify()?,
+        ctx.shl(&one, &ctx.bvv(BitVec::from((200, 8)))?)?
+            .simplify()?,
         zero
     );
 
@@ -1564,13 +1552,15 @@ fn test_shl_of_zero_ext() -> Result<()> {
 
     // shl(ZeroExt(x, 8), 10) => Concat(x << 2, 0x00)
     assert_eq!(
-        ctx.shl(&ze, &ctx.bvv(BitVec::from((10, 16)))?)?.simplify()?,
+        ctx.shl(&ze, &ctx.bvv(BitVec::from((10, 16)))?)?
+            .simplify()?,
         ctx.concat2(&ctx.shl(&x, &ctx.bvv(BitVec::from((2, 8)))?)?, &zero8)?
     );
 
     // shl(ZeroExt(x, 8), 16) => 0 (everything shifted out)
     assert_eq!(
-        ctx.shl(&ze, &ctx.bvv(BitVec::from((16, 16)))?)?.simplify()?,
+        ctx.shl(&ze, &ctx.bvv(BitVec::from((16, 16)))?)?
+            .simplify()?,
         ctx.bvv(BitVec::from((0, 16)))?
     );
 
@@ -1643,18 +1633,21 @@ fn test_rotate_by_multiple_of_size() -> Result<()> {
 
     // Rotating by the full width is the identity
     assert_eq!(
-        ctx.rotate_left(&x, &ctx.bvv(BitVec::from((4, 4)))?)?.simplify()?,
+        ctx.rotate_left(&x, &ctx.bvv(BitVec::from((4, 4)))?)?
+            .simplify()?,
         x
     );
     assert_eq!(
-        ctx.rotate_right(&x, &ctx.bvv(BitVec::from((4, 4)))?)?.simplify()?,
+        ctx.rotate_right(&x, &ctx.bvv(BitVec::from((4, 4)))?)?
+            .simplify()?,
         x
     );
 
     // Rotating by a multiple of the width is the identity
     let x8 = ctx.bvs("x8", 8)?;
     assert_eq!(
-        ctx.rotate_left(&x8, &ctx.bvv(BitVec::from((16, 8)))?)?.simplify()?,
+        ctx.rotate_left(&x8, &ctx.bvv(BitVec::from((16, 8)))?)?
+            .simplify()?,
         x8
     );
 
@@ -1671,19 +1664,22 @@ fn test_nested_rotate_combining() -> Result<()> {
 
     // rotl(rotl(x, 1), 2) => rotl(x, 3)
     assert_eq!(
-        ctx.rotate_left(&ctx.rotate_left(&x, &one)?, &two)?.simplify()?,
+        ctx.rotate_left(&ctx.rotate_left(&x, &one)?, &two)?
+            .simplify()?,
         ctx.rotate_left(&x, &three)?
     );
 
     // rotl(rotl(x, 3), 1) => rotl(x, 0) => x
     assert_eq!(
-        ctx.rotate_left(&ctx.rotate_left(&x, &three)?, &one)?.simplify()?,
+        ctx.rotate_left(&ctx.rotate_left(&x, &three)?, &one)?
+            .simplify()?,
         x
     );
 
     // rotr(rotr(x, 1), 2) => rotr(x, 3)
     assert_eq!(
-        ctx.rotate_right(&ctx.rotate_right(&x, &one)?, &two)?.simplify()?,
+        ctx.rotate_right(&ctx.rotate_right(&x, &one)?, &two)?
+            .simplify()?,
         ctx.rotate_right(&x, &three)?
     );
 
@@ -1804,10 +1800,7 @@ fn test_extract_through_bitwise_ops() -> Result<()> {
         ctx.xor2(&ex, &ey)?
     );
     // extract(~x, 7, 4) => ~extract(x, 7, 4)
-    assert_eq!(
-        ctx.extract(&ctx.not(&x)?, 7, 4)?.simplify()?,
-        ctx.not(&ex)?
-    );
+    assert_eq!(ctx.extract(&ctx.not(&x)?, 7, 4)?.simplify()?, ctx.not(&ex)?);
 
     Ok(())
 }
@@ -1857,10 +1850,7 @@ fn test_extract_sign_ext_parts() -> Result<()> {
 
     // Entirely within the original bits
     assert_eq!(ctx.extract(&se, 7, 0)?.simplify()?, x);
-    assert_eq!(
-        ctx.extract(&se, 5, 2)?.simplify()?,
-        ctx.extract(&x, 5, 2)?
-    );
+    assert_eq!(ctx.extract(&se, 5, 2)?.simplify()?, ctx.extract(&x, 5, 2)?);
 
     // Entirely within the sign-extension bits => replicated sign bit
     let sb = ctx.extract(&x, 7, 7)?;
@@ -2012,10 +2002,7 @@ fn test_concat_leading_zeros_to_zero_ext() -> Result<()> {
     let zero8 = ctx.bvv(BitVec::from((0, 8)))?;
 
     // Concat(0x00, x) => ZeroExt(x, 8)
-    assert_eq!(
-        ctx.concat2(&zero8, &x)?.simplify()?,
-        ctx.zero_ext(&x, 8)?
-    );
+    assert_eq!(ctx.concat2(&zero8, &x)?.simplify()?, ctx.zero_ext(&x, 8)?);
 
     // Concat(0x00, x, y) => ZeroExt(Concat(x, y), 8)
     assert_eq!(
@@ -2043,10 +2030,7 @@ fn test_byte_reverse_structural_rules() -> Result<()> {
     assert_eq!(ctx.byte_reverse(&x8)?.simplify()?, x8);
 
     // Reverse(Reverse(x)) => x
-    assert_eq!(
-        ctx.byte_reverse(&ctx.byte_reverse(&x16)?)?.simplify()?,
-        x16
-    );
+    assert_eq!(ctx.byte_reverse(&ctx.byte_reverse(&x16)?)?.simplify()?, x16);
 
     // Reverse(ite(c, a, b)) => ite(c, Reverse(a), Reverse(b))
     assert_eq!(

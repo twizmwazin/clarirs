@@ -3889,10 +3889,7 @@ mod si_query_tests {
             StridedInterval::constant(8, 42u32).cardinality(),
             BigUint::one()
         );
-        assert_eq!(
-            StridedInterval::top(8).cardinality(),
-            BigUint::from(256u32)
-        );
+        assert_eq!(StridedInterval::top(8).cardinality(), BigUint::from(256u32));
         // 2[10, 20] = {10, 12, 14, 16, 18, 20}
         assert_eq!(
             StridedInterval::new(8, 2u32, 10u32, 20u32).cardinality(),
@@ -4355,7 +4352,12 @@ mod si_reverse_bytes_tests {
                 .is_top()
         );
         // Empty propagates
-        assert!(StridedInterval::empty(16).reverse_bytes().unwrap().is_empty());
+        assert!(
+            StridedInterval::empty(16)
+                .reverse_bytes()
+                .unwrap()
+                .is_empty()
+        );
     }
 }
 

@@ -147,14 +147,8 @@ fn test_fp_neg_abs_symbolic_fallback() -> Result<()> {
     let ctx = Context::new();
 
     let x = ctx.fps("x", FSort::f64())?;
-    assert!(matches!(
-        ctx.fp_neg(&x)?.simplify()?.op(),
-        AstOp::FpNeg(..)
-    ));
-    assert!(matches!(
-        ctx.fp_abs(&x)?.simplify()?.op(),
-        AstOp::FpAbs(..)
-    ));
+    assert!(matches!(ctx.fp_neg(&x)?.simplify()?.op(), AstOp::FpNeg(..)));
+    assert!(matches!(ctx.fp_abs(&x)?.simplify()?.op(), AstOp::FpAbs(..)));
 
     Ok(())
 }
@@ -376,10 +370,7 @@ fn test_bv_to_fp_concrete() -> Result<()> {
 
     // Reinterpret the IEEE 754 bit pattern of 1.0f64
     let result = ctx
-        .bv_to_fp(
-            ctx.bvv(BitVec::from((1.0f64.to_bits(), 64)))?,
-            FSort::f64(),
-        )?
+        .bv_to_fp(ctx.bvv(BitVec::from((1.0f64.to_bits(), 64)))?, FSort::f64())?
         .simplify()?;
     assert_eq!(result, ctx.fpv(1.0f64)?);
 
@@ -661,14 +652,8 @@ fn test_fp_comparisons_symbolic_fallback() -> Result<()> {
 fn test_fp_is_nan() -> Result<()> {
     let ctx = Context::new();
 
-    assert_eq!(
-        ctx.fp_is_nan(ctx.fpv(f64::NAN)?)?.simplify()?,
-        ctx.true_()?
-    );
-    assert_eq!(
-        ctx.fp_is_nan(ctx.fpv(1.0f64)?)?.simplify()?,
-        ctx.false_()?
-    );
+    assert_eq!(ctx.fp_is_nan(ctx.fpv(f64::NAN)?)?.simplify()?, ctx.true_()?);
+    assert_eq!(ctx.fp_is_nan(ctx.fpv(1.0f64)?)?.simplify()?, ctx.false_()?);
     assert_eq!(
         ctx.fp_is_nan(ctx.fpv(f64::INFINITY)?)?.simplify()?,
         ctx.false_()?
@@ -695,10 +680,7 @@ fn test_fp_is_inf() -> Result<()> {
         ctx.fp_is_inf(ctx.fpv(f64::NEG_INFINITY)?)?.simplify()?,
         ctx.true_()?
     );
-    assert_eq!(
-        ctx.fp_is_inf(ctx.fpv(1.0f64)?)?.simplify()?,
-        ctx.false_()?
-    );
+    assert_eq!(ctx.fp_is_inf(ctx.fpv(1.0f64)?)?.simplify()?, ctx.false_()?);
     assert_eq!(
         ctx.fp_is_inf(ctx.fpv(f64::NAN)?)?.simplify()?,
         ctx.false_()?

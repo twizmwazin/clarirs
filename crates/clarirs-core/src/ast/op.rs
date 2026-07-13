@@ -861,10 +861,7 @@ mod tests {
         );
         // Not is polymorphic over its child type
         assert_eq!(ctx.not(&b).unwrap().op().infer_type(), AstType::Bool);
-        assert_eq!(
-            ctx.not(&x).unwrap().op().infer_type(),
-            AstType::BitVec(32)
-        );
+        assert_eq!(ctx.not(&x).unwrap().op().infer_type(), AstType::BitVec(32));
         // ITE follows its branch type
         assert_eq!(
             ctx.ite(&b, &x, &y).unwrap().op().infer_type(),
