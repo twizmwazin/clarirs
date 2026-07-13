@@ -816,4 +816,823 @@ mod tests {
         assert!(Float::try_from_ieee_bits(&BitVec::zeros(31)).is_err());
         assert!(Float::try_from_ieee_bits(&BitVec::zeros(128)).is_err());
     }
+
+    #[test]
+    fn test_fsort_accessors() {
+        let f32_sort = FSort::f32();
+        assert_eq!(f32_sort, F32_SORT);
+        assert_eq!(f32_sort.exponent, 8);
+        assert_eq!(f32_sort.mantissa, 23);
+        assert_eq!(f32_sort.size(), 32);
+
+        let f64_sort = FSort::f64();
+        assert_eq!(f64_sort, F64_SORT);
+        assert_eq!(f64_sort.exponent, 11);
+        assert_eq!(f64_sort.mantissa, 52);
+        assert_eq!(f64_sort.size(), 64);
+
+        let f16_like = FSort::new(5, 10);
+        assert_eq!(f16_like.exponent, 5);
+        assert_eq!(f16_like.mantissa, 10);
+        assert_eq!(f16_like.size(), 16);
+    }
+
+    #[test]
+    fn test_fprm_default() {
+        assert_eq!(FPRM::default(), FPRM::NearestTiesToEven);
+    }
+
+    #[test]
+    fn test_new_f32_from_parts() -> Result<(), BitVecError> {
+        // 1.0f32: sign=0, exponent=127, mantissa=0
+        let one = Float::new(
+            false,
+            BitVec::from((127u64, 8)),
+            BitVec::from((0u64, 23)),
+        )?;
+        assert_eq!(one, Float::F32(1.0));
+        assert_eq!(one.fsort(), F32_SORT);
+
+        // -1.5f32: sign=1, exponent=127, mantissa=0x400000
+        let neg_one_and_half = Float::new(
+            true,
+            BitVec::from((127u64, 8)),
+            BitVec::from((0x400000u64, 23)),
+        )?;
+        assert_eq!(neg_one_and_half, Float::F32(-1.5));
+
+        // +infinity: exponent all ones, mantissa zero
+        let inf = Float::new(false, BitVec::from((255u64, 8)), BitVec::from((0u64, 23)))?;
+        assert!(inf.is_infinity());
+        assert!(!inf.sign());
+
+        // NaN: exponent all ones, non-zero mantissa
+        let nan = Float::new(false, BitVec::from((255u64, 8)), BitVec::from((1u64, 23)))?;
+        assert!(nan.is_nan());
+
+        // Smallest positive subnormal: exponent 0, mantissa 1
+        let subnormal = Float::new(false, BitVec::from((0u64, 8)), BitVec::from((1u64, 23)))?;
+        assert!(subnormal.is_subnormal());
+        assert_eq!(subnormal.to_f32().unwrap().to_bits(), 1u32);
+
+        // Signed zero: all fields zero, sign set
+        let neg_zero = Float::new(true, BitVec::from((0u64, 8)), BitVec::from((0u64, 23)))?;
+        assert!(neg_zero.is_zero());
+        assert!(neg_zero.sign());
+        assert_eq!(neg_zero.to_f32().unwrap().to_bits(), 0x8000_0000u32);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_new_f64_from_parts() -> Result<(), BitVecError> {
+        // 1.0f64: sign=0, exponent=1023, mantissa=0
+        let one = Float::new(
+            false,
+            BitVec::from((1023u64, 11)),
+            BitVec::from((0u64, 52)),
+        )?;
+        assert_eq!(one, Float::F64(1.0));
+        assert_eq!(one.fsort(), F64_SORT);
+
+        // -2.0f64: sign=1, exponent=1024, mantissa=0
+        let neg_two = Float::new(
+            true,
+            BitVec::from((1024u64, 11)),
+            BitVec::from((0u64, 52)),
+        )?;
+        assert_eq!(neg_two, Float::F64(-2.0));
+
+        // NaN: exponent all ones, non-zero mantissa
+        let nan = Float::new(
+            false,
+            BitVec::from((0x7FFu64, 11)),
+            BitVec::from((1u64, 52)),
+        )?;
+        assert!(nan.is_nan());
+
+        // -infinity
+        let neg_inf = Float::new(
+            true,
+            BitVec::from((0x7FFu64, 11)),
+            BitVec::from((0u64, 52)),
+        )?;
+        assert!(neg_inf.is_infinity());
+        assert!(neg_inf.sign());
+
+        // Smallest positive subnormal
+        let subnormal = Float::new(false, BitVec::from((0u64, 11)), BitVec::from((1u64, 52)))?;
+        assert!(subnormal.is_subnormal());
+        assert_eq!(subnormal.to_f64().unwrap().to_bits(), 1u64);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_new_custom_format_from_parts() -> Result<(), BitVecError> {
+        // A 16-bit (5-exponent, 10-mantissa) format falls into the catch-all
+        // branch: the raw exponent and mantissa field values are re-packed
+        // directly into f64 fields without rebiasing. This documents current
+        // behavior: an f16-style 1.0 (exp=15, mant=0) does NOT become 1.0; it
+        // becomes f64::from_bits(15 << 52) = 2^-1008.
+        let custom = Float::new(false, BitVec::from((15u64, 5)), BitVec::from((0u64, 10)))?;
+        assert_eq!(custom.fsort(), F64_SORT);
+        assert_eq!(custom.to_f64().unwrap().to_bits(), 15u64 << 52);
+
+        // Error path: an exponent field wider than 16 bits whose value does
+        // not fit in a u16 yields a ConversionError.
+        let result = Float::new(
+            false,
+            BitVec::from((0x1FFFFu64, 20)),
+            BitVec::from((0u64, 10)),
+        );
+        assert_eq!(result, Err(BitVecError::ConversionError));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sign_exponent_mantissa_accessors() {
+        // f32 accessors
+        let f = Float::F32(-1.5);
+        assert!(f.sign());
+        assert_eq!(f.exponent().len(), 8);
+        assert_eq!(f.exponent().to_u64().unwrap(), 127);
+        assert_eq!(f.mantissa().len(), 23);
+        assert_eq!(f.mantissa().to_u64().unwrap(), 0x400000);
+
+        let f = Float::F32(1.0);
+        assert!(!f.sign());
+        assert_eq!(f.exponent().to_u64().unwrap(), 127);
+        assert_eq!(f.mantissa().to_u64().unwrap(), 0);
+
+        // f64 accessors
+        let d = Float::F64(-1.5);
+        assert!(d.sign());
+        assert_eq!(d.exponent().len(), 11);
+        assert_eq!(d.exponent().to_u64().unwrap(), 1023);
+        assert_eq!(d.mantissa().len(), 52);
+        assert_eq!(d.mantissa().to_u64().unwrap(), 1u64 << 51);
+
+        // Signed zeros: sign bit is preserved
+        assert!(!Float::F32(0.0).sign());
+        assert!(Float::F32(-0.0).sign());
+        assert!(!Float::F64(0.0).sign());
+        assert!(Float::F64(-0.0).sign());
+
+        // NaN sign follows the sign bit
+        assert!(Float::F64(-f64::NAN).sign() != Float::F64(f64::NAN).sign());
+    }
+
+    #[test]
+    fn test_special_value_predicates() {
+        // is_zero
+        assert!(Float::F32(0.0).is_zero());
+        assert!(Float::F32(-0.0).is_zero());
+        assert!(Float::F64(0.0).is_zero());
+        assert!(Float::F64(-0.0).is_zero());
+        assert!(!Float::F32(1.0).is_zero());
+        assert!(!Float::F64(f64::MIN_POSITIVE).is_zero());
+        assert!(!Float::F32(f32::NAN).is_zero());
+
+        // is_nan
+        assert!(Float::F32(f32::NAN).is_nan());
+        assert!(Float::F64(f64::NAN).is_nan());
+        assert!(!Float::F32(f32::INFINITY).is_nan());
+        assert!(!Float::F64(0.0).is_nan());
+
+        // is_infinity
+        assert!(Float::F32(f32::INFINITY).is_infinity());
+        assert!(Float::F32(f32::NEG_INFINITY).is_infinity());
+        assert!(Float::F64(f64::INFINITY).is_infinity());
+        assert!(Float::F64(f64::NEG_INFINITY).is_infinity());
+        assert!(!Float::F32(f32::MAX).is_infinity());
+        assert!(!Float::F64(f64::NAN).is_infinity());
+
+        // is_subnormal
+        assert!(Float::F32(f32::from_bits(1)).is_subnormal());
+        assert!(Float::F64(f64::from_bits(1)).is_subnormal());
+        assert!(!Float::F32(f32::MIN_POSITIVE).is_subnormal());
+        assert!(!Float::F64(f64::MIN_POSITIVE).is_subnormal());
+        assert!(!Float::F32(0.0).is_subnormal());
+        assert!(!Float::F64(0.0).is_subnormal());
+    }
+
+    #[test]
+    fn test_from_f64_with_rounding() -> Result<(), BitVecError> {
+        // Target f64: value passes through unchanged for every rounding mode.
+        for rm in [
+            FPRM::NearestTiesToEven,
+            FPRM::TowardPositive,
+            FPRM::TowardNegative,
+            FPRM::TowardZero,
+            FPRM::NearestTiesToAway,
+        ] {
+            let f = Float::from_f64_with_rounding(1.5, rm, F64_SORT)?;
+            assert_eq!(f, Float::F64(1.5));
+        }
+
+        // Target f32: exactly representable values convert exactly.
+        let f = Float::from_f64_with_rounding(1.5, FPRM::NearestTiesToEven, F32_SORT)?;
+        assert_eq!(f, Float::F32(1.5));
+
+        // NOTE (documented current behavior / suspected bug): the rounding
+        // mode parameter is ignored. 1.0 + 2^-24 lies exactly halfway between
+        // 1.0 and the next f32; every mode currently rounds ties-to-even
+        // (down to 1.0), including TowardPositive which per IEEE 754 should
+        // round up to 1.0 + 2^-23.
+        let halfway = 1.0f64 + 2.0f64.powi(-24);
+        for rm in [
+            FPRM::NearestTiesToEven,
+            FPRM::TowardPositive,
+            FPRM::TowardNegative,
+            FPRM::TowardZero,
+            FPRM::NearestTiesToAway,
+        ] {
+            let f = Float::from_f64_with_rounding(halfway, rm, F32_SORT)?;
+            assert_eq!(f, Float::F32(1.0));
+        }
+
+        // Overflow to infinity when narrowing to f32.
+        let f = Float::from_f64_with_rounding(1e300, FPRM::NearestTiesToEven, F32_SORT)?;
+        assert_eq!(f, Float::F32(f32::INFINITY));
+
+        // NOTE (documented current behavior): custom formats fall back to
+        // f64, so the resulting fsort is F64_SORT, not the requested sort.
+        let f = Float::from_f64_with_rounding(1.5, FPRM::NearestTiesToEven, FSort::new(5, 10))?;
+        assert_eq!(f, Float::F64(1.5));
+        assert_eq!(f.fsort(), F64_SORT);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_to_fsort_identity_and_errors() -> Result<(), BitVecError> {
+        // Same-sort conversion is the identity.
+        let f = Float::F32(3.25);
+        assert_eq!(f.to_fsort(F32_SORT, FPRM::TowardZero)?, f);
+        let d = Float::F64(-7.5);
+        assert_eq!(d.to_fsort(F64_SORT, FPRM::TowardPositive)?, d);
+
+        // Unsupported target formats produce InvalidExtractBounds carrying
+        // the target size and the source size.
+        let err = Float::F32(1.0)
+            .to_fsort(FSort::new(5, 10), FPRM::NearestTiesToEven)
+            .unwrap_err();
+        assert_eq!(
+            err,
+            BitVecError::InvalidExtractBounds {
+                upper: 16,
+                lower: 0,
+                length: 32,
+            }
+        );
+
+        // convert_to_format delegates to to_fsort.
+        let widened = Float::F32(1.5).convert_to_format(F64_SORT, FPRM::NearestTiesToEven)?;
+        assert_eq!(widened, Float::F64(1.5));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_to_fsort_narrowing_rounds_inexact_values() -> Result<(), BitVecError> {
+        // 0.1f64 is not representable in f32; narrowing rounds to the nearest
+        // f32 (which is bit-identical to the 0.1f32 literal).
+        let narrowed = Float::F64(0.1).to_fsort(F32_SORT, FPRM::NearestTiesToEven)?;
+        assert_eq!(narrowed.to_f32().unwrap().to_bits(), 0.1f32.to_bits());
+
+        // Values below the smallest f32 subnormal flush to zero.
+        let narrowed = Float::F64(1e-300).to_fsort(F32_SORT, FPRM::NearestTiesToEven)?;
+        assert_eq!(narrowed.to_f32().unwrap().to_bits(), 0.0f32.to_bits());
+        let narrowed = Float::F64(-1e-300).to_fsort(F32_SORT, FPRM::NearestTiesToEven)?;
+        assert_eq!(narrowed.to_f32().unwrap().to_bits(), (-0.0f32).to_bits());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_compare_fp_mixed_widths() {
+        // Same value across widths compares equal after widening.
+        assert!(Float::F32(1.5).compare_fp(&Float::F64(1.5)));
+        assert!(Float::F64(1.5).compare_fp(&Float::F32(1.5)));
+
+        // 0.1f32 widened is not the same f64 as 0.1f64.
+        assert!(!Float::F32(0.1).compare_fp(&Float::F64(0.1)));
+        assert!(!Float::F64(0.1).compare_fp(&Float::F32(0.1)));
+
+        // NaN never compares equal, in any width combination.
+        assert!(!Float::F32(f32::NAN).compare_fp(&Float::F32(f32::NAN)));
+        assert!(!Float::F64(f64::NAN).compare_fp(&Float::F64(f64::NAN)));
+        assert!(!Float::F32(f32::NAN).compare_fp(&Float::F64(1.0)));
+        assert!(!Float::F64(1.0).compare_fp(&Float::F32(f32::NAN)));
+
+        // Mixed-width zeros go through the sign-aware zero branch.
+        assert!(Float::F32(0.0).compare_fp(&Float::F64(0.0)));
+        assert!(Float::F32(-0.0).compare_fp(&Float::F64(-0.0)));
+        assert!(!Float::F32(0.0).compare_fp(&Float::F64(-0.0)));
+        assert!(!Float::F64(-0.0).compare_fp(&Float::F32(0.0)));
+
+        // Infinities compare equal only with matching sign.
+        assert!(Float::F32(f32::INFINITY).compare_fp(&Float::F64(f64::INFINITY)));
+        assert!(!Float::F32(f32::INFINITY).compare_fp(&Float::F64(f64::NEG_INFINITY)));
+    }
+
+    #[test]
+    fn test_ordering_comparisons() {
+        let one = Float::F64(1.0);
+        let two = Float::F64(2.0);
+
+        // lt
+        assert!(one.lt(&two));
+        assert!(!two.lt(&one));
+        assert!(!one.lt(&one));
+
+        // leq
+        assert!(one.leq(&two));
+        assert!(one.leq(&one));
+        assert!(!two.leq(&one));
+
+        // gt
+        assert!(two.gt(&one));
+        assert!(!one.gt(&two));
+        assert!(!one.gt(&one));
+
+        // geq
+        assert!(two.geq(&one));
+        assert!(one.geq(&one));
+        assert!(!one.geq(&two));
+
+        // Mixed widths compare through f64.
+        assert!(Float::F32(1.5).lt(&Float::F64(2.5)));
+        assert!(Float::F64(2.5).gt(&Float::F32(1.5)));
+        assert!(Float::F32(1.5).leq(&Float::F32(1.5)));
+        assert!(Float::F32(1.5).geq(&Float::F32(1.5)));
+
+        // Negative ordering and infinities.
+        assert!(Float::F64(f64::NEG_INFINITY).lt(&Float::F64(f64::MIN)));
+        assert!(Float::F64(f64::INFINITY).gt(&Float::F64(f64::MAX)));
+        assert!(Float::F64(-1.0).lt(&Float::F64(-0.5)));
+    }
+
+    #[test]
+    fn test_ordering_comparisons_nan_and_zero() {
+        let nan = Float::F64(f64::NAN);
+        let one = Float::F64(1.0);
+
+        // All ordered comparisons involving NaN are false.
+        assert!(!nan.lt(&one));
+        assert!(!one.lt(&nan));
+        assert!(!nan.leq(&one));
+        assert!(!one.leq(&nan));
+        assert!(!nan.gt(&one));
+        assert!(!one.gt(&nan));
+        assert!(!nan.geq(&one));
+        assert!(!one.geq(&nan));
+
+        // Zeros of either sign are equal for ordering purposes: strict
+        // comparisons are false, non-strict comparisons are true.
+        let pz = Float::F64(0.0);
+        let nz = Float::F64(-0.0);
+        assert!(!pz.lt(&nz));
+        assert!(!nz.lt(&pz));
+        assert!(!pz.gt(&nz));
+        assert!(!nz.gt(&pz));
+        assert!(pz.leq(&nz));
+        assert!(nz.leq(&pz));
+        assert!(pz.geq(&nz));
+        assert!(nz.geq(&pz));
+
+        // Mixed-width zeros hit the same branch.
+        assert!(Float::F32(-0.0).leq(&Float::F64(0.0)));
+        assert!(!Float::F32(-0.0).lt(&Float::F64(0.0)));
+    }
+
+    #[test]
+    fn test_add() {
+        // Same-width results stay in that width.
+        assert_eq!(Float::F32(1.5) + Float::F32(2.25), Float::F32(3.75));
+        assert_eq!(Float::F64(1.5) + Float::F64(2.25), Float::F64(3.75));
+
+        // Mixed widths widen to f64.
+        assert_eq!(Float::F32(1.5) + Float::F64(2.25), Float::F64(3.75));
+        assert_eq!(Float::F64(1.5) + Float::F32(2.25), Float::F64(3.75));
+
+        // Special values.
+        assert!((Float::F64(f64::INFINITY) + Float::F64(f64::NEG_INFINITY)).is_nan());
+        assert_eq!(
+            Float::F64(f64::INFINITY) + Float::F64(1.0),
+            Float::F64(f64::INFINITY)
+        );
+        assert!((Float::F32(f32::NAN) + Float::F32(1.0)).is_nan());
+
+        // Overflow saturates to infinity.
+        assert_eq!(
+            Float::F32(f32::MAX) + Float::F32(f32::MAX),
+            Float::F32(f32::INFINITY)
+        );
+
+        // -0 + +0 == +0 under round-to-nearest.
+        let sum = Float::F64(-0.0) + Float::F64(0.0);
+        assert_eq!(sum.to_f64().unwrap().to_bits(), 0.0f64.to_bits());
+    }
+
+    #[test]
+    fn test_sub() {
+        assert_eq!(Float::F32(5.0) - Float::F32(1.5), Float::F32(3.5));
+        assert_eq!(Float::F64(5.0) - Float::F64(1.5), Float::F64(3.5));
+        assert_eq!(Float::F32(5.0) - Float::F64(1.5), Float::F64(3.5));
+        assert_eq!(Float::F64(5.0) - Float::F32(1.5), Float::F64(3.5));
+
+        // x - x is +0 under round-to-nearest.
+        let diff = Float::F64(1.5) - Float::F64(1.5);
+        assert_eq!(diff.to_f64().unwrap().to_bits(), 0.0f64.to_bits());
+
+        // inf - inf is NaN.
+        assert!((Float::F64(f64::INFINITY) - Float::F64(f64::INFINITY)).is_nan());
+        assert!((Float::F32(1.0) - Float::F32(f32::NAN)).is_nan());
+    }
+
+    #[test]
+    fn test_mul() {
+        assert_eq!(Float::F32(3.0) * Float::F32(0.5), Float::F32(1.5));
+        assert_eq!(Float::F64(3.0) * Float::F64(0.5), Float::F64(1.5));
+        assert_eq!(Float::F32(3.0) * Float::F64(0.5), Float::F64(1.5));
+        assert_eq!(Float::F64(3.0) * Float::F32(0.5), Float::F64(1.5));
+
+        // 0 * inf is NaN.
+        assert!((Float::F64(0.0) * Float::F64(f64::INFINITY)).is_nan());
+
+        // Sign rules.
+        assert_eq!(Float::F64(-2.0) * Float::F64(3.0), Float::F64(-6.0));
+        let prod = Float::F64(-2.0) * Float::F64(0.0);
+        assert_eq!(prod.to_f64().unwrap().to_bits(), (-0.0f64).to_bits());
+
+        // Overflow and underflow.
+        assert_eq!(
+            Float::F32(f32::MAX) * Float::F32(2.0),
+            Float::F32(f32::INFINITY)
+        );
+        let underflow = Float::F32(f32::MIN_POSITIVE) * Float::F32(0.5);
+        assert!(underflow.is_subnormal());
+        assert_eq!(
+            underflow.to_f32().unwrap().to_bits(),
+            (f32::MIN_POSITIVE / 2.0).to_bits()
+        );
+    }
+
+    #[test]
+    fn test_div() {
+        assert_eq!(Float::F32(7.0) / Float::F32(2.0), Float::F32(3.5));
+        assert_eq!(Float::F64(7.0) / Float::F64(2.0), Float::F64(3.5));
+        assert_eq!(Float::F32(7.0) / Float::F64(2.0), Float::F64(3.5));
+        assert_eq!(Float::F64(7.0) / Float::F32(2.0), Float::F64(3.5));
+
+        // Division by zero gives a signed infinity.
+        assert_eq!(
+            Float::F64(1.0) / Float::F64(0.0),
+            Float::F64(f64::INFINITY)
+        );
+        assert_eq!(
+            Float::F64(1.0) / Float::F64(-0.0),
+            Float::F64(f64::NEG_INFINITY)
+        );
+        assert_eq!(
+            Float::F32(-1.0) / Float::F32(0.0),
+            Float::F32(f32::NEG_INFINITY)
+        );
+
+        // 0/0 and inf/inf are NaN.
+        assert!((Float::F64(0.0) / Float::F64(0.0)).is_nan());
+        assert!((Float::F64(f64::INFINITY) / Float::F64(f64::INFINITY)).is_nan());
+    }
+
+    #[test]
+    fn test_neg_and_abs() {
+        assert_eq!(-Float::F32(1.5), Float::F32(-1.5));
+        assert_eq!(-Float::F64(-2.5), Float::F64(2.5));
+
+        // Negating zero flips the sign bit.
+        let neg_zero = -Float::F64(0.0);
+        assert_eq!(neg_zero.to_f64().unwrap().to_bits(), (-0.0f64).to_bits());
+        let pos_zero = -Float::F32(-0.0);
+        assert_eq!(pos_zero.to_f32().unwrap().to_bits(), 0.0f32.to_bits());
+
+        // Negating infinity and NaN.
+        assert_eq!(
+            -Float::F64(f64::INFINITY),
+            Float::F64(f64::NEG_INFINITY)
+        );
+        assert!((-Float::F32(f32::NAN)).is_nan());
+
+        // abs
+        assert_eq!(Float::F32(-1.5).abs(), Float::F32(1.5));
+        assert_eq!(Float::F32(1.5).abs(), Float::F32(1.5));
+        assert_eq!(Float::F64(-2.5).abs(), Float::F64(2.5));
+        assert_eq!(
+            Float::F64(f64::NEG_INFINITY).abs(),
+            Float::F64(f64::INFINITY)
+        );
+        let abs_zero = Float::F64(-0.0).abs();
+        assert_eq!(abs_zero.to_f64().unwrap().to_bits(), 0.0f64.to_bits());
+        assert!(Float::F32(f32::NAN).abs().is_nan());
+    }
+
+    #[test]
+    fn test_sqrt() {
+        assert_eq!(Float::F32(4.0).sqrt(), Float::F32(2.0));
+        assert_eq!(Float::F64(9.0).sqrt(), Float::F64(3.0));
+        assert_eq!(Float::F64(2.0).sqrt(), Float::F64(2.0f64.sqrt()));
+
+        // sqrt of a negative number is NaN.
+        assert!(Float::F32(-1.0).sqrt().is_nan());
+        assert!(Float::F64(-4.0).sqrt().is_nan());
+
+        // IEEE 754: sqrt preserves signed zero.
+        assert_eq!(Float::F64(0.0).sqrt().to_f64().unwrap().to_bits(), 0.0f64.to_bits());
+        assert_eq!(
+            Float::F64(-0.0).sqrt().to_f64().unwrap().to_bits(),
+            (-0.0f64).to_bits()
+        );
+
+        // sqrt(+inf) = +inf, sqrt(NaN) = NaN.
+        assert_eq!(
+            Float::F64(f64::INFINITY).sqrt(),
+            Float::F64(f64::INFINITY)
+        );
+        assert!(Float::F32(f32::NAN).sqrt().is_nan());
+    }
+
+    #[test]
+    fn test_to_f32_to_f64_cross_width() {
+        assert_eq!(Float::F32(1.5).to_f32(), Some(1.5f32));
+        assert_eq!(Float::F64(1.5).to_f32(), Some(1.5f32));
+        assert_eq!(Float::F32(1.5).to_f64(), Some(1.5f64));
+        assert_eq!(Float::F64(1.5).to_f64(), Some(1.5f64));
+
+        // Narrowing rounds; widening is exact.
+        assert_eq!(Float::F64(0.1).to_f32(), Some(0.1f32));
+        assert_eq!(Float::F32(0.1).to_f64(), Some(0.1f32 as f64));
+
+        // Narrowing an out-of-range f64 saturates to infinity.
+        assert_eq!(Float::F64(1e300).to_f32(), Some(f32::INFINITY));
+        assert_eq!(Float::F64(-1e300).to_f32(), Some(f32::NEG_INFINITY));
+    }
+
+    #[test]
+    fn test_to_unsigned_biguint() -> Result<(), BitVecError> {
+        assert_eq!(
+            Float::F64(42.0).to_unsigned_biguint()?,
+            BigUint::from(42u64)
+        );
+        // Fractional part truncates toward zero.
+        assert_eq!(
+            Float::F64(42.9).to_unsigned_biguint()?,
+            BigUint::from(42u64)
+        );
+        assert_eq!(Float::F32(7.0).to_unsigned_biguint()?, BigUint::from(7u64));
+
+        // Documented current behavior: the f64 -> u64 cast saturates, so
+        // negative values become 0, NaN becomes 0, and +inf becomes u64::MAX.
+        assert_eq!(
+            Float::F64(-5.0).to_unsigned_biguint()?,
+            BigUint::from(0u64)
+        );
+        assert_eq!(
+            Float::F64(f64::NAN).to_unsigned_biguint()?,
+            BigUint::from(0u64)
+        );
+        assert_eq!(
+            Float::F64(f64::INFINITY).to_unsigned_biguint()?,
+            BigUint::from(u64::MAX)
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_to_signed_bigint() -> Result<(), BitVecError> {
+        assert_eq!(Float::F64(42.0).to_signed_bigint()?, BigInt::from(42i64));
+        assert_eq!(Float::F64(-42.9).to_signed_bigint()?, BigInt::from(-42i64));
+        assert_eq!(Float::F32(-7.0).to_signed_bigint()?, BigInt::from(-7i64));
+
+        // Documented current behavior: the f64 -> i64 cast saturates, so NaN
+        // becomes 0 and infinities clamp to the i64 extremes.
+        assert_eq!(
+            Float::F64(f64::NAN).to_signed_bigint()?,
+            BigInt::from(0i64)
+        );
+        assert_eq!(
+            Float::F64(f64::INFINITY).to_signed_bigint()?,
+            BigInt::from(i64::MAX)
+        );
+        assert_eq!(
+            Float::F64(f64::NEG_INFINITY).to_signed_bigint()?,
+            BigInt::from(i64::MIN)
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_from_bigint_with_rounding() -> Result<(), BitVecError> {
+        let f = Float::from_bigint_with_rounding(
+            &BigInt::from(42),
+            F64_SORT,
+            FPRM::NearestTiesToEven,
+        )?;
+        assert_eq!(f, Float::F64(42.0));
+
+        let f = Float::from_bigint_with_rounding(
+            &BigInt::from(-42),
+            F32_SORT,
+            FPRM::NearestTiesToEven,
+        )?;
+        assert_eq!(f, Float::F32(-42.0));
+
+        // A value too large for f32 saturates to infinity when narrowed.
+        let big = BigInt::from(1u8) << 200;
+        let f = Float::from_bigint_with_rounding(&big, F32_SORT, FPRM::NearestTiesToEven)?;
+        assert_eq!(f, Float::F32(f32::INFINITY));
+
+        // The same value fits in f64.
+        let f = Float::from_bigint_with_rounding(&big, F64_SORT, FPRM::NearestTiesToEven)?;
+        assert_eq!(f, Float::F64(2.0f64.powi(200)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_from_biguint_with_rounding() -> Result<(), BitVecError> {
+        let f = Float::from_biguint_with_rounding(
+            &BigUint::from(42u32),
+            F64_SORT,
+            FPRM::NearestTiesToEven,
+        )?;
+        assert_eq!(f, Float::F64(42.0));
+
+        let f = Float::from_biguint_with_rounding(
+            &BigUint::from(7u32),
+            F32_SORT,
+            FPRM::NearestTiesToEven,
+        )?;
+        assert_eq!(f, Float::F32(7.0));
+
+        // 2^53 + 1 is not exactly representable in f64; it rounds to 2^53.
+        let above_53 = (BigUint::one() << 53) + BigUint::one();
+        let f = Float::from_biguint_with_rounding(&above_53, F64_SORT, FPRM::NearestTiesToEven)?;
+        assert_eq!(f, Float::F64(2.0f64.powi(53)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_shift_with_grs() {
+        // Zero shift returns the value untouched with clear guard/sticky.
+        let (v, g, s) = Float::shift_with_grs(BigUint::from(0b1011u32), 0);
+        assert_eq!(v, BigUint::from(0b1011u32));
+        assert!(!g);
+        assert!(!s);
+
+        // Shift by 1: guard is the single shifted-out bit, sticky is always
+        // false (there are no bits below the guard).
+        let (v, g, s) = Float::shift_with_grs(BigUint::from(0b1011u32), 1);
+        assert_eq!(v, BigUint::from(0b101u32));
+        assert!(g);
+        assert!(!s);
+
+        let (v, g, s) = Float::shift_with_grs(BigUint::from(0b1010u32), 1);
+        assert_eq!(v, BigUint::from(0b101u32));
+        assert!(!g);
+        assert!(!s);
+
+        // Shift by 2: guard = bit 1, sticky = OR of bit 0.
+        let (v, g, s) = Float::shift_with_grs(BigUint::from(0b1011u32), 2);
+        assert_eq!(v, BigUint::from(0b10u32));
+        assert!(g);
+        assert!(s);
+
+        let (v, g, s) = Float::shift_with_grs(BigUint::from(0b1001u32), 2);
+        assert_eq!(v, BigUint::from(0b10u32));
+        assert!(!g);
+        assert!(s);
+
+        let (v, g, s) = Float::shift_with_grs(BigUint::from(0b1110u32), 2);
+        assert_eq!(v, BigUint::from(0b11u32));
+        assert!(g);
+        assert!(!s);
+
+        let (v, g, s) = Float::shift_with_grs(BigUint::from(0b1100u32), 2);
+        assert_eq!(v, BigUint::from(0b11u32));
+        assert!(!g);
+        assert!(!s);
+
+        // Shifting out everything leaves zero; sticky picks up low set bits.
+        let (v, g, s) = Float::shift_with_grs(BigUint::from(0b0111u32), 4);
+        assert_eq!(v, BigUint::zero());
+        assert!(!g);
+        assert!(s);
+    }
+
+    #[test]
+    fn test_hash_and_eq_semantics() {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        fn hash_of(f: &Float) -> u64 {
+            let mut hasher = DefaultHasher::new();
+            f.hash(&mut hasher);
+            hasher.finish()
+        }
+
+        // Identical values hash identically.
+        assert_eq!(hash_of(&Float::F32(1.5)), hash_of(&Float::F32(1.5)));
+        assert_eq!(hash_of(&Float::F64(1.5)), hash_of(&Float::F64(1.5)));
+
+        // The width is part of the hash: F32(1.0) and F64(1.0) differ.
+        assert_ne!(hash_of(&Float::F32(1.0)), hash_of(&Float::F64(1.0)));
+
+        // Hashing is bit-based, so +0.0 and -0.0 hash differently...
+        assert_ne!(hash_of(&Float::F64(0.0)), hash_of(&Float::F64(-0.0)));
+        // ...and a NaN hashes consistently with itself.
+        assert_eq!(
+            hash_of(&Float::F64(f64::NAN)),
+            hash_of(&Float::F64(f64::NAN))
+        );
+
+        // Documented current behavior: PartialEq is derived from the float
+        // payloads, so NaN != NaN even though Float implements Eq (and the
+        // Hash impl above treats equal-bit NaNs as identical). This is an
+        // Eq-contract inconsistency worth knowing about.
+        assert_ne!(Float::F64(f64::NAN), Float::F64(f64::NAN));
+        // And +0.0 == -0.0 under derived PartialEq even though they hash
+        // differently.
+        assert_eq!(Float::F64(0.0), Float::F64(-0.0));
+    }
+
+    #[test]
+    fn test_from_primitive_impls() {
+        let f: Float = 1.5f32.into();
+        assert_eq!(f, Float::F32(1.5));
+        assert_eq!(f.fsort(), F32_SORT);
+
+        let d: Float = 1.5f64.into();
+        assert_eq!(d, Float::F64(1.5));
+        assert_eq!(d.fsort(), F64_SORT);
+    }
+
+    #[test]
+    fn test_decompose_recompose_f32() {
+        // Exact field values for known constants.
+        assert_eq!(decompose_f32(1.0), (0, 127, 0));
+        assert_eq!(decompose_f32(-1.5), (1, 127, 0x400000));
+        assert_eq!(decompose_f32(0.0), (0, 0, 0));
+        assert_eq!(decompose_f32(-0.0), (1, 0, 0));
+        assert_eq!(decompose_f32(f32::INFINITY), (0, 255, 0));
+        assert_eq!(decompose_f32(f32::NEG_INFINITY), (1, 255, 0));
+        assert_eq!(decompose_f32(f32::MIN_POSITIVE), (0, 1, 0));
+        assert_eq!(decompose_f32(f32::from_bits(1)), (0, 0, 1));
+
+        // Round trip across a spread of values.
+        let values = [
+            0.0f32,
+            -0.0,
+            1.0,
+            -1.0,
+            42.0,
+            -42.0,
+            1.5,
+            f32::MAX,
+            f32::MIN,
+            f32::MIN_POSITIVE,
+            f32::INFINITY,
+            f32::NEG_INFINITY,
+        ];
+        for &value in &values {
+            let (sign, exponent, mantissa) = decompose_f32(value);
+            let recomposed = recompose_f32(sign, exponent, mantissa);
+            assert_eq!(recomposed.to_bits(), value.to_bits());
+        }
+
+        // NaN round-trips to a NaN.
+        let (sign, exponent, mantissa) = decompose_f32(f32::NAN);
+        assert!(recompose_f32(sign, exponent, mantissa).is_nan());
+
+        // recompose_f32 masks the mantissa to 23 bits.
+        let masked = recompose_f32(0, 127, 0xFFFF_FFFF);
+        assert_eq!(masked.to_bits(), (127u32 << 23) | 0x7FFFFF);
+    }
+
+    #[test]
+    fn test_recompose_f64_masks_fields() {
+        // recompose_f64 masks the exponent to 11 bits and mantissa to 52 bits.
+        let masked = recompose_f64(0, 0xFFFF, u64::MAX);
+        assert_eq!(masked.to_bits(), (0x7FFu64 << 52) | 0xFFFFFFFFFFFFF);
+
+        // Exact field values for known f64 constants.
+        assert_eq!(decompose_f64(1.0), (0, 1023, 0));
+        assert_eq!(decompose_f64(-1.5), (1, 1023, 1u64 << 51));
+        assert_eq!(decompose_f64(f64::INFINITY), (0, 2047, 0));
+        assert_eq!(decompose_f64(f64::MIN_POSITIVE), (0, 1, 0));
+    }
 }
