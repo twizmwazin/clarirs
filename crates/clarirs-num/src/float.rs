@@ -532,6 +532,9 @@ pub fn recompose_f64_big_endian(sign: u8, exponent: u16, mantissa: u64) -> f64 {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
     use super::*;
 
     #[test]
@@ -1536,9 +1539,6 @@ mod tests {
 
     #[test]
     fn test_hash_and_eq_semantics() {
-        use std::collections::hash_map::DefaultHasher;
-        use std::hash::{Hash, Hasher};
-
         fn hash_of(f: &Float) -> u64 {
             let mut hasher = DefaultHasher::new();
             f.hash(&mut hasher);
