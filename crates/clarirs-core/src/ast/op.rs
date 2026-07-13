@@ -691,3 +691,253 @@ impl ExactSizeIterator for AstOpChildIter<'_, '_> {
         self.op.num_children().saturating_sub(self.index)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ast_type_predicates() {
+        assert!(AstType::Bool.is_bool());
+        assert!(!AstType::Bool.is_bitvec());
+        assert!(!AstType::Bool.is_float());
+        assert!(!AstType::Bool.is_string());
+
+        assert!(AstType::BitVec(32).is_bitvec());
+        assert!(!AstType::BitVec(32).is_bool());
+
+        assert!(AstType::Float(FSort::f64()).is_float());
+        assert!(!AstType::Float(FSort::f64()).is_string());
+
+        assert!(AstType::String.is_string());
+        assert!(!AstType::String.is_float());
+    }
+
+    #[test]
+    fn test_num_children_by_arity() {
+        let ctx = Context::new();
+        let x = ctx.bvs("x", 32).unwrap();
+        let y = ctx.bvs("y", 32).unwrap();
+        let b = ctx.bools("b").unwrap();
+
+        // Leaves
+        assert_eq!(x.op().num_children(), 0);
+        assert_eq!(ctx.true_().unwrap().op().num_children(), 0);
+        // Unary
+        assert_eq!(ctx.neg(&x).unwrap().op().num_children(), 1);
+        // Binary
+        assert_eq!(ctx.sub(&x, &y).unwrap().op().num_children(), 2);
+        // Ternary
+        assert_eq!(ctx.ite(&b, &x, &y).unwrap().op().num_children(), 3);
+        // N-ary follows the operand count
+        assert_eq!(
+            ctx.add_many([x.clone(), y.clone(), x.clone()])
+                .unwrap()
+                .op()
+                .num_children(),
+            3
+        );
+    }
+
+    #[test]
+    fn test_get_child_bounds() {
+        let ctx = Context::new();
+        let x = ctx.bvs("x", 32).unwrap();
+        let y = ctx.bvs("y", 32).unwrap();
+
+        // Leaves have no children at any index
+        assert_eq!(x.op().get_child(0), None);
+
+        let neg = ctx.neg(&x).unwrap();
+        assert_eq!(neg.op().get_child(0), Some(x.clone()));
+        assert_eq!(neg.op().get_child(1), None);
+
+        let sub = ctx.sub(&x, &y).unwrap();
+        assert_eq!(sub.op().get_child(0), Some(x.clone()));
+        assert_eq!(sub.op().get_child(1), Some(y.clone()));
+        assert_eq!(sub.op().get_child(2), None);
+
+        let b = ctx.bools("b").unwrap();
+        let ite = ctx.ite(&b, &x, &y).unwrap();
+        assert_eq!(ite.op().get_child(0), Some(b));
+        assert_eq!(ite.op().get_child(1), Some(x));
+        assert_eq!(ite.op().get_child(2), Some(y));
+        assert_eq!(ite.op().get_child(3), None);
+    }
+
+    #[test]
+    fn test_child_iter_exact_size() {
+        let ctx = Context::new();
+        let x = ctx.bvs("x", 32).unwrap();
+        let y = ctx.bvs("y", 32).unwrap();
+        let sub = ctx.sub(&x, &y).unwrap();
+
+        let mut iter = sub.op().child_iter();
+        assert_eq!(iter.len(), 2);
+        assert_eq!(iter.size_hint(), (2, Some(2)));
+        assert_eq!(iter.next(), Some(x));
+        assert_eq!(iter.len(), 1);
+        assert_eq!(iter.next(), Some(y));
+        assert_eq!(iter.len(), 0);
+        assert_eq!(iter.next(), None);
+        // Exhausted iterators stay at zero
+        assert_eq!(iter.len(), 0);
+    }
+
+    #[test]
+    fn test_is_true_is_false() {
+        assert!(AstOp::BoolV(true).is_true());
+        assert!(!AstOp::BoolV(true).is_false());
+        assert!(AstOp::BoolV(false).is_false());
+        assert!(!AstOp::BoolV(false).is_true());
+        assert!(!AstOp::BVV(BitVec::from((1, 8))).is_true());
+    }
+
+    #[test]
+    fn test_is_inherently_symbolic() {
+        let ctx = Context::new();
+        let v = ctx.bvv(BitVec::from((5, 32))).unwrap();
+
+        assert!(ctx.union(&v, &v).unwrap().op().is_inherently_symbolic());
+        assert!(
+            ctx.intersection(&v, &v)
+                .unwrap()
+                .op()
+                .is_inherently_symbolic()
+        );
+        assert!(ctx.widen(&v, &v).unwrap().op().is_inherently_symbolic());
+        assert!(!ctx.add(&v, &v).unwrap().op().is_inherently_symbolic());
+        assert!(!v.op().is_inherently_symbolic());
+    }
+
+    #[test]
+    fn test_op_variables() {
+        let ctx = Context::new();
+        let x = ctx.bvs("x", 32).unwrap();
+        let y = ctx.bvs("y", 32).unwrap();
+        let v = ctx.bvv(BitVec::from((5, 32))).unwrap();
+
+        assert!(v.op().variables().is_empty());
+
+        let expr = ctx.add(&x, &ctx.add(&y, &x).unwrap()).unwrap();
+        let expr_vars = expr.op().variables();
+        let vars: Vec<&str> = expr_vars.iter().map(|s| s.as_str()).collect();
+        // Deduplicated and sorted
+        assert_eq!(vars, vec!["x", "y"]);
+    }
+
+    #[test]
+    fn test_infer_type() {
+        let ctx = Context::new();
+        let x = ctx.bvs("x", 32).unwrap();
+        let y = ctx.bvs("y", 32).unwrap();
+        let b = ctx.bools("b").unwrap();
+        let s = ctx.strings("s").unwrap();
+
+        // Comparisons produce Bool
+        assert_eq!(ctx.ult(&x, &y).unwrap().op().infer_type(), AstType::Bool);
+        // Extract width is high - low + 1
+        assert_eq!(
+            ctx.extract(&x, 15, 8).unwrap().op().infer_type(),
+            AstType::BitVec(8)
+        );
+        // ZeroExt adds to the width
+        assert_eq!(
+            ctx.zero_ext(&x, 32).unwrap().op().infer_type(),
+            AstType::BitVec(64)
+        );
+        // Concat sums widths
+        assert_eq!(
+            ctx.concat([x.clone(), y.clone(), x.clone()])
+                .unwrap()
+                .op()
+                .infer_type(),
+            AstType::BitVec(96)
+        );
+        // StrLen produces a 64-bit bitvector
+        assert_eq!(
+            ctx.str_len(&s).unwrap().op().infer_type(),
+            AstType::BitVec(64)
+        );
+        // Not is polymorphic over its child type
+        assert_eq!(ctx.not(&b).unwrap().op().infer_type(), AstType::Bool);
+        assert_eq!(
+            ctx.not(&x).unwrap().op().infer_type(),
+            AstType::BitVec(32)
+        );
+        // ITE follows its branch type
+        assert_eq!(
+            ctx.ite(&b, &x, &y).unwrap().op().infer_type(),
+            AstType::BitVec(32)
+        );
+        // Strings
+        assert_eq!(s.op().infer_type(), AstType::String);
+        // BvToFp produces the requested sort
+        assert_eq!(
+            ctx.bv_to_fp(&x, FSort::f32()).unwrap().op().infer_type(),
+            AstType::Float(FSort::f32())
+        );
+    }
+
+    #[test]
+    fn test_validate_rejects_bad_types() {
+        let ctx = Context::new();
+        let s = ctx.strings("s").unwrap();
+        let x = ctx.bvs("x", 32).unwrap();
+        let z = ctx.bvs("z", 64).unwrap();
+        let b = ctx.bools("b").unwrap();
+
+        // Not requires a bool or bitvector
+        assert!(matches!(
+            AstOp::Not(s.clone()).validate(),
+            Err(ClarirsError::TypeError(_))
+        ));
+
+        // N-ary ops require at least one operand
+        assert!(matches!(
+            AstOp::And(vec![]).validate(),
+            Err(ClarirsError::InvalidArguments(_))
+        ));
+
+        // Mismatched widths in a comparison
+        assert!(matches!(
+            AstOp::ULT(x.clone(), z.clone()).validate(),
+            Err(ClarirsError::TypeError(_))
+        ));
+
+        // ITE branches must match
+        assert!(matches!(
+            AstOp::ITE(b.clone(), x.clone(), b.clone()).validate(),
+            Err(ClarirsError::TypeError(_))
+        ));
+
+        // Extract bounds must be within the operand and ordered
+        assert!(matches!(
+            AstOp::Extract(x.clone(), 32, 0).validate(),
+            Err(ClarirsError::InvalidExtractBounds {
+                upper: 32,
+                lower: 0,
+                length: 32
+            })
+        ));
+        assert!(matches!(
+            AstOp::Extract(x.clone(), 3, 7).validate(),
+            Err(ClarirsError::InvalidExtractBounds { .. })
+        ));
+    }
+
+    #[test]
+    fn test_validate_accepts_well_typed_ops() {
+        let ctx = Context::new();
+        let x = ctx.bvs("x", 32).unwrap();
+        let y = ctx.bvs("y", 32).unwrap();
+        let b = ctx.bools("b").unwrap();
+
+        assert!(AstOp::BoolV(true).validate().is_ok());
+        assert!(AstOp::Not(b.clone()).validate().is_ok());
+        assert!(AstOp::Not(x.clone()).validate().is_ok());
+        assert!(AstOp::Add(vec![x.clone(), y.clone()]).validate().is_ok());
+        assert!(AstOp::ITE(b, x.clone(), y.clone()).validate().is_ok());
+        assert!(AstOp::Extract(x, 31, 0).validate().is_ok());
+    }
+}

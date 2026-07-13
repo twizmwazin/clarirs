@@ -270,3 +270,215 @@ impl<T: Clone> IntoOwned<T> for &T {
         self.clone()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::util::precomputed_hasher::PrecomputedHasherBuilder;
+    use std::hash::BuildHasher;
+
+    #[test]
+    fn test_size() {
+        let ctx = Context::new();
+        assert_eq!(ctx.bvs("x", 32).unwrap().size(), 32);
+        assert_eq!(ctx.bvs("y", 1).unwrap().size(), 1);
+        assert_eq!(ctx.fps("f", FSort::f64()).unwrap().size(), 64);
+        assert_eq!(ctx.fps("g", FSort::f32()).unwrap().size(), 32);
+        // Bool and String have no size
+        assert_eq!(ctx.bools("b").unwrap().size(), 0);
+        assert_eq!(ctx.strings("s").unwrap().size(), 0);
+    }
+
+    #[test]
+    fn test_sort() {
+        let ctx = Context::new();
+        assert_eq!(ctx.fps("f", FSort::f32()).unwrap().sort(), FSort::f32());
+        assert_eq!(ctx.fps("g", FSort::f64()).unwrap().sort(), FSort::f64());
+        // Non-float nodes fall back to f64
+        assert_eq!(ctx.bools("b").unwrap().sort(), FSort::f64());
+        assert_eq!(ctx.bvs("x", 8).unwrap().sort(), FSort::f64());
+    }
+
+    #[test]
+    fn test_symbolic_and_concrete() {
+        let ctx = Context::new();
+        let x = ctx.bvs("x", 32).unwrap();
+        let v = ctx.bvv(BitVec::from((5, 32))).unwrap();
+        assert!(x.symbolic());
+        assert!(!x.concrete());
+        assert!(v.concrete());
+        assert!(!v.symbolic());
+
+        // Symbolic propagates to parents
+        let add = ctx.add(&x, &v).unwrap();
+        assert!(add.symbolic());
+
+        // VSA ops are inherently symbolic even over concrete children
+        let union = ctx.union(&v, &v).unwrap();
+        assert!(union.symbolic());
+    }
+
+    #[test]
+    fn test_variables() {
+        let ctx = Context::new();
+        let x = ctx.bvs("x", 32).unwrap();
+        let y = ctx.bvs("y", 32).unwrap();
+        let v = ctx.bvv(BitVec::from((5, 32))).unwrap();
+
+        assert!(v.variables().is_empty());
+
+        let x_vars: Vec<&str> = x.variables().iter().map(|s| s.as_str()).collect();
+        assert_eq!(x_vars, vec!["x"]);
+
+        let expr = ctx.add(&x, &ctx.add(&y, &v).unwrap()).unwrap();
+        let vars: Vec<&str> = expr.variables().iter().map(|s| s.as_str()).collect();
+        assert_eq!(vars, vec!["x", "y"]);
+    }
+
+    #[test]
+    fn test_depth() {
+        let ctx = Context::new();
+        let x = ctx.bvs("x", 32).unwrap();
+        let y = ctx.bvs("y", 32).unwrap();
+        assert_eq!(x.depth(), 1);
+        let add = ctx.add(&x, &y).unwrap();
+        assert_eq!(add.depth(), 2);
+        let neg = ctx.neg(&add).unwrap();
+        assert_eq!(neg.depth(), 3);
+    }
+
+    #[test]
+    fn test_is_leaf_and_children() {
+        let ctx = Context::new();
+        let x = ctx.bvs("x", 32).unwrap();
+        let y = ctx.bvs("y", 32).unwrap();
+        let add = ctx.add(&x, &y).unwrap();
+
+        assert!(x.is_leaf());
+        assert!(!add.is_leaf());
+
+        assert_eq!(add.get_child(0), Some(x.clone()));
+        assert_eq!(add.get_child(1), Some(y.clone()));
+        assert_eq!(add.get_child(2), None);
+
+        let children: Vec<AstRef> = add.child_iter().collect();
+        assert_eq!(children, vec![x, y]);
+    }
+
+    #[test]
+    fn test_is_true_is_false() {
+        let ctx = Context::new();
+        let t = ctx.true_().unwrap();
+        let f = ctx.false_().unwrap();
+        let b = ctx.bools("b").unwrap();
+
+        assert!(t.is_true());
+        assert!(!t.is_false());
+        assert!(f.is_false());
+        assert!(!f.is_true());
+        assert!(!b.is_true());
+        assert!(!b.is_false());
+    }
+
+    #[test]
+    fn test_check_same_sort() {
+        let ctx = Context::new();
+        let x32 = ctx.bvs("x", 32).unwrap();
+        let y32 = ctx.bvs("y", 32).unwrap();
+        let z64 = ctx.bvs("z", 64).unwrap();
+        let b = ctx.bools("b").unwrap();
+
+        assert!(x32.check_same_sort(&y32));
+        assert!(!x32.check_same_sort(&z64));
+        assert!(!x32.check_same_sort(&b));
+    }
+
+    #[test]
+    fn test_into_sort_accessors() {
+        let ctx = Context::new();
+        let b = ctx.bools("b").unwrap();
+        let x = ctx.bvs("x", 32).unwrap();
+        let f = ctx.fps("f", FSort::f64()).unwrap();
+        let s = ctx.strings("s").unwrap();
+
+        assert!(b.clone().into_bool().is_some());
+        assert!(b.clone().into_bitvec().is_none());
+        assert!(x.clone().into_bitvec().is_some());
+        assert!(x.clone().into_float().is_none());
+        assert!(f.clone().into_float().is_some());
+        assert!(f.clone().into_string().is_none());
+        assert!(s.clone().into_string().is_some());
+        assert!(s.clone().into_bool().is_none());
+    }
+
+    #[test]
+    fn test_chop() {
+        let ctx = Context::new();
+        let x = ctx.bvs("x", 32).unwrap();
+
+        let pieces = x.chop(8).unwrap();
+        assert_eq!(pieces.len(), 4);
+        // The most-significant chunk comes first (the extract results are
+        // reversed before being returned).
+        assert_eq!(pieces[0], ctx.extract(&x, 31, 24).unwrap());
+        assert_eq!(pieces[1], ctx.extract(&x, 23, 16).unwrap());
+        assert_eq!(pieces[2], ctx.extract(&x, 15, 8).unwrap());
+        assert_eq!(pieces[3], ctx.extract(&x, 7, 0).unwrap());
+
+        // Chopping into a single piece of the full width works
+        let whole = x.chop(32).unwrap();
+        assert_eq!(whole.len(), 1);
+    }
+
+    #[test]
+    fn test_chop_invalid_size() {
+        let ctx = Context::new();
+        let x = ctx.bvs("x", 32).unwrap();
+        let err = x.chop(5).unwrap_err();
+        assert!(matches!(
+            err,
+            ClarirsError::InvalidChopSize { size: 32, bits: 5 }
+        ));
+    }
+
+    #[test]
+    fn test_annotate() {
+        let ctx = Context::new();
+        let x = ctx.bvs("x", 32).unwrap();
+        assert!(x.annotations().is_empty());
+
+        let ann = Annotation::new(AnnotationType::Uninitialized, true, false);
+        let annotated = x.clone().annotate([ann.clone()]).unwrap();
+
+        assert_eq!(annotated.annotations().len(), 1);
+        assert!(annotated.annotations().contains(&ann));
+        // The op is unchanged, but annotations are part of identity
+        assert_eq!(annotated.op(), x.op());
+        assert_ne!(annotated, x);
+        assert_ne!(annotated.as_ref().hash(), x.as_ref().hash());
+    }
+
+    #[test]
+    fn test_interning_and_hash() {
+        let ctx = Context::new();
+        let x1 = ctx.bvs("x", 32).unwrap();
+        let x2 = ctx.bvs("x", 32).unwrap();
+
+        // Structurally identical nodes are interned to the same Arc
+        assert!(Arc::ptr_eq(&x1, &x2));
+        assert_eq!(x1.as_ref().hash(), x2.as_ref().hash());
+
+        // The Hash impl writes only the precomputed hash
+        assert_eq!(
+            PrecomputedHasherBuilder.hash_one(&*x1),
+            x1.as_ref().hash()
+        );
+    }
+
+    #[test]
+    fn test_debug_format_shows_op() {
+        let ctx = Context::new();
+        let t = ctx.true_().unwrap();
+        assert_eq!(format!("{t:?}"), "AstNode { op: BoolV(true) }");
+    }
+}

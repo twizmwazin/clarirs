@@ -417,4 +417,290 @@ mod tests {
         // Depth 2: full tree (only 2 deep)
         assert_eq!(neg.to_smtlib_shallow(2), "(bvneg (bvadd x y))");
     }
+
+    #[test]
+    fn test_remaining_bv_comparisons() {
+        let ctx = Context::new();
+        let x = ctx.bvs("x", 64).unwrap();
+        let y = ctx.bvs("y", 64).unwrap();
+
+        assert_eq!(ctx.ule(&x, &y).unwrap().to_smtlib(), "(bvule x y)");
+        assert_eq!(ctx.ugt(&x, &y).unwrap().to_smtlib(), "(bvugt x y)");
+        assert_eq!(ctx.uge(&x, &y).unwrap().to_smtlib(), "(bvuge x y)");
+        assert_eq!(ctx.slt(&x, &y).unwrap().to_smtlib(), "(bvslt x y)");
+        assert_eq!(ctx.sle(&x, &y).unwrap().to_smtlib(), "(bvsle x y)");
+        assert_eq!(ctx.sgt(&x, &y).unwrap().to_smtlib(), "(bvsgt x y)");
+        assert_eq!(ctx.eq_(&x, &y).unwrap().to_smtlib(), "(= x y)");
+    }
+
+    #[test]
+    fn test_bitwise_ops_on_bitvectors() {
+        let ctx = Context::new();
+        let x = ctx.bvs("x", 64).unwrap();
+        let y = ctx.bvs("y", 64).unwrap();
+
+        assert_eq!(ctx.not(&x).unwrap().to_smtlib(), "(bvnot x)");
+        assert_eq!(
+            ctx.and([x.clone(), y.clone()]).unwrap().to_smtlib(),
+            "(bvand x y)"
+        );
+        assert_eq!(
+            ctx.or([x.clone(), y.clone()]).unwrap().to_smtlib(),
+            "(bvor x y)"
+        );
+        assert_eq!(
+            ctx.xor([x.clone(), y.clone()]).unwrap().to_smtlib(),
+            "(bvxor x y)"
+        );
+    }
+
+    #[test]
+    fn test_bool_xor() {
+        let ctx = Context::new();
+        let a = ctx.bools("a").unwrap();
+        let b = ctx.bools("b").unwrap();
+        assert_eq!(
+            ctx.xor([a.clone(), b.clone()]).unwrap().to_smtlib(),
+            "(xor a b)"
+        );
+    }
+
+    #[test]
+    fn test_bv_mul_div_rem() {
+        let ctx = Context::new();
+        let x = ctx.bvs("x", 64).unwrap();
+        let y = ctx.bvs("y", 64).unwrap();
+
+        assert_eq!(ctx.mul(&x, &y).unwrap().to_smtlib(), "(bvmul x y)");
+        assert_eq!(ctx.udiv(&x, &y).unwrap().to_smtlib(), "(bvudiv x y)");
+        assert_eq!(ctx.sdiv(&x, &y).unwrap().to_smtlib(), "(bvsdiv x y)");
+        assert_eq!(ctx.urem(&x, &y).unwrap().to_smtlib(), "(bvurem x y)");
+        assert_eq!(ctx.srem(&x, &y).unwrap().to_smtlib(), "(bvsrem x y)");
+    }
+
+    #[test]
+    fn test_bv_shifts_and_rotates() {
+        let ctx = Context::new();
+        let x = ctx.bvs("x", 64).unwrap();
+        let y = ctx.bvs("y", 64).unwrap();
+
+        assert_eq!(ctx.shl(&x, &y).unwrap().to_smtlib(), "(bvshl x y)");
+        assert_eq!(ctx.lshr(&x, &y).unwrap().to_smtlib(), "(bvlshr x y)");
+        assert_eq!(ctx.ashr(&x, &y).unwrap().to_smtlib(), "(bvashr x y)");
+        assert_eq!(
+            ctx.rotate_left(&x, &y).unwrap().to_smtlib(),
+            "(ext_rotate_left x y)"
+        );
+        assert_eq!(
+            ctx.rotate_right(&x, &y).unwrap().to_smtlib(),
+            "(ext_rotate_right x y)"
+        );
+    }
+
+    #[test]
+    fn test_concat_and_byte_reverse() {
+        let ctx = Context::new();
+        let x = ctx.bvs("x", 32).unwrap();
+        let y = ctx.bvs("y", 32).unwrap();
+
+        assert_eq!(
+            ctx.concat([x.clone(), y.clone()]).unwrap().to_smtlib(),
+            "(concat x y)"
+        );
+        assert_eq!(ctx.byte_reverse(&x).unwrap().to_smtlib(), "(bvreverse x)");
+    }
+
+    #[test]
+    fn test_vsa_ops() {
+        let ctx = Context::new();
+        let x = ctx.bvs("x", 32).unwrap();
+        let y = ctx.bvs("y", 32).unwrap();
+
+        assert_eq!(ctx.union(&x, &y).unwrap().to_smtlib(), "(vsaunion x y)");
+        assert_eq!(
+            ctx.intersection(&x, &y).unwrap().to_smtlib(),
+            "(vsaintersection x y)"
+        );
+        assert_eq!(ctx.widen(&x, &y).unwrap().to_smtlib(), "(vsawiden x y)");
+    }
+
+    #[test]
+    fn test_fp_symbol_and_value() {
+        let ctx = Context::new();
+        let f = ctx.fps("f", FSort::f64()).unwrap();
+        assert_eq!(f.to_smtlib(), "f");
+
+        // 1.0f64: sign 0, biased exponent 1023 (0b01111111111), zero mantissa
+        let one = ctx.fpv_from_f64(1.0).unwrap();
+        assert_eq!(
+            one.to_smtlib(),
+            format!("(fp #b0 #b01111111111 #b{})", "0".repeat(52))
+        );
+    }
+
+    #[test]
+    fn test_fp_eq_and_neq() {
+        let ctx = Context::new();
+        let f = ctx.fps("f", FSort::f64()).unwrap();
+        let g = ctx.fps("g", FSort::f64()).unwrap();
+
+        assert_eq!(ctx.eq_(&f, &g).unwrap().to_smtlib(), "(fp.eq f g)");
+        assert_eq!(
+            ctx.neq(&f, &g).unwrap().to_smtlib(),
+            "(not (fp.eq f g))"
+        );
+    }
+
+    #[test]
+    fn test_fp_comparisons_and_predicates() {
+        let ctx = Context::new();
+        let f = ctx.fps("f", FSort::f64()).unwrap();
+        let g = ctx.fps("g", FSort::f64()).unwrap();
+
+        assert_eq!(ctx.fp_lt(&f, &g).unwrap().to_smtlib(), "(fp.lt f g)");
+        assert_eq!(ctx.fp_leq(&f, &g).unwrap().to_smtlib(), "(fp.leq f g)");
+        assert_eq!(ctx.fp_gt(&f, &g).unwrap().to_smtlib(), "(fp.gt f g)");
+        assert_eq!(ctx.fp_geq(&f, &g).unwrap().to_smtlib(), "(fp.geq f g)");
+        assert_eq!(ctx.fp_is_nan(&f).unwrap().to_smtlib(), "(fp.isNaN f)");
+        assert_eq!(ctx.fp_is_inf(&f).unwrap().to_smtlib(), "(fp.isInfinite f)");
+    }
+
+    #[test]
+    fn test_fp_arithmetic_covers_all_rounding_modes() {
+        let ctx = Context::new();
+        let f = ctx.fps("f", FSort::f64()).unwrap();
+        let g = ctx.fps("g", FSort::f64()).unwrap();
+
+        assert_eq!(
+            ctx.fp_add(&f, &g, FPRM::NearestTiesToEven)
+                .unwrap()
+                .to_smtlib(),
+            "(fp.add RNE f g)"
+        );
+        assert_eq!(
+            ctx.fp_sub(&f, &g, FPRM::TowardZero).unwrap().to_smtlib(),
+            "(fp.sub RTZ f g)"
+        );
+        assert_eq!(
+            ctx.fp_mul(&f, &g, FPRM::TowardPositive)
+                .unwrap()
+                .to_smtlib(),
+            "(fp.mul RTP f g)"
+        );
+        assert_eq!(
+            ctx.fp_div(&f, &g, FPRM::TowardNegative)
+                .unwrap()
+                .to_smtlib(),
+            "(fp.div RTN f g)"
+        );
+        assert_eq!(
+            ctx.fp_sqrt(&f, FPRM::NearestTiesToAway)
+                .unwrap()
+                .to_smtlib(),
+            "(fp.sqrt RNA f)"
+        );
+        assert_eq!(ctx.fp_neg(&f).unwrap().to_smtlib(), "(fp.neg f)");
+        assert_eq!(ctx.fp_abs(&f).unwrap().to_smtlib(), "(fp.abs f)");
+    }
+
+    #[test]
+    fn test_fp_conversions() {
+        let ctx = Context::new();
+        let f = ctx.fps("f", FSort::f64()).unwrap();
+        let x = ctx.bvs("x", 32).unwrap();
+        let rm = FPRM::NearestTiesToEven;
+
+        assert_eq!(
+            ctx.fp_to_fp(&f, FSort::f32(), rm).unwrap().to_smtlib(),
+            "((_ to_fp 8 23) RNE f)"
+        );
+        assert_eq!(
+            ctx.fp_to_ieeebv(&f).unwrap().to_smtlib(),
+            "(fp.to_ieee_bv f)"
+        );
+        assert_eq!(
+            ctx.fp_to_ubv(&f, 32, rm).unwrap().to_smtlib(),
+            "((_ fp.to_ubv 32) RNE f)"
+        );
+        assert_eq!(
+            ctx.fp_to_sbv(&f, 32, rm).unwrap().to_smtlib(),
+            "((_ fp.to_sbv 32) RNE f)"
+        );
+        assert_eq!(
+            ctx.bv_to_fp(&x, FSort::f32()).unwrap().to_smtlib(),
+            "((_ to_fp 8 23) x)"
+        );
+        assert_eq!(
+            ctx.bv_to_fp_signed(&x, FSort::f32(), rm)
+                .unwrap()
+                .to_smtlib(),
+            "((_ to_fp 8 23) RNE x)"
+        );
+        assert_eq!(
+            ctx.bv_to_fp_unsigned(&x, FSort::f32(), rm)
+                .unwrap()
+                .to_smtlib(),
+            "((_ to_fp_unsigned 8 23) RNE x)"
+        );
+    }
+
+    #[test]
+    fn test_fp_fp_constructor() {
+        let ctx = Context::new();
+        let sign = ctx.bvs("s", 1).unwrap();
+        let exp = ctx.bvs("e", 8).unwrap();
+        let sig = ctx.bvs("m", 24).unwrap();
+
+        assert_eq!(
+            ctx.fp_fp(&sign, &exp, &sig).unwrap().to_smtlib(),
+            "(fp s e m)"
+        );
+    }
+
+    #[test]
+    fn test_string_symbol_and_ops() {
+        let ctx = Context::new();
+        let s = ctx.strings("s").unwrap();
+        let t = ctx.strings("t").unwrap();
+        let u = ctx.strings("u").unwrap();
+        let i = ctx.bvs("i", 64).unwrap();
+        let j = ctx.bvs("j", 64).unwrap();
+
+        assert_eq!(s.to_smtlib(), "s");
+        assert_eq!(ctx.str_len(&s).unwrap().to_smtlib(), "(str.len s)");
+        assert_eq!(
+            ctx.str_concat(&s, &t).unwrap().to_smtlib(),
+            "(str.++ s t)"
+        );
+        assert_eq!(
+            ctx.str_substr(&s, &i, &j).unwrap().to_smtlib(),
+            "(str.substr s i j)"
+        );
+        assert_eq!(
+            ctx.str_replace(&s, &t, &u).unwrap().to_smtlib(),
+            "(str.replace s t u)"
+        );
+        assert_eq!(
+            ctx.str_index_of(&s, &t, &i).unwrap().to_smtlib(),
+            "(str.indexof s t i)"
+        );
+        assert_eq!(
+            ctx.str_contains(&s, &t).unwrap().to_smtlib(),
+            "(str.contains s t)"
+        );
+        assert_eq!(
+            ctx.str_prefix_of(&s, &t).unwrap().to_smtlib(),
+            "(str.prefixof s t)"
+        );
+        assert_eq!(
+            ctx.str_suffix_of(&s, &t).unwrap().to_smtlib(),
+            "(str.suffixof s t)"
+        );
+        assert_eq!(
+            ctx.str_is_digit(&s).unwrap().to_smtlib(),
+            "(str.is_digit s)"
+        );
+        assert_eq!(ctx.str_to_bv(&s).unwrap().to_smtlib(), "(str.to_bv s)");
+        assert_eq!(ctx.bv_to_str(&i).unwrap().to_smtlib(), "(str.from_bv i)");
+    }
 }
