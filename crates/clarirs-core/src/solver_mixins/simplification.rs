@@ -111,6 +111,7 @@ impl<'c, S: Solver<'c>> Solver<'c> for SimplificationMixin<'c, S> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::solver::test_support::EqModelSolver;
 
     #[test]
     fn test_simplification_mixin_simplifies_before_passing() {
@@ -157,5 +158,128 @@ mod tests {
 
         // Should simplify before adding
         assert!(solver.add(&constraint).is_ok());
+    }
+
+    #[test]
+    fn test_add_skips_tautologies_and_stores_simplified_form() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut solver = SimplificationMixin::new(EqModelSolver::new(&ctx));
+
+        // A constraint that simplifies to `true` is dropped entirely.
+        let tautology = ctx.or2(&ctx.true_()?, &ctx.bools("b")?)?;
+        solver.add(&tautology)?;
+        assert!(solver.constraints()?.is_empty());
+
+        // A real constraint is stored in simplified form.
+        let x = ctx.bvs("x", 8)?;
+        let five = ctx.bvv(BitVec::from((5, 8)))?;
+        let eq = ctx.eq_(&x, &five)?;
+        let wrapped = ctx.and2(&eq, &ctx.true_()?)?;
+        solver.add(&wrapped)?;
+        let constraints = solver.constraints()?;
+        assert_eq!(constraints.len(), 1);
+        assert_eq!(constraints[0], eq.simplify()?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_clear_and_simplify_forward_to_inner() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut solver = SimplificationMixin::new(EqModelSolver::new(&ctx));
+
+        let x = ctx.bvs("x", 8)?;
+        let five = ctx.bvv(BitVec::from((5, 8)))?;
+        solver.add(&ctx.eq_(&x, &five)?)?;
+        assert_eq!(solver.constraints()?.len(), 1);
+
+        solver.simplify()?;
+        assert_eq!(solver.constraints()?.len(), 1);
+
+        solver.clear()?;
+        assert!(solver.constraints()?.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn test_satisfiable_and_satisfiable_with_extra() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut solver = SimplificationMixin::new(EqModelSolver::new(&ctx));
+
+        let x = ctx.bvs("x", 8)?;
+        let five = ctx.bvv(BitVec::from((5, 8)))?;
+        let six = ctx.bvv(BitVec::from((6, 8)))?;
+        solver.add(&ctx.eq_(&x, &five)?)?;
+        assert!(solver.satisfiable()?);
+
+        // The extras are simplified before the inner check.
+        let consistent = ctx.and2(&ctx.eq_(&x, &five)?, &ctx.true_()?)?;
+        assert!(solver.satisfiable_with_extra(&[consistent])?);
+        let contradictory = ctx.eq_(&x, &six)?;
+        assert!(!solver.satisfiable_with_extra(&[contradictory])?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_truth_queries_simplify_first() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut solver = SimplificationMixin::new(ConcreteSolver::new(&ctx));
+
+        // and(true, false) simplifies to false.
+        let contradiction = ctx.and2(&ctx.true_()?, &ctx.false_()?)?;
+        assert!(solver.is_false(&contradiction)?);
+        assert!(!solver.is_true(&contradiction)?);
+        assert!(solver.has_false(&contradiction)?);
+        assert!(!solver.has_true(&contradiction)?);
+
+        // or(true, false) simplifies to true.
+        let tautology = ctx.or2(&ctx.true_()?, &ctx.false_()?)?;
+        assert!(solver.has_true(&tautology)?);
+        assert!(!solver.has_false(&tautology)?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_min_max_simplify_first() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut solver = SimplificationMixin::new(ConcreteSolver::new(&ctx));
+
+        // 40 + 2 simplifies to 42, which the concrete solver can answer.
+        let expr = ctx.add(
+            &ctx.bvv(BitVec::from((40, 8)))?,
+            &ctx.bvv(BitVec::from((2, 8)))?,
+        )?;
+        let expected = ctx.bvv(BitVec::from((42, 8)))?;
+        assert_eq!(solver.min_unsigned(&expr)?, expected);
+        assert_eq!(solver.max_unsigned(&expr)?, expected);
+        assert_eq!(solver.min_signed(&expr)?, expected);
+        assert_eq!(solver.max_signed(&expr)?, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn test_batch_eval_simplifies_each_expression() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut solver = SimplificationMixin::new(ConcreteSolver::new(&ctx));
+
+        let sum = ctx.add(
+            &ctx.bvv(BitVec::from((1, 8)))?,
+            &ctx.bvv(BitVec::from((2, 8)))?,
+        )?;
+        let tautology = ctx.or2(&ctx.true_()?, &ctx.false_()?)?;
+        let results = solver.batch_eval(&[sum, tautology])?;
+        assert_eq!(
+            results,
+            vec![ctx.bvv(BitVec::from((3, 8)))?, ctx.true_()?]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_accessors() {
+        let ctx = Context::new();
+        let mut solver = SimplificationMixin::new(ConcreteSolver::new(&ctx));
+        assert!(std::ptr::eq(solver.context(), &ctx));
+        assert!(std::ptr::eq(solver.inner().context(), &ctx));
+        assert!(std::ptr::eq(solver.inner_mut().context(), &ctx));
     }
 }

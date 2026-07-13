@@ -173,6 +173,7 @@ impl<'c, S: Solver<'c>> Solver<'c> for ConcreteEarlyResolutionMixin<'c, S> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::solver::test_support::EqModelSolver;
 
     /// A solver that panics on any operation - used to verify early resolution
     #[derive(Clone, Debug)]
@@ -358,5 +359,136 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert!(results[0].concrete());
         assert!(matches!(results[0].op(), AstOp::BoolV(true)));
+    }
+
+    #[test]
+    fn test_satisfiable_with_extra_concrete_false_short_circuits() {
+        let ctx = Context::new();
+        let mut solver = ConcreteEarlyResolutionMixin::new(PanickingSolver::new(&ctx));
+
+        // A concretely-false extra decides the query without the solver, even
+        // when mixed with other extras.
+        let f = ctx.false_().unwrap();
+        let t = ctx.true_().unwrap();
+        assert!(!solver.satisfiable_with_extra(&[f.clone()]).unwrap());
+        assert!(!solver.satisfiable_with_extra(&[t, f]).unwrap());
+    }
+
+    #[test]
+    fn test_satisfiable_with_extra_forwards_otherwise() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut solver = ConcreteEarlyResolutionMixin::new(EqModelSolver::new(&ctx));
+
+        let x = ctx.bvs("x", 8)?;
+        let five = ctx.bvv(BitVec::from((5, 8)))?;
+        let six = ctx.bvv(BitVec::from((6, 8)))?;
+        solver.add(&ctx.eq_(&x, &five)?)?;
+
+        // Non-false extras are forwarded to the inner solver.
+        assert!(solver.satisfiable_with_extra(&[ctx.eq_(&x, &five)?])?);
+        assert!(!solver.satisfiable_with_extra(&[ctx.eq_(&x, &six)?])?);
+        // A concretely-true extra does not short-circuit; the inner solver
+        // still answers.
+        assert!(solver.satisfiable_with_extra(&[ctx.true_()?])?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_min_max_signed_concrete_avoids_solver() {
+        let ctx = Context::new();
+        let mut solver = ConcreteEarlyResolutionMixin::new(PanickingSolver::new(&ctx));
+
+        let value = ctx.bvv(BitVec::from((42, 64))).unwrap();
+        assert_eq!(solver.min_signed(&value).unwrap(), value);
+        assert_eq!(solver.max_signed(&value).unwrap(), value);
+
+        // A compound concrete expression folds to a BVV first.
+        let sum = ctx
+            .add(
+                &ctx.bvv(BitVec::from((40, 64))).unwrap(),
+                &ctx.bvv(BitVec::from((2, 64))).unwrap(),
+            )
+            .unwrap();
+        assert_eq!(solver.min_signed(&sum).unwrap(), value);
+        assert_eq!(solver.max_signed(&sum).unwrap(), value);
+        assert_eq!(solver.min_unsigned(&sum).unwrap(), value);
+        assert_eq!(solver.max_unsigned(&sum).unwrap(), value);
+    }
+
+    #[test]
+    fn test_eval_concrete_float_and_string() {
+        let ctx = Context::new();
+        let mut solver = ConcreteEarlyResolutionMixin::new(PanickingSolver::new(&ctx));
+
+        let f = ctx.fpv_from_f64(1.5).unwrap();
+        let results = solver.eval_n(&f, 1).unwrap();
+        assert_eq!(results.len(), 1);
+        assert!(matches!(results[0].op(), AstOp::FPV(_)));
+
+        let s = ctx.stringv("hello").unwrap();
+        let results = solver.eval_n(&s, 1).unwrap();
+        assert_eq!(results.len(), 1);
+        assert!(matches!(results[0].op(), AstOp::StringV(_)));
+    }
+
+    #[test]
+    fn test_symbolic_queries_forward_to_inner() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut solver = ConcreteEarlyResolutionMixin::new(EqModelSolver::new(&ctx));
+
+        let x = ctx.bvs("x", 8)?;
+        let five = ctx.bvv(BitVec::from((5, 8)))?;
+        solver.add(&ctx.eq_(&x, &five)?)?;
+
+        // Symbolic expressions cannot be resolved early: they reach the
+        // inner solver, which answers from its constraints.
+        assert!(solver.is_true(&ctx.eq_(&x, &five)?)?);
+        assert!(!solver.is_false(&ctx.eq_(&x, &five)?)?);
+        assert!(solver.has_true(&ctx.eq_(&x, &five)?)?);
+        assert!(!solver.has_false(&ctx.eq_(&x, &five)?)?);
+        assert_eq!(solver.eval(&x)?, five);
+        assert_eq!(solver.min_unsigned(&x)?, five);
+        assert_eq!(solver.max_unsigned(&x)?, five);
+        assert_eq!(solver.min_signed(&x)?, five);
+        assert_eq!(solver.max_signed(&x)?, five);
+        Ok(())
+    }
+
+    #[test]
+    fn test_constraint_management_forwards_to_inner() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut solver = ConcreteEarlyResolutionMixin::new(EqModelSolver::new(&ctx));
+
+        let x = ctx.bvs("x", 8)?;
+        let five = ctx.bvv(BitVec::from((5, 8)))?;
+        let constraint = ctx.eq_(&x, &five)?;
+        solver.add(&constraint)?;
+        assert_eq!(solver.constraints()?, vec![constraint]);
+        assert!(solver.satisfiable()?);
+        solver.simplify()?;
+
+        solver.clear()?;
+        assert!(solver.constraints()?.is_empty());
+
+        // Accessors.
+        assert!(std::ptr::eq(solver.context(), &ctx));
+        assert!(std::ptr::eq(solver.inner().context(), &ctx));
+        assert!(std::ptr::eq(solver.inner_mut().context(), &ctx));
+        Ok(())
+    }
+
+    #[test]
+    fn test_batch_eval_forwards_to_inner() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut solver = ConcreteEarlyResolutionMixin::new(EqModelSolver::new(&ctx));
+
+        let x = ctx.bvs("x", 8)?;
+        let five = ctx.bvv(BitVec::from((5, 8)))?;
+        solver.add(&ctx.eq_(&x, &five)?)?;
+
+        let two = ctx.bvv(BitVec::from((2, 8)))?;
+        let results = solver.batch_eval(&[x, two.clone()])?;
+        assert_eq!(results, vec![five, two]);
+        Ok(())
     }
 }

@@ -208,6 +208,7 @@ impl<'c, S: Solver<'c>> Solver<'c> for ReplacementSolver<'c, S> {
 mod tests {
     use super::*;
     use crate::ast::AstFactory;
+    use crate::solver::test_support::EqModelSolver;
 
     #[test]
     fn test_replacement_solver_basic() -> Result<(), ClarirsError> {
@@ -355,6 +356,182 @@ mod tests {
         solver.clear()?;
         assert!(solver.constraints()?.is_empty());
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_remove_replacements() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut solver = ReplacementSolver::new(ConcreteSolver::new(&ctx));
+
+        let x = ctx.bvs("x", 8)?;
+        let y = ctx.bvs("y", 8)?;
+        let five = ctx.bvv(BitVec::from((5, 8)))?;
+        let nine = ctx.bvv(BitVec::from((9, 8)))?;
+
+        solver.add_replacement(x.clone(), five.clone());
+        solver.add_replacement(y.clone(), nine.clone());
+        assert_eq!(solver.replacements().len(), 2);
+
+        solver.remove_replacements(&[x.hash()]);
+        assert_eq!(solver.replacements().len(), 1);
+
+        // The removed replacement no longer applies (x is symbolic again, so
+        // the concrete inner solver cannot evaluate it)...
+        assert!(solver.eval(&x).is_err());
+        // ... while the remaining one still does, proving the cache was
+        // rebuilt from the canonical map.
+        assert_eq!(solver.eval(&y)?, nine);
+        Ok(())
+    }
+
+    #[test]
+    fn test_not_constraint_extracts_false_replacement() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut solver = ReplacementSolver::new(ConcreteSolver::new(&ctx));
+
+        let b = ctx.bools("b")?;
+        // Not(b) means b must be false.
+        solver.add(&ctx.not(&b)?)?;
+        assert_eq!(solver.replacements().len(), 1);
+        assert!(solver.is_false(&b)?);
+        assert!(!solver.is_true(&b)?);
+        assert_eq!(solver.eval(&b)?, ctx.false_()?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_auto_extract_concrete_on_left() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut solver = ReplacementSolver::new(ConcreteSolver::new(&ctx));
+
+        let x = ctx.bvs("x", 8)?;
+        let five = ctx.bvv(BitVec::from((5, 8)))?;
+        // 5 == x also extracts x -> 5.
+        solver.add(&ctx.eq_(&five, &x)?)?;
+        assert_eq!(solver.eval(&x)?, five);
+        Ok(())
+    }
+
+    #[test]
+    fn test_no_replacement_extracted_from_other_constraints() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut solver = ReplacementSolver::new(ConcreteSolver::new(&ctx));
+
+        let x = ctx.bvs("x", 8)?;
+        let y = ctx.bvs("y", 8)?;
+        let five = ctx.bvv(BitVec::from((5, 8)))?;
+
+        // Inequalities and symbolic-symbolic equalities extract nothing.
+        solver.add(&ctx.ugt(&x, &five)?)?;
+        solver.add(&ctx.eq_(&x, &y)?)?;
+        // Concrete-concrete equalities extract nothing either.
+        solver.add(&ctx.eq_(&five, &five)?)?;
+        assert!(solver.replacements().is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn test_add_applies_existing_replacements_to_constraints() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut solver = ReplacementSolver::new(EqModelSolver::new(&ctx));
+
+        let x = ctx.bvs("x", 8)?;
+        let y = ctx.bvs("y", 8)?;
+        let one = ctx.bvv(BitVec::from((1, 8)))?;
+        let five = ctx.bvv(BitVec::from((5, 8)))?;
+
+        solver.add(&ctx.eq_(&x, &five)?)?;
+        // y == x + 1: the inner solver must see it with x already replaced.
+        solver.add(&ctx.eq_(&y, &ctx.add(&x, &one)?)?)?;
+
+        let inner_constraints = solver.inner().constraints()?;
+        assert_eq!(inner_constraints.len(), 2);
+        assert_eq!(inner_constraints[0], ctx.eq_(&five, &five)?);
+        assert_eq!(inner_constraints[1], ctx.eq_(&y, &ctx.add(&five, &one)?)?);
+
+        // constraints() still reports the original, unreplaced forms.
+        let originals = solver.constraints()?;
+        assert_eq!(originals[0], ctx.eq_(&x, &five)?);
+        assert_eq!(originals[1], ctx.eq_(&y, &ctx.add(&x, &one)?)?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_satisfiable_and_extra_apply_replacements() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut solver = ReplacementSolver::new(EqModelSolver::new(&ctx));
+
+        let x = ctx.bvs("x", 8)?;
+        let one = ctx.bvv(BitVec::from((1, 8)))?;
+        let five = ctx.bvv(BitVec::from((5, 8)))?;
+        let six = ctx.bvv(BitVec::from((6, 8)))?;
+        let seven = ctx.bvv(BitVec::from((7, 8)))?;
+
+        solver.add(&ctx.eq_(&x, &five)?)?;
+        assert!(solver.satisfiable()?);
+
+        // x + 1 == 6 becomes 5 + 1 == 6: satisfiable.
+        assert!(solver.satisfiable_with_extra(&[ctx.eq_(&ctx.add(&x, &one)?, &six)?])?);
+        // x + 1 == 7 becomes 5 + 1 == 7: unsatisfiable.
+        assert!(!solver.satisfiable_with_extra(&[ctx.eq_(&ctx.add(&x, &one)?, &seven)?])?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_truth_and_minmax_queries_apply_replacements() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut solver = ReplacementSolver::new(ConcreteSolver::new(&ctx));
+
+        let x = ctx.bvs("x", 8)?;
+        let five = ctx.bvv(BitVec::from((5, 8)))?;
+        let six = ctx.bvv(BitVec::from((6, 8)))?;
+        solver.add_replacement(x.clone(), five.clone());
+
+        assert!(solver.is_false(&ctx.eq_(&x, &six)?)?);
+        assert!(solver.has_true(&ctx.eq_(&x, &five)?)?);
+        assert!(!solver.has_false(&ctx.eq_(&x, &five)?)?);
+        assert!(solver.has_false(&ctx.eq_(&x, &six)?)?);
+
+        assert_eq!(solver.min_unsigned(&x)?, five);
+        assert_eq!(solver.max_unsigned(&x)?, five);
+        assert_eq!(solver.min_signed(&x)?, five);
+        assert_eq!(solver.max_signed(&x)?, five);
+        Ok(())
+    }
+
+    #[test]
+    fn test_clear_keeps_replacements() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut solver = ReplacementSolver::new(ConcreteSolver::new(&ctx));
+
+        let x = ctx.bvs("x", 8)?;
+        let five = ctx.bvv(BitVec::from((5, 8)))?;
+        solver.add(&ctx.eq_(&x, &five)?)?;
+        assert_eq!(solver.constraints()?.len(), 1);
+        assert_eq!(solver.replacements().len(), 1);
+
+        // Documents actual behavior: clear() drops the constraints but NOT
+        // the replacement map — x still evaluates to 5 afterwards. Callers
+        // must use clear_replacements() to reset the mapping.
+        solver.clear()?;
+        assert!(solver.constraints()?.is_empty());
+        assert_eq!(solver.replacements().len(), 1);
+        assert_eq!(solver.eval(&x)?, five);
+        Ok(())
+    }
+
+    #[test]
+    fn test_eval_n_applies_replacements() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut solver = ReplacementSolver::new(ConcreteSolver::new(&ctx));
+
+        let x = ctx.bvs("x", 8)?;
+        let five = ctx.bvv(BitVec::from((5, 8)))?;
+        solver.add_replacement(x.clone(), five.clone());
+
+        assert_eq!(solver.eval_n(&x, 3)?, vec![five]);
+        assert!(solver.eval_n(&x, 0)?.is_empty());
         Ok(())
     }
 }

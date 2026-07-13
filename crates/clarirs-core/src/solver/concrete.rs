@@ -113,4 +113,127 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_concrete_solver_constraint_management_is_noop() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut solver = ConcreteSolver::new(&ctx);
+
+        // add() accepts anything but stores nothing.
+        let x = ctx.bools("x")?;
+        solver.add(&x)?;
+        solver.add(&ctx.false_()?)?;
+        assert!(solver.constraints()?.is_empty());
+        assert!(solver.variables()?.is_empty());
+
+        // satisfiable() is always true, even after adding false.
+        assert!(solver.satisfiable()?);
+
+        // clear() and simplify() are no-ops that succeed.
+        solver.clear()?;
+        solver.simplify()?;
+        assert!(solver.satisfiable()?);
+
+        // HasContext returns the construction context.
+        assert!(std::ptr::eq(solver.context(), &ctx));
+        Ok(())
+    }
+
+    #[test]
+    fn test_concrete_solver_truth_queries() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut solver = ConcreteSolver::new(&ctx);
+
+        // Expressions are simplified before the truth check.
+        let tautology = ctx.or2(&ctx.true_()?, &ctx.false_()?)?;
+        let contradiction = ctx.and2(&ctx.true_()?, &ctx.false_()?)?;
+
+        assert!(solver.is_true(&tautology)?);
+        assert!(!solver.is_false(&tautology)?);
+        assert!(solver.has_true(&tautology)?);
+        assert!(!solver.has_false(&tautology)?);
+
+        assert!(!solver.is_true(&contradiction)?);
+        assert!(solver.is_false(&contradiction)?);
+        assert!(!solver.has_true(&contradiction)?);
+        assert!(solver.has_false(&contradiction)?);
+
+        // A symbolic boolean is neither definitely true nor definitely false,
+        // and the concrete solver (single trivial model) reports has_* the
+        // same way as is_*.
+        let b = ctx.bools("b")?;
+        assert!(!solver.is_true(&b)?);
+        assert!(!solver.is_false(&b)?);
+        assert!(!solver.has_true(&b)?);
+        assert!(!solver.has_false(&b)?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_concrete_solver_min_max() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut solver = ConcreteSolver::new(&ctx);
+
+        // For a concrete value, min == max == the value, in all four
+        // signedness variants.
+        let v = ctx.bvv(BitVec::from((42, 8)))?;
+        assert_eq!(solver.min_unsigned(&v)?, v);
+        assert_eq!(solver.max_unsigned(&v)?, v);
+        assert_eq!(solver.min_signed(&v)?, v);
+        assert_eq!(solver.max_signed(&v)?, v);
+
+        // A compound concrete expression is folded first.
+        let sum = ctx.add(
+            &ctx.bvv(BitVec::from((40, 8)))?,
+            &ctx.bvv(BitVec::from((2, 8)))?,
+        )?;
+        assert_eq!(solver.min_unsigned(&sum)?, v);
+        assert_eq!(solver.max_signed(&sum)?, v);
+
+        // Symbolic expressions are unsupported.
+        let x = ctx.bvs("x", 8)?;
+        assert!(solver.min_unsigned(&x).is_err());
+        assert!(solver.max_unsigned(&x).is_err());
+        assert!(solver.min_signed(&x).is_err());
+        assert!(solver.max_signed(&x).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn test_concrete_solver_eval_n() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut solver = ConcreteSolver::new(&ctx);
+
+        let v = ctx.bvv(BitVec::from((7, 8)))?;
+
+        // n == 0 returns no solutions.
+        assert!(solver.eval_n(&v, 0)?.is_empty());
+
+        // A concrete expression has exactly one solution, even when more are
+        // requested.
+        let results = solver.eval_n(&v, 5)?;
+        assert_eq!(results, vec![v]);
+
+        // Symbolic expressions are rejected with UnsupportedOperation.
+        let x = ctx.bvs("x", 8)?;
+        assert!(matches!(
+            solver.eval_n(&x, 1),
+            Err(ClarirsError::UnsupportedOperation(_))
+        ));
+        // ... but n == 0 short-circuits before the symbolic check.
+        assert!(solver.eval_n(&x, 0)?.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn test_concrete_solver_satisfiable_with_extra() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut solver = ConcreteSolver::new(&ctx);
+
+        // The concrete solver ignores constraints entirely, so even a false
+        // extra leaves it satisfiable. This documents actual behavior.
+        assert!(solver.satisfiable_with_extra(&[])?);
+        assert!(solver.satisfiable_with_extra(&[ctx.false_()?])?);
+        Ok(())
+    }
 }

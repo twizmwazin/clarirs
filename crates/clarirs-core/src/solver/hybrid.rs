@@ -256,8 +256,153 @@ impl<'c, A: Solver<'c>, E: Solver<'c>> Solver<'c> for HybridSolver<'c, A, E> {
 
 #[cfg(test)]
 mod tests {
+    use std::cell::Cell;
+    use std::rc::Rc;
+
     use crate::ast::AstFactory;
     use crate::prelude::*;
+
+    /// A scripted solver with preset answers and per-query call counters, so
+    /// tests can pin down exactly which backend the hybrid solver consults.
+    /// Counters are shared across clones (the trait's default methods clone).
+    #[derive(Clone, Debug)]
+    struct ScriptedSolver<'c> {
+        ctx: &'c Context<'c>,
+        constraints: Vec<AstRef<'c>>,
+        /// Scripted satisfiable() answer; None means "return an error".
+        sat: Option<bool>,
+        /// Solution pool: eval_n returns the first min(n, len) entries.
+        solutions: Vec<AstRef<'c>>,
+        /// When set, eval_n/min/max return an error instead.
+        fail_eval: bool,
+        /// When set, add() returns an error.
+        fail_add: bool,
+        /// Scripted has_true()/has_false() answer; None means "return an error".
+        has_answer: Option<bool>,
+        sat_calls: Rc<Cell<usize>>,
+        eval_calls: Rc<Cell<usize>>,
+        truth_calls: Rc<Cell<usize>>,
+        minmax_calls: Rc<Cell<usize>>,
+    }
+
+    impl<'c> ScriptedSolver<'c> {
+        fn new(ctx: &'c Context<'c>) -> Self {
+            Self {
+                ctx,
+                constraints: Vec::new(),
+                sat: Some(true),
+                solutions: Vec::new(),
+                fail_eval: false,
+                fail_add: false,
+                has_answer: Some(false),
+                sat_calls: Rc::new(Cell::new(0)),
+                eval_calls: Rc::new(Cell::new(0)),
+                truth_calls: Rc::new(Cell::new(0)),
+                minmax_calls: Rc::new(Cell::new(0)),
+            }
+        }
+
+        fn scripted_error() -> ClarirsError {
+            ClarirsError::UnsupportedOperation("scripted failure".to_string())
+        }
+    }
+
+    impl<'c> HasContext<'c> for ScriptedSolver<'c> {
+        fn context(&self) -> &'c Context<'c> {
+            self.ctx
+        }
+    }
+
+    impl<'c> Solver<'c> for ScriptedSolver<'c> {
+        fn add(&mut self, constraint: &AstRef<'c>) -> Result<(), ClarirsError> {
+            if self.fail_add {
+                return Err(Self::scripted_error());
+            }
+            self.constraints.push(constraint.clone());
+            Ok(())
+        }
+
+        fn clear(&mut self) -> Result<(), ClarirsError> {
+            self.constraints.clear();
+            Ok(())
+        }
+
+        fn constraints(&self) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+            Ok(self.constraints.clone())
+        }
+
+        fn simplify(&mut self) -> Result<(), ClarirsError> {
+            Ok(())
+        }
+
+        fn satisfiable(&mut self) -> Result<bool, ClarirsError> {
+            self.sat_calls.set(self.sat_calls.get() + 1);
+            self.sat.ok_or_else(Self::scripted_error)
+        }
+
+        fn is_true(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
+            self.truth_calls.set(self.truth_calls.get() + 1);
+            Ok(expr.simplify()?.is_true())
+        }
+
+        fn is_false(&mut self, expr: &AstRef<'c>) -> Result<bool, ClarirsError> {
+            self.truth_calls.set(self.truth_calls.get() + 1);
+            Ok(expr.simplify()?.is_false())
+        }
+
+        fn has_true(&mut self, _: &AstRef<'c>) -> Result<bool, ClarirsError> {
+            self.truth_calls.set(self.truth_calls.get() + 1);
+            self.has_answer.ok_or_else(Self::scripted_error)
+        }
+
+        fn has_false(&mut self, _: &AstRef<'c>) -> Result<bool, ClarirsError> {
+            self.truth_calls.set(self.truth_calls.get() + 1);
+            self.has_answer.ok_or_else(Self::scripted_error)
+        }
+
+        fn min_unsigned(&mut self, _: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
+            self.minmax_calls.set(self.minmax_calls.get() + 1);
+            if self.fail_eval {
+                return Err(Self::scripted_error());
+            }
+            self.solutions.first().cloned().ok_or(ClarirsError::Unsat)
+        }
+
+        fn max_unsigned(&mut self, _: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
+            self.minmax_calls.set(self.minmax_calls.get() + 1);
+            if self.fail_eval {
+                return Err(Self::scripted_error());
+            }
+            self.solutions.last().cloned().ok_or(ClarirsError::Unsat)
+        }
+
+        fn min_signed(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
+            self.min_unsigned(expr)
+        }
+
+        fn max_signed(&mut self, expr: &AstRef<'c>) -> Result<AstRef<'c>, ClarirsError> {
+            self.max_unsigned(expr)
+        }
+
+        fn eval_n(&mut self, _: &AstRef<'c>, n: u32) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+            self.eval_calls.set(self.eval_calls.get() + 1);
+            if self.fail_eval {
+                return Err(Self::scripted_error());
+            }
+            Ok(self.solutions.iter().take(n as usize).cloned().collect())
+        }
+    }
+
+    /// Build `count` distinct 8-bit constants starting at `start`.
+    fn values<'c>(
+        ctx: &'c Context<'c>,
+        start: u64,
+        count: u64,
+    ) -> Result<Vec<AstRef<'c>>, ClarirsError> {
+        (start..start + count)
+            .map(|v| ctx.bvv(BitVec::from((v, 8))))
+            .collect()
+    }
 
     #[test]
     fn test_hybrid_solver_concrete() -> Result<(), ClarirsError> {
@@ -281,6 +426,377 @@ mod tests {
 
         assert!(solver.satisfiable()?);
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_add_ignores_approximate_failure() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut approx = ScriptedSolver::new(&ctx);
+        approx.fail_add = true;
+        let exact = ScriptedSolver::new(&ctx);
+        let mut solver = HybridSolver::new(&ctx, approx, exact);
+
+        let x = ctx.bvs("x", 8)?;
+        let constraint = ctx.eq_(&x, &ctx.bvv(BitVec::from((1, 8)))?)?;
+        // The approximate backend's failure is swallowed; the exact backend
+        // tracks the constraint and defines constraints()/variables().
+        solver.add(&constraint)?;
+        assert!(solver.approximate().constraints.is_empty());
+        assert_eq!(solver.exact().constraints, vec![constraint.clone()]);
+        assert_eq!(solver.constraints()?.len(), 1);
+        let variables = solver.variables()?;
+        let vars: Vec<&str> = variables.iter().map(|v| v.as_str()).collect();
+        assert_eq!(vars, vec!["x"]);
+
+        // A failure in the exact backend propagates.
+        solver.exact_mut().fail_add = true;
+        assert!(solver.add(&constraint).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn test_clear_resets_both_backends() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let approx = ScriptedSolver::new(&ctx);
+        let exact = ScriptedSolver::new(&ctx);
+        let mut solver = HybridSolver::new(&ctx, approx, exact);
+
+        let constraint = ctx.eq_(&ctx.bvs("x", 8)?, &ctx.bvv(BitVec::from((1, 8)))?)?;
+        solver.add(&constraint)?;
+        solver.clear()?;
+        assert!(solver.constraints()?.is_empty());
+        assert!(solver.approximate().constraints.is_empty());
+        assert!(solver.exact().constraints.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn test_satisfiable_trusts_approximate_unsat() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut approx = ScriptedSolver::new(&ctx);
+        approx.sat = Some(false);
+        let exact = ScriptedSolver::new(&ctx);
+        let exact_sat_calls = exact.sat_calls.clone();
+        let mut solver = HybridSolver::new(&ctx, approx, exact);
+
+        // Approximate unsat is definitive; the exact backend is not consulted.
+        assert!(!solver.satisfiable()?);
+        assert_eq!(exact_sat_calls.get(), 0);
+        Ok(())
+    }
+
+    #[test]
+    fn test_satisfiable_falls_back_to_exact() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+
+        // Approximate sat is not definitive: the exact answer (unsat) wins.
+        let approx = ScriptedSolver::new(&ctx);
+        let mut exact = ScriptedSolver::new(&ctx);
+        exact.sat = Some(false);
+        let mut solver = HybridSolver::new(&ctx, approx, exact);
+        assert!(!solver.satisfiable()?);
+
+        // An approximate error also falls back to the exact backend.
+        let mut approx = ScriptedSolver::new(&ctx);
+        approx.sat = None;
+        let exact = ScriptedSolver::new(&ctx);
+        let mut solver = HybridSolver::new(&ctx, approx, exact);
+        assert!(solver.satisfiable()?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_satisfiable_with_extra_trusts_approximate_unsat() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut approx = ScriptedSolver::new(&ctx);
+        approx.sat = Some(false);
+        let exact = ScriptedSolver::new(&ctx);
+        let exact_sat_calls = exact.sat_calls.clone();
+        let mut solver = HybridSolver::new(&ctx, approx, exact);
+
+        let extra = ctx.eq_(&ctx.bvs("x", 8)?, &ctx.bvv(BitVec::from((1, 8)))?)?;
+        assert!(!solver.satisfiable_with_extra(&[extra.clone()])?);
+        assert_eq!(exact_sat_calls.get(), 0);
+
+        // When the approximation is inconclusive, the exact backend decides.
+        solver.approximate_mut().sat = Some(true);
+        solver.exact_mut().sat = Some(false);
+        assert!(!solver.satisfiable_with_extra(&[extra])?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_concrete_queries_use_approximate_backend() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut approx = ScriptedSolver::new(&ctx);
+        approx.has_answer = Some(true);
+        approx.solutions = values(&ctx, 42, 1)?;
+        let exact = ScriptedSolver::new(&ctx);
+        let exact_truth = exact.truth_calls.clone();
+        let exact_minmax = exact.minmax_calls.clone();
+        let mut solver = HybridSolver::new(&ctx, approx, exact);
+
+        let t = ctx.true_()?;
+        let f = ctx.false_()?;
+        let v = ctx.bvv(BitVec::from((42, 8)))?;
+
+        assert!(solver.is_true(&t)?);
+        assert!(solver.is_false(&f)?);
+        assert!(solver.has_true(&t)?);
+        assert!(solver.has_false(&f)?);
+        assert_eq!(solver.min_unsigned(&v)?, v);
+        assert_eq!(solver.max_unsigned(&v)?, v);
+        assert_eq!(solver.min_signed(&v)?, v);
+        assert_eq!(solver.max_signed(&v)?, v);
+
+        // Every concrete query was answered by the approximate backend.
+        assert_eq!(exact_truth.get(), 0);
+        assert_eq!(exact_minmax.get(), 0);
+        Ok(())
+    }
+
+    #[test]
+    fn test_symbolic_queries_use_exact_backend() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let approx = ScriptedSolver::new(&ctx);
+        let approx_minmax = approx.minmax_calls.clone();
+        let mut exact = ScriptedSolver::new(&ctx);
+        exact.solutions = values(&ctx, 7, 2)?;
+        let mut solver = HybridSolver::new(&ctx, approx, exact);
+
+        let x = ctx.bvs("x", 8)?;
+        // is_true/is_false on symbolic expressions go straight to exact.
+        assert!(!solver.is_true(&x.clone())?);
+        assert!(!solver.is_false(&x.clone())?);
+        // min/max on symbolic expressions go straight to exact.
+        assert_eq!(solver.min_unsigned(&x)?, ctx.bvv(BitVec::from((7, 8)))?);
+        assert_eq!(solver.max_unsigned(&x)?, ctx.bvv(BitVec::from((8, 8)))?);
+        assert_eq!(solver.min_signed(&x)?, ctx.bvv(BitVec::from((7, 8)))?);
+        assert_eq!(solver.max_signed(&x)?, ctx.bvv(BitVec::from((8, 8)))?);
+        assert_eq!(approx_minmax.get(), 0);
+        Ok(())
+    }
+
+    #[test]
+    fn test_has_true_symbolic_trusts_approximate_yes() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut approx = ScriptedSolver::new(&ctx);
+        approx.has_answer = Some(true);
+        let exact = ScriptedSolver::new(&ctx);
+        let exact_truth = exact.truth_calls.clone();
+        let mut solver = HybridSolver::new(&ctx, approx, exact);
+
+        let b = ctx.bools("b")?;
+        // Approximate "could be true" is trusted without consulting exact.
+        assert!(solver.has_true(&b)?);
+        assert!(solver.has_false(&b)?);
+        assert_eq!(exact_truth.get(), 0);
+
+        // Approximate "no" is not trusted: the exact answer is used.
+        solver.approximate_mut().has_answer = Some(false);
+        solver.exact_mut().has_answer = Some(true);
+        assert!(solver.has_true(&b)?);
+        assert!(solver.has_false(&b)?);
+
+        // An approximate error also falls back to exact.
+        solver.approximate_mut().has_answer = None;
+        solver.exact_mut().has_answer = Some(false);
+        assert!(!solver.has_true(&b)?);
+        assert!(!solver.has_false(&b)?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_eval_n_zero_returns_empty() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let approx = ScriptedSolver::new(&ctx);
+        let approx_calls = approx.eval_calls.clone();
+        let exact = ScriptedSolver::new(&ctx);
+        let exact_calls = exact.eval_calls.clone();
+        let mut solver = HybridSolver::new(&ctx, approx, exact);
+
+        assert!(solver.eval_n(&ctx.bvs("x", 8)?, 0)?.is_empty());
+        assert_eq!(approx_calls.get(), 0);
+        assert_eq!(exact_calls.get(), 0);
+        Ok(())
+    }
+
+    #[test]
+    fn test_eval_n_symbolic_prefers_exact_results() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut approx = ScriptedSolver::new(&ctx);
+        approx.solutions = values(&ctx, 1, 2)?;
+        let mut exact = ScriptedSolver::new(&ctx);
+        exact.solutions = values(&ctx, 100, 1)?;
+        let mut solver = HybridSolver::new(&ctx, approx, exact);
+
+        let x = ctx.bvs("x", 8)?;
+        // Both backends produce values; the exact result wins.
+        assert_eq!(solver.eval_n(&x, 2)?, values(&ctx, 100, 1)?);
+
+        // If the exact backend fails, the approximate results are kept.
+        solver.exact_mut().fail_eval = true;
+        assert_eq!(solver.eval_n(&x, 2)?, values(&ctx, 1, 2)?);
+
+        // If the approximate backend fails, the exact backend answers alone.
+        solver.approximate_mut().fail_eval = true;
+        solver.exact_mut().fail_eval = false;
+        assert_eq!(solver.eval_n(&x, 2)?, values(&ctx, 100, 1)?);
+
+        // If the approximate backend finds nothing, exact answers too.
+        solver.approximate_mut().fail_eval = false;
+        solver.approximate_mut().solutions = Vec::new();
+        assert_eq!(solver.eval_n(&x, 2)?, values(&ctx, 100, 1)?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_eval_n_concrete_uses_approximate_without_validation() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut approx = ScriptedSolver::new(&ctx);
+        approx.solutions = values(&ctx, 42, 1)?;
+        let exact = ScriptedSolver::new(&ctx);
+        let exact_calls = exact.eval_calls.clone();
+        let mut solver = HybridSolver::new(&ctx, approx, exact);
+
+        let v = ctx.bvv(BitVec::from((42, 8)))?;
+        assert_eq!(solver.eval_n(&v, 1)?, values(&ctx, 42, 1)?);
+        assert_eq!(exact_calls.get(), 0);
+
+        // An empty approximate result falls back to exact.
+        solver.approximate_mut().solutions = Vec::new();
+        solver.exact_mut().solutions = values(&ctx, 42, 1)?;
+        assert_eq!(solver.eval_n(&v, 1)?, values(&ctx, 42, 1)?);
+        assert_eq!(exact_calls.get(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn test_approximate_first_accessors() {
+        let ctx = Context::new();
+        let solver = HybridSolver::new(&ctx, ScriptedSolver::new(&ctx), ScriptedSolver::new(&ctx));
+        assert!(!solver.approximate_first());
+        let solver = HybridSolver::new_with_options(
+            &ctx,
+            ScriptedSolver::new(&ctx),
+            ScriptedSolver::new(&ctx),
+            true,
+        );
+        assert!(solver.approximate_first());
+    }
+
+    /// When the approximation is exhaustive (fewer than n+1 solutions), it is
+    /// used directly and the exact backend is never asked (mirrors
+    /// test_approximate_first_exhaustive).
+    #[test]
+    fn test_approximate_first_exhaustive_skips_exact() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut approx = ScriptedSolver::new(&ctx);
+        approx.solutions = values(&ctx, 253, 3)?;
+        let exact = ScriptedSolver::new(&ctx);
+        let exact_calls = exact.eval_calls.clone();
+        let mut solver = HybridSolver::new_with_options(&ctx, approx, exact, true);
+
+        let x = ctx.bvs("x", 8)?;
+        assert_eq!(solver.eval_n(&x, 10)?, values(&ctx, 253, 3)?);
+        assert_eq!(exact_calls.get(), 0);
+        Ok(())
+    }
+
+    /// When the approximation is inexact and a constraint mentions the
+    /// expression, the exact backend refines the result if it found fewer
+    /// solutions.
+    #[test]
+    fn test_approximate_first_refined_by_exact() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut approx = ScriptedSolver::new(&ctx);
+        approx.solutions = values(&ctx, 0, 10)?; // more than n+1: inexact
+        let mut exact = ScriptedSolver::new(&ctx);
+        exact.solutions = values(&ctx, 254, 2)?; // exact knows only 2 solutions
+        let mut solver = HybridSolver::new_with_options(&ctx, approx, exact, true);
+
+        // The constraint mentions x, so refinement is possible.
+        let x = ctx.bvs("x", 8)?;
+        solver.add(&ctx.ugt(&x, &ctx.bvv(BitVec::from((253, 8)))?)?)?;
+
+        assert_eq!(solver.eval_n(&x, 4)?, values(&ctx, 254, 2)?);
+        Ok(())
+    }
+
+    /// When no constraint mentions the expression, the (inexact)
+    /// approximation is used as-is, truncated to n.
+    #[test]
+    fn test_approximate_first_unconstrained_keeps_approximation() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut approx = ScriptedSolver::new(&ctx);
+        approx.solutions = values(&ctx, 0, 10)?;
+        let exact = ScriptedSolver::new(&ctx);
+        let exact_calls = exact.eval_calls.clone();
+        let mut solver = HybridSolver::new_with_options(&ctx, approx, exact, true);
+
+        // Constraint mentions y, not x: no refinement for x.
+        let y = ctx.bvs("y", 8)?;
+        solver.add(&ctx.ugt(&y, &ctx.bvv(BitVec::from((3, 8)))?)?)?;
+
+        let x = ctx.bvs("x", 8)?;
+        assert_eq!(solver.eval_n(&x, 4)?, values(&ctx, 0, 4)?);
+        assert_eq!(exact_calls.get(), 0);
+        Ok(())
+    }
+
+    /// When the exact backend cannot narrow the approximation (it finds at
+    /// least as many solutions), the approximation is kept, truncated to n.
+    #[test]
+    fn test_approximate_first_exact_no_better() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut approx = ScriptedSolver::new(&ctx);
+        approx.solutions = values(&ctx, 0, 10)?;
+        let mut exact = ScriptedSolver::new(&ctx);
+        exact.solutions = values(&ctx, 100, 10)?;
+        let mut solver = HybridSolver::new_with_options(&ctx, approx, exact, true);
+
+        let x = ctx.bvs("x", 8)?;
+        solver.add(&ctx.ugt(&x, &ctx.bvv(BitVec::from((3, 8)))?)?)?;
+
+        assert_eq!(solver.eval_n(&x, 4)?, values(&ctx, 0, 4)?);
+        Ok(())
+    }
+
+    /// A failing or empty approximation falls straight through to exact.
+    #[test]
+    fn test_approximate_first_falls_back_on_failure() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut approx = ScriptedSolver::new(&ctx);
+        approx.fail_eval = true;
+        let mut exact = ScriptedSolver::new(&ctx);
+        exact.solutions = values(&ctx, 5, 2)?;
+        let mut solver = HybridSolver::new_with_options(&ctx, approx, exact, true);
+
+        let x = ctx.bvs("x", 8)?;
+        assert_eq!(solver.eval_n(&x, 4)?, values(&ctx, 5, 2)?);
+
+        solver.approximate_mut().fail_eval = false;
+        solver.approximate_mut().solutions = Vec::new();
+        assert_eq!(solver.eval_n(&x, 4)?, values(&ctx, 5, 2)?);
+        Ok(())
+    }
+
+    /// n <= 2 does not trigger the approximate-first path even when enabled
+    /// (mirrors test_small_n_stays_exact).
+    #[test]
+    fn test_approximate_first_small_n_stays_exact() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let mut approx = ScriptedSolver::new(&ctx);
+        approx.solutions = values(&ctx, 0, 10)?;
+        let mut exact = ScriptedSolver::new(&ctx);
+        exact.solutions = values(&ctx, 7, 1)?;
+        let mut solver = HybridSolver::new_with_options(&ctx, approx, exact, true);
+
+        let x = ctx.bvs("x", 8)?;
+        // The normal (verify-against-exact) path returns the exact result.
+        assert_eq!(solver.eval_n(&x, 1)?, values(&ctx, 7, 1)?);
+        assert_eq!(solver.eval_n(&x, 2)?, values(&ctx, 7, 1)?);
         Ok(())
     }
 }

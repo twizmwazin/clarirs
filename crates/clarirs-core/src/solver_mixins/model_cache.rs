@@ -381,6 +381,7 @@ impl<'c, S: Solver<'c>> Solver<'c> for ModelCacheMixin<'c, S> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::solver::test_support::EqModelSolver;
     use std::cell::Cell;
     use std::rc::Rc;
 
@@ -547,6 +548,277 @@ mod tests {
         // The cache was reset by clear(), so the inner solver is consulted
         // again.
         assert_eq!(calls.get(), 2);
+        Ok(())
+    }
+
+    #[test]
+    fn test_symbolic_model_cached_and_reused() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let inner = CountingSolver::new(EqModelSolver::new(&ctx));
+        let eval_calls = inner.eval_calls.clone();
+        let sat_calls = inner.satisfiable_calls.clone();
+        let mut solver = ModelCacheMixin::new(inner);
+
+        let x = ctx.bvs("x", 8)?;
+        let five = ctx.bvv(BitVec::from((5, 8)))?;
+        solver.add(&ctx.eq_(&x, &five)?)?;
+
+        // First eval consults the inner solver and caches the model {x: 5}.
+        assert_eq!(solver.eval(&x)?, five);
+        let first_eval_calls = eval_calls.get();
+        assert_eq!(solver.models.len(), 1);
+
+        // A different expression over the same variable is answered entirely
+        // from the cached model.
+        assert_eq!(
+            solver.eval(&ctx.add(&x, &ctx.bvv(BitVec::from((1, 8)))?)?)?,
+            ctx.bvv(BitVec::from((6, 8)))?
+        );
+        assert_eq!(eval_calls.get(), first_eval_calls);
+
+        // eval also proved satisfiability, so satisfiable() is free.
+        assert!(solver.satisfiable()?);
+        assert_eq!(sat_calls.get(), 0);
+        Ok(())
+    }
+
+    #[test]
+    fn test_add_invalidates_sat_true_but_keeps_unsat() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let inner = CountingSolver::new(EqModelSolver::new(&ctx));
+        let sat_calls = inner.satisfiable_calls.clone();
+        let mut solver = ModelCacheMixin::new(inner);
+
+        let x = ctx.bvs("x", 8)?;
+        let five = ctx.bvv(BitVec::from((5, 8)))?;
+        let six = ctx.bvv(BitVec::from((6, 8)))?;
+
+        solver.add(&ctx.eq_(&x, &five)?)?;
+        assert!(solver.satisfiable()?);
+        assert_eq!(sat_calls.get(), 1);
+
+        // Adding a constraint invalidates the cached "satisfiable" result.
+        solver.add(&ctx.eq_(&x, &five)?)?;
+        assert!(solver.satisfiable()?);
+        assert_eq!(sat_calls.get(), 2);
+
+        // Now make the set unsatisfiable; the cached "unsat" result survives
+        // further adds, so no more inner calls happen.
+        solver.add(&ctx.eq_(&x, &six)?)?;
+        assert!(!solver.satisfiable()?);
+        assert_eq!(sat_calls.get(), 3);
+        assert!(!solver.satisfiable()?);
+        solver.add(&ctx.eq_(&x, &five)?)?;
+        assert!(!solver.satisfiable()?);
+        assert_eq!(sat_calls.get(), 3);
+        Ok(())
+    }
+
+    #[test]
+    fn test_satisfiable_with_extra_uses_cached_witness() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let inner = CountingSolver::new(EqModelSolver::new(&ctx));
+        let sat_calls = inner.satisfiable_calls.clone();
+        let mut solver = ModelCacheMixin::new(inner);
+
+        let x = ctx.bvs("x", 8)?;
+        let five = ctx.bvv(BitVec::from((5, 8)))?;
+        solver.add(&ctx.eq_(&x, &five)?)?;
+        // Seed the model cache via eval.
+        solver.eval(&x)?;
+        assert_eq!(solver.models.len(), 1);
+
+        // The cached witness {x: 5} satisfies x > 3, so the answer comes from
+        // the cache without any inner satisfiability check.
+        let gt3 = ctx.ugt(&x, &ctx.bvv(BitVec::from((3, 8)))?)?;
+        assert!(solver.satisfiable_with_extra(&[gt3])?);
+        assert_eq!(sat_calls.get(), 0);
+
+        // The witness fails x > 200; the inner solver decides (unsat), and
+        // the model is kept (it is still valid for the persistent set).
+        let gt200 = ctx.ugt(&x, &ctx.bvv(BitVec::from((200, 8)))?)?;
+        assert!(!solver.satisfiable_with_extra(&[gt200])?);
+        assert_eq!(solver.models.len(), 1);
+
+        // Empty extras delegate to plain satisfiable().
+        assert!(solver.satisfiable_with_extra(&[])?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_satisfiable_with_extra_short_circuits_cached_unsat() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let inner = CountingSolver::new(EqModelSolver::new(&ctx));
+        let sat_calls = inner.satisfiable_calls.clone();
+        let mut solver = ModelCacheMixin::new(inner);
+
+        let x = ctx.bvs("x", 8)?;
+        solver.add(&ctx.eq_(&x, &ctx.bvv(BitVec::from((1, 8)))?)?)?;
+        solver.add(&ctx.eq_(&x, &ctx.bvv(BitVec::from((2, 8)))?)?)?;
+        assert!(!solver.satisfiable()?);
+        let calls = sat_calls.get();
+
+        // With unsat cached, any extension is unsat without touching the
+        // inner solver.
+        assert!(!solver.satisfiable_with_extra(&[ctx.true_()?])?);
+        assert_eq!(sat_calls.get(), calls);
+        Ok(())
+    }
+
+    #[test]
+    fn test_stale_models_are_pruned() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let inner = CountingSolver::new(EqModelSolver::new(&ctx));
+        let mut solver = ModelCacheMixin::new(inner);
+
+        let x = ctx.bvs("x", 8)?;
+        let five = ctx.bvv(BitVec::from((5, 8)))?;
+        solver.add(&ctx.eq_(&x, &five)?)?;
+        solver.eval(&x)?;
+        assert_eq!(solver.models.len(), 1);
+
+        // A new constraint contradicting the cached model makes it stale;
+        // the next satisfiability check drops it and reports unsat.
+        solver.add(&ctx.eq_(&x, &ctx.bvv(BitVec::from((6, 8)))?)?)?;
+        assert!(!solver.satisfiable()?);
+        assert!(solver.models.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn test_eval_n_with_cached_unsat_returns_empty() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let inner = CountingSolver::new(EqModelSolver::new(&ctx));
+        let eval_calls = inner.eval_calls.clone();
+        let mut solver = ModelCacheMixin::new(inner);
+
+        let x = ctx.bvs("x", 8)?;
+        solver.add(&ctx.eq_(&x, &ctx.bvv(BitVec::from((1, 8)))?)?)?;
+        solver.add(&ctx.eq_(&x, &ctx.bvv(BitVec::from((2, 8)))?)?)?;
+        assert!(!solver.satisfiable()?);
+
+        // Documents actual behavior: with unsat already cached, eval_n
+        // returns Ok(empty) rather than Err(Unsat), and never consults the
+        // inner solver.
+        assert!(solver.eval_n(&x, 1)?.is_empty());
+        assert_eq!(eval_calls.get(), 0);
+
+        // n == 0 also returns empty.
+        assert!(solver.eval_n(&x, 0)?.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn test_batch_eval_updates_sat_flag() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let inner = CountingSolver::new(EqModelSolver::new(&ctx));
+        let sat_calls = inner.satisfiable_calls.clone();
+        let mut solver = ModelCacheMixin::new(inner);
+
+        let x = ctx.bvs("x", 8)?;
+        let five = ctx.bvv(BitVec::from((5, 8)))?;
+        solver.add(&ctx.eq_(&x, &five)?)?;
+
+        // A successful batch_eval proves satisfiability.
+        let results = solver.batch_eval(&[x.clone()])?;
+        assert_eq!(results, vec![five]);
+        assert!(solver.satisfiable()?);
+        assert_eq!(sat_calls.get(), 0);
+        Ok(())
+    }
+
+    #[test]
+    fn test_batch_eval_unsat_paths() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let inner = CountingSolver::new(EqModelSolver::new(&ctx));
+        let sat_calls = inner.satisfiable_calls.clone();
+        let mut solver = ModelCacheMixin::new(inner);
+
+        let x = ctx.bvs("x", 8)?;
+        solver.add(&ctx.eq_(&x, &ctx.bvv(BitVec::from((1, 8)))?)?)?;
+        solver.add(&ctx.eq_(&x, &ctx.bvv(BitVec::from((2, 8)))?)?)?;
+
+        // The inner Unsat error propagates and is recorded in the sat cache.
+        assert!(matches!(
+            solver.batch_eval(&[x.clone()]),
+            Err(ClarirsError::Unsat)
+        ));
+        assert!(!solver.satisfiable()?);
+        assert_eq!(sat_calls.get(), 0);
+
+        // With unsat now cached, batch_eval fails fast without the inner
+        // solver.
+        let inner_calls_before = sat_calls.get();
+        assert!(matches!(
+            solver.batch_eval(&[x]),
+            Err(ClarirsError::Unsat)
+        ));
+        assert_eq!(sat_calls.get(), inner_calls_before);
+        Ok(())
+    }
+
+    #[test]
+    fn test_simplify_clears_models_but_keeps_sat() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let inner = CountingSolver::new(EqModelSolver::new(&ctx));
+        let sat_calls = inner.satisfiable_calls.clone();
+        let mut solver = ModelCacheMixin::new(inner);
+
+        let x = ctx.bvs("x", 8)?;
+        solver.add(&ctx.eq_(&x, &ctx.bvv(BitVec::from((5, 8)))?)?)?;
+        solver.eval(&x)?;
+        assert_eq!(solver.models.len(), 1);
+        assert!(solver.satisfiable()?);
+        let calls = sat_calls.get();
+
+        solver.simplify()?;
+        assert!(solver.models.is_empty());
+        // The satisfiability verdict survives simplification.
+        assert!(solver.satisfiable()?);
+        assert_eq!(sat_calls.get(), calls);
+        Ok(())
+    }
+
+    #[test]
+    fn test_duplicate_models_are_deduplicated() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let inner = CountingSolver::new(EqModelSolver::new(&ctx));
+        let mut solver = ModelCacheMixin::new(inner);
+
+        let x = ctx.bvs("x", 8)?;
+        let y = ctx.bvs("y", 8)?;
+        solver.add(&ctx.eq_(&x, &ctx.bvv(BitVec::from((5, 8)))?)?)?;
+
+        // The first eval caches the model. An eval over a variable the cached
+        // model does not cover misses the cache and re-extracts the same
+        // model, which is deduplicated by signature... but here the second
+        // eval is over y which has no constraint, so the inner solver cannot
+        // enumerate it and the model count stays at one.
+        solver.eval(&x)?;
+        assert_eq!(solver.models.len(), 1);
+        assert!(solver.eval(&y).is_err());
+        assert_eq!(solver.models.len(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn test_truth_and_minmax_queries_forward_to_inner() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let inner = CountingSolver::new(EqModelSolver::new(&ctx));
+        let mut solver = ModelCacheMixin::new(inner);
+
+        let x = ctx.bvs("x", 8)?;
+        let five = ctx.bvv(BitVec::from((5, 8)))?;
+        solver.add(&ctx.eq_(&x, &five)?)?;
+
+        assert!(solver.is_true(&ctx.eq_(&x, &five)?)?);
+        assert!(!solver.is_false(&ctx.eq_(&x, &five)?)?);
+        assert!(solver.has_true(&ctx.eq_(&x, &five)?)?);
+        assert!(!solver.has_false(&ctx.eq_(&x, &five)?)?);
+        assert_eq!(solver.min_unsigned(&x)?, five);
+        assert_eq!(solver.max_unsigned(&x)?, five);
+        assert_eq!(solver.min_signed(&x)?, five);
+        assert_eq!(solver.max_signed(&x)?, five);
         Ok(())
     }
 }

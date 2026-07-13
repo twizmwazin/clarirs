@@ -379,4 +379,327 @@ mod tests {
         assert!(solver.var_to_child.is_empty());
         Ok(())
     }
+
+    mod with_eq_model_solver {
+        use super::*;
+        use crate::solver::test_support::EqModelSolver;
+
+        type TestComposite<'c> = CompositeSolver<'c, EqModelSolver<'c>>;
+
+        fn new_solver<'c>(ctx: &'c Context<'c>) -> TestComposite<'c> {
+            CompositeSolver::new(ctx, EqModelSolver::new(ctx))
+        }
+
+        fn bvv8<'c>(ctx: &'c Context<'c>, v: u64) -> Result<AstRef<'c>, ClarirsError> {
+            ctx.bvv(BitVec::from((v, 8)))
+        }
+
+        /// Independent constraints go to separate children; a constraint
+        /// spanning both merges them permanently (mirrors
+        /// test_solver_split.py's grouping expectations).
+        #[test]
+        fn test_partitioning_and_merging() -> Result<(), ClarirsError> {
+            let ctx = Context::new();
+            let mut solver = new_solver(&ctx);
+
+            let x = ctx.bvs("x", 8)?;
+            let y = ctx.bvs("y", 8)?;
+
+            solver.add(&ctx.eq_(&x, &bvv8(&ctx, 1)?)?)?;
+            solver.add(&ctx.eq_(&y, &bvv8(&ctx, 1)?)?)?;
+            assert_eq!(solver.children.len(), 2);
+            assert_ne!(
+                solver.var_to_child[x.variables().first().unwrap()],
+                solver.var_to_child[y.variables().first().unwrap()]
+            );
+
+            // A second constraint on x stays in x's child.
+            solver.add(&ctx.eq_(&x, &bvv8(&ctx, 1)?)?)?;
+            assert_eq!(solver.children.len(), 2);
+
+            // x == y touches both children: they merge into one.
+            solver.add(&ctx.eq_(&x, &y)?)?;
+            assert_eq!(solver.children.len(), 1);
+            assert_eq!(
+                solver.var_to_child[x.variables().first().unwrap()],
+                solver.var_to_child[y.variables().first().unwrap()]
+            );
+
+            // The surviving child holds all four constraints.
+            assert_eq!(solver.constraints()?.len(), 4);
+            assert!(solver.satisfiable()?);
+            Ok(())
+        }
+
+        /// Transitively connected constraints end up in a single child
+        /// (mirrors test_transitively_connected_constraints_stay_together).
+        #[test]
+        fn test_transitive_connection_single_child() -> Result<(), ClarirsError> {
+            let ctx = Context::new();
+            let mut solver = new_solver(&ctx);
+
+            let a = ctx.bvs("a", 8)?;
+            let b = ctx.bvs("b", 8)?;
+            let c = ctx.bvs("c", 8)?;
+
+            solver.add(&ctx.eq_(&a, &b)?)?;
+            solver.add(&ctx.eq_(&b, &c)?)?;
+            assert_eq!(solver.children.len(), 1);
+
+            let variables = solver.variables()?;
+            let vars: Vec<&str> = variables.iter().map(|v| v.as_str()).collect();
+            assert_eq!(vars, vec!["a", "b", "c"]);
+            Ok(())
+        }
+
+        /// Contradictory constraints on the same variable land in the same
+        /// child and make it unsat (mirrors
+        /// test_contradictory_concrete_constraints).
+        #[test]
+        fn test_contradiction_within_child() -> Result<(), ClarirsError> {
+            let ctx = Context::new();
+            let mut solver = new_solver(&ctx);
+
+            let x = ctx.bvs("x", 8)?;
+            solver.add(&ctx.eq_(&x, &bvv8(&ctx, 1)?)?)?;
+            solver.add(&ctx.eq_(&x, &bvv8(&ctx, 2)?)?)?;
+            assert_eq!(solver.children.len(), 1);
+            assert!(!solver.satisfiable()?);
+            Ok(())
+        }
+
+        /// A contradiction only revealed by merging two children (x == 1,
+        /// y == 2, then x == y) is detected after the merge.
+        #[test]
+        fn test_contradiction_across_children() -> Result<(), ClarirsError> {
+            let ctx = Context::new();
+            let mut solver = new_solver(&ctx);
+
+            let x = ctx.bvs("x", 8)?;
+            let y = ctx.bvs("y", 8)?;
+            solver.add(&ctx.eq_(&x, &bvv8(&ctx, 1)?)?)?;
+            solver.add(&ctx.eq_(&y, &bvv8(&ctx, 2)?)?)?;
+            assert!(solver.satisfiable()?);
+
+            solver.add(&ctx.eq_(&x, &y)?)?;
+            assert_eq!(solver.children.len(), 1);
+            assert!(!solver.satisfiable()?);
+            Ok(())
+        }
+
+        /// Adding concrete false makes an otherwise-satisfiable solver unsat
+        /// (mirrors test_false_makes_otherwise_sat_solver_unsat), and value
+        /// queries then report Unsat.
+        #[test]
+        fn test_concrete_false_poisons_solver() -> Result<(), ClarirsError> {
+            let ctx = Context::new();
+            let mut solver = new_solver(&ctx);
+
+            let x = ctx.bvs("x", 8)?;
+            solver.add(&ctx.eq_(&x, &bvv8(&ctx, 5)?)?)?;
+            assert!(solver.satisfiable()?);
+
+            solver.add(&ctx.false_()?)?;
+            assert!(!solver.satisfiable()?);
+
+            assert!(matches!(solver.eval_n(&x, 1), Err(ClarirsError::Unsat)));
+            assert!(matches!(
+                solver.min_unsigned(&x),
+                Err(ClarirsError::Unsat)
+            ));
+            assert!(matches!(
+                solver.max_unsigned(&x),
+                Err(ClarirsError::Unsat)
+            ));
+            assert!(matches!(solver.min_signed(&x), Err(ClarirsError::Unsat)));
+            assert!(matches!(solver.max_signed(&x), Err(ClarirsError::Unsat)));
+
+            // clear() resets everything, including the unsat flag.
+            solver.clear()?;
+            assert!(solver.satisfiable()?);
+            assert!(solver.children.is_empty());
+            Ok(())
+        }
+
+        /// Queries route to the child owning the variables; queries over
+        /// unconstrained variables use a fresh template; queries spanning
+        /// children use a temporary merge that does not alter the partition.
+        #[test]
+        fn test_query_routing() -> Result<(), ClarirsError> {
+            let ctx = Context::new();
+            let mut solver = new_solver(&ctx);
+
+            let x = ctx.bvs("x", 8)?;
+            let y = ctx.bvs("y", 8)?;
+            let seven = bvv8(&ctx, 7)?;
+            let nine = bvv8(&ctx, 9)?;
+            solver.add(&ctx.eq_(&x, &seven)?)?;
+            solver.add(&ctx.eq_(&y, &nine)?)?;
+            assert_eq!(solver.children.len(), 2);
+
+            // Single-child routing: each variable evaluates from its own
+            // child (mirrors test_group_solvers_carry_their_constraints).
+            assert_eq!(solver.eval(&x)?, seven);
+            assert_eq!(solver.eval(&y)?, nine);
+            assert_eq!(solver.min_unsigned(&x)?, seven);
+            assert_eq!(solver.max_unsigned(&x)?, seven);
+            assert_eq!(solver.min_signed(&y)?, nine);
+            assert_eq!(solver.max_signed(&y)?, nine);
+
+            // Concrete expression: no child owns its (empty) variable set, so
+            // a fresh template solver answers.
+            assert_eq!(solver.eval(&bvv8(&ctx, 3)?)?, bvv8(&ctx, 3)?);
+            assert!(solver.is_true(&ctx.true_()?)?);
+            assert!(solver.is_false(&ctx.false_()?)?);
+
+            // A query spanning both children is answered by a temporary
+            // merged solver: x + y == 16 given x == 7, y == 9.
+            let sum_eq = ctx.eq_(&ctx.add(&x, &y)?, &bvv8(&ctx, 16)?)?;
+            assert!(solver.is_true(&sum_eq)?);
+            assert!(!solver.is_false(&sum_eq)?);
+            assert!(solver.has_true(&sum_eq)?);
+            assert!(!solver.has_false(&sum_eq)?);
+            // The merge was temporary: the partition is unchanged.
+            assert_eq!(solver.children.len(), 2);
+            Ok(())
+        }
+
+        #[test]
+        fn test_satisfiable_with_extra_concrete_extras() -> Result<(), ClarirsError> {
+            let ctx = Context::new();
+            let mut solver = new_solver(&ctx);
+
+            let x = ctx.bvs("x", 8)?;
+            solver.add(&ctx.eq_(&x, &bvv8(&ctx, 5)?)?)?;
+
+            // Empty extras delegate to satisfiable().
+            assert!(solver.satisfiable_with_extra(&[])?);
+            // A concretely-false extra short-circuits to unsat.
+            assert!(!solver.satisfiable_with_extra(&[ctx.false_()?])?);
+            // A concretely-true extra is ignored.
+            assert!(solver.satisfiable_with_extra(&[ctx.true_()?])?);
+            Ok(())
+        }
+
+        /// Extras over variables no child owns are checked in a fresh solver.
+        #[test]
+        fn test_satisfiable_with_extra_unconstrained_vars() -> Result<(), ClarirsError> {
+            let ctx = Context::new();
+            let mut solver = new_solver(&ctx);
+
+            let x = ctx.bvs("x", 8)?;
+            let z = ctx.bvs("z", 8)?;
+            solver.add(&ctx.eq_(&x, &bvv8(&ctx, 5)?)?)?;
+
+            // Consistent extras on a fresh variable: still satisfiable.
+            assert!(solver.satisfiable_with_extra(&[ctx.eq_(&z, &bvv8(&ctx, 3)?)?])?);
+            // Self-contradictory extras on a fresh variable: unsat.
+            assert!(!solver.satisfiable_with_extra(&[
+                ctx.eq_(&z, &bvv8(&ctx, 3)?)?,
+                ctx.eq_(&z, &bvv8(&ctx, 4)?)?,
+            ])?);
+            // The check was transient: no new child was created.
+            assert_eq!(solver.children.len(), 1);
+            Ok(())
+        }
+
+        /// Extras touching exactly one child use that child's scoped check
+        /// and still verify the remaining children.
+        #[test]
+        fn test_satisfiable_with_extra_single_child() -> Result<(), ClarirsError> {
+            let ctx = Context::new();
+            let mut solver = new_solver(&ctx);
+
+            let x = ctx.bvs("x", 8)?;
+            let y = ctx.bvs("y", 8)?;
+            solver.add(&ctx.eq_(&x, &bvv8(&ctx, 1)?)?)?;
+            solver.add(&ctx.eq_(&y, &bvv8(&ctx, 2)?)?)?;
+
+            // Consistent extra on x's child.
+            assert!(solver.satisfiable_with_extra(&[ctx.eq_(&x, &bvv8(&ctx, 1)?)?])?);
+            // Contradictory extra on x's child.
+            assert!(!solver.satisfiable_with_extra(&[ctx.eq_(&x, &bvv8(&ctx, 9)?)?])?);
+            // The extras were transient: the persistent set is still sat.
+            assert!(solver.satisfiable()?);
+
+            // If a *different* child is already unsat, the answer is false
+            // even when the extras themselves are consistent.
+            solver.add(&ctx.eq_(&y, &bvv8(&ctx, 3)?)?)?; // y child now unsat
+            assert!(!solver.satisfiable_with_extra(&[ctx.eq_(&x, &bvv8(&ctx, 1)?)?])?);
+            Ok(())
+        }
+
+        /// Extras spanning several children are checked in a temporary
+        /// merged solver, leaving the partition intact.
+        #[test]
+        fn test_satisfiable_with_extra_multi_child() -> Result<(), ClarirsError> {
+            let ctx = Context::new();
+            let mut solver = new_solver(&ctx);
+
+            let x = ctx.bvs("x", 8)?;
+            let y = ctx.bvs("y", 8)?;
+            solver.add(&ctx.eq_(&x, &bvv8(&ctx, 1)?)?)?;
+            solver.add(&ctx.eq_(&y, &bvv8(&ctx, 1)?)?)?;
+            assert_eq!(solver.children.len(), 2);
+
+            // x == y is consistent with x == 1, y == 1.
+            assert!(solver.satisfiable_with_extra(&[ctx.eq_(&x, &y)?])?);
+            // x == y + something contradictory is not.
+            assert!(!solver.satisfiable_with_extra(&[
+                ctx.eq_(&x, &y)?,
+                ctx.eq_(&x, &bvv8(&ctx, 2)?)?,
+            ])?);
+            // No permanent merge happened.
+            assert_eq!(solver.children.len(), 2);
+            Ok(())
+        }
+
+        /// The multi-child path also verifies children uninvolved in the
+        /// extras.
+        #[test]
+        fn test_satisfiable_with_extra_multi_child_other_unsat() -> Result<(), ClarirsError> {
+            let ctx = Context::new();
+            let mut solver = new_solver(&ctx);
+
+            let x = ctx.bvs("x", 8)?;
+            let y = ctx.bvs("y", 8)?;
+            let z = ctx.bvs("z", 8)?;
+            solver.add(&ctx.eq_(&x, &bvv8(&ctx, 1)?)?)?;
+            solver.add(&ctx.eq_(&y, &bvv8(&ctx, 1)?)?)?;
+            // z's child is unsat.
+            solver.add(&ctx.eq_(&z, &bvv8(&ctx, 1)?)?)?;
+            solver.add(&ctx.eq_(&z, &bvv8(&ctx, 2)?)?)?;
+            assert_eq!(solver.children.len(), 3);
+
+            // The extra spans x and y (both fine), but the z child is unsat.
+            assert!(!solver.satisfiable_with_extra(&[ctx.eq_(&x, &y)?])?);
+            Ok(())
+        }
+
+        #[test]
+        fn test_constraints_aggregates_children() -> Result<(), ClarirsError> {
+            let ctx = Context::new();
+            let mut solver = new_solver(&ctx);
+
+            let x = ctx.bvs("x", 8)?;
+            let y = ctx.bvs("y", 8)?;
+            let c1 = ctx.eq_(&x, &bvv8(&ctx, 1)?)?;
+            let c2 = ctx.eq_(&y, &bvv8(&ctx, 2)?)?;
+            solver.add(&c1)?;
+            solver.add(&c2)?;
+
+            let constraints = solver.constraints()?;
+            assert_eq!(constraints.len(), 2);
+            assert!(constraints.contains(&c1));
+            assert!(constraints.contains(&c2));
+
+            // simplify() forwards to every child without error.
+            solver.simplify()?;
+            assert_eq!(solver.constraints()?.len(), 2);
+
+            // children_mut() exposes each child exactly once.
+            assert_eq!(solver.children_mut().count(), 2);
+            Ok(())
+        }
+    }
 }
