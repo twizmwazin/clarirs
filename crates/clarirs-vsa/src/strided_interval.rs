@@ -3239,7 +3239,108 @@ mod si_set_op_tests {
 
 #[cfg(test)]
 mod si_comparison_op_tests {
-    // TODO
+    use super::*;
+
+    fn c8(v: u32) -> StridedInterval {
+        StridedInterval::constant(8, v)
+    }
+
+    #[test]
+    fn test_eq() {
+        // Equal constants are definitely equal
+        assert_eq!(c8(5).eq_(&c8(5)), ComparisonResult::True);
+        // Different constants are definitely not equal
+        assert_eq!(c8(5).eq_(&c8(6)), ComparisonResult::False);
+        // Overlapping range vs constant is Maybe
+        let range = StridedInterval::range(8, 0u32, 10u32);
+        assert_eq!(range.eq_(&c8(5)), ComparisonResult::Maybe);
+        // Disjoint ranges are definitely not equal
+        let high = StridedInterval::range(8, 20u32, 30u32);
+        assert_eq!(range.eq_(&high), ComparisonResult::False);
+        // Anything involving empty is False
+        let empty = StridedInterval::empty(8);
+        assert_eq!(empty.eq_(&c8(5)), ComparisonResult::False);
+        assert_eq!(c8(5).eq_(&empty), ComparisonResult::False);
+    }
+
+    #[test]
+    fn test_ne() {
+        assert_eq!(c8(5).ne_(&c8(6)), ComparisonResult::True);
+        assert_eq!(c8(5).ne_(&c8(5)), ComparisonResult::False);
+        let range = StridedInterval::range(8, 0u32, 10u32);
+        assert_eq!(range.ne_(&c8(5)), ComparisonResult::Maybe);
+    }
+
+    #[test]
+    fn test_ult_ule() {
+        let range = StridedInterval::range(8, 0u32, 10u32);
+        assert_eq!(c8(5).ult(&c8(10)), ComparisonResult::True);
+        assert_eq!(c8(10).ult(&c8(5)), ComparisonResult::False);
+        assert_eq!(c8(5).ult(&c8(5)), ComparisonResult::False);
+        assert_eq!(range.ult(&c8(5)), ComparisonResult::Maybe);
+
+        assert_eq!(c8(5).ule(&c8(5)), ComparisonResult::True);
+        assert_eq!(c8(5).ule(&c8(10)), ComparisonResult::True);
+        assert_eq!(c8(10).ule(&c8(5)), ComparisonResult::False);
+        assert_eq!(range.ule(&c8(5)), ComparisonResult::Maybe);
+    }
+
+    #[test]
+    fn test_ugt_uge() {
+        let range = StridedInterval::range(8, 0u32, 10u32);
+        assert_eq!(c8(10).ugt(&c8(5)), ComparisonResult::True);
+        assert_eq!(c8(5).ugt(&c8(10)), ComparisonResult::False);
+        assert_eq!(c8(5).ugt(&c8(5)), ComparisonResult::False);
+        assert_eq!(c8(5).ugt(&range), ComparisonResult::Maybe);
+
+        assert_eq!(c8(5).uge(&c8(5)), ComparisonResult::True);
+        assert_eq!(c8(10).uge(&c8(5)), ComparisonResult::True);
+        assert_eq!(c8(5).uge(&c8(10)), ComparisonResult::False);
+        assert_eq!(c8(5).uge(&range), ComparisonResult::Maybe);
+    }
+
+    #[test]
+    fn test_signed_comparisons() {
+        // 246 == -10 signed in 8 bits
+        let minus_ten = c8(246);
+        let five = c8(5);
+
+        assert_eq!(minus_ten.slt(&five), ComparisonResult::True);
+        assert_eq!(five.slt(&minus_ten), ComparisonResult::False);
+        assert_eq!(minus_ten.sle(&minus_ten), ComparisonResult::True);
+        assert_eq!(minus_ten.sle(&five), ComparisonResult::True);
+        assert_eq!(five.sle(&minus_ten), ComparisonResult::False);
+
+        assert_eq!(five.sgt(&minus_ten), ComparisonResult::True);
+        assert_eq!(minus_ten.sgt(&five), ComparisonResult::False);
+        assert_eq!(five.sge(&five), ComparisonResult::True);
+        assert_eq!(five.sge(&minus_ten), ComparisonResult::True);
+        assert_eq!(minus_ten.sge(&five), ComparisonResult::False);
+    }
+
+    #[test]
+    fn test_signed_comparison_wrapping_interval() {
+        // 1[251, 5] is the contiguous signed range [-5, 5]
+        let mixed = StridedInterval::new(8, 1u32, 251u32, 5u32);
+        assert_eq!(mixed.slt(&c8(10)), ComparisonResult::True);
+        assert_eq!(mixed.slt(&c8(246)), ComparisonResult::False);
+        assert_eq!(mixed.slt(&c8(3)), ComparisonResult::Maybe);
+    }
+
+    #[test]
+    fn test_comparisons_with_empty_are_false() {
+        let empty = StridedInterval::empty(8);
+        let five = c8(5);
+        assert_eq!(empty.ult(&five), ComparisonResult::False);
+        assert_eq!(five.ult(&empty), ComparisonResult::False);
+        assert_eq!(empty.ule(&five), ComparisonResult::False);
+        assert_eq!(empty.ugt(&five), ComparisonResult::False);
+        assert_eq!(empty.uge(&five), ComparisonResult::False);
+        assert_eq!(empty.slt(&five), ComparisonResult::False);
+        assert_eq!(empty.sle(&five), ComparisonResult::False);
+        assert_eq!(empty.sgt(&five), ComparisonResult::False);
+        assert_eq!(empty.sge(&five), ComparisonResult::False);
+    }
 }
 
 #[cfg(test)]
@@ -3567,5 +3668,874 @@ mod si_bitvector_ext_op_tests {
         assert!(result.contains_value(&BigUint::from(0x0Fu32)));
         assert!(result.contains_value(&BigUint::from(0x2Fu32)));
         assert!(result.contains_value(&BigUint::from(0x4Fu32)));
+    }
+}
+
+#[cfg(test)]
+mod comparison_result_tests {
+    use super::*;
+
+    #[test]
+    fn test_predicates() {
+        assert!(ComparisonResult::True.is_true());
+        assert!(!ComparisonResult::True.is_false());
+        assert!(!ComparisonResult::True.is_maybe());
+        assert!(ComparisonResult::False.is_false());
+        assert!(!ComparisonResult::False.is_true());
+        assert!(ComparisonResult::Maybe.is_maybe());
+        assert!(!ComparisonResult::Maybe.is_true());
+        assert!(!ComparisonResult::Maybe.is_false());
+    }
+
+    #[test]
+    fn test_eq_() {
+        assert_eq!(
+            ComparisonResult::True.eq_(ComparisonResult::True),
+            ComparisonResult::True
+        );
+        assert_eq!(
+            ComparisonResult::False.eq_(ComparisonResult::False),
+            ComparisonResult::True
+        );
+        assert_eq!(
+            ComparisonResult::True.eq_(ComparisonResult::False),
+            ComparisonResult::False
+        );
+        // Maybe on either side is contagious
+        assert_eq!(
+            ComparisonResult::Maybe.eq_(ComparisonResult::True),
+            ComparisonResult::Maybe
+        );
+        assert_eq!(
+            ComparisonResult::False.eq_(ComparisonResult::Maybe),
+            ComparisonResult::Maybe
+        );
+    }
+
+    #[test]
+    fn test_not() {
+        assert_eq!(!ComparisonResult::True, ComparisonResult::False);
+        assert_eq!(!ComparisonResult::False, ComparisonResult::True);
+        assert_eq!(!ComparisonResult::Maybe, ComparisonResult::Maybe);
+    }
+
+    #[test]
+    fn test_bitand() {
+        assert_eq!(
+            ComparisonResult::True & ComparisonResult::True,
+            ComparisonResult::True
+        );
+        assert_eq!(
+            ComparisonResult::False & ComparisonResult::Maybe,
+            ComparisonResult::False
+        );
+        assert_eq!(
+            ComparisonResult::Maybe & ComparisonResult::False,
+            ComparisonResult::False
+        );
+        assert_eq!(
+            ComparisonResult::True & ComparisonResult::Maybe,
+            ComparisonResult::Maybe
+        );
+        assert_eq!(
+            ComparisonResult::Maybe & ComparisonResult::Maybe,
+            ComparisonResult::Maybe
+        );
+    }
+
+    #[test]
+    fn test_bitor() {
+        assert_eq!(
+            ComparisonResult::True | ComparisonResult::Maybe,
+            ComparisonResult::True
+        );
+        assert_eq!(
+            ComparisonResult::Maybe | ComparisonResult::True,
+            ComparisonResult::True
+        );
+        assert_eq!(
+            ComparisonResult::False | ComparisonResult::False,
+            ComparisonResult::False
+        );
+        assert_eq!(
+            ComparisonResult::False | ComparisonResult::Maybe,
+            ComparisonResult::Maybe
+        );
+    }
+
+    #[test]
+    fn test_bitxor() {
+        assert_eq!(
+            ComparisonResult::True ^ ComparisonResult::False,
+            ComparisonResult::True
+        );
+        assert_eq!(
+            ComparisonResult::False ^ ComparisonResult::True,
+            ComparisonResult::True
+        );
+        assert_eq!(
+            ComparisonResult::True ^ ComparisonResult::True,
+            ComparisonResult::False
+        );
+        assert_eq!(
+            ComparisonResult::False ^ ComparisonResult::False,
+            ComparisonResult::False
+        );
+        assert_eq!(
+            ComparisonResult::Maybe ^ ComparisonResult::True,
+            ComparisonResult::Maybe
+        );
+    }
+}
+
+#[cfg(test)]
+mod si_normalize_tests {
+    use super::*;
+
+    #[test]
+    fn test_bounds_are_masked_to_bit_width() {
+        // 300 & 0xFF == 44, 400 & 0xFF == 144
+        let si = StridedInterval::new(8, 1u32, 300u32, 400u32);
+        assert_eq!(si, StridedInterval::range(8, 44u32, 144u32));
+    }
+
+    #[test]
+    fn test_zero_stride_non_singleton_becomes_stride_one() {
+        let si = StridedInterval::new(8, 0u32, 1u32, 5u32);
+        assert_eq!(si, StridedInterval::range(8, 1u32, 5u32));
+    }
+
+    #[test]
+    fn test_singleton_forces_zero_stride() {
+        let si = StridedInterval::new(8, 5u32, 10u32, 10u32);
+        assert_eq!(si, StridedInterval::constant(8, 10u32));
+    }
+}
+
+#[cfg(test)]
+mod si_split_tests {
+    use super::*;
+
+    #[test]
+    fn test_ssplit_non_wrapping() {
+        let si = StridedInterval::range(8, 10u32, 20u32);
+        assert_eq!(si.ssplit(), vec![si]);
+    }
+
+    #[test]
+    fn test_ssplit_wrapping() {
+        // 2[250, 4] straddles the 255/0 boundary
+        let si = StridedInterval::new(8, 2u32, 250u32, 4u32);
+        assert_eq!(
+            si.ssplit(),
+            vec![
+                StridedInterval::new(8, 2u32, 250u32, 254u32),
+                StridedInterval::new(8, 2u32, 0u32, 4u32),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_ssplit_empty() {
+        let si = StridedInterval::empty(8);
+        assert_eq!(si.ssplit(), vec![StridedInterval::empty(8)]);
+    }
+
+    #[test]
+    fn test_nsplit_straddles_sign_boundary() {
+        // [100, 200] crosses the 127/128 signed boundary
+        let si = StridedInterval::range(8, 100u32, 200u32);
+        assert_eq!(
+            si.nsplit(),
+            vec![
+                StridedInterval::range(8, 100u32, 127u32),
+                StridedInterval::range(8, 128u32, 200u32),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_nsplit_no_straddle() {
+        let si = StridedInterval::range(8, 10u32, 20u32);
+        assert_eq!(si.nsplit(), vec![si]);
+
+        // A wrapping interval avoiding 127/128 does not nsplit
+        let wrap = StridedInterval::new(8, 1u32, 200u32, 100u32);
+        assert_eq!(wrap.nsplit(), vec![wrap]);
+    }
+
+    #[test]
+    fn test_psplit_top() {
+        // TOP splits into the positive and negative halves
+        let si = StridedInterval::top(8);
+        assert_eq!(
+            si.psplit(),
+            vec![
+                StridedInterval::range(8, 0u32, 127u32),
+                StridedInterval::range(8, 128u32, 255u32),
+            ]
+        );
+    }
+}
+
+#[cfg(test)]
+mod si_query_tests {
+    use super::*;
+
+    #[test]
+    fn test_cardinality() {
+        assert_eq!(StridedInterval::empty(8).cardinality(), BigUint::zero());
+        assert_eq!(
+            StridedInterval::constant(8, 42u32).cardinality(),
+            BigUint::one()
+        );
+        assert_eq!(
+            StridedInterval::top(8).cardinality(),
+            BigUint::from(256u32)
+        );
+        // 2[10, 20] = {10, 12, 14, 16, 18, 20}
+        assert_eq!(
+            StridedInterval::new(8, 2u32, 10u32, 20u32).cardinality(),
+            BigUint::from(6u32)
+        );
+        // Wrapping 1[250, 5] = {250..=255} ∪ {0..=5}
+        assert_eq!(
+            StridedInterval::new(8, 1u32, 250u32, 5u32).cardinality(),
+            BigUint::from(12u32)
+        );
+    }
+
+    #[test]
+    fn test_contains() {
+        let coarse = StridedInterval::new(8, 4u32, 0u32, 8u32);
+        let fine = StridedInterval::new(8, 2u32, 0u32, 10u32);
+        // Stride 4 values are a subset of stride 2 values
+        assert!(fine.contains(&coarse));
+        // ...but not the other way around
+        assert!(!coarse.contains(&fine));
+
+        // Empty is contained in anything non-empty; nothing is in empty
+        let empty = StridedInterval::empty(8);
+        assert!(fine.contains(&empty));
+        assert!(!empty.contains(&fine));
+
+        // Mismatched bit widths never contain each other
+        let wide = StridedInterval::range(16, 0u32, 10u32);
+        assert!(!fine.contains(&wide));
+    }
+
+    #[test]
+    fn test_contains_value() {
+        let si = StridedInterval::new(8, 2u32, 1u32, 9u32);
+        // Aligned and in range
+        assert!(si.contains_value(&BigUint::from(5u32)));
+        // In range but misaligned with the stride
+        assert!(!si.contains_value(&BigUint::from(4u32)));
+        // Out of range
+        assert!(!si.contains_value(&BigUint::from(11u32)));
+        // Empty contains nothing
+        assert!(!StridedInterval::empty(8).contains_value(&BigUint::zero()));
+    }
+
+    #[test]
+    fn test_eval_wrapping() {
+        // 1[254, 1] wraps: {254, 255, 0, 1}
+        let si = StridedInterval::new(8, 1u32, 254u32, 1u32);
+        assert_eq!(
+            si.eval(10),
+            vec![
+                BigUint::from(254u32),
+                BigUint::from(255u32),
+                BigUint::zero(),
+                BigUint::one(),
+            ]
+        );
+        // The limit truncates mid-wrap
+        assert_eq!(
+            si.eval(3),
+            vec![
+                BigUint::from(254u32),
+                BigUint::from(255u32),
+                BigUint::zero(),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_eval_limit() {
+        let si = StridedInterval::top(8);
+        assert_eq!(
+            si.eval(5),
+            vec![
+                BigUint::from(0u32),
+                BigUint::from(1u32),
+                BigUint::from(2u32),
+                BigUint::from(3u32),
+                BigUint::from(4u32),
+            ]
+        );
+        assert_eq!(StridedInterval::empty(8).eval(5), Vec::<BigUint>::new());
+    }
+
+    #[test]
+    fn test_bits() {
+        assert_eq!(StridedInterval::empty(16).bits(), 16);
+        assert_eq!(StridedInterval::top(32).bits(), 32);
+    }
+
+    #[test]
+    fn test_signed_bounds_straddling_range() {
+        // A non-wrapping range crossing the sign boundary covers the whole
+        // signed range
+        let si = StridedInterval::range(8, 100u32, 200u32);
+        let (min_s, max_s) = si.get_signed_bounds();
+        assert_eq!(min_s, BigInt::from(-128));
+        assert_eq!(max_s, BigInt::from(127));
+
+        // A wrapping range with both bounds positive also covers everything
+        let si = StridedInterval::new(8, 1u32, 10u32, 5u32);
+        let (min_s, max_s) = si.get_signed_bounds();
+        assert_eq!(min_s, BigInt::from(-128));
+        assert_eq!(max_s, BigInt::from(127));
+    }
+}
+
+#[cfg(test)]
+mod si_neg_mul_tests {
+    use super::*;
+
+    #[test]
+    fn test_neg() {
+        assert_eq!(
+            StridedInterval::constant(8, 5u32).neg(),
+            StridedInterval::constant(8, 251u32)
+        );
+        // -[1, 10] == [246, 255]
+        assert_eq!(
+            StridedInterval::range(8, 1u32, 10u32).neg(),
+            StridedInterval::range(8, 246u32, 255u32)
+        );
+        assert!(StridedInterval::empty(8).neg().is_empty());
+    }
+
+    #[test]
+    fn test_add_wrapping_constant() {
+        assert_eq!(
+            StridedInterval::constant(8, 255u32).add(&StridedInterval::constant(8, 1u32)),
+            StridedInterval::constant(8, 0u32)
+        );
+    }
+
+    #[test]
+    fn test_add_overflow_returns_top() {
+        // Cardinalities 201 + 101 exceed 2^8, so the sum could be anything
+        let a = StridedInterval::range(8, 0u32, 200u32);
+        let b = StridedInterval::range(8, 0u32, 100u32);
+        assert!(a.add(&b).is_top());
+    }
+
+    #[test]
+    fn test_add_empty() {
+        let a = StridedInterval::range(8, 0u32, 10u32);
+        assert!(a.add(&StridedInterval::empty(8)).is_empty());
+        assert!(StridedInterval::empty(8).add(&a).is_empty());
+    }
+
+    #[test]
+    fn test_mul_constants_wrap() {
+        // 20 * 20 == 400 == 144 (mod 256)
+        assert_eq!(
+            StridedInterval::constant(8, 20u32).mul(&StridedInterval::constant(8, 20u32)),
+            StridedInterval::constant(8, 144u32)
+        );
+    }
+
+    #[test]
+    fn test_mul_range_by_constant() {
+        // [10, 20] * 2 == 2[20, 40]
+        let range = StridedInterval::range(8, 10u32, 20u32);
+        let two = StridedInterval::constant(8, 2u32);
+        assert_eq!(range.mul(&two), StridedInterval::new(8, 2u32, 20u32, 40u32));
+    }
+
+    #[test]
+    fn test_mul_range_by_range() {
+        // [2, 3] * [4, 5] == 1[8, 15]
+        let a = StridedInterval::range(8, 2u32, 3u32);
+        let b = StridedInterval::range(8, 4u32, 5u32);
+        assert_eq!(a.mul(&b), StridedInterval::range(8, 8u32, 15u32));
+    }
+}
+
+#[cfg(test)]
+mod si_division_tests {
+    use super::*;
+
+    #[test]
+    fn test_udiv() {
+        // Constant / constant
+        assert_eq!(
+            StridedInterval::constant(8, 100u32)
+                .udiv(&StridedInterval::constant(8, 7u32))
+                .unwrap(),
+            StridedInterval::constant(8, 14u32)
+        );
+        // Range / constant
+        assert_eq!(
+            StridedInterval::range(8, 10u32, 20u32)
+                .udiv(&StridedInterval::constant(8, 2u32))
+                .unwrap(),
+            StridedInterval::range(8, 5u32, 10u32)
+        );
+        // Range / range: [10, 20] / [2, 4] == [10/4, 20/2]
+        assert_eq!(
+            StridedInterval::range(8, 10u32, 20u32)
+                .udiv(&StridedInterval::range(8, 2u32, 4u32))
+                .unwrap(),
+            StridedInterval::range(8, 2u32, 10u32)
+        );
+    }
+
+    #[test]
+    fn test_udiv_by_zero_is_empty() {
+        let result = StridedInterval::constant(8, 10u32)
+            .udiv(&StridedInterval::constant(8, 0u32))
+            .unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_sdiv_constants() {
+        // -10 / 3 == -3 (253 in 8-bit two's complement)
+        assert_eq!(
+            StridedInterval::constant(8, 246u32)
+                .sdiv(&StridedInterval::constant(8, 3u32))
+                .unwrap(),
+            StridedInterval::constant(8, 253u32)
+        );
+        // 100 / -10 == -10 (246)
+        assert_eq!(
+            StridedInterval::constant(8, 100u32)
+                .sdiv(&StridedInterval::constant(8, 246u32))
+                .unwrap(),
+            StridedInterval::constant(8, 246u32)
+        );
+    }
+
+    #[test]
+    fn test_sdiv_by_possible_zero_is_top() {
+        let result = StridedInterval::range(8, 246u32, 250u32)
+            .sdiv(&StridedInterval::range(8, 0u32, 3u32))
+            .unwrap();
+        assert!(result.is_top());
+    }
+
+    #[test]
+    fn test_sdiv_by_definite_zero_is_empty() {
+        let result = StridedInterval::constant(8, 10u32)
+            .sdiv(&StridedInterval::constant(8, 0u32))
+            .unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_urem() {
+        // NOTE: the constant/constant fast path in urem only fires when the
+        // dividend's lower bound equals the divisor (it compares s_lb to
+        // o_lb instead of checking both operands are singletons), so
+        // 10 urem 3 is approximated as [0, 2] instead of exactly 1.
+        // This documents the current behavior (suspected bug).
+        assert_eq!(
+            StridedInterval::constant(8, 10u32)
+                .urem(&StridedInterval::constant(8, 3u32))
+                .unwrap(),
+            StridedInterval::range(8, 0u32, 2u32)
+        );
+        // When dividend and divisor are the same constant the exact path
+        // does fire: 3 % 3 == 0
+        assert_eq!(
+            StridedInterval::constant(8, 3u32)
+                .urem(&StridedInterval::constant(8, 3u32))
+                .unwrap(),
+            StridedInterval::constant(8, 0u32)
+        );
+        // Anything % constant c is bounded by [0, c-1]
+        assert_eq!(
+            StridedInterval::range(8, 10u32, 20u32)
+                .urem(&StridedInterval::constant(8, 5u32))
+                .unwrap(),
+            StridedInterval::range(8, 0u32, 4u32)
+        );
+        // Anything % [3, 5] is bounded by [0, 4]
+        assert_eq!(
+            StridedInterval::constant(8, 10u32)
+                .urem(&StridedInterval::range(8, 3u32, 5u32))
+                .unwrap(),
+            StridedInterval::range(8, 0u32, 4u32)
+        );
+    }
+
+    #[test]
+    fn test_srem() {
+        // -10 % 3 == -1 (255 in 8-bit two's complement)
+        assert_eq!(
+            StridedInterval::constant(8, 246u32)
+                .srem(&StridedInterval::constant(8, 3u32))
+                .unwrap(),
+            StridedInterval::constant(8, 255u32)
+        );
+        // Non-constant operands fall back to TOP
+        assert!(
+            StridedInterval::range(8, 1u32, 10u32)
+                .srem(&StridedInterval::constant(8, 3u32))
+                .unwrap()
+                .is_top()
+        );
+        // Empty propagates
+        assert!(
+            StridedInterval::empty(8)
+                .srem(&StridedInterval::constant(8, 3u32))
+                .unwrap()
+                .is_empty()
+        );
+    }
+}
+
+#[cfg(test)]
+mod si_bitnot_shift_tests {
+    use super::*;
+
+    #[test]
+    fn test_bitnot() {
+        // NOT of a constant flips all bits
+        assert_eq!(
+            StridedInterval::constant(8, 0xF0u32).bitnot(),
+            StridedInterval::constant(8, 0x0Fu32)
+        );
+        // NOT of [1, 10] is [245, 254]
+        assert_eq!(
+            StridedInterval::range(8, 1u32, 10u32).bitnot(),
+            StridedInterval::range(8, 245u32, 254u32)
+        );
+        assert!(StridedInterval::empty(8).bitnot().is_empty());
+    }
+
+    #[test]
+    fn test_shl_constant_amount() {
+        // Stride is scaled by the shift factor
+        assert_eq!(
+            StridedInterval::range(8, 0u32, 10u32)
+                .shl(&StridedInterval::constant(8, 2u32))
+                .unwrap(),
+            StridedInterval::new(8, 4u32, 0u32, 40u32)
+        );
+        // Shifting by >= bits yields zero
+        assert_eq!(
+            StridedInterval::range(8, 1u32, 10u32)
+                .shl(&StridedInterval::constant(8, 8u32))
+                .unwrap(),
+            StridedInterval::constant(8, 0u32)
+        );
+    }
+
+    #[test]
+    fn test_lshr_stride_scaling() {
+        // 4[0, 16] >> 2 == 1[0, 4]
+        assert_eq!(
+            StridedInterval::new(8, 4u32, 0u32, 16u32)
+                .lshr(&StridedInterval::constant(8, 2u32))
+                .unwrap(),
+            StridedInterval::range(8, 0u32, 4u32)
+        );
+        // Shifting by >= bits yields zero
+        assert_eq!(
+            StridedInterval::range(8, 1u32, 10u32)
+                .lshr(&StridedInterval::constant(8, 8u32))
+                .unwrap(),
+            StridedInterval::constant(8, 0u32)
+        );
+    }
+
+    #[test]
+    fn test_ashr_negative_range() {
+        // [-16, -8] >> 2 == [-4, -2], i.e. [0xFC, 0xFE]
+        assert_eq!(
+            StridedInterval::range(8, 0xF0u32, 0xF8u32)
+                .ashr(&StridedInterval::constant(8, 2u32))
+                .unwrap(),
+            StridedInterval::range(8, 0xFCu32, 0xFEu32)
+        );
+    }
+
+    #[test]
+    fn test_ashr_shift_past_width() {
+        // All-negative interval saturates to -1
+        assert_eq!(
+            StridedInterval::constant(8, 0x80u32)
+                .ashr(&StridedInterval::constant(8, 8u32))
+                .unwrap(),
+            StridedInterval::constant(8, 0xFFu32)
+        );
+        // All-positive interval saturates to 0
+        assert_eq!(
+            StridedInterval::constant(8, 5u32)
+                .ashr(&StridedInterval::constant(8, 8u32))
+                .unwrap(),
+            StridedInterval::constant(8, 0u32)
+        );
+        // Mixed signs cover the whole range
+        assert!(
+            StridedInterval::range(8, 0x70u32, 0x90u32)
+                .ashr(&StridedInterval::constant(8, 8u32))
+                .unwrap()
+                .is_top()
+        );
+    }
+
+    #[test]
+    fn test_rotate_by_zero_is_identity() {
+        let si = StridedInterval::constant(8, 0x81u32);
+        assert_eq!(
+            si.rotate_left(&StridedInterval::constant(8, 0u32)).unwrap(),
+            si
+        );
+        assert_eq!(
+            si.rotate_right(&StridedInterval::constant(8, 0u32))
+                .unwrap(),
+            si
+        );
+    }
+}
+
+#[cfg(test)]
+mod si_reverse_bytes_tests {
+    use super::*;
+
+    #[test]
+    fn test_reverse_bytes_constant() {
+        assert_eq!(
+            StridedInterval::constant(32, 0x12345678u32)
+                .reverse_bytes()
+                .unwrap(),
+            StridedInterval::constant(32, 0x78563412u32)
+        );
+    }
+
+    #[test]
+    fn test_reverse_bytes_single_byte_is_identity() {
+        let si = StridedInterval::range(8, 1u32, 10u32);
+        assert_eq!(si.reverse_bytes().unwrap(), si);
+    }
+
+    #[test]
+    fn test_reverse_bytes_low_byte_range() {
+        // Values in the low byte move to the high byte, scaling the stride
+        assert_eq!(
+            StridedInterval::new(16, 1u32, 0u32, 64u32)
+                .reverse_bytes()
+                .unwrap(),
+            StridedInterval::new(16, 256u32, 0u32, 16384u32)
+        );
+    }
+
+    #[test]
+    fn test_reverse_bytes_conservative_cases() {
+        // Multi-byte ranges fall back to TOP
+        assert!(
+            StridedInterval::range(16, 0x100u32, 0x200u32)
+                .reverse_bytes()
+                .unwrap()
+                .is_top()
+        );
+        // Widths that are not a multiple of 8 fall back to TOP
+        assert!(
+            StridedInterval::range(12, 0u32, 10u32)
+                .reverse_bytes()
+                .unwrap()
+                .is_top()
+        );
+        // Empty propagates
+        assert!(StridedInterval::empty(16).reverse_bytes().unwrap().is_empty());
+    }
+}
+
+#[cfg(test)]
+mod si_extract_extend_tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_preserves_divisible_stride() {
+        // 4[0, 16] extract [7:2] == 1[0, 4] over 6 bits
+        assert_eq!(
+            StridedInterval::new(8, 4u32, 0u32, 16u32).extract(7, 2),
+            StridedInterval::new(6, 1u32, 0u32, 4u32)
+        );
+    }
+
+    #[test]
+    fn test_extract_full_width_is_identity() {
+        let si = StridedInterval::range(8, 0u32, 10u32);
+        assert_eq!(si.extract(7, 0), si);
+    }
+
+    #[test]
+    fn test_extract_out_of_range_is_empty() {
+        let si = StridedInterval::range(8, 0u32, 10u32);
+        assert!(si.extract(9, 8).is_empty());
+        assert!(StridedInterval::empty(8).extract(3, 0).is_empty());
+    }
+
+    #[test]
+    fn test_concat_exact() {
+        // {0, 2, 4} in high nibble with constant low nibble 0xF:
+        // {0x0F, 0x2F, 0x4F} == 32[15, 79]
+        let high = StridedInterval::new(4, 2u32, 0u32, 4u32);
+        let low = StridedInterval::constant(4, 0xFu32);
+        assert_eq!(
+            high.concat(&low),
+            StridedInterval::new(8, 32u32, 15u32, 79u32)
+        );
+    }
+
+    #[test]
+    fn test_concat_with_empty() {
+        let a = StridedInterval::constant(4, 1u32);
+        let empty = StridedInterval::empty(4);
+        assert!(empty.concat(&a).is_empty());
+        assert!(a.concat(&empty).is_empty());
+        assert_eq!(empty.concat(&a).bits(), 8);
+    }
+
+    #[test]
+    fn test_zero_extend() {
+        assert_eq!(
+            StridedInterval::range(8, 200u32, 250u32).zero_extend(8),
+            StridedInterval::range(16, 200u32, 250u32)
+        );
+        // Zero extra bits is the identity
+        let si = StridedInterval::range(8, 1u32, 10u32);
+        assert_eq!(si.zero_extend(0), si);
+        assert_eq!(StridedInterval::empty(8).zero_extend(8).bits(), 16);
+    }
+
+    #[test]
+    fn test_sign_extend() {
+        // Negative bounds get their upper bits filled
+        assert_eq!(
+            StridedInterval::range(8, 0x80u32, 0x90u32).sign_extend(8),
+            StridedInterval::range(16, 0xFF80u32, 0xFF90u32)
+        );
+        // Positive bounds are unchanged
+        assert_eq!(
+            StridedInterval::range(8, 1u32, 10u32).sign_extend(8),
+            StridedInterval::range(16, 1u32, 10u32)
+        );
+        assert!(StridedInterval::empty(8).sign_extend(8).is_empty());
+    }
+}
+
+#[cfg(test)]
+mod si_set_op_extra_tests {
+    use super::*;
+
+    #[test]
+    fn test_union_with_empty() {
+        let a = StridedInterval::range(8, 1u32, 10u32);
+        let empty = StridedInterval::empty(8);
+        assert_eq!(a.union(&empty), a);
+        assert_eq!(empty.union(&a), a);
+    }
+
+    #[test]
+    fn test_union_of_constants() {
+        // {1} ∪ {3} == 2[1, 3]
+        let one = StridedInterval::constant(8, 1u32);
+        let three = StridedInterval::constant(8, 3u32);
+        assert_eq!(one.union(&three), StridedInterval::new(8, 2u32, 1u32, 3u32));
+    }
+
+    #[test]
+    fn test_union_contained() {
+        let big = StridedInterval::range(8, 0u32, 100u32);
+        let small = StridedInterval::range(8, 10u32, 20u32);
+        assert_eq!(big.union(&small), big);
+        assert_eq!(small.union(&big), big);
+    }
+
+    #[test]
+    fn test_union_stride_gcd() {
+        // 4[0, 16] ∪ 6[20, 32] == 2[0, 32]
+        let a = StridedInterval::new(8, 4u32, 0u32, 16u32);
+        let b = StridedInterval::new(8, 6u32, 20u32, 32u32);
+        assert_eq!(a.union(&b), StridedInterval::new(8, 2u32, 0u32, 32u32));
+    }
+
+    #[test]
+    fn test_intersection_stride_lcm() {
+        // 2[0, 20] ∩ 3[0, 18] == 6[0, 18]
+        let a = StridedInterval::new(8, 2u32, 0u32, 20u32);
+        let b = StridedInterval::new(8, 3u32, 0u32, 18u32);
+        assert_eq!(
+            a.intersection(&b),
+            StridedInterval::new(8, 6u32, 0u32, 18u32)
+        );
+    }
+
+    #[test]
+    fn test_intersection_with_empty() {
+        let a = StridedInterval::range(8, 1u32, 10u32);
+        assert!(a.intersection(&StridedInterval::empty(8)).is_empty());
+        assert!(StridedInterval::empty(8).intersection(&a).is_empty());
+    }
+
+    #[test]
+    fn test_intersection_wrapping() {
+        // ([250, 255] ∪ [0, 5]) ∩ [0, 10] == [0, 5]
+        let wrap = StridedInterval::new(8, 1u32, 250u32, 5u32);
+        let range = StridedInterval::range(8, 0u32, 10u32);
+        assert_eq!(
+            wrap.intersection(&range),
+            StridedInterval::range(8, 0u32, 5u32)
+        );
+    }
+
+    #[test]
+    fn test_widen() {
+        let a = StridedInterval::range(8, 10u32, 20u32);
+
+        // Widening against itself changes nothing
+        assert_eq!(a.widen(&a), a);
+
+        // Upper bound grew: extrapolate up to the unsigned maximum
+        let grown_up = StridedInterval::range(8, 10u32, 30u32);
+        assert_eq!(a.widen(&grown_up), StridedInterval::range(8, 10u32, 255u32));
+
+        // Lower bound shrank: extrapolate down to the signed minimum
+        let grown_down = StridedInterval::range(8, 5u32, 20u32);
+        assert_eq!(
+            a.widen(&grown_down),
+            StridedInterval::new(8, 1u32, 128u32, 20u32)
+        );
+
+        // Empty on either side yields the other operand
+        let empty = StridedInterval::empty(8);
+        assert_eq!(empty.widen(&a), a);
+        assert_eq!(a.widen(&empty), a);
+    }
+
+    #[test]
+    fn test_complement() {
+        // Complement of a constant is everything except that value
+        assert_eq!(
+            StridedInterval::constant(8, 5u32).complement(),
+            StridedInterval::new(8, 1u32, 6u32, 4u32)
+        );
+        // Complement of a range wraps around the other side
+        assert_eq!(
+            StridedInterval::range(8, 10u32, 20u32).complement(),
+            StridedInterval::new(8, 1u32, 21u32, 9u32)
+        );
+        assert!(StridedInterval::top(8).complement().is_empty());
+        assert!(StridedInterval::empty(8).complement().is_top());
     }
 }

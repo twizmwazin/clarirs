@@ -108,3 +108,283 @@ pub(crate) fn reduce_bv(
         _ => unreachable!("non-bitvector op dispatched to reduce_bv"),
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::reduce::Reduce;
+    use crate::strided_interval::StridedInterval;
+    use clarirs_core::prelude::*;
+    use num_bigint::BigUint;
+
+    fn reduce(ast: &AstRef) -> StridedInterval {
+        ast.reduce().unwrap().into_bv().unwrap()
+    }
+
+    fn bv<'c>(ctx: &'c Context<'c>, value: u64, bits: u32) -> AstRef<'c> {
+        ctx.bvv(BitVec::from((value, bits))).unwrap()
+    }
+
+    fn si<'c>(ctx: &'c Context<'c>, bits: u32, stride: u32, lb: u32, ub: u32) -> AstRef<'c> {
+        ctx.si(
+            bits,
+            BigUint::from(stride),
+            BigUint::from(lb),
+            BigUint::from(ub),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn test_bvv_reduces_to_constant() {
+        let ctx = Context::new();
+        assert_eq!(
+            reduce(&bv(&ctx, 42, 32)),
+            StridedInterval::constant(32, 42u32)
+        );
+    }
+
+    #[test]
+    fn test_unannotated_bvs_reduces_to_top() {
+        let ctx = Context::new();
+        let x = ctx.bvs("x", 32).unwrap();
+        assert_eq!(reduce(&x), StridedInterval::top(32));
+    }
+
+    #[test]
+    fn test_annotated_bvs_uses_si_annotation() {
+        let ctx = Context::new();
+        assert_eq!(
+            reduce(&si(&ctx, 32, 2, 10, 20)),
+            StridedInterval::new(32, 2u32, 10u32, 20u32)
+        );
+    }
+
+    #[test]
+    fn test_esi_annotation_reduces_to_empty() {
+        let ctx = Context::new();
+        let e = ctx.esi(32).unwrap();
+        assert_eq!(reduce(&e), StridedInterval::empty(32));
+    }
+
+    #[test]
+    fn test_bitwise_ops_on_constants() {
+        let ctx = Context::new();
+        let a = bv(&ctx, 0xF0, 8);
+        let b = bv(&ctx, 0x3C, 8);
+        assert_eq!(
+            reduce(&ctx.not(&a).unwrap()),
+            StridedInterval::constant(8, 0x0Fu32)
+        );
+        assert_eq!(
+            reduce(&ctx.and2(&a, &b).unwrap()),
+            StridedInterval::constant(8, 0x30u32)
+        );
+        assert_eq!(
+            reduce(&ctx.or2(&a, &b).unwrap()),
+            StridedInterval::constant(8, 0xFCu32)
+        );
+        assert_eq!(
+            reduce(&ctx.xor2(&a, &b).unwrap()),
+            StridedInterval::constant(8, 0xCCu32)
+        );
+    }
+
+    #[test]
+    fn test_arithmetic_ops_on_constants() {
+        let ctx = Context::new();
+        assert_eq!(
+            reduce(&ctx.add(bv(&ctx, 10, 32), bv(&ctx, 20, 32)).unwrap()),
+            StridedInterval::constant(32, 30u32)
+        );
+        // 10 - 20 wraps to 246 in 8 bits
+        assert_eq!(
+            reduce(&ctx.sub(bv(&ctx, 10, 8), bv(&ctx, 20, 8)).unwrap()),
+            StridedInterval::constant(8, 246u32)
+        );
+        assert_eq!(
+            reduce(&ctx.mul(bv(&ctx, 6, 8), bv(&ctx, 7, 8)).unwrap()),
+            StridedInterval::constant(8, 42u32)
+        );
+        // -(5) == 251 in 8 bits
+        assert_eq!(
+            reduce(&ctx.neg(bv(&ctx, 5, 8)).unwrap()),
+            StridedInterval::constant(8, 251u32)
+        );
+    }
+
+    #[test]
+    fn test_division_ops_on_constants() {
+        let ctx = Context::new();
+        assert_eq!(
+            reduce(&ctx.udiv(bv(&ctx, 100, 8), bv(&ctx, 7, 8)).unwrap()),
+            StridedInterval::constant(8, 14u32)
+        );
+        // -10 sdiv 3 == -3 == 253 in 8 bits (0xF6 == -10)
+        assert_eq!(
+            reduce(&ctx.sdiv(bv(&ctx, 0xF6, 8), bv(&ctx, 3, 8)).unwrap()),
+            StridedInterval::constant(8, 253u32)
+        );
+        // NOTE: urem's constant/constant fast path only fires when the
+        // dividend equals the divisor (it compares s_lb to o_lb instead of
+        // checking both operands are singletons), so 10 urem 3 is
+        // conservatively approximated as [0, 2] instead of exactly 1.
+        // This documents the current behavior (suspected bug).
+        assert_eq!(
+            reduce(&ctx.urem(bv(&ctx, 10, 8), bv(&ctx, 3, 8)).unwrap()),
+            StridedInterval::range(8, 0u32, 2u32)
+        );
+        // -10 srem 3 == -1 == 255 in 8 bits
+        assert_eq!(
+            reduce(&ctx.srem(bv(&ctx, 0xF6, 8), bv(&ctx, 3, 8)).unwrap()),
+            StridedInterval::constant(8, 255u32)
+        );
+    }
+
+    #[test]
+    fn test_shift_ops_on_constants() {
+        let ctx = Context::new();
+        assert_eq!(
+            reduce(&ctx.shl(bv(&ctx, 3, 8), bv(&ctx, 2, 8)).unwrap()),
+            StridedInterval::constant(8, 12u32)
+        );
+        assert_eq!(
+            reduce(&ctx.lshr(bv(&ctx, 0x80, 8), bv(&ctx, 4, 8)).unwrap()),
+            StridedInterval::constant(8, 0x08u32)
+        );
+        // Arithmetic shift preserves the sign bit: 0x80 >> 4 == 0xF8
+        assert_eq!(
+            reduce(&ctx.ashr(bv(&ctx, 0x80, 8), bv(&ctx, 4, 8)).unwrap()),
+            StridedInterval::constant(8, 0xF8u32)
+        );
+        assert_eq!(
+            reduce(&ctx.rotate_left(bv(&ctx, 0x81, 8), bv(&ctx, 1, 8)).unwrap()),
+            StridedInterval::constant(8, 0x03u32)
+        );
+        assert_eq!(
+            reduce(
+                &ctx.rotate_right(bv(&ctx, 0x81, 8), bv(&ctx, 1, 8))
+                    .unwrap()
+            ),
+            StridedInterval::constant(8, 0xC0u32)
+        );
+    }
+
+    #[test]
+    fn test_extension_and_extract_ops() {
+        let ctx = Context::new();
+        assert_eq!(
+            reduce(&ctx.zero_ext(bv(&ctx, 0xFF, 8), 8).unwrap()),
+            StridedInterval::constant(16, 0xFFu32)
+        );
+        // Sign extension of a negative value fills the upper bits
+        assert_eq!(
+            reduce(&ctx.sign_ext(bv(&ctx, 0x80, 8), 8).unwrap()),
+            StridedInterval::constant(16, 0xFF80u32)
+        );
+        assert_eq!(
+            reduce(&ctx.extract(bv(&ctx, 0xAB, 8), 7, 4).unwrap()),
+            StridedInterval::constant(4, 0xAu32)
+        );
+    }
+
+    #[test]
+    fn test_concat() {
+        let ctx = Context::new();
+        assert_eq!(
+            reduce(&ctx.concat2(bv(&ctx, 0xA, 4), bv(&ctx, 0xB, 4)).unwrap()),
+            StridedInterval::constant(8, 0xABu32)
+        );
+        // Three-way concat folds left to right
+        assert_eq!(
+            reduce(
+                &ctx.concat([bv(&ctx, 0x1, 4), bv(&ctx, 0x2, 4), bv(&ctx, 0x3, 4)])
+                    .unwrap()
+            ),
+            StridedInterval::constant(12, 0x123u32)
+        );
+    }
+
+    #[test]
+    fn test_byte_reverse() {
+        let ctx = Context::new();
+        assert_eq!(
+            reduce(&ctx.byte_reverse(bv(&ctx, 0x1234, 16)).unwrap()),
+            StridedInterval::constant(16, 0x3412u32)
+        );
+    }
+
+    #[test]
+    fn test_ite() {
+        let ctx = Context::new();
+        let t = ctx.boolv(true).unwrap();
+        let f = ctx.boolv(false).unwrap();
+        let c = ctx.bools("c").unwrap();
+        let one = bv(&ctx, 1, 8);
+        let three = bv(&ctx, 3, 8);
+
+        assert_eq!(
+            reduce(&ctx.ite(&t, &one, &three).unwrap()),
+            StridedInterval::constant(8, 1u32)
+        );
+        assert_eq!(
+            reduce(&ctx.ite(&f, &one, &three).unwrap()),
+            StridedInterval::constant(8, 3u32)
+        );
+        // Unknown condition: union of both branches, stride is the distance
+        assert_eq!(
+            reduce(&ctx.ite(&c, &one, &three).unwrap()),
+            StridedInterval::new(8, 2u32, 1u32, 3u32)
+        );
+    }
+
+    #[test]
+    fn test_vsa_set_ops() {
+        let ctx = Context::new();
+
+        // Union of the constants 1 and 3
+        assert_eq!(
+            reduce(&ctx.union(bv(&ctx, 1, 8), bv(&ctx, 3, 8)).unwrap()),
+            StridedInterval::new(8, 2u32, 1u32, 3u32)
+        );
+
+        // Intersection of [10, 30] and [20, 40] is [20, 30]
+        assert_eq!(
+            reduce(
+                &ctx.intersection(si(&ctx, 32, 1, 10, 30), si(&ctx, 32, 1, 20, 40))
+                    .unwrap()
+            ),
+            StridedInterval::new(32, 1u32, 20u32, 30u32)
+        );
+
+        // Widening [10, 20] against [10, 30]: the upper bound grew, so it is
+        // extrapolated to the unsigned maximum
+        assert_eq!(
+            reduce(
+                &ctx.widen(si(&ctx, 32, 1, 10, 20), si(&ctx, 32, 1, 10, 30))
+                    .unwrap()
+            ),
+            StridedInterval::new(32, 1u32, 10u32, 0xFFFFFFFFu32)
+        );
+    }
+
+    #[test]
+    fn test_nested_expression() {
+        let ctx = Context::new();
+        // (x + 10) - 10 where x = 1[0, 100] stays 1[0, 100]
+        let x = si(&ctx, 32, 1, 0, 100);
+        let expr = ctx
+            .sub(ctx.add(&x, bv(&ctx, 10, 32)).unwrap(), bv(&ctx, 10, 32))
+            .unwrap();
+        assert_eq!(reduce(&expr), StridedInterval::new(32, 1u32, 0u32, 100u32));
+    }
+
+    #[test]
+    fn test_add_range_and_constant() {
+        let ctx = Context::new();
+        let x = si(&ctx, 8, 2, 10, 20);
+        assert_eq!(
+            reduce(&ctx.add(&x, bv(&ctx, 5, 8)).unwrap()),
+            StridedInterval::new(8, 2u32, 15u32, 25u32)
+        );
+    }
+}

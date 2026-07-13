@@ -62,3 +62,62 @@ impl<'c> Reduce<'c> for AstRef<'c> {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_reduce_result_into_bv() {
+        let si = StridedInterval::constant(8, 42u32);
+        assert_eq!(ReduceResult::BitVec(si.clone()).into_bv().unwrap(), si);
+
+        // A Bool result cannot be extracted as a bitvector
+        assert!(
+            ReduceResult::Bool(ComparisonResult::True)
+                .into_bv()
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn test_reduce_result_into_bool() {
+        assert_eq!(
+            ReduceResult::Bool(ComparisonResult::Maybe)
+                .into_bool()
+                .unwrap(),
+            ComparisonResult::Maybe
+        );
+
+        // A BitVec result cannot be extracted as a bool
+        assert!(
+            ReduceResult::BitVec(StridedInterval::top(8))
+                .into_bool()
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn test_reduce_float_unsupported() {
+        let ctx = Context::new();
+        let f = ctx.fpv_from_f64(1.0).unwrap();
+        assert!(f.reduce().is_err());
+    }
+
+    #[test]
+    fn test_reduce_string_unsupported() {
+        let ctx = Context::new();
+        let s = ctx.stringv("hello").unwrap();
+        assert!(s.reduce().is_err());
+    }
+
+    #[test]
+    fn test_reduce_bool_op_with_float_children_errors() {
+        // The children (floats) are unsupported, so the whole reduction errors
+        let ctx = Context::new();
+        let a = ctx.fpv_from_f64(1.0).unwrap();
+        let b = ctx.fpv_from_f64(2.0).unwrap();
+        let cmp = ctx.fp_lt(a, b).unwrap();
+        assert!(cmp.reduce().is_err());
+    }
+}
